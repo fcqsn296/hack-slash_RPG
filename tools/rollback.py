@@ -19,6 +19,15 @@ revert なら「戻した」という事実が1つのコミットとして残り
 """
 from __future__ import print_function, unicode_literals
 
+import sys as _sys
+# Windows の既定コンソールは cp932 で、コミットメッセージに含まれる
+# ダッシュや記号で落ちる。出力だけ UTF-8 に寄せておく。
+try:
+    _sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    _sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 import os
 import subprocess
 import sys
