@@ -57,14 +57,30 @@ def main(apply_changes):
         print('=' * 60)
         return 0
 
-    run('4/6  事前キャッシュ一覧の作り直し', 'build_precache.py')
-    run('5/6  CACHE_VERSION を上げる', 'bump_cache_version.py')
-    code = run('6/6  公開前の総点検', 'publish_check.py')
+    run('4/7  事前キャッシュ一覧の作り直し', 'build_precache.py')
+    run('5/7  CACHE_VERSION を上げる', 'bump_cache_version.py')
+    code = run('6/7  公開前の総点検', 'publish_check.py')
 
     print('\n' + '=' * 60)
-    if code == 0:
-        print('  準備が整いました。あとは公開するだけです。')
-    else:
+    print('  7/7  動作の確認（ここは自動化できていません）')
+    print('=' * 60)
+    print("""
+  ここまでのチェックは「情報が漏れていないか」「容量は妥当か」だけです。
+  ★ ゲームが壊れていないかは見ていません。
+
+  公開前に、開発サーバーを起動して必ず確認してください:
+
+    1. http://localhost:8124/test/index.html   すべて合格か
+    2. http://localhost:8124/index.html        起動して戦闘が回るか
+
+  検証ページは Service Worker のキャッシュ対象から外してあるので、
+  直した内容がそのまま反映されます。
+
+  確認できたら、巻き戻し先の目印を付けておくと後で楽です:
+
+    python tools/mark_good.py
+""")
+    if code != 0:
         print('  ★ 総点検で指摘があります。上の出力を確認してください。')
     print('=' * 60)
     return code

@@ -9,6 +9,8 @@
   'use strict';
 
   const STORAGE_KEY = 'hakusura-rpg/save';
+  // 読めなかったセーブの退避先 (§16)。ゲーム側からは絶対に上書きしない。
+  const RESCUE_KEY = 'hakusura-rpg/rescued';
   const SAVE_VERSION = 1;
 
   /** @type {any} */
@@ -90,19 +92,64 @@
     };
   }
 
+  /**
+   * 読めなかったセーブを、消さずに別の場所へ退避する (§16)。
+   *
+   * ここが無いと、更新でセーブが読めなくなったとき
+   * 「新規作成して上書き」で **元のデータが消えてなくなる**。
+   * コードを前の版に戻しても、消えた localStorage は戻らない。
+   * 巻き戻しでは救えない唯一の壊れ方なので、生の文字列のまま必ず残す。
+   *
+   * @param {string} raw 読めなかった中身そのまま
+   * @param {string} reason
+   */
+  function rescue(raw, reason) {
+    try {
+      // 既に退避済みなら上書きしない。
+      // 壊れた状態で何度か起動されても、最初の（＝いちばん価値のある）中身を守る。
+      if (localStorage.getItem(RESCUE_KEY)) return;
+      localStorage.setItem(RESCUE_KEY, JSON.stringify({
+        at: new Date().toISOString(), reason, raw,
+      }));
+    } catch (e) {
+      // 容量不足などで退避できないことはある。その場合も進行は止めない。
+    }
+  }
+
+  /** 退避されたセーブがあるか (§16)。UI が警告を出すのに使う。 */
+  function rescued() {
+    try {
+      const raw = localStorage.getItem(RESCUE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** 退避を破棄する。プレイヤーが「もう要らない」と判断したときだけ呼ぶ。 */
+  function discardRescued() {
+    try {
+      localStorage.removeItem(RESCUE_KEY);
+    } catch (e) { /* 消せなくても支障はない */ }
+  }
+
   /** localStorage から読み込む。無ければ新規作成。 */
   function load() {
+    const raw = localStorage.getItem(STORAGE_KEY);
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.version === SAVE_VERSION) {
           save = migrate(parsed);
           return save;
         }
+        // 形は読めたが使えない（版が違うなど）。
+        // 上書きする前に必ず退避する。
+        rescue(raw, `セーブの版が違う（保存 ${parsed && parsed.version} / 想定 ${SAVE_VERSION}）`);
       }
     } catch (e) {
-      console.warn('セーブデータの読み込みに失敗しました。新規作成します。', e);
+      console.warn('セーブデータの読み込みに失敗しました。退避して新規作成します。', e);
+      if (raw) rescue(raw, '読み込みに失敗: ' + (e && e.message ? e.message : String(e)));
     }
     save = createNewSave();
     persist();
@@ -744,6 +791,7 @@
 
   RPG.state = {
     load, persist, reset, get, nextUid, replaceSave, migrate,
+    rescued, discardRescued, RESCUE_KEY,
     SAVE_VERSION,
     addGold, addBox, identifyBox, equip, unequip, setLoadout, sell,
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,

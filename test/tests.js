@@ -1086,6 +1086,61 @@
         `${p.turns}ターン / ratio ${p.ratio}`);
     }
 
+    /* ===== セーブの救済 (§16) =====
+     * 更新でセーブが読めなくなったとき、黙って新規作成で上書きすると
+     * **コードを巻き戻しても復旧できない**。消える前に必ず退避すること。 */
+    {
+      const RESCUE = 'hakusura-rpg/rescued';
+      const KEY = 'hakusura-rpg/save';
+      const keepSave = localStorage.getItem(KEY);
+      const keepRescue = localStorage.getItem(RESCUE);
+      const keepBackups = localStorage.getItem('hakusura-rpg/backups');
+
+      try {
+        // 版が合わないセーブを置いて読み込ませる
+        localStorage.removeItem(RESCUE);
+        const doomed = {
+          version: 999, gold: 424242, characters: { ch_hero: { id: 'ch_hero', level: 55 } },
+          inventory: [], party: ['ch_hero'],
+        };
+        localStorage.setItem(KEY, JSON.stringify(doomed));
+        RPG.state.load();
+
+        const info = RPG.state.rescued();
+        assertTrue('§16 読めないセーブは消さずに退避される', !!info,
+          info ? info.reason : '退避されなかった');
+
+        assertTrue('§16 退避された中身は元のまま',
+          !!info && JSON.parse(info.raw).gold === 424242,
+          info ? String(JSON.parse(info.raw).gold) : '—');
+
+        // 退避されたものは通常の検証では弾かれる（版が違うため）。
+        // 救済用の経路なら読み替えて通ること。
+        const plain = RPG.savefile.validate(info.raw);
+        const resc = RPG.savefile.validateRescued(info.raw);
+        assertTrue('§16 救済は版の違いを読み替えて復元できる',
+          !plain.ok && resc.ok && resc.save.gold === 424242,
+          `通常=${plain.ok ? '通る' : '弾く'} / 救済=${resc.ok ? '通る' : resc.reason}`);
+
+        // 二重起動しても、最初の（価値のある）退避を上書きしないこと
+        localStorage.setItem(KEY, JSON.stringify({ version: 999, gold: 1, characters: {} }));
+        RPG.state.load();
+        const again = RPG.state.rescued();
+        assertTrue('§16 何度起動しても最初の退避を上書きしない',
+          !!again && JSON.parse(again.raw).gold === 424242,
+          again ? String(JSON.parse(again.raw).gold) : '—');
+      } finally {
+        // テストが本物のセーブを壊さないよう必ず戻す
+        RPG.state.discardRescued();
+        if (keepSave === null) localStorage.removeItem(KEY);
+        else localStorage.setItem(KEY, keepSave);
+        if (keepRescue !== null) localStorage.setItem(RESCUE, keepRescue);
+        if (keepBackups === null) localStorage.removeItem('hakusura-rpg/backups');
+        else localStorage.setItem('hakusura-rpg/backups', keepBackups);
+        RPG.state.load();
+      }
+    }
+
     /* ===== クラス (§12) ===== */
     {
       const classes = RPG.data.classes;

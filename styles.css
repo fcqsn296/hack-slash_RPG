@@ -2355,3 +2355,14 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 @media (display-mode: standalone) {
   #topbar { padding-top: max(18px, env(safe-area-inset-top)); }
 }
+
+/* 読めなかったセーブの救済 (§16)。
+   見落とされると復旧の機会そのものを失うので、明確に目立たせる。 */
+.data-rescue {
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 107, 107, 0.07);
+}
+.data-rescue h3 { color: var(--danger); }
+.data-rescue .hint { white-space: pre-line; }

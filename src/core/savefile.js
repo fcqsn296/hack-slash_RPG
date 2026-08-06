@@ -91,6 +91,53 @@
   }
 
   /**
+   * 退避されたセーブを、版の違いを承知のうえで読み直す (§16)。
+   *
+   * validate() は「版が違う」を理由に必ず弾く。ファイルの取り違えを防ぐには
+   * それでよいのだが、**救済ではその判定が邪魔になる**。
+   * 退避されるのはまさに「版が合わなくて読めなかった」中身だからで、
+   * 通常の検証を通すと、退避した原因と同じ理由で復元も拒否されてしまう。
+   *
+   * そこでここでは版だけを現行に読み替え、migrate() で欠けている項目を埋めてから、
+   * **中身の妥当性は通常どおり検証する**。壊れたデータを無条件に受け入れるわけではない。
+   *
+   * @param {string|any} raw
+   * @returns {{ok: boolean, save?: any, reason?: string, coerced?: boolean}}
+   */
+  function validateRescued(raw) {
+    // まずは素直に通るか試す。通るならそれが一番安全。
+    const plain = validate(raw);
+    if (plain.ok) return plain;
+
+    /** @type {any} */
+    let obj = raw;
+    if (typeof raw === 'string') {
+      try {
+        obj = JSON.parse(raw.trim());
+      } catch (e) {
+        return { ok: false, reason: 'JSONとして読めません。ファイルが壊れている可能性があります' };
+      }
+    }
+    const game = obj && (obj.format === FORMAT ? obj.game : (obj.characters ? obj : null));
+    if (!game) return { ok: false, reason: 'このゲームのセーブデータではありません' };
+
+    const from = game.version;
+    // 版を現行に読み替えたうえで、欠けている項目を埋める
+    const copy = JSON.parse(JSON.stringify(game));
+    copy.version = RPG.state.SAVE_VERSION;
+    let migrated;
+    try {
+      migrated = RPG.state.migrate(copy);
+    } catch (e) {
+      return { ok: false, reason: '現在の形式へ読み替えられませんでした: ' + (e && e.message) };
+    }
+
+    const check = validate(migrated);
+    if (!check.ok) return check;
+    return { ok: true, save: check.save, coerced: from !== RPG.state.SAVE_VERSION };
+  }
+
+  /**
    * セーブの中身を一行で要約する。読み込み前の確認に使う。
    * @param {any} game
    */
@@ -246,5 +293,6 @@
     envelope, toText, validate, summarize,
     download, readFile, importFrom,
     backup, backupOnBoot, listBackups, restoreBackup, clearBackups,
+    validateRescued,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

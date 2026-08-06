@@ -143,6 +143,62 @@
    * セーブデータの管理ダイアログ。
    * 書き出し／読み込み／自動バックアップからの復元／初期化をここにまとめる。
    */
+  /**
+   * 読めなかったセーブの救済 (§16)。
+   *
+   * 更新でセーブが読めなくなった場合、ゲームは新規データで始まる。
+   * このとき元の中身は捨てずに退避してあるので、ここから戻せるようにする。
+   * コードを前の版に巻き戻しても消えた localStorage は復活しないため、
+   * 「巻き戻しでは救えない壊れ方」に対する唯一の受け皿になる。
+   *
+   * @param {(msg: string) => void} say
+   * @param {HTMLTextAreaElement} textarea 取り出した中身を表示する欄
+   */
+  function rescuedSection(say, textarea) {
+    const info = RPG.state.rescued();
+    if (!info) return null;
+
+    return h('div.data-section.data-rescue',
+      h('h3', { text: '⚠ 読み込めなかったデータがあります' }),
+      h('p.hint.hint-sm', {
+        text: `${new Date(info.at).toLocaleString('ja-JP')} — ${info.reason}\n` +
+          '中身は消さずに取ってあります。下から復元を試せます。',
+      }),
+      h('div.data-actions',
+        W.button('復元を試す', () => {
+          // 退避されたのは「版が合わずに読めなかった」中身。
+          // 通常の validate() を使うと、退避した原因と同じ理由でここでも弾かれる。
+          const check = RPG.savefile.validateRescued(info.raw);
+          if (!check.ok) {
+            say('この内容は復元できません: ' + check.reason);
+            return;
+          }
+          const note = check.coerced
+            ? '\n\n※ 形式が古いため、現在の形式へ読み替えて復元します。'
+            : '';
+          if (!confirm(`次の内容に置き換えます。\n\n${RPG.savefile.summarize(check.save)}${note}\n\n` +
+            '今のデータは控えに残ります。よろしいですか？')) return;
+          RPG.savefile.backup('救済の直前');
+          RPG.state.replaceSave(check.save);
+          RPG.state.discardRescued();
+          say('復元しました');
+          location.reload();
+        }, { variant: 'primary' }),
+        W.button('テキストとして取り出す', () => {
+          textarea.value = info.raw;
+          textarea.focus();
+          textarea.select();
+          say('選択しました。Ctrl+C でコピーできます');
+        }, { variant: 'ghost' }),
+        W.button('破棄する', () => {
+          if (!confirm('退避してあるデータを完全に削除します。元に戻せません。よろしいですか？')) return;
+          RPG.state.discardRescued();
+          say('破棄しました');
+        }, { variant: 'ghost' })
+      )
+    );
+  }
+
   function showDataDialog() {
     const overlay = h('div.modal-overlay');
     const status = h('p.data-status');
@@ -206,6 +262,10 @@
       h('div.modal.modal-wide',
         h('h2', { text: 'データ管理' }),
         h('p.modal-sub', { text: RPG.savefile.summarize(save) }),
+
+        // 読めなかったセーブが退避されているときだけ出す (§16)。
+        // 黙って新規データで始まると、プレイヤーは「消えた」としか分からない。
+        rescuedSection(say, textarea),
 
         h('div.data-section',
           h('h3', { text: '書き出す' }),
