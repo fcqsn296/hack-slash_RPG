@@ -718,17 +718,20 @@
       const basePath = cfg.basePath || '';
 
       const cands = RPG.artSource.standeeCandidates(RPG.data.characters.ch_rizel);
+      // 先頭の拡張子は artConfig.extensions の並び順で決まる（配布形式を変えたら変わる）。
+      // ここで .png と決め打つと、形式を変えたときにテストだけが落ちる。
       assertTrue('§1.3 立ち絵は assets/characters/キャラID.拡張子 を自動で探す',
-        cands[0] === basePath + 'assets/characters/ch_rizel.png',
+        cands[0] === basePath + 'assets/characters/ch_rizel' + cfg.extensions[0],
         cands.join(' / '));
-      assertTrue('§1.3 png / webp / jpg を順に探索する',
+      assertTrue('§1.3 artConfig.extensions の順に探索する',
         cands.length === cfg.extensions.length &&
         cfg.extensions.every((/** @type {string} */ e, /** @type {number} */ i) => cands[i].endsWith(e)),
         cfg.extensions.join(' → '));
 
       const icons = RPG.artSource.iconCandidates(RPG.data.characters.ch_rizel);
       assertTrue('§1.3 顔アイコンを自分で用意する場合は icons/ が優先される',
-        icons[0] === basePath + 'assets/characters/icons/ch_rizel.png', icons.join(' / '));
+        icons[0] === basePath + 'assets/characters/icons/ch_rizel' + cfg.extensions[0],
+        icons.join(' / '));
 
       // 明示指定が自動探索より優先されること
       const explicit = RPG.artSource.standeeCandidates({ id: 'ch_x', art: { standeeImage: 'custom/foo.png' } });
@@ -1498,7 +1501,7 @@
 
       const cands = RPG.artSource.enemyCandidates(RPG.data.enemies.em_slime);
       assertTrue('§1.3 敵の立ち絵は assets/enemies/敵ID.拡張子 を自動で探す',
-        cands[0] === basePath + 'assets/enemies/em_slime.png', cands.join(' / '));
+        cands[0] === basePath + 'assets/enemies/em_slime' + cfg.extensions[0], cands.join(' / '));
 
       const ids = Object.keys(RPG.data.enemies);
       const stamped = ids.filter((id) => RPG.data.enemies[id].id === id);
@@ -1576,9 +1579,15 @@
         assertTrue('取り込み: 未対応の拡張子は探索順の先頭に寄せる',
           RPG.importCore.outputName(t, 'c.gif', cfg) === 'em_golem' + cfg.extensions[0],
           RPG.importCore.outputName(t, 'c.gif', cfg));
-        assertTrue('取り込み: 保存名が artSource の探索パスと一致する',
-          (cfg.basePath || '') + cfg.enemyDir + RPG.importCore.outputName(t, 'a.png', cfg) ===
-            RPG.artSource.enemyCandidates(RPG.data.enemies.em_golem)[0], '');
+        // 取り込みは元の拡張子を保つので、探索パスの **どれか** に一致すればよい。
+        // 先頭に一致することまでは求めない（配布形式と取り込み形式は別物）。
+        {
+          const saved = (cfg.basePath || '') + cfg.enemyDir +
+            RPG.importCore.outputName(t, 'a.png', cfg);
+          const list = RPG.artSource.enemyCandidates(RPG.data.enemies.em_golem);
+          assertTrue('取り込み: 保存名が artSource の探索パスに含まれる',
+            list.includes(saved), saved);
+        }
       }
 
       // --- 保存先フォルダの解決 ---

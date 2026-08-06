@@ -15,7 +15,9 @@ RPG.data.artConfig = {
   dir: 'assets/characters/',
 
   /** 探索する拡張子。先に見つかったものを使う */
-  extensions: ['.png', '.webp', '.jpg'],
+  // 配布しているのは WebP。PNG は手元の原本用に残してあるだけなので、
+  // 先に WebP を試す（見つからない拡張子を毎回1回ぶん叩かずに済む）。
+  extensions: ['.webp', '.png', '.jpg'],
 
   /** 顔アイコンを明示的に用意する場合のフォルダ。無ければ立ち絵から切り抜く */
   iconDir: 'assets/characters/icons/',

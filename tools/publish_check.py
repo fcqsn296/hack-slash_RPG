@@ -27,7 +27,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # .gitignore で外しているもの。ここを歩かない。
 SKIP_DIRS = {
     'raw_image', 'enemies_image', '__pycache__',
-    'assets_backup_cutout', '.git', '.claude', '.vscode', '.idea',
+    'assets_backup_cutout', 'assets_png_master',
+    '.git', '.claude', '.vscode', '.idea',
 }
 SKIP_FILES = {
     'artprompts.js', 'ASSIGNMENTS.md', 'image_metadata_backup.json',
@@ -95,10 +96,12 @@ def main():
             pass
 
         low = p.lower()
-        if low.endswith('.png'):
-            has_meta, _ = png_flags(p)
-            if has_meta:
-                meta.append(rel)
+        if low.endswith(('.png', '.webp')):
+            # メタデータ検査は PNG の構造を読むので PNG のときだけ
+            if low.endswith('.png'):
+                has_meta, _ = png_flags(p)
+                if has_meta:
+                    meta.append(rel)
             # 立ち絵だけ透過を見る（アイコンは不透明でよい）
             if pil and ('/characters/' in rel or '/enemies/' in rel):
                 a = Image.open(p).convert('RGBA')

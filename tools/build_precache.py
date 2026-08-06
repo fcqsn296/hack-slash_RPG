@@ -74,7 +74,7 @@ def collect():
         if not os.path.isdir(d):
             continue
         for name in sorted(os.listdir(d)):
-            if name.lower().endswith(('.svg', '.png')):
+            if name.lower().endswith(('.svg', '.png', '.webp')):
                 out.append('./assets/%s/%s' % (sub, name))
 
     # 重複を消しつつ順番は保つ
