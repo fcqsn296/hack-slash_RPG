@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Central sun disc -->
+  <circle cx="64" cy="64" r="24" fill="white"/>
+  <!-- 8 rays: rounded rects, 45deg apart -->
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(45 64 64)"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(90 64 64)"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(135 64 64)"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(180 64 64)"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(225 64 64)"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(270 64 64)"/>
+  <rect x="94" y="60" width="28" height="8" rx="4" fill="white" transform="rotate(315 64 64)"/>
+</svg>

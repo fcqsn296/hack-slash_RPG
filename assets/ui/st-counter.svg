@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Shield with reflect-arrow cutout using evenodd -->
+  <!-- Outer: heater shield | Inner: up-arrow (反射矢印) -->
+  <path fill-rule="evenodd" fill="white"
+    d="M64 12 L108 30 L108 68 Q108 98 64 118 Q20 98 20 68 L20 30 Z
+       M64 38 L90 64 L78 64 L78 94 L50 94 L50 64 L38 64 Z"/>
+</svg>

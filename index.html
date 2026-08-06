@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: iPhone のノッチ／ホームバーの下まで背景を伸ばす。
+     実際の内容は CSS の safe-area で内側に寄せている (§15) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>灰銀の継承者 — ハクスラRPG</title>
+
+<!-- ホーム画面に追加してアプリのように遊ぶための宣言 (§15) -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0c11">
+<link rel="apple-touch-icon" href="assets/pwa/apple-touch-icon.png">
+<!-- iOS は manifest の display を見ないので、専用の指定が要る -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="灰銀の継承者">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div id="topbar-left">
+      <span class="logo">灰銀の継承者</span>
+      <span class="logo-sub">HACK &amp; SLASH</span>
+    </div>
+    <div id="topbar-right"></div>
+  </header>
+
+  <main>
+    <section id="screen-base" class="screen"></section>
+    <section id="screen-battle" class="screen hidden"></section>
+  </main>
+</div>
+
+<div id="toast-root"></div>
+
+<!-- 名前空間 -->
+<script src="src/namespace.js"></script>
+
+<!-- コア（データに依存しない純粋ロジック） -->
+<script src="src/core/rng.js"></script>
+<script src="src/core/damage.js"></script>
+<script src="src/core/economy.js"></script>
+
+<!-- データカタログ (§9.2) — コンテンツ追加はここへの追記のみで完了する -->
+<script src="data/skills.js"></script>
+<script src="data/characters.js"></script>
+<script src="data/enemies.js"></script>
+<script src="data/equipment.js"></script>
+<script src="data/equipsets.js"></script>
+<script src="data/uniques.js"></script>
+<script src="data/fields.js"></script>
+<script src="data/gacha.js"></script>
+<script src="data/skilltree.js"></script>
+<script src="data/statuses.js"></script>
+<script src="data/nodecategories.js"></script>
+<script src="data/classes.js"></script>
+<script src="data/quests.js"></script>
+<script src="data/tower.js"></script>
+<script src="data/art.js"></script>
+
+<!-- データを使うコア -->
+<script src="src/core/tree.js"></script>
+<script src="src/core/klass.js"></script>
+<script src="src/core/units.js"></script>
+<script src="src/core/equipset.js"></script>
+<script src="src/core/gear.js"></script>
+<script src="src/core/enhance.js"></script>
+<script src="src/core/autosell.js"></script>
+<script src="src/core/state.js"></script>
+<script src="src/core/savefile.js"></script>
+<script src="src/core/gacha.js"></script>
+<script src="src/core/quest.js"></script>
+<script src="src/core/codex.js"></script>
+
+<!-- スキルプラグイン (§9.1) — 追加時に戦闘本体を変更しない -->
+<script src="src/plugins/multi_hit.js"></script>
+<script src="src/plugins/def_ignore.js"></script>
+<script src="src/plugins/poison.js"></script>
+<script src="src/plugins/status.js"></script>
+<script src="src/plugins/vengeance.js"></script>
+<script src="src/plugins/mass_revive.js"></script>
+<script src="src/plugins/mass_extra.js"></script>
+<script src="src/plugins/buffs.js"></script>
+<script src="src/plugins/heal.js"></script>
+<script src="src/plugins/lifesteal_hit.js"></script>
+<script src="src/plugins/reduction_buff.js"></script>
+<script src="src/plugins/multi_debuff.js"></script>
+<script src="src/plugins/hp_cost.js"></script>
+<script src="src/plugins/all_enemies.js"></script>
+<script src="src/plugins/full_burst.js"></script>
+
+<!-- 戦闘エンジン（プラグインを呼ぶ側なので後に読む） -->
+<script src="src/core/battle.js"></script>
+<script src="src/core/autoplay.js"></script>
+<script src="src/core/autoequip.js"></script>
+<script src="src/core/dispatch.js"></script>
+<script src="src/core/autolimit.js"></script>
+<script src="src/core/tower.js"></script>
+
+<!-- UI -->
+<script src="src/ui/dom.js"></script>
+<script src="src/ui/art.js"></script>
+<script src="src/ui/facecrop.js"></script>
+<script src="src/ui/artsource.js"></script>
+<script src="src/ui/widgets.js"></script>
+<script src="src/ui/base.js"></script>
+<script src="src/ui/battle.js"></script>
+<script src="src/main.js"></script>
+
+<script>
+// Service Worker の登録 (§15)。
+// 圏外でも遊べるようにするためのもので、失敗してもゲームは普通に動く。
+// file:// で直接開いた場合や HTTPS でない場合は登録できないので、黙って諦める。
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* 使えなくても支障はない */ });
+  });
+}
+</script>
+
+</body>
+</html>

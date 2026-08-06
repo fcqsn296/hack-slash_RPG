@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Star at wand tip (center 36,36, R=18, r=8) -->
+  <path d="M 36 18 L 40.70 29.53 L 53.12 30.44 L 43.61 38.47 L 46.58 50.56 L 36 44 L 25.42 50.56 L 28.39 38.47 L 18.88 30.44 L 31.30 29.53 Z" fill="white"/>
+  <!-- Wand body: 45deg diagonal rod, 12px wide, from (48,52) to (100,104) -->
+  <path d="M 43.76 56.24 L 52.24 47.76 L 104.24 99.76 L 95.76 108.24 Z" fill="white"/>
+</svg>

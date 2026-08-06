@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- 8-pointed radiant star: invincible buff (damage immunity) -->
+  <!-- Major tips (R=54): top/right/bottom/left — Minor tips (R=30): diagonals — Inner saddles (R=12): ~9.2px arm width -->
+  <path d="M64 10 L68.6 52.9 L85.2 42.8 L75.1 59.4 L118 64 L75.1 68.6 L85.2 85.2 L68.6 75.1 L64 118 L59.4 75.1 L42.8 85.2 L52.9 68.6 L10 64 L52.9 59.4 L42.8 42.8 L59.4 52.9 Z" fill="white"/>
+</svg>

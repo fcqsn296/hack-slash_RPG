@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>バランス検証 — ハクスラRPG</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  #app { max-width: 1100px; padding-top: 24px; }
+  .back { display: inline-block; margin-bottom: 16px; font-size: 13px; color: var(--accent); }
+  h2 { font-size: 17px; margin: 28px 0 6px; }
+  .lead { margin: 0 0 12px; font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 11px; text-align: right; white-space: nowrap; }
+  th { background: #0f131a; color: var(--text-dim); font-weight: 600; font-size: 11px; position: sticky; top: 0; }
+  td:first-child, th:first-child { text-align: left; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .good { color: var(--ok); }
+  .warn { color: var(--gold); }
+  .bad { color: var(--danger); }
+  .bar { display: inline-block; height: 7px; border-radius: 999px; background: var(--accent); vertical-align: middle; }
+  .verdict { display: grid; gap: 8px; margin: 14px 0 0; }
+  .verdict div {
+    display: grid; grid-template-columns: 22px 1fr; gap: 10px;
+    padding: 9px 12px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px;
+    background: var(--bg-panel); font-size: 12.5px; line-height: 1.6;
+  }
+  .verdict .ok { border-left-color: var(--ok); }
+  .verdict .ng { border-left-color: var(--danger); }
+  .verdict .mark { text-align: center; }
+  #progress { font-size: 12px; color: var(--text-dim); margin: 8px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <a class="back" href="../index.html">← ゲームへ戻る</a>
+  <h1 style="font-size:22px;margin:0 0 6px">バランス検証</h1>
+  <p class="lead">
+    設計書 §14.2「序盤・中盤・終盤のダメージ曲線が設計意図通り」を数値で確かめます。<br>
+    想定ビルドは「優先順位に沿ってスキルツリーを振り、そのレベル帯の宝箱を鑑定して各スロットに最良を装備した状態」です。
+    周回シミュレーションは実際の戦闘エンジンとオート戦闘を回して測っています。
+  </p>
+  <div id="progress">準備中…</div>
+
+  <h2>1. ダメージ曲線</h2>
+  <p class="lead">同レベルの基準敵（DEF = Lv×9+25）に対する1発の平均ダメージ。乱数・クリティカル込み。</p>
+  <div class="scroll"><table id="curve"></table></div>
+  <div class="verdict" id="curve-verdict"></div>
+
+  <h2>2. 周回シミュレーション</h2>
+  <p class="lead">各フィールドを5連戦（最終戦ボス）でオート周回したときの結果。1条件あたり30回の平均。</p>
+  <div class="scroll"><table id="sim"></table></div>
+  <div class="verdict" id="sim-verdict"></div>
+
+  <h2>3. 収益効率</h2>
+  <p class="lead">推奨レベルで回したときの1ラウンドあたりゴールド。上位フィールドへ進む動機があるかを見ます。</p>
+  <div class="scroll"><table id="income"></table></div>
+  <div class="verdict" id="income-verdict"></div>
+
+  <h2>4. 経済バランス（金 vs 経験値）</h2>
+  <p class="lead">
+    推奨レベルで4人パーティ・5連戦をオート周回したときの実収入です。<br>
+    <b>直接G</b> は敵から直接落ちるゴールド、<b>宝箱G</b> は落ちた宝箱を鑑定して全部売った場合の期待額。
+    ハクスラとしては宝箱側が主収入であってほしいので、直接Gの比率が高すぎないかを見ます。<br>
+    <b>1レベルに何周</b> と <b>ガチャ何回/レベル</b> が要です。後者は「1レベル上げるあいだにガチャが何回引けてしまうか」で、
+    ここが大きいほど金余りが起きています。
+  </p>
+  <div class="scroll"><table id="econ"></table></div>
+  <div class="verdict" id="econ-verdict"></div>
+</div>
+
+<script src="../src/namespace.js"></script>
+<script src="../src/core/rng.js"></script>
+<script src="../src/core/damage.js"></script>
+<script src="../src/core/economy.js"></script>
+<script src="../data/skills.js"></script>
+<script src="../data/characters.js"></script>
+<script src="../data/enemies.js"></script>
+<script src="../data/equipment.js"></script>
+<script src="../data/equipsets.js"></script>
+<script src="../data/uniques.js"></script>
+<script src="../data/fields.js"></script>
+<script src="../data/gacha.js"></script>
+<script src="../data/skilltree.js"></script>
+<script src="../data/statuses.js"></script>
+<script src="../data/nodecategories.js"></script>
+<script src="../data/classes.js"></script>
+<script src="../data/art.js"></script>
+<script src="../src/core/tree.js"></script>
+<script src="../src/core/klass.js"></script>
+<script src="../src/core/units.js"></script>
+<script src="../src/core/equipset.js"></script>
+<script src="../src/core/gear.js"></script>
+<script src="../src/core/enhance.js"></script>
+<script src="../src/core/state.js"></script>
+<script src="../src/plugins/multi_hit.js"></script>
+<script src="../src/plugins/def_ignore.js"></script>
+<script src="../src/plugins/poison.js"></script>
+<script src="../src/plugins/status.js"></script>
+<script src="../src/plugins/vengeance.js"></script>
+<script src="../src/plugins/mass_revive.js"></script>
+<script src="../src/plugins/mass_extra.js"></script>
+<script src="../src/plugins/buffs.js"></script>
+<script src="../src/plugins/heal.js"></script>
+<script src="../src/plugins/lifesteal_hit.js"></script>
+<script src="../src/plugins/reduction_buff.js"></script>
+<script src="../src/plugins/multi_debuff.js"></script>
+<script src="../src/plugins/hp_cost.js"></script>
+<script src="../src/plugins/all_enemies.js"></script>
+<script src="../src/core/battle.js"></script>
+<script src="../src/core/autoplay.js"></script>
+<script src="balance.js"></script>
+<script>
+(function () {
+  var progress = document.getElementById('progress');
+  var pct = function (v) { return (v * 100).toFixed(0) + '%'; };
+  var num = function (v) { return Math.round(v).toLocaleString(); };
+
+  function table(el, headers, rows) {
+    var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
+    var tbody = '<tbody>' + rows.map(function (r) {
+      return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    el.innerHTML = thead + tbody;
+  }
+
+  function verdict(el, items) {
+    el.innerHTML = items.map(function (i) {
+      return '<div class="' + (i.ok ? 'ok' : 'ng') + '"><span class="mark">' + (i.ok ? '✔' : '✘') +
+        '</span><span>' + i.text + '</span></div>';
+    }).join('');
+  }
+
+  var LEVELS = [1, 5, 10, 20, 30, 45, 60, 80, 100];
+
+  // ---------- 1. ダメージ曲線 ----------
+  progress.textContent = 'ダメージ曲線を計算中…';
+  setTimeout(function () {
+    var curve = RPG.balance.damageCurve(LEVELS);
+    var maxAvg = Math.max.apply(null, curve.map(function (r) { return r.avg; }));
+
+    table(document.getElementById('curve'),
+      ['Lv', '主力技', 'ATK', '系統タグ', 'クリ率', '平均ダメージ', '倍率(前Lv比)', '上限減衰', '基準敵HP', '必要回数'],
+      curve.map(function (r, i) {
+        var ratio = i === 0 ? '—' : '×' + (r.avg / curve[i - 1].avg).toFixed(2);
+        var w = Math.max(2, (r.avg / maxAvg) * 90);
+        return [
+          'Lv' + r.level, r.skill, num(r.atk), '×' + r.tagMult.toFixed(2), pct(r.critRate),
+          '<span class="bar" style="width:' + w + 'px"></span> ' + num(r.avg),
+          ratio,
+          r.cappedRate > 0 ? '<span class="warn">' + pct(r.cappedRate) + '</span>' : '—',
+          num(r.dummyHp), r.hitsToKill + '発',
+        ];
+      }));
+
+    var monotonic = curve.every(function (r, i) { return i === 0 || r.avg > curve[i - 1].avg; });
+    var growth = curve[curve.length - 1].avg / curve[0].avg;
+    var lateRatio = curve[curve.length - 1].avg / curve[curve.length - 2].avg;
+    var earlyRatio = curve[2].avg / curve[1].avg;
+
+    verdict(document.getElementById('curve-verdict'), [
+      { ok: monotonic, text: 'レベルが上がるほどダメージが単調に増えている' },
+      { ok: growth > 100, text: 'Lv1 → Lv100 で ' + growth.toFixed(0) + ' 倍に成長している（指数的な伸び）' },
+      { ok: lateRatio < earlyRatio * 1.5,
+        text: '終盤の伸び（×' + lateRatio.toFixed(2) + '/段）が序盤（×' + earlyRatio.toFixed(2) +
+              '/段）ほど急ではない — 上限減衰と除算型防御が効いている' },
+      { ok: curve.every(function (r) { return r.hitsToKill >= 1 && r.hitsToKill <= 40; }),
+        text: '基準敵を倒すのに必要な手数が全レベル帯で 1〜40 発に収まっている' },
+    ]);
+
+    runSim();
+  }, 30);
+
+  // ---------- 2. 周回シミュレーション ----------
+  function runSim() {
+    var fields = Object.keys(RPG.data.fields);
+    var jobs = [];
+    fields.forEach(function (fid) {
+      var rec = RPG.data.fields[fid].rec_level;
+      // 推奨Lvが低いと 0.6倍が推奨Lvと同じになるので、重複は落とす
+      var levels = [Math.max(1, Math.round(rec * 0.6)), rec, Math.round(rec * 1.6), Math.round(rec * 3)];
+      levels.filter(function (lv, i) { return levels.indexOf(lv) === i; })
+        .forEach(function (lv) { jobs.push({ fieldId: fid, level: lv }); });
+    });
+
+    var rows = [];
+    var i = 0;
+    (function step() {
+      if (i >= jobs.length) { finishSim(rows); return; }
+      var job = jobs[i++];
+      progress.textContent = '周回シミュレーション ' + i + ' / ' + jobs.length +
+        '（' + RPG.data.fields[job.fieldId].name + ' Lv' + job.level + '）…';
+      setTimeout(function () {
+        rows.push(RPG.balance.simulate({
+          fieldId: job.fieldId, waves: 5, bossFinale: true,
+          level: job.level, limitBreak: job.level >= 60 ? 3 : 0, runs: 30, seed: 4242,
+        }));
+        step();
+      }, 10);
+    })();
+  }
+
+  function finishSim(rows) {
+    table(document.getElementById('sim'),
+      ['フィールド', '推奨Lv', 'パーティLv', '勝率', '平均ラウンド', '平均コマンド', '生存', '残HP', '獲得G', '獲得EXP', '宝箱'],
+      rows.map(function (r) {
+        var f = RPG.data.fields[r.fieldId];
+        var cls = r.winRate >= 0.9 ? 'good' : r.winRate >= 0.4 ? 'warn' : 'bad';
+        return [
+          f.name, 'Lv' + f.rec_level, 'Lv' + r.level,
+          '<span class="' + cls + '">' + pct(r.winRate) + '</span>',
+          r.rounds.toFixed(1), r.commands.toFixed(0),
+          r.survivors.toFixed(1) + '人', pct(r.hpLeft),
+          num(r.gold), num(r.exp), r.boxes.toFixed(1),
+        ];
+      }));
+
+    var atRec = rows.filter(function (r) { return r.level === RPG.data.fields[r.fieldId].rec_level; });
+    var under = rows.filter(function (r) { return r.level < RPG.data.fields[r.fieldId].rec_level; });
+    var over = rows.filter(function (r) { return r.level >= RPG.data.fields[r.fieldId].rec_level * 3; });
+
+    verdict(document.getElementById('sim-verdict'), [
+      { ok: rows.every(function (r) { return r.stuck === 0; }), text: '全条件で戦闘が停止せず完走した' },
+      { ok: atRec.every(function (r) { return r.winRate >= 0.6; }),
+        text: '推奨レベルちょうどで勝率60%以上 — ' +
+          atRec.map(function (r) { return RPG.data.fields[r.fieldId].name + ' ' + pct(r.winRate); }).join(' / ') },
+      { ok: under.some(function (r) { return r.winRate < 0.9; }),
+        text: '推奨レベル未満では明確に苦しい — レベル上げの意味がある' },
+      { ok: over.every(function (r) { return r.rounds <= 12; }),
+        text: '過剰レベルなら短時間で終わる（周回が快適）— 最大 ' +
+          Math.max.apply(null, over.map(function (r) { return r.rounds; })).toFixed(1) + ' ラウンド' },
+      // ラウンド数は「短すぎないか」より「長すぎないか」が問題になる。
+      // 手数が伸びるほど1周が退屈になるので上限だけを見る。
+      // 火力が伸びて2ラウンドで終わる帯があるのは、育成が効いている証拠であって欠陥ではない。
+      { ok: atRec.every(function (r) { return r.rounds >= 1.5 && r.rounds <= 25; }),
+        text: '推奨レベルでの5連戦が 1.5〜25 ラウンドに収まる（長引いて退屈にならない）— ' +
+          atRec.map(function (r) { return r.rounds.toFixed(1); }).join(' / ') },
+    ]);
+
+    runIncome(rows);
+  }
+
+  // ---------- 3. 収益効率 ----------
+  function runIncome(rows) {
+    var atRec = rows.filter(function (r) { return r.level === RPG.data.fields[r.fieldId].rec_level; });
+    table(document.getElementById('income'),
+      ['フィールド', '推奨Lv', 'ゴールド倍率', '1周のG', '1ラウンドのG', '1周のEXP', '宝箱/周', 'ガチャ1回に必要な周回数'],
+      atRec.map(function (r) {
+        var f = RPG.data.fields[r.fieldId];
+        return [
+          f.name, 'Lv' + f.rec_level, '×' + f.gold_mult,
+          num(r.gold), r.goldPerRound.toFixed(0), num(r.exp), r.boxes.toFixed(1),
+          (RPG.data.gacha.cost / Math.max(1, r.gold)).toFixed(1) + '周',
+        ];
+      }));
+
+    var increasing = atRec.every(function (r, i) { return i === 0 || r.goldPerRound > atRec[i - 1].goldPerRound; });
+    verdict(document.getElementById('income-verdict'), [
+      { ok: increasing, text: '上位フィールドほど1ラウンドあたりの収益が高い — 進む動機がある' },
+      { ok: atRec[0].gold > 0 && RPG.data.gacha.cost / atRec[0].gold <= 30,
+        text: '最初のフィールドでもガチャ1回分（' + RPG.data.gacha.cost.toLocaleString() + ' G）を ' +
+          (RPG.data.gacha.cost / atRec[0].gold).toFixed(1) + ' 周で貯められる' },
+    ]);
+
+    runEconomy();
+  }
+
+  // ---------- 4. 経済バランス ----------
+  function runEconomy() {
+    var fields = Object.keys(RPG.data.fields);
+    var rows = [];
+    var i = 0;
+    (function step() {
+      if (i >= fields.length) { finishEconomy(rows); return; }
+      var fid = fields[i++];
+      progress.textContent = '経済バランス ' + i + ' / ' + fields.length +
+        '（' + RPG.data.fields[fid].name + '）…';
+      setTimeout(function () {
+        rows.push(RPG.balance.economy({
+          fieldId: fid, level: RPG.balance.economyLevel(fid), runs: 24,
+        }));
+        step();
+      }, 10);
+    })();
+  }
+
+  function finishEconomy(rows) {
+    table(document.getElementById('econ'),
+      ['フィールド', '推奨Lv', '勝率', '直接G', '宝箱G', '合計G', '直接の比率',
+       '宝箱の内訳', 'EXP(1人)', '必要EXP', '1レベルに何周', 'ガチャ何回/レベル'],
+      rows.map(function (r) {
+        // 直接ドロップが総収入の半分を超えていたら「拾って売る」動機が薄い
+        var shareCls = r.directShare <= 0.45 ? 'good' : r.directShare <= 0.6 ? 'warn' : 'bad';
+        var rplCls = r.runsPerLevel <= 8 ? 'good' : r.runsPerLevel <= 14 ? 'warn' : 'bad';
+        var pplCls = r.pullsPerLevel <= 12 ? 'good' : r.pullsPerLevel <= 25 ? 'warn' : 'bad';
+        return [
+          r.name, 'Lv' + r.level, pct(r.winRate),
+          num(r.directGold), num(r.boxGold), num(r.totalGold),
+          '<span class="' + shareCls + '">' + pct(r.directShare) + '</span>',
+          r.boxDetail || '—',
+          num(r.expEach), num(r.expNeeded),
+          '<span class="' + rplCls + '">' + r.runsPerLevel.toFixed(1) + '周</span>',
+          '<span class="' + pplCls + '">' + r.pullsPerLevel.toFixed(1) + '回</span>',
+        ];
+      }));
+
+    var worstRpl = Math.max.apply(null, rows.map(function (r) { return r.runsPerLevel; }));
+    var worstPpl = Math.max.apply(null, rows.map(function (r) { return r.pullsPerLevel; }));
+    var worstShare = Math.max.apply(null, rows.map(function (r) { return r.directShare; }));
+
+    // ガチャの需要は有限（20体 × 完凸5 = 120回）なので、それを引き終えた後の狩り場に
+    // 「ガチャ何回ぶん稼げるか」を当てても意味がない。判定の対象を分ける。
+    var gachaEra = rows.filter(function (r) { return !RPG.data.fields[r.fieldId].postGacha; });
+    var lateEra = rows.filter(function (r) { return RPG.data.fields[r.fieldId].postGacha; });
+    var worstEraPpl = Math.max.apply(null, gachaEra.map(function (r) { return r.pullsPerLevel; }));
+
+    verdict(document.getElementById('econ-verdict'), [
+      { ok: rows.every(function (r) { return r.runsPerLevel <= 14; }),
+        text: '推奨レベルなら 14周以内で1レベル上がる（最悪 ' + worstRpl.toFixed(1) + '周）— ' +
+          'オートに頼らなくてもレベルが進む' },
+      { ok: rows.every(function (r) { return r.runsPerLevel >= 2; }),
+        text: 'とはいえ 2周未満で上がってしまうフィールドは無い — 育成が一瞬で終わらない' },
+      { ok: gachaEra.every(function (r) { return r.pullsPerLevel <= 25; }),
+        text: 'ガチャを集めている間の狩り場では、1レベルあたり 25回以下（最悪 ' +
+          worstEraPpl.toFixed(1) + '回）— ゴールドが無限に余る状態ではない' },
+      { ok: lateEra.length === 0 || lateEra.every(function (r, i) {
+          return i === 0 || r.totalGold > lateEra[i - 1].totalGold;
+        }),
+        text: 'ガチャを引き終えた後の狩り場（' +
+          lateEra.map(function (r) { return r.name; }).join('・') +
+          '）は、深いほど収入が増える — 装備の強化に注ぎ込む先になる' },
+      { ok: rows.every(function (r) { return r.directShare <= 0.6; }),
+        text: '直接ドロップのゴールドが総収入の6割以下（最悪 ' + pct(worstShare) +
+          '）— 主収入は宝箱の鑑定と売却' },
+      { ok: rows.every(function (r, i) { return i === 0 || r.totalGold > rows[i - 1].totalGold; }),
+        text: '上位フィールドほど1周の総収入が多い' },
+    ]);
+
+    progress.textContent = '完了';
+  }
+})();
+</script>
+</body>
+</html>

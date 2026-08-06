@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Globe (capsule container sphere) -->
+  <circle cx="64" cy="47" r="35" fill="white"/>
+  <!-- Machine body with coin slot -->
+  <path fill-rule="evenodd" d="M28 76L100 76Q104 76 104 80L104 116Q104 120 100 120L28 120Q24 120 24 116L24 80Q24 76 28 76ZM46 87L82 87L82 97L46 97Z" fill="white"/>
+</svg>

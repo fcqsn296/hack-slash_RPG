@@ -1,0 +1,155 @@
+# -*- coding: utf-8 -*-
+"""
+公開前の最終確認。
+
+.gitignore で除外されるものを飛ばしたうえで、
+「公開されると困るものが残っていないか」をまとめて調べる。
+
+    python tools/publish_check.py
+
+チェックする内容:
+  1. PNG に生成メタデータ（プロンプト・シード・署名）が残っていないか
+  2. 立ち絵の背景が透過されているか
+  3. 画風の参考にした商業作品名が本文に残っていないか
+  4. APIキーらしき文字列・メールアドレス・利用者名・絶対パスが混ざっていないか
+  5. 公開されるファイル数と容量
+"""
+from __future__ import print_function, unicode_literals
+
+import io
+import os
+import re
+import struct
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# .gitignore で外しているもの。ここを歩かない。
+SKIP_DIRS = {
+    'raw_image', 'enemies_image', '__pycache__',
+    'assets_backup_cutout', '.git', '.claude', '.vscode', '.idea',
+}
+SKIP_FILES = {
+    'artprompts.js', 'ASSIGNMENTS.md', 'image_metadata_backup.json',
+}
+
+TEXT_EXT = ('.js', '.html', '.css', '.md', '.py', '.json', '.webmanifest', '.bat')
+
+# 画風の参考にした商業作品名。公開物には残さない。
+BRANDS = re.compile(r'zenless|zone zero', re.I)
+
+SECRET = re.compile(r'pst-[A-Za-z0-9_-]{12,}')
+EMAIL = re.compile(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
+WINPATH = re.compile(r'[A-Za-z]:\\Users\\[^\s"\'\\]+')
+USER = re.compile(r'fcqsn', re.I)
+
+PNG_SIG = b'\x89PNG\r\n\x1a\n'
+
+
+def walk():
+    for root, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for f in files:
+            if f in SKIP_FILES:
+                continue
+            yield os.path.join(root, f)
+
+
+def png_flags(path):
+    """(メタデータ有無, 背景が不透明か) を返す。"""
+    has_meta = False
+    with open(path, 'rb') as fh:
+        if fh.read(8) != PNG_SIG:
+            return False, False
+        while True:
+            h = fh.read(8)
+            if len(h) < 8:
+                break
+            ln, typ = struct.unpack('>I4s', h)
+            fh.read(ln)
+            fh.read(4)
+            if typ in (b'tEXt', b'iTXt', b'zTXt', b'eXIf'):
+                has_meta = True
+            if typ == b'IEND':
+                break
+    return has_meta, False
+
+
+def main():
+    meta, opaque, brand, secret, email, winpath, user = [], [], [], [], [], [], []
+    total = 0
+    count = 0
+
+    try:
+        from PIL import Image
+        pil = True
+    except ImportError:
+        pil = False
+
+    for p in walk():
+        rel = os.path.relpath(p, ROOT).replace(os.sep, '/')
+        count += 1
+        try:
+            total += os.path.getsize(p)
+        except OSError:
+            pass
+
+        low = p.lower()
+        if low.endswith('.png'):
+            has_meta, _ = png_flags(p)
+            if has_meta:
+                meta.append(rel)
+            # 立ち絵だけ透過を見る（アイコンは不透明でよい）
+            if pil and ('/characters/' in rel or '/enemies/' in rel):
+                a = Image.open(p).convert('RGBA')
+                w, h = a.size
+                cs = [a.getpixel((2, 2)), a.getpixel((w - 3, 2)),
+                      a.getpixel((2, h - 3)), a.getpixel((w - 3, h - 3))]
+                if sum(c[3] for c in cs) / 4 > 24:
+                    opaque.append(rel)
+            continue
+
+        if not low.endswith(TEXT_EXT):
+            continue
+        try:
+            s = io.open(p, encoding='utf-8', errors='replace').read()
+        except Exception:
+            continue
+        # .gitignore と このファイル自身は、説明のため名前を書いてあるので除外
+        if rel in ('.gitignore', 'tools/publish_check.py'):
+            continue
+        if BRANDS.search(s):
+            brand.append(rel)
+        if SECRET.search(s):
+            secret.append(rel)
+        for m in EMAIL.findall(s):
+            email.append('%s (%s)' % (rel, m))
+        if WINPATH.search(s):
+            winpath.append(rel)
+        if USER.search(s):
+            user.append(rel)
+
+    def show(title, items, ok='なし'):
+        mark = 'OK ' if not items else '★  '
+        print('%s%s: %s' % (mark, title, ok if not items else '%d 件' % len(items)))
+        for i in items[:8]:
+            print('      ', i)
+        if len(items) > 8:
+            print('       …他 %d 件' % (len(items) - 8))
+
+    print('公開対象 %d ファイル / 合計 %.1f MB\n' % (count, total / 1024.0 / 1024.0))
+    show('PNGに残った生成メタデータ', meta)
+    show('背景が透過されていない立ち絵', opaque)
+    show('商業作品名の残存', brand)
+    show('APIキーらしき文字列', secret)
+    show('メールアドレス', email)
+    show('Windows絶対パス', winpath)
+    show('利用者名', user)
+
+    ng = meta or opaque or brand or secret or email or winpath or user
+    print('\n判定:', '要確認' if ng else 'すべて問題なし')
+    return 1 if ng else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

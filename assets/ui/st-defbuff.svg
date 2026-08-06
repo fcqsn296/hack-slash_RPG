@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Magic shield: shield with lightning bolt cutout -->
+  <path fill-rule="evenodd" d="M14 16 L114 16 L114 72 C114 96 88 112 64 120 C40 112 14 96 14 72 Z M58 34 L44 64 L60 64 L48 94 L84 58 L68 58 L80 34 Z" fill="white"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Diamond: brilliant cut silhouette, evenodd horizontal line divides crown/pavilion -->
+  <path fill-rule="evenodd" fill="white"
+    d="M34 18 L94 18 L118 50 L64 118 L10 50 Z
+       M28 46 L100 46 L64 108 Z"/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Flat lid - left panel -->
+  <rect x="14" y="28" width="37" height="30" fill="white"/>
+  <!-- Flat lid - center strap -->
+  <rect x="54" y="28" width="20" height="30" fill="white"/>
+  <!-- Flat lid - right panel -->
+  <rect x="77" y="28" width="37" height="30" fill="white"/>
+  <!-- Metal rim band -->
+  <rect x="14" y="60" width="100" height="6" fill="white"/>
+  <!-- Body - left panel -->
+  <path d="M14 68 L51 68 L51 110 L20 110 Q14 110 14 104Z" fill="white"/>
+  <!-- Body - center strap with diamond lock -->
+  <path fill-rule="evenodd" d="
+    M54 68 L74 68 L74 110 L54 110Z
+    M58 78 L70 78 L70 100 L58 100Z
+    M60 80 L68 80 L68 98 L60 98Z
+    M64 86 L67 89 L64 92 L61 89Z
+  " fill="white"/>
+  <!-- Body - right panel -->
+  <path d="M77 68 L114 68 L114 104 Q114 110 108 110 L77 110Z" fill="white"/>
+</svg>

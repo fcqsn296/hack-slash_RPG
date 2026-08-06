@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ビルド比較 — ハクスラRPG</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  #app { max-width: 1140px; padding-top: 24px; }
+  .back { display: inline-block; margin-bottom: 16px; font-size: 13px; color: var(--accent); }
+  h2 { font-size: 17px; margin: 28px 0 6px; }
+  .lead { margin: 0 0 12px; font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: right; white-space: nowrap; }
+  th { background: #0f131a; color: var(--text-dim); font-weight: 600; font-size: 11px; }
+  td:first-child, th:first-child { text-align: left; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .bname { font-weight: 700; }
+  .bdesc { font-size: 10.5px; color: var(--text-dim); font-weight: 400; }
+  .good { color: var(--ok); } .warn { color: var(--gold); } .bad { color: var(--danger); }
+  .bar { display: inline-block; height: 7px; border-radius: 999px; background: var(--accent); vertical-align: middle; }
+  .verdict { display: grid; gap: 8px; margin: 14px 0 0; }
+  .verdict div {
+    display: grid; grid-template-columns: 22px 1fr; gap: 10px;
+    padding: 9px 12px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px;
+    background: var(--bg-panel); font-size: 12.5px; line-height: 1.6;
+  }
+  .verdict .ok { border-left-color: var(--ok); }
+  .verdict .ng { border-left-color: var(--danger); }
+  .verdict .mark { text-align: center; }
+  #progress { font-size: 12px; color: var(--text-dim); margin: 8px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <a class="back" href="../index.html">← ゲームへ戻る</a>
+  <h1 style="font-size:22px;margin:0 0 6px">ビルド比較</h1>
+  <p class="lead">
+    設計書 §1.2「自分だけの最強ビルド」と §5.4 の3つの属性戦略が、
+    本当に<b>並立する選択肢</b>になっているかを実戦で確かめます。<br>
+    全ビルドで同じレベル・同じ乱数の装備を使い、装備の選択は自動装備に任せています。
+  </p>
+  <div id="progress">準備中…</div>
+
+  <h2>1. ビルドの中身</h2>
+  <p class="lead">同じSP予算で何が得られるか。消費SPが揃っていれば比較として公平です。</p>
+  <div class="scroll"><table id="spec"></table></div>
+
+  <h2>2. フィールド別の勝率</h2>
+  <p class="lead">各フィールドの推奨レベル帯で5連戦をオート周回。1条件あたり複数回の平均です。</p>
+  <div class="scroll"><table id="result"></table></div>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<script src="../src/namespace.js"></script>
+<script src="../src/core/rng.js"></script>
+<script src="../src/core/damage.js"></script>
+<script src="../data/skills.js"></script>
+<script src="../data/characters.js"></script>
+<script src="../data/enemies.js"></script>
+<script src="../data/equipment.js"></script>
+<script src="../data/equipsets.js"></script>
+<script src="../data/uniques.js"></script>
+<script src="../data/fields.js"></script>
+<script src="../data/gacha.js"></script>
+<script src="../data/skilltree.js"></script>
+<script src="../data/statuses.js"></script>
+<script src="../data/nodecategories.js"></script>
+<script src="../data/classes.js"></script>
+<script src="../data/art.js"></script>
+<script src="../src/core/tree.js"></script>
+<script src="../src/core/klass.js"></script>
+<script src="../src/core/units.js"></script>
+<script src="../src/core/equipset.js"></script>
+<script src="../src/core/gear.js"></script>
+<script src="../src/core/enhance.js"></script>
+<script src="../src/core/state.js"></script>
+<script src="../src/plugins/multi_hit.js"></script>
+<script src="../src/plugins/def_ignore.js"></script>
+<script src="../src/plugins/poison.js"></script>
+<script src="../src/plugins/status.js"></script>
+<script src="../src/plugins/vengeance.js"></script>
+<script src="../src/plugins/mass_revive.js"></script>
+<script src="../src/plugins/mass_extra.js"></script>
+<script src="../src/plugins/buffs.js"></script>
+<script src="../src/plugins/heal.js"></script>
+<script src="../src/plugins/lifesteal_hit.js"></script>
+<script src="../src/plugins/reduction_buff.js"></script>
+<script src="../src/plugins/multi_debuff.js"></script>
+<script src="../src/plugins/hp_cost.js"></script>
+<script src="../src/plugins/all_enemies.js"></script>
+<script src="../src/core/battle.js"></script>
+<script src="../src/core/autoplay.js"></script>
+<script src="../src/core/autoequip.js"></script>
+<script src="balance.js"></script>
+<script src="builds.js"></script>
+<script>
+(function () {
+  var progress = document.getElementById('progress');
+  var pct = function (v) { return (v * 100).toFixed(0) + '%'; };
+  var num = function (v) { return Math.round(v).toLocaleString(); };
+
+  // 中盤〜終盤にかけての帯で比較する（属性戦略の差が出る敵構成を含める）
+  // 各フィールドは「そこの推奨レベル」で戦う。
+  // 固定レベルにすると強いビルドが全フィールドを1ラウンドで蹂躙して差が消える。
+  var CFG = {
+    limitBreak: 3,
+    fields: ['fl_nest', 'fl_ruins', 'fl_abyss'],
+    runs: 12, seed: 20260802,
+  };
+
+  function table(el, headers, rows) {
+    el.innerHTML =
+      '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>' +
+      '<tbody>' + rows.map(function (r) {
+        return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody>';
+  }
+
+  progress.textContent = '比較を開始します…';
+  setTimeout(function () {
+    var rows = RPG.buildLab.compare(CFG, function (done, total, label) {
+      progress.textContent = '計測中 ' + done + ' / ' + total + '（' + label + '）…';
+    });
+
+    // ---------- 1. 中身 ----------
+    table(document.getElementById('spec'),
+      ['ビルド', '消費SP', '系統タグ', 'クリ率', 'クリ倍率', '軽減', '習得技', '属性戦略'],
+      rows.map(function (r) {
+        var m = r.info.elementMods || {};
+        var strat = [];
+        if (m.chaos) strat.push('無属性固定');
+        if (m.adapt >= 2) strat.push('全属性 有利化');
+        else if (m.adapt >= 1) strat.push('不利 無効化');
+        if (m.mastery) {
+          Object.keys(m.mastery).forEach(function (e) {
+            strat.push(RPG.damage.ELEMENT_LABEL[e] + '有利 ×' + m.mastery[e].toFixed(1));
+          });
+        }
+        return [
+          '<div class="bname">' + r.build.name + '</div><div class="bdesc">' + r.build.desc + '</div>',
+          r.info.spent + ' / ' + r.info.totalSp,
+          '×' + r.info.tagMult.toFixed(2),
+          pct(r.info.crit),
+          (1.5 + r.info.critDamage).toFixed(2) + '倍',
+          r.info.reduction > 0 ? pct(r.info.reduction) : '—',
+          r.info.skills ? r.info.skills + '個' : '—',
+          strat.length ? strat.join(' / ') : '—',
+        ];
+      }));
+
+    // ---------- 2. 結果 ----------
+    var maxDps = Math.max.apply(null, rows.map(function (r) { return r.dps; }));
+    var headers = ['ビルド', '1R火力'].concat(
+      CFG.fields.map(function (f) {
+        return RPG.data.fields[f].name + '<br><span class="bdesc">Lv' + RPG.data.fields[f].rec_level + '</span>';
+      })
+    ).concat(['平均勝率', '得意/苦手の差']);
+
+    table(document.getElementById('result'),
+      headers,
+      rows.slice().sort(function (a, b) { return b.avgWin - a.avgWin; }).map(function (r) {
+        var cells = [
+          '<div class="bname">' + r.build.name + '</div>',
+          '<span class="bar" style="width:' + Math.max(2, (r.dps / maxDps) * 70) + 'px"></span> ' + num(r.dps),
+        ];
+        CFG.fields.forEach(function (f) {
+          var v = r.perField[f];
+          var cls = v.winRate >= 0.8 ? 'good' : v.winRate >= 0.4 ? 'warn' : 'bad';
+          cells.push('<span class="' + cls + '">' + pct(v.winRate) + '</span>' +
+            (v.winRate > 0 ? ' <span class="bdesc">' + v.rounds.toFixed(1) + 'R</span>' : ''));
+        });
+        cells.push('<b>' + pct(r.avgWin) + '</b>');
+        cells.push(pct(r.maxWin - r.minWin));
+        return cells;
+      }));
+
+    // ---------- 判定 ----------
+    var sorted = rows.slice().sort(function (a, b) { return b.avgWin - a.avgWin; });
+    var best = sorted[0], worst = sorted[sorted.length - 1];
+    var viable = rows.filter(function (r) { return r.avgWin >= 0.6; });
+    var spSpread = Math.max.apply(null, rows.map(function (r) { return r.info.spent; })) -
+                   Math.min.apply(null, rows.map(function (r) { return r.info.spent; }));
+
+    var mastery = rows.find(function (r) { return r.build.id === 'mastery'; });
+    var adapt = rows.find(function (r) { return r.build.id === 'adapt'; });
+    var spread = rows.find(function (r) { return r.build.id === 'spread'; });
+    var phys = rows.find(function (r) { return r.build.id === 'phys'; });
+
+    var items = [
+      { ok: spSpread <= 12,
+        text: '消費SPが揃っている（差 ' + spSpread + ' SP）— 比較として公平' },
+      { ok: viable.length >= 4,
+        text: '平均勝率60%以上のビルドが ' + viable.length + ' / ' + rows.length +
+              ' 種類ある — 正解が1つに絞られていない' },
+      { ok: best.avgWin - worst.avgWin < 0.75,
+        text: '最良「' + best.build.name + '」' + pct(best.avgWin) + ' と最弱「' + worst.build.name + '」' +
+              pct(worst.avgWin) + ' の差が極端でない' },
+      { ok: spread && phys && spread.dps > phys.dps,
+        text: '§3.2 三系統分散（' + (spread ? num(spread.dps) : '-') + '）が物理集中（' +
+              (phys ? num(phys.dps) : '-') + '）を火力で上回る — 異タグ乗算が効いている' },
+      { ok: mastery && (mastery.maxWin - mastery.minWin) >= 0.2,
+        text: '§5.4 特化型は場所を選ぶ（得意 ' + (mastery ? pct(mastery.maxWin) : '-') +
+              ' / 苦手 ' + (mastery ? pct(mastery.minWin) : '-') + '）— 万能ではない' },
+      { ok: adapt && (adapt.maxWin - adapt.minWin) <= 0.34,
+        text: '§5.4 万能型はどこでも安定（振れ幅 ' + (adapt ? pct(adapt.maxWin - adapt.minWin) : '-') +
+              '）— 設計意図どおり' },
+    ];
+
+    document.getElementById('verdict').innerHTML = items.map(function (i) {
+      return '<div class="' + (i.ok ? 'ok' : 'ng') + '"><span class="mark">' + (i.ok ? '✔' : '✘') +
+        '</span><span>' + i.text + '</span></div>';
+    }).join('');
+
+    progress.textContent = '完了（各フィールドの推奨レベル・' + CFG.limitBreak + '凸・各' + CFG.runs + '回）';
+  }, 30);
+})();
+</script>
+</body>
+</html>

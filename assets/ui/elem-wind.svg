@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Top wind line with curl end -->
+  <path d="M21 23 h62 c18 0 18 24 0 24 h-6 c10 0 10-12 0-12 h-56 c-8 0-8-12 0-12 Z" fill="white"/>
+  <!-- Middle wind line with curl end (longest) -->
+  <path d="M21 59 h78 c18 0 18 24 0 24 h-6 c10 0 10-12 0-12 h-72 c-8 0-8-12 0-12 Z" fill="white"/>
+  <!-- Bottom wind line (short, straight) -->
+  <rect x="21" y="93" width="56" height="12" rx="6" fill="white"/>
+</svg>

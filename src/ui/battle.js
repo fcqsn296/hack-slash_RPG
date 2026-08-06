@@ -1,0 +1,616 @@
+// @ts-check
+/**
+ * 戦闘画面 (§2.2)。
+ * 「背景 + テキストログ + コマンドボタン」というシンプルな構成。
+ */
+(function (RPG) {
+  'use strict';
+  const { h, replace } = RPG.dom;
+  const W = RPG.widgets;
+
+  /** @type {any} */
+  let battle = null;
+  /** @type {HTMLElement|null} */
+  let root = null;
+  /** @type {string|null} 対象選択待ちのスキルID */
+  let pendingSkill = null;
+  /** ログを何行までDOMに描いたか */
+  let renderedLogs = 0;
+  /** 演出を何件まで再生したか */
+  let playedEvents = 0;
+  /** 直前のHP。ゴーストバーの起点に使う @type {Record<string, number>} */
+  let prevHp = {};
+  /** 再生中のタイマー */
+  /** @type {number[]} */
+  let effectTimers = [];
+  /** オート戦闘のタイマー */
+  let autoTimer = 0;
+
+  /** 1行動あたりの待ち時間（ミリ秒） */
+  const DELAY_NORMAL = 260;
+  const DELAY_FAST = 60;
+
+  /**
+   * @param {HTMLElement} container
+   * @param {any} b
+   */
+  function mount(container, b) {
+    stopAuto();
+    clearEffects();
+    root = container;
+    battle = b;
+    pendingSkill = null;
+    renderedLogs = 0;
+    playedEvents = 0;
+    prevHp = {};
+    snapshotHp();
+    render();
+    playEffects();
+    scheduleAuto();
+  }
+
+  /**
+   * 「行動 → 再描画 → 演出再生」をひとまとめにする。
+   * 行動前のHPを覚えてから動かすので、ゴーストバーが正しい位置から縮む。
+   * @param {() => void} fn
+   */
+  function act(fn) {
+    snapshotHp();
+    fn();
+    render();
+    playEffects();
+  }
+
+  /** 現在のHPを覚えておく。次の描画でゴーストバーの起点になる。 */
+  function snapshotHp() {
+    if (!battle) return;
+    for (const u of battle.party.concat(battle.enemies)) prevHp[u.key] = u.hp;
+  }
+
+  function clearEffects() {
+    effectTimers.forEach((t) => clearTimeout(t));
+    effectTimers = [];
+  }
+
+  /** 周回設定 */
+  function settings() {
+    return RPG.state.get().settings;
+  }
+
+  function stopAuto() {
+    clearTimeout(autoTimer);
+    autoTimer = 0;
+  }
+
+  /**
+   * この戦闘でオートを使う権利を確保する (§10.5)。
+   * 消費は1戦闘につき1回だけ。途中で手動に戻して再開しても二重には取らない。
+   * @returns {boolean} 使えるなら true
+   */
+  function claimAuto() {
+    if (!battle) return false;
+    if (battle.autoClaimed) return true;
+    if (!RPG.autolimit.spend()) return false;
+    battle.autoClaimed = true;
+    RPG.app.refreshTopbar();
+    return true;
+  }
+
+  /** オートが使えない理由。使えるなら null。 */
+  function autoBlockReason() {
+    if (battle && battle.rules && battle.rules.noAuto) return 'このクエストではオートを使えません';
+    if (battle && battle.autoClaimed) return null;
+    if (!RPG.autolimit.canAuto()) {
+      const ms = RPG.autolimit.nextRegenMs();
+      return 'オート回数がありません（次の回復まで ' + RPG.dispatch.formatDuration(ms) + '）';
+    }
+    return null;
+  }
+
+  /** オートが有効なら次の行動を予約する */
+  function scheduleAuto() {
+    stopAuto();
+    // オート禁止のクエストでは、設定が残っていても動かさない
+    if (battle && battle.rules && battle.rules.noAuto) return;
+    if (!settings().auto || !battle || battle.finished) return;
+    // 回数が尽きていたら勝手に手動へ戻す
+    if (!claimAuto()) {
+      RPG.state.updateSettings({ auto: false });
+      RPG.app.toast(autoBlockReason() || 'オートを使えません');
+      render();
+      return;
+    }
+    autoTimer = setTimeout(autoStep, settings().fast ? DELAY_FAST : DELAY_NORMAL);
+  }
+
+  /** オート戦闘の1ステップ */
+  function autoStep() {
+    if (!settings().auto || !battle || battle.finished) return;
+
+    if (battle.phase === 'wave_clear') {
+      act(() => RPG.battle.advanceWave(battle));
+      scheduleAuto();
+      return;
+    }
+
+    const action = RPG.autoplay.chooseAction(battle);
+    if (!action) return;
+    pendingSkill = null;
+    act(() => RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true }));
+    scheduleAuto();
+  }
+
+  /**
+   * 弱点コンボの表示 (§10.6)。
+   * 「次に何を狙えば伸びるか」が分かるように、伸ばし方も一緒に出す。
+   */
+  function comboMeter() {
+    const max = RPG.battle.COMBO_MAX;
+    const count = battle.combo.count;
+    const power = RPG.battle.comboPower(battle);
+
+    return h('div.combo-meter' + (count > 0 ? '.is-on' : ''),
+      h('span.combo-label', { text: '弱点コンボ' }),
+      h('div.combo-pips', Array.from({ length: max }, (_, i) =>
+        h('span.combo-pip' + (i < count ? '.is-lit' : '')))),
+      h('span.combo-power', { text: count > 0 ? `火力 +${Math.round(power * 100)}%` : '—' }),
+      h('span.combo-hint', {
+        text: count > 0
+          ? `${battle.combo.reason}を突いて継続中`
+          : '属性有利か、弱体中の敵を狙うと伸びる',
+      })
+    );
+  }
+
+  /** オートのトグルに残量を出す。使えば減ることが見えるようにする。 */
+  function autoToggleLabel() {
+    if (battle && battle.autoClaimed) return 'オート';
+    const st = RPG.autolimit.status();
+    return `オート (${st.charges})`;
+  }
+
+  function render() {
+    if (!root || !battle) return;
+    const f = battle.field;
+    const rules = battle.rules || {};
+
+    replace(root,
+      h('div.battle', { style: { background: `linear-gradient(160deg, ${f.bg[0]}, ${f.bg[1]})` } },
+        h('div.battle-top',
+          h('span.battle-field', { text: battle.quest ? battle.quest.name : f.name }),
+          h('span.battle-wave', { text: `ウェーブ ${battle.wave} / ${battle.totalWaves}` }),
+          h('span.battle-round', {
+            text: rules.maxRounds
+              ? `ラウンド ${battle.totalRounds} / ${rules.maxRounds}`
+              : `ラウンド ${battle.round}`,
+          }),
+          h('div.battle-toggles',
+            // オート禁止クエストではトグル自体を出さない
+            rules.noAuto ? null : toggle(autoToggleLabel(), settings().auto, () => {
+              const on = !settings().auto;
+              if (on && !claimAuto()) {
+                RPG.app.toast(autoBlockReason() || 'オートを使えません');
+                return;
+              }
+              RPG.state.updateSettings({ auto: on });
+              if (on) pendingSkill = null;
+              render();
+              scheduleAuto();
+            }),
+            toggle('高速', settings().fast, () => {
+              RPG.state.updateSettings({ fast: !settings().fast });
+              render();
+              scheduleAuto();
+            })
+          ),
+          W.button('撤退', () => {
+            if (!confirm('撤退しますか？ ここまでの報酬は保持されます。')) return;
+            stopAuto();
+            RPG.battle.retreat(battle);
+            render();
+          }, { variant: 'ghost' })
+        ),
+        battle.quest
+          ? h('div.battle-rules', RPG.quest.ruleLabels(battle.quest)
+              .map((/** @type {string} */ t) => h('span.chip.chip-rule', { text: t })))
+          : null,
+        comboMeter(),
+        h('div.enemy-row', battle.enemies.map((/** @type {any} */ e) => enemyCard(e))),
+        h('div.battle-log', { id: 'battle-log' }),
+        h('div.party-row.battle-party', battle.party.map((/** @type {any} */ u) => partyCard(u))),
+        h('div.command-panel', renderCommands())
+      )
+    );
+
+    renderedLogs = 0;
+    flushLog();
+  }
+
+  /** ログの未描画分だけを追記する（毎回作り直さない） */
+  function flushLog() {
+    const box = document.getElementById('battle-log');
+    if (!box || !battle) return;
+    for (let i = renderedLogs; i < battle.log.length; i++) {
+      const entry = battle.log[i];
+      box.appendChild(h('div.log-line.log-' + entry.kind, { text: entry.text }));
+    }
+    renderedLogs = battle.log.length;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  /**
+   * まだ再生していないイベントを、少しずつずらしながら見せる。
+   * 高速モードでは間隔を詰め、演出が周回の邪魔にならないようにする。
+   */
+  function playEffects() {
+    if (!battle) return;
+    const pending = battle.events.slice(playedEvents);
+    playedEvents = battle.events.length;
+    if (!pending.length) return;
+
+    const fast = settings().fast;
+    // 多段ヒットなどで一度に大量に出るときは間隔を詰める
+    const base = fast ? 22 : 105;
+    const step = pending.length > 8 ? Math.max(fast ? 12 : 45, base * 8 / pending.length) : base;
+
+    pending.forEach((ev, i) => {
+      effectTimers.push(setTimeout(() => applyEffect(ev, fast), Math.round(i * step)));
+    });
+  }
+
+  /**
+   * @param {string} key
+   * @returns {HTMLElement|null}
+   */
+  function cardOf(key) {
+    return root ? root.querySelector('[data-key="' + key + '"]') : null;
+  }
+
+  /**
+   * @param {HTMLElement} el
+   * @param {string} cls
+   * @param {number} ms
+   */
+  function pulse(el, cls, ms) {
+    el.classList.remove(cls);
+    // クラスを付け直して再生させる
+    void el.offsetWidth;
+    el.classList.add(cls);
+    effectTimers.push(setTimeout(() => el.classList.remove(cls), ms));
+  }
+
+  /**
+   * 数字や短い文字を対象カードの上に浮かせる。
+   * @param {HTMLElement} card
+   * @param {string} text
+   * @param {string} cls
+   * @param {boolean} fast
+   */
+  function floatText(card, text, cls, fast) {
+    const el = h('span.pop.' + cls, { text });
+    // 同じ位置に重ならないよう少しばらけさせる
+    el.style.left = (38 + Math.random() * 24) + '%';
+    card.appendChild(el);
+    effectTimers.push(setTimeout(() => el.remove(), fast ? 520 : 900));
+  }
+
+  /**
+   * 画面中央に短いバナーを出す（ウェーブ切替・勝敗）。
+   * @param {string} text
+   * @param {string} cls
+   * @param {boolean} fast
+   */
+  function banner(text, cls, fast) {
+    if (!root) return;
+    const el = h('div.battle-banner.' + cls, h('span', { text }));
+    root.appendChild(el);
+    effectTimers.push(setTimeout(() => el.remove(), fast ? 700 : 1400));
+  }
+
+  /**
+   * イベント1件を画面上の動きに変換する。
+   * @param {any} ev
+   * @param {boolean} fast
+   */
+  function applyEffect(ev, fast) {
+    // 拠点へ戻ったあとに残ったタイマーが動かないようにする
+    if (!root || root.classList.contains('hidden')) return;
+
+    if (ev.type === 'wave') {
+      banner(ev.text, ev.result ? (ev.lost ? 'is-lost' : 'is-victory') : (ev.boss ? 'is-boss' : 'is-wave'), fast);
+      return;
+    }
+
+    const card = cardOf(ev.key);
+    if (!card) return;
+
+    switch (ev.type) {
+      case 'action':
+        pulse(card, 'is-acting', fast ? 180 : 420);
+        break;
+
+      case 'damage': {
+        const tags = [];
+        let cls = 'is-damage';
+        if (ev.crit) { cls = 'is-crit'; tags.push('会心'); }
+        if (ev.element > 1) { cls = 'is-super'; tags.push('弱点'); }
+        if (ev.amount === 0) cls = 'is-nulled';
+        else if (ev.element < 1) cls = 'is-weak';
+
+        floatText(card, ev.amount === 0 ? '無効' : ev.amount.toLocaleString(), cls, fast);
+        if (tags.length && ev.amount > 0) {
+          effectTimers.push(setTimeout(
+            () => floatText(card, tags.join(' '), 'is-tag', fast), fast ? 60 : 150));
+        }
+        pulse(card, ev.amount === 0 ? 'is-blocked' : (ev.crit ? 'is-hit-hard' : 'is-hit'), fast ? 200 : 420);
+        break;
+      }
+
+      case 'heal':
+        floatText(card, '+' + ev.amount.toLocaleString(), 'is-heal', fast);
+        pulse(card, 'is-healed', fast ? 200 : 460);
+        break;
+
+      case 'buff':
+        floatText(card, ev.shield ? '無敵' : ev.label, 'is-buff', fast);
+        pulse(card, 'is-buffed', fast ? 200 : 460);
+        break;
+
+      case 'debuff':
+        floatText(card, ev.label, 'is-debuff', fast);
+        break;
+
+      case 'revive':
+        floatText(card, '復活', 'is-revive', fast);
+        pulse(card, 'is-healed', fast ? 240 : 600);
+        break;
+
+      case 'extra':
+        floatText(card, '再行動', 'is-extra', fast);
+        break;
+
+      case 'down':
+        pulse(card, 'is-down', fast ? 240 : 620);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  /**
+   * オン/オフを切り替える小さなボタン
+   * @param {string} label
+   * @param {boolean} on
+   * @param {() => void} onClick
+   */
+  function toggle(label, on, onClick) {
+    return h('button.toggle' + (on ? '.is-on' : ''), { onClick, 'aria-pressed': on ? 'true' : 'false' },
+      h('span.toggle-dot'),
+      h('span', { text: label })
+    );
+  }
+
+  /** @param {any} e */
+  function enemyCard(e) {
+    const targeting = pendingSkill && RPG.battle.targetKind(RPG.data.skills[pendingSkill]) === 'enemy';
+    const clickable = targeting && e.alive;
+    return h('div.enemy-card' + (e.alive ? '' : '.is-dead') + (clickable ? '.is-targetable' : ''), {
+      'data-key': e.key,
+      onClick: clickable ? () => confirmTarget(e) : null,
+      role: clickable ? 'button' : null,
+      tabindex: clickable ? '0' : null,
+    },
+      W.enemyArt(e, { boss: e.isBoss }),
+      h('div.enemy-info',
+        h('span.name', { text: e.name + (e.isBoss ? ' 👑' : '') }),
+        h('span.lv', { text: 'Lv' + e.level }),
+        W.hpBar(e.hp, e.maxHp, null, prevHp[e.key]),
+        h('div.chips',
+          W.elementChip(e.element),
+          e.defIgnoredTurns > 0 ? h('span.chip.chip-debuff', { text: '防御崩壊' }) : null,
+          ...e.statusEffects.filter((/** @type {any} */ s) => s.kind === 'poison')
+            .map(() => h('span.chip.chip-debuff', { text: '毒' }))
+        )
+      )
+    );
+  }
+
+  /** @param {any} u */
+  function partyCard(u) {
+    const actor = RPG.battle.currentActor(battle);
+    const isActive = actor === u;
+    const targeting = pendingSkill && RPG.battle.targetKind(RPG.data.skills[pendingSkill]) === 'ally';
+    const clickable = targeting && u.alive;
+
+    return h('div.party-card' + (isActive ? '.is-active' : '') + (u.alive ? '' : '.is-dead') + (clickable ? '.is-targetable' : ''), {
+      'data-key': u.key,
+      onClick: clickable ? () => confirmTarget(u) : null,
+      role: clickable ? 'button' : null,
+      tabindex: clickable ? '0' : null,
+    },
+      W.portrait(u, 'md'),
+      h('div.party-card-info',
+        h('span.name', { text: u.name }),
+        W.hpBar(u.hp, u.maxHp, null, prevHp[u.key]),
+        h('div.chips',
+          ...u.buffUnique.map((/** @type {any} */ b) => h('span.chip.chip-buff', { text: b.label })),
+          ...u.buffTags.map((/** @type {any} */ b) => h('span.chip.chip-buff', { text: b.label })),
+          ...u.statusEffects.map((/** @type {any} */ s) => h('span.chip.chip-buff', { text: s.label }))
+        )
+      )
+    );
+  }
+
+  /**
+   * タワーの結果画面の選択肢 (§10.7)。
+   * HPを持ち越したまま次の階へ進むか、ここで切り上げるかを選ぶ。
+   */
+  function towerActions() {
+    if (!battle.victory) {
+      return W.button('拠点へ戻る', () => RPG.app.finishBattle(battle), {
+        variant: 'primary', sub: `${battle.tower.floor}階で力尽きた`,
+      });
+    }
+    const next = battle.tower.floor + 1;
+    return h('div.result-actions',
+      W.button('次の階へ', () => {
+        RPG.app.finishBattle(battle, { silent: true });
+        RPG.app.startTowerFloor();
+      }, {
+        variant: 'primary',
+        sub: `${next}階へ（HPは持ち越し）`,
+      }),
+      W.button('ここで切り上げる', () => {
+        RPG.app.finishBattle(battle, { silent: true });
+        RPG.tower.retire();
+        RPG.ui.base.activeTab = 'tower';
+        RPG.app.showBase();
+      }, { variant: 'ghost' })
+    );
+  }
+
+  function renderCommands() {
+    if (battle.finished) {
+      stopAuto();
+      const sortie = { fieldId: battle.fieldId, waves: battle.totalWaves, bossFinale: battle.bossFinale };
+      // 拠点で実際に入る額と同じものをここで見せる（手動ボーナス込み）
+      const pay = RPG.economy.payout(battle, { partySize: battle.party.length });
+      const questDone = battle.questId && battle.victory && !battle.ruleBroken;
+      const firstClear = questDone && !RPG.quest.isCleared(battle.questId);
+      return h('div.result-panel',
+        h('h2', {
+          text: battle.ruleBroken ? '条件失敗' : (battle.victory ? '勝利' : '敗北'),
+        }),
+        battle.ruleBroken ? h('p.quest-block', { text: battle.ruleBroken }) : null,
+        firstClear
+          ? h('div.manual-bonus', { text: `${battle.quest.name} 初回クリア — 専用報酬を獲得` })
+          : null,
+        questDone && !firstClear
+          ? h('p.hint.hint-sm', { text: '達成済みのクエストなので、専用報酬は出ない。' })
+          : null,
+        pay.manual
+          ? h('div.manual-bonus', { text: `手動戦闘ボーナス +${Math.round(pay.bonus * 100)}%` })
+          : h('p.hint.hint-sm', { text: 'すべての行動を自分で選ぶと、報酬に手動ボーナスが付く。' }),
+        h('div.reward-lines',
+          h('div', { text: `ゴールド +${pay.gold.toLocaleString()} G` }),
+          h('div', { text: `経験値 +${pay.exp.toLocaleString()}（1人あたり ${pay.expEach.toLocaleString()}）` }),
+          h('div', {
+            text: '宝箱: ' + (Object.keys(pay.boxes).length
+              ? Object.keys(pay.boxes).map((b) => `${RPG.data.boxes[b].name}×${pay.boxes[b]}`).join('、')
+              : 'なし'),
+          })
+        ),
+        h('div.result-actions',
+          battle.tower
+            ? towerActions()
+            : battle.questId
+            ? W.button('もう一度挑む', () => {
+                const questId = battle.questId;
+                RPG.app.finishBattle(battle, { silent: true });
+                RPG.app.startQuest(questId);
+              }, { variant: 'primary', sub: battle.quest.name })
+            : W.button('もう一度', () => {
+                // 報酬を受け取ってから、同じ場所へそのまま出撃し直す
+                RPG.app.finishBattle(battle, { silent: true });
+                RPG.app.startBattle(sortie.fieldId, sortie.waves, sortie.bossFinale);
+              }, { variant: 'primary', sub: `${battle.field.name} ${sortie.waves}戦` }),
+          W.button('拠点へ戻る', () => RPG.app.finishBattle(battle), { variant: 'ghost' })
+        )
+      );
+    }
+
+    if (battle.phase === 'wave_clear') {
+      return h('div.command-center',
+        h('p', { text: `ウェーブ ${battle.wave} 制圧。HPは引き継がれる。` }),
+        W.button('次のウェーブへ', () => act(() => RPG.battle.advanceWave(battle)), { variant: 'primary' })
+      );
+    }
+
+    const actor = RPG.battle.currentActor(battle);
+    if (!actor) return h('div.command-center', h('p', { text: '…' }));
+
+    if (settings().auto && !(battle.rules && battle.rules.noAuto)) {
+      return h('div.command-center.is-auto',
+        W.portrait(actor, 'sm'),
+        h('p', { text: `${actor.name} が自動で行動中…` }),
+        W.button('手動に戻す', () => {
+          RPG.state.updateSettings({ auto: false });
+          stopAuto();
+          render();
+        }, { variant: 'ghost' })
+      );
+    }
+
+    if (pendingSkill) {
+      const skill = RPG.data.skills[pendingSkill];
+      const kind = RPG.battle.targetKind(skill);
+      return h('div.command-center',
+        h('p.targeting', { text: `${skill.name} — ${kind === 'ally' ? '味方' : '敵'}を選択してください` }),
+        W.button('キャンセル', () => { pendingSkill = null; render(); }, { variant: 'ghost' })
+      );
+    }
+
+    return h('div.command-list',
+      h('div.command-actor',
+        W.portrait(actor, 'sm'),
+        h('span', { text: actor.name + ' のコマンド' })
+      ),
+      h('div.command-buttons', actor.skills.map((/** @type {string} */ id) => {
+        const skill = RPG.data.skills[id];
+        // クラス技には解禁ラウンドとクールタイムがある (§12)。
+        // 押せない理由をボタン上に出しておかないと、なぜ選べないのか分からない。
+        const ready = RPG.battle.skillReady(battle, actor, id);
+
+        return h('button.skill-btn' + (skill.cls ? '.is-class' : '') + (ready.ok ? '' : '.is-cooling'), {
+          onClick: () => { if (ready.ok) selectSkill(id); },
+          disabled: !ready.ok,
+          title: ready.ok ? skill.desc : `${skill.desc}\n\n使用不可: ${ready.reason}`,
+        },
+          h('span.skill-name',
+            h('span', { text: skill.name }),
+            skill.cls ? h('span.chip.chip-class', { text: 'クラス' }) : null,
+            ready.ok ? null : h('span.chip.chip-cool', { text: ready.reason })
+          ),
+          h('span.skill-meta',
+            W.elementChip(skill.element),
+            W.tagChip(skill.damage_type),
+            skill.power > 0 ? h('span.chip', { text: '威力' + skill.power + '%' }) : h('span.chip', { text: '補助' }),
+            skill.cooldown ? h('span.chip', { text: `CT${skill.cooldown}` }) : null
+          ),
+          h('span.skill-desc', { text: skill.desc })
+        );
+      }))
+    );
+  }
+
+  /** @param {string} skillId */
+  function selectSkill(skillId) {
+    const skill = RPG.data.skills[skillId];
+    const kind = RPG.battle.targetKind(skill);
+
+    if (kind === 'none') {
+      act(() => RPG.battle.commandSkill(battle, skillId, []));
+      return;
+    }
+    // 対象が1体しかいないなら選択を省略する
+    const candidates = kind === 'ally' ? RPG.battle.livingParty(battle) : RPG.battle.livingEnemies(battle);
+    if (candidates.length === 1) {
+      act(() => RPG.battle.commandSkill(battle, skillId, [candidates[0]]));
+      return;
+    }
+    pendingSkill = skillId;
+    render();
+  }
+
+  /** @param {any} target */
+  function confirmTarget(target) {
+    if (!pendingSkill) return;
+    const skillId = pendingSkill;
+    pendingSkill = null;
+    act(() => RPG.battle.commandSkill(battle, skillId, [target]));
+  }
+
+  RPG.ui = RPG.ui || {};
+  RPG.ui.battle = { mount };
+})(window.RPG || (window.RPG = { data: {}, plugins: {} }));

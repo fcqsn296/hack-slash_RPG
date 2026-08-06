@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画像の取り込み — ハクスラRPG</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  #app { max-width: 1100px; padding: 24px 0 120px; }
+  .back { display: inline-block; margin-bottom: 14px; font-size: 13px; color: var(--accent); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  h2 { font-size: 16px; margin: 26px 0 8px; }
+  .lead { margin: 0 0 16px; font-size: 12.5px; color: var(--text-dim); line-height: 1.75; }
+
+  .panel {
+    display: grid; gap: 9px;
+    padding: 14px; margin-bottom: 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-panel);
+  }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+  .row .grow { flex: 1 1 200px; }
+  .state { font-size: 12px; color: var(--text-dim); }
+  .state b { color: var(--ok); }
+  .state.is-off b { color: var(--gold); }
+
+  .drop {
+    display: grid; place-items: center; gap: 6px;
+    min-height: 108px; padding: 18px;
+    border: 2px dashed var(--line); border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.is-over { border-color: var(--accent); background: rgba(90,180,255,0.07); }
+  .drop strong { font-size: 13.5px; }
+  .drop span { font-size: 11.5px; color: var(--text-dim); line-height: 1.6; }
+
+  .tray { display: grid; gap: 6px; }
+  .tray-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px;
+    background: rgba(255,255,255,0.02); font-size: 12px;
+  }
+  .tray-item img { width: 28px; height: 41px; object-fit: cover; border-radius: 4px; }
+  .tray-item .name { flex: 1 1 120px; overflow-wrap: anywhere; }
+  .tray-item select { flex: 0 1 220px; }
+
+  select, input[type=search] {
+    padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--bg-deep); color: var(--text); font: inherit; font-size: 12px; max-width: 100%;
+  }
+  select:focus, input:focus { outline: none; border-color: var(--accent); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
+  .card {
+    display: grid; grid-template-columns: minmax(0,1fr); gap: 7px;
+    padding: 9px; border: 1px solid var(--line); border-radius: 11px;
+    background: var(--bg-panel); overflow: hidden;
+  }
+  .card > * { min-width: 0; }
+  .card.has-image { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+  .card.is-pending { border-color: var(--gold); background: #221c0c; }
+  .thumb {
+    position: relative; aspect-ratio: 832 / 1216; border-radius: 8px; overflow: hidden;
+    background: #0d1016; display: grid; place-items: center;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .glyph { font-size: 28px; font-weight: 700; color: rgba(255,255,255,0.22); }
+  .badge {
+    position: absolute; left: 5px; top: 5px;
+    padding: 1px 7px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  }
+  .badge.new { background: var(--gold); color: #1a1405; }
+  .badge.ok { background: var(--ok); color: #04140c; }
+  .card .nm { font-size: 12.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .card .fn { font-size: 10.5px; color: var(--text-dim); font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+  .card .warn { font-size: 10.5px; color: var(--gold); line-height: 1.5; }
+  .card .acts { display: flex; gap: 5px; flex-wrap: wrap; }
+  .card .acts .btn { padding: 3px 9px; font-size: 11px; }
+
+  .applybar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+    padding: 11px 16px;
+    border-top: 1px solid var(--line);
+    background: rgba(10,12,17,0.94); backdrop-filter: blur(8px);
+    font-size: 12.5px;
+  }
+  .applybar.is-idle { display: none; }
+  .log { margin: 0; font-size: 11.5px; color: var(--text-dim); line-height: 1.7; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <a class="back" href="../index.html">← ゲームへ戻る</a>
+  <h1>画像の取り込み</h1>
+  <p class="lead">
+    立ち絵をキャラクターや敵に割り当て、正しいファイル名で <code>assets/</code> へ書き込みます。<br>
+    <b>取り込み先の一覧は <code>data/characters.js</code> と <code>data/enemies.js</code> から自動で作られます。</b>
+    キャラや敵を追加すれば、このツールにも自動で枠が増えます。
+  </p>
+
+  <div class="panel">
+    <div class="row">
+      <button class="btn btn-primary" id="pick-dir"><span class="btn-label">保存先フォルダを選ぶ</span></button>
+      <span class="state is-off grow" id="dir-state">未接続</span>
+    </div>
+    <p class="lead" style="margin:0" id="dir-note"></p>
+  </div>
+
+  <div class="drop" id="drop">
+    <strong>ここに画像をドロップ / クリックしてまとめて選択</strong>
+    <span id="drop-note">ファイル名にIDか名前が含まれていれば自動で割り当てます</span>
+  </div>
+
+  <div class="panel" id="tray-panel" hidden>
+    <div class="row">
+      <b style="font-size:13px">割り当て先が決まっていない画像</b>
+      <span class="state grow" id="tray-count"></span>
+      <button class="btn btn-ghost" id="tray-clear"><span class="btn-label">すべて破棄</span></button>
+    </div>
+    <div class="tray" id="tray"></div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <input type="search" id="q" class="grow" placeholder="名前 / ID で絞り込み">
+      <label class="state"><input type="checkbox" id="only-missing"> 未設定のみ表示</label>
+      <span class="state grow" id="summary"></span>
+    </div>
+  </div>
+
+  <div id="sections"></div>
+</div>
+
+<div class="applybar is-idle" id="applybar">
+  <span id="apply-info"></span>
+  <button class="btn btn-primary" id="apply"><span class="btn-label">書き込む</span></button>
+  <button class="btn btn-ghost" id="reset"><span class="btn-label">割り当てを取り消す</span></button>
+</div>
+
+<script src="../src/namespace.js"></script>
+<script src="../data/characters.js"></script>
+<script src="../data/enemies.js"></script>
+<script src="../data/art.js"></script>
+<script>
+  // このページは tools/ にあるので、assets の基準パスを一つ上に向ける
+  RPG.data.artConfig.basePath = '../';
+</script>
+<script src="../src/ui/artsource.js"></script>
+<script src="importcore.js"></script>
+<script src="import.js"></script>
+</body>
+</html>

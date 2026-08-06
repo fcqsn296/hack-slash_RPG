@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Key head: perfect circle (center 40,64 r=32) with hexagonal cutout via evenodd -->
+  <path fill-rule="evenodd"
+    d="M 40 32
+       C 57.7 32 72 46.3 72 64
+       C 72 81.7 57.7 96 40 96
+       C 22.3 96 8 81.7 8 64
+       C 8 46.3 22.3 32 40 32 Z
+       M 40 51
+       L 51 57.5 L 51 70.5 L 40 77 L 29 70.5 L 29 57.5 Z"
+    fill="white"/>
+  <!-- Shaft -->
+  <rect x="68" y="52" width="52" height="16" fill="white"/>
+  <!-- Tooth 1 -->
+  <rect x="84" y="37" width="11" height="17" fill="white"/>
+  <!-- Tooth 2 -->
+  <rect x="103" y="37" width="11" height="17" fill="white"/>
+</svg>

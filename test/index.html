@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>検証テスト — ハクスラRPG</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  #app { max-width: 900px; padding-top: 24px; }
+  .summary {
+    display: flex; align-items: center; gap: 18px;
+    padding: 18px 22px; margin-bottom: 22px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-panel);
+  }
+  .summary .big { font-size: 30px; font-weight: 700; }
+  .summary.ok .big { color: var(--ok); }
+  .summary.ng .big { color: var(--danger); }
+  .case {
+    display: grid; grid-template-columns: 26px 1fr; gap: 12px;
+    padding: 11px 14px; margin-bottom: 6px;
+    border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px;
+    background: var(--bg-panel);
+  }
+  .case.pass { border-left-color: var(--ok); }
+  .case.fail { border-left-color: var(--danger); }
+  .case .mark { font-size: 16px; text-align: center; }
+  .case.pass .mark { color: var(--ok); }
+  .case.fail .mark { color: var(--danger); }
+  .case .name { font-weight: 600; font-size: 13px; }
+  .case .detail { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .case .note {
+    margin-top: 7px; padding: 8px 10px;
+    border-left: 2px solid var(--gold-dim); border-radius: 4px;
+    background: rgba(240, 193, 75, 0.07);
+    font-size: 11.5px; color: #e2d3a6; line-height: 1.6;
+  }
+  .back { display: inline-block; margin-bottom: 18px; font-size: 13px; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <a class="back" href="../index.html">← ゲームへ戻る</a>
+  <h1 style="font-size:22px;margin:0 0 6px">検証テスト</h1>
+  <p class="hint" style="margin:0 0 22px">
+    設計書 §11 のテストケースと、§3 の計算ルール・データ整合性を検証します。
+  </p>
+  <div id="summary"></div>
+  <div id="results"></div>
+</div>
+
+<script src="../src/namespace.js"></script>
+<script src="../src/core/rng.js"></script>
+<script src="../src/core/damage.js"></script>
+<script src="../src/core/economy.js"></script>
+<script src="../data/skills.js"></script>
+<script src="../data/characters.js"></script>
+<script src="../data/enemies.js"></script>
+<script src="../data/equipment.js"></script>
+<script src="../data/equipsets.js"></script>
+<script src="../data/uniques.js"></script>
+<script src="../data/fields.js"></script>
+<script src="../data/gacha.js"></script>
+<script src="../data/skilltree.js"></script>
+<script src="../data/statuses.js"></script>
+<script src="../data/nodecategories.js"></script>
+<script src="../data/classes.js"></script>
+<script src="../data/quests.js"></script>
+<script src="../data/tower.js"></script>
+<script src="../data/art.js"></script>
+<script src="../data/artprompts.js"></script>
+<script>
+  // このページは test/ 配下にあるので、アセットの基準パスを一つ上に向ける
+  RPG.data.artConfig.basePath = '../';
+</script>
+<script src="../src/core/tree.js"></script>
+<script src="../src/core/klass.js"></script>
+<script src="../src/core/units.js"></script>
+<script src="../src/core/equipset.js"></script>
+<script src="../src/core/gear.js"></script>
+<script src="../src/core/enhance.js"></script>
+<script src="../src/core/autosell.js"></script>
+<script src="../src/core/state.js"></script>
+<script src="../src/core/savefile.js"></script>
+<script src="../src/core/gacha.js"></script>
+<script src="../src/core/quest.js"></script>
+<script src="../src/core/codex.js"></script>
+<script src="../src/plugins/multi_hit.js"></script>
+<script src="../src/plugins/def_ignore.js"></script>
+<script src="../src/plugins/poison.js"></script>
+<script src="../src/plugins/status.js"></script>
+<script src="../src/plugins/vengeance.js"></script>
+<script src="../src/plugins/mass_revive.js"></script>
+<script src="../src/plugins/mass_extra.js"></script>
+<script src="../src/plugins/buffs.js"></script>
+<script src="../src/plugins/heal.js"></script>
+<script src="../src/plugins/lifesteal_hit.js"></script>
+<script src="../src/plugins/reduction_buff.js"></script>
+<script src="../src/plugins/multi_debuff.js"></script>
+<script src="../src/plugins/hp_cost.js"></script>
+<script src="../src/plugins/all_enemies.js"></script>
+<script src="../src/plugins/full_burst.js"></script>
+<script src="../src/core/battle.js"></script>
+<script src="../src/core/autoplay.js"></script>
+<script src="../src/core/autoequip.js"></script>
+<script src="../src/core/dispatch.js"></script>
+<script src="../src/core/autolimit.js"></script>
+<script src="../src/core/tower.js"></script>
+<script src="../src/ui/art.js"></script>
+<script src="../src/ui/facecrop.js"></script>
+<script src="../src/ui/artsource.js"></script>
+<script src="../tools/importcore.js"></script>
+<script src="tests.js"></script>
+<script>
+(function () {
+  // テストがプレイ中のセーブデータを壊さないよう、全体を退避・復元で囲む
+  var backup = localStorage.getItem(RPG.state.STORAGE_KEY);
+  var results;
+  try {
+    results = RPG.tests.run();
+  } finally {
+    if (backup === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+    else localStorage.setItem(RPG.state.STORAGE_KEY, backup);
+  }
+  render(results);
+
+  // 画像の読み込みを伴うテストは後から結果に追記される
+  RPG.tests.runAsync(function (allResults) { render(allResults); });
+})();
+
+function render(results) {
+  var passed = results.filter(function (r) { return r.pass; }).length;
+  var all = results.length;
+  var ok = passed === all;
+
+  var summary = document.getElementById('summary');
+  summary.className = 'summary ' + (ok ? 'ok' : 'ng');
+  summary.innerHTML =
+    '<span class="big">' + passed + ' / ' + all + '</span>' +
+    '<span>' + (ok ? 'すべて合格' : (all - passed) + ' 件が不合格') + '</span>';
+
+  var box = document.getElementById('results');
+  box.innerHTML = '';
+  results.forEach(function (r) {
+    var el = document.createElement('div');
+    el.className = 'case ' + (r.pass ? 'pass' : 'fail');
+    var mark = document.createElement('div');
+    mark.className = 'mark';
+    mark.textContent = r.pass ? '✔' : '✘';
+    var body = document.createElement('div');
+    var name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = r.name;
+    var detail = document.createElement('div');
+    detail.className = 'detail';
+    detail.textContent = r.detail;
+    body.appendChild(name);
+    body.appendChild(detail);
+    if (r.note) {
+      var note = document.createElement('div');
+      note.className = 'note';
+      note.textContent = '注記: ' + r.note;
+      body.appendChild(note);
+    }
+    el.appendChild(mark);
+    el.appendChild(body);
+    box.appendChild(el);
+  });
+}
+</script>
+
+</body>
+</html>

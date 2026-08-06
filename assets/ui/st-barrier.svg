@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Outer ring: R=54 r=46 width=8px -->
+  <path fill-rule="evenodd" d="M118 64 A54 54 0 1 0 10 64 A54 54 0 1 0 118 64 Z M110 64 A46 46 0 1 0 18 64 A46 46 0 1 0 110 64 Z" fill="white"/>
+  <!-- Inner core circle: r=20 -->
+  <circle cx="64" cy="64" r="20" fill="white"/>
+  <!-- 4 radial energy bars: 8px wide, span gap between inner circle and outer ring -->
+  <rect x="60" y="18" width="8" height="26" fill="white"/>
+  <rect x="60" y="84" width="8" height="26" fill="white"/>
+  <rect x="18" y="60" width="26" height="8" fill="white"/>
+  <rect x="84" y="60" width="26" height="8" fill="white"/>
+</svg>

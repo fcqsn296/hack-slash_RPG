@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>アート確認・顔切り抜き調整 — ハクスラRPG</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  #app { max-width: 1180px; padding-top: 24px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .toolbar .status { font-size: 12px; color: var(--text-dim); margin-left: auto; }
+
+  .sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .cell {
+    display: grid; gap: 10px;
+    padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-panel);
+  }
+  .cell.no-image { opacity: 0.72; }
+  .row { display: flex; align-items: flex-start; gap: 12px; }
+  .row .standee { width: 108px; }
+  .icons { display: flex; gap: 8px; align-items: flex-end; }
+  .nm { font-weight: 700; }
+  .ti { font-size: 11px; color: var(--text-dim); }
+  .src { font-size: 10px; color: var(--text-dim); word-break: break-all; }
+  .badge {
+    display: inline-block; padding: 1px 7px; border-radius: 999px;
+    font-size: 10px; border: 1px solid var(--line);
+  }
+  .badge.ok { color: var(--ok); border-color: #4ee08a55; }
+  .badge.gen { color: var(--accent); border-color: #6ea8ff55; }
+
+  .sliders { display: grid; gap: 5px; }
+  .slider { display: grid; grid-template-columns: 34px 1fr 46px; align-items: center; gap: 8px; font-size: 11px; }
+  .slider input { width: 100%; }
+  .slider b { text-align: right; font-variant-numeric: tabular-nums; color: var(--gold); }
+  .snippet {
+    padding: 7px 9px; border-radius: 6px; background: #0a0d12; border: 1px solid var(--line);
+    font-family: Consolas, monospace; font-size: 10.5px; color: #b8d4ff; word-break: break-all;
+  }
+  .cell-actions { display: flex; gap: 8px; }
+  .cell-actions .btn { flex: 1; }
+  .back { display: inline-block; margin-bottom: 16px; font-size: 13px; color: var(--accent); }
+  .note {
+    padding: 12px 14px; margin-bottom: 20px;
+    border: 1px solid var(--gold-dim); border-radius: 10px;
+    background: rgba(240,193,75,0.07); font-size: 12px; line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <a class="back" href="../index.html">← ゲームへ戻る</a>
+  <h1 style="font-size:22px;margin:0 0 6px">アート確認・顔切り抜き調整</h1>
+  <p class="hint" style="margin:0 0 16px">
+    立ち絵と、そこから自動で切り抜いた顔アイコンを並べて確認します。スライダーで調整した値は
+    <code>data/characters.js</code> にそのまま貼れる形で表示されます。
+  </p>
+
+  <div class="note" id="note"></div>
+
+  <div class="toolbar">
+    <button class="btn" id="btn-clear"><span class="btn-label">検出キャッシュを消去</span></button>
+    <button class="btn" id="btn-redetect"><span class="btn-label">顔を再検出</span></button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="sheet" id="sheet"></div>
+
+  <h2 style="font-size:18px;margin:32px 0 6px">敵の立ち絵</h2>
+  <p class="hint" style="margin:0 0 14px">
+    敵は顔の切り抜きをせず、画像をそのままの構図で表示します。
+    <b id="enemy-dir"></b> に <b>敵ID.png</b>（推奨 832×1216）を置いてください。
+  </p>
+  <div class="sheet" id="enemy-sheet"></div>
+</div>
+
+<script src="../src/namespace.js"></script>
+<script src="../src/core/rng.js"></script>
+<script src="../src/core/damage.js"></script>
+<script src="../data/skills.js"></script>
+<script src="../data/characters.js"></script>
+<script src="../data/enemies.js"></script>
+<script src="../data/equipment.js"></script>
+<script src="../data/fields.js"></script>
+<script src="../data/gacha.js"></script>
+<script src="../data/skilltree.js"></script>
+<script src="../data/statuses.js"></script>
+<script src="../data/nodecategories.js"></script>
+<script src="../data/classes.js"></script>
+<script src="../data/art.js"></script>
+<script src="../src/core/tree.js"></script>
+<script src="../src/core/klass.js"></script>
+<script src="../src/core/units.js"></script>
+<script src="../src/ui/dom.js"></script>
+<script src="../src/ui/art.js"></script>
+<script src="../src/ui/facecrop.js"></script>
+<script>
+  // このページは test/ 配下にあるので、アセットの基準パスを一つ上に向ける
+  RPG.data.artConfig.basePath = '../';
+</script>
+<script src="../src/ui/artsource.js"></script>
+<script>
+(function () {
+  var cfg = RPG.data.artConfig;
+  var sheet = document.getElementById('sheet');
+  var status = document.getElementById('status');
+
+  document.getElementById('note').innerHTML =
+    '立ち絵の置き場所: <b>' + cfg.dir + '</b> に <b>キャラクターID.png</b>（推奨 ' +
+    cfg.standeeSize.width + '×' + cfg.standeeSize.height + '、背景透過）<br>' +
+    '顔アイコンは自動で切り抜かれるため用意不要です。自分で用意する場合のみ <b>' + cfg.iconDir + '</b> へ。';
+
+  var canPixel = location.protocol !== 'file:';
+  if (!canPixel) {
+    status.textContent = 'file:// で開いているため、顔の自動検出と書き出しは使えません（既定値で表示中）';
+  }
+
+  var cells = [];
+
+  Object.keys(RPG.data.characters).forEach(function (id) {
+    var c = RPG.data.characters[id];
+
+    var cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML =
+      '<div class="row">' +
+        '<div class="standee"></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="nm"></div><div class="ti"></div>' +
+          '<div style="margin:6px 0"><span class="badge"></span></div>' +
+          '<div class="icons">' +
+            '<div class="portrait portrait-lg"></div>' +
+            '<div class="portrait portrait-md"></div>' +
+            '<div class="portrait portrait-sm"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sliders"></div>' +
+      '<div class="snippet"></div>' +
+      '<div class="src"></div>' +
+      '<div class="cell-actions"></div>';
+
+    cell.querySelector('.nm').textContent = c.name + (c.nameEditable ? '（名前可変）' : '');
+    cell.querySelector('.ti').textContent = id + ' — ' + c.title;
+    sheet.appendChild(cell);
+
+    cells.push({ id: id, c: c, el: cell, path: null, rect: null, imgs: [] });
+  });
+
+  /** 1キャラ分を描画する */
+  function build(entry) {
+    var cell = entry.el;
+    var badge = cell.querySelector('.badge');
+    var standeeBox = cell.querySelector('.standee');
+    var portraits = cell.querySelectorAll('.portrait');
+    var sliders = cell.querySelector('.sliders');
+    var snippet = cell.querySelector('.snippet');
+    var actions = cell.querySelector('.cell-actions');
+    var srcLine = cell.querySelector('.src');
+
+    return RPG.artSource.standee(entry.c).then(function (path) {
+      entry.path = path;
+
+      if (!path) {
+        // 立ち絵が未配置。生成SVGで表示する
+        cell.classList.add('no-image');
+        badge.textContent = '立ち絵 未配置（生成SVGで表示中）';
+        badge.className = 'badge gen';
+        standeeBox.innerHTML = RPG.art.standeeSvg(entry.c);
+        portraits.forEach(function (p) { p.innerHTML = RPG.art.iconSvg(entry.c); });
+        srcLine.textContent = '想定パス: ' + RPG.artSource.standeeCandidates(entry.c).join(' / ');
+        sliders.remove();
+        snippet.remove();
+        actions.remove();
+        return;
+      }
+
+      badge.textContent = '立ち絵あり';
+      badge.className = 'badge ok';
+      srcLine.textContent = path;
+
+      standeeBox.innerHTML = '';
+      var full = new Image();
+      full.className = 'standee-img';
+      full.src = path;
+      standeeBox.appendChild(full);
+
+      entry.rect = RPG.faceCrop.rectFor(entry.c.art, path);
+
+      // 各サイズの顔アイコン
+      entry.imgs = [];
+      portraits.forEach(function (p) {
+        p.innerHTML = '';
+        var img = new Image();
+        img.className = 'portrait-img is-cropped';
+        img.src = path;
+        p.appendChild(img);
+        entry.imgs.push(img);
+      });
+
+      function place() {
+        var natural = { width: full.naturalWidth, height: full.naturalHeight };
+        entry.imgs.forEach(function (img) { RPG.faceCrop.applyRect(img, entry.rect, natural); });
+        snippet.textContent = 'face: { x: ' + entry.rect.x.toFixed(3) +
+          ', y: ' + entry.rect.y.toFixed(3) + ', size: ' + entry.rect.size.toFixed(3) + ' },';
+        sliders.querySelectorAll('input').forEach(function (input) {
+          input.value = String(entry.rect[input.dataset.key]);
+          input.parentElement.querySelector('b').textContent = Number(entry.rect[input.dataset.key]).toFixed(3);
+        });
+      }
+
+      // スライダー
+      [['x', '中心X', 0, 1], ['y', '中心Y', 0, 1], ['size', 'サイズ', 0.05, 1]].forEach(function (def) {
+        var row = document.createElement('label');
+        row.className = 'slider';
+        row.innerHTML = '<span></span><input type="range" step="0.005"><b></b>';
+        row.querySelector('span').textContent = def[1];
+        var input = row.querySelector('input');
+        input.min = String(def[2]); input.max = String(def[3]);
+        input.dataset.key = def[0];
+        input.addEventListener('input', function () {
+          entry.rect = RPG.faceCrop.normalize(
+            Object.assign({}, entry.rect, { [def[0]]: parseFloat(input.value) })
+          );
+          place();
+        });
+        sliders.appendChild(row);
+      });
+
+      // 操作ボタン
+      var exportBtn = document.createElement('button');
+      exportBtn.className = 'btn';
+      exportBtn.innerHTML = '<span class="btn-label">顔アイコンを書き出す</span>';
+      exportBtn.disabled = !canPixel;
+      exportBtn.addEventListener('click', function () {
+        RPG.faceCrop.exportIcon(path, entry.rect, 512).then(function (blob) {
+          if (!blob) { alert('書き出しに失敗しました。ローカルサーバー経由で開いてください。'); return; }
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = entry.id + '.png';
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+        });
+      });
+
+      var detectBtn = document.createElement('button');
+      detectBtn.className = 'btn';
+      detectBtn.innerHTML = '<span class="btn-label">自動検出</span>';
+      detectBtn.disabled = !canPixel;
+      detectBtn.addEventListener('click', function () {
+        RPG.faceCrop.detect(path).then(function (r) {
+          if (!r) { alert('顔を検出できませんでした。スライダーで調整してください。'); return; }
+          entry.rect = r; place();
+        });
+      });
+
+      actions.appendChild(detectBtn);
+      actions.appendChild(exportBtn);
+
+      if (full.complete) place(); else full.addEventListener('load', place);
+
+      // 初回は自動検出を走らせる（手動指定がある場合を除く）
+      if (!entry.c.art.face) {
+        return RPG.faceCrop.detect(path).then(function (r) {
+          if (r) { entry.rect = r; place(); }
+        });
+      }
+    });
+  }
+
+  function buildAll() {
+    return Promise.all(cells.map(build)).then(function () {
+      var withImage = cells.filter(function (e) { return e.path; }).length;
+      status.textContent = (canPixel ? '' : status.textContent + ' ／ ') +
+        '立ち絵 ' + withImage + ' / ' + cells.length + ' 体';
+    });
+  }
+
+  document.getElementById('btn-clear').addEventListener('click', function () {
+    RPG.faceCrop.clearCache();
+    RPG.artSource.clearCache();
+    location.reload();
+  });
+  document.getElementById('btn-redetect').addEventListener('click', function () {
+    RPG.faceCrop.clearCache();
+    cells.forEach(function (e) {
+      if (!e.path) return;
+      RPG.faceCrop.detect(e.path);
+    });
+    setTimeout(function () { location.reload(); }, 400);
+  });
+
+  buildAll();
+
+  // ---------- 敵の立ち絵 ----------
+  document.getElementById('enemy-dir').textContent = cfg.enemyDir;
+  var enemySheet = document.getElementById('enemy-sheet');
+
+  Object.keys(RPG.data.enemies).forEach(function (id) {
+    var e = RPG.data.enemies[id];
+    var cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML =
+      '<div class="row">' +
+        '<div class="standee enemy-slot"></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="nm"></div><div class="ti"></div>' +
+          '<div style="margin:6px 0"><span class="badge"></span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="src"></div>';
+    cell.querySelector('.nm').textContent = e.name + (e.boss ? '（ボス）' : '');
+    cell.querySelector('.ti').textContent = id + ' — ' + RPG.damage.ELEMENT_LABEL[e.element] + '属性';
+    enemySheet.appendChild(cell);
+
+    var slot = cell.querySelector('.enemy-slot');
+    var badge = cell.querySelector('.badge');
+    var srcLine = cell.querySelector('.src');
+
+    RPG.artSource.enemy(e).then(function (path) {
+      if (path) {
+        badge.textContent = '立ち絵あり';
+        badge.className = 'badge ok';
+        srcLine.textContent = path;
+        var img = new Image();
+        img.className = 'standee-img';
+        img.src = path;
+        slot.appendChild(img);
+      } else {
+        cell.classList.add('no-image');
+        badge.textContent = '未配置（紋様タイルで表示中）';
+        badge.className = 'badge gen';
+        srcLine.textContent = '想定パス: ' + RPG.artSource.enemyCandidates(e).join(' / ');
+        slot.style.display = 'grid';
+        slot.style.placeItems = 'center';
+        slot.style.background = 'radial-gradient(circle at 50% 30%, ' + e.color + '33, #12151c 78%)';
+        slot.innerHTML = '<span style="font-size:34px;font-weight:700;color:#fff">' + e.glyph + '</span>';
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

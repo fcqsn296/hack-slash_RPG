@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Buff up: double chevron upward + plus sign for stat increase -->
+  <path d="M14 76 L50 34 L86 76 L72 76 L50 50 L28 76 Z" fill="white"/>
+  <path d="M14 106 L50 64 L86 106 L72 106 L50 80 L28 106 Z" fill="white"/>
+  <path d="M97 18 L111 18 L111 32 L121 32 L121 44 L111 44 L111 58 L97 58 L97 44 L87 44 L87 32 L97 32 Z" fill="white"/>
+</svg>
