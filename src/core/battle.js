@@ -771,7 +771,6 @@
    * @param {{powerScale?: number, ignoreDefense?: boolean, silent?: boolean}} [opts]
    */
   function applyDamage(battle, attacker, defender, skill, opts) {
-    throw new Error('わざと壊した — 巻き戻しの検証用');
     opts = opts || {};
     // 「防御崩し」は攻撃のたびに判定する
     const guardBreak = (attacker.passives && attacker.passives.guardBreak) || 0;
