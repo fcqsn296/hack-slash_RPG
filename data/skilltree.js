@@ -957,51 +957,51 @@ RPG.data.skillTree = [
   /* ===== 属性ごとの刃 (§5.8) =====
    * 会心率を属性で絞る。「一点集中」が全部乗せなので、そちらより1段が大きい。 */
   {
-    id: 'tr_crit_fire', tier: 'basic', name: '紅蓮の刃', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'fire', value: 0.04 }],
-    desc: '火属性の攻撃 クリティカル率 +4%',
+    id: 'tr_crit_fire', tier: 'basic', name: '紅蓮の刃', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'element_crit', element: 'fire', value: 0.05 }],
+    desc: '火属性の攻撃 クリティカル率 +5%',
   },
   {
-    id: 'tr_crit_water', tier: 'basic', name: '蒼波の刃', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'water', value: 0.04 }],
-    desc: '水属性の攻撃 クリティカル率 +4%',
+    id: 'tr_crit_water', tier: 'basic', name: '蒼波の刃', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'element_crit', element: 'water', value: 0.05 }],
+    desc: '水属性の攻撃 クリティカル率 +5%',
   },
   {
-    id: 'tr_crit_wind', tier: 'basic', name: '疾風の刃', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'wind', value: 0.04 }],
-    desc: '風属性の攻撃 クリティカル率 +4%',
+    id: 'tr_crit_wind', tier: 'basic', name: '疾風の刃', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'element_crit', element: 'wind', value: 0.05 }],
+    desc: '風属性の攻撃 クリティカル率 +5%',
   },
   {
-    id: 'tr_crit_earth', tier: 'basic', name: '岩塊の刃', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'earth', value: 0.04 }],
-    desc: '土属性の攻撃 クリティカル率 +4%',
+    id: 'tr_crit_earth', tier: 'basic', name: '岩塊の刃', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'element_crit', element: 'earth', value: 0.05 }],
+    desc: '土属性の攻撃 クリティカル率 +5%',
   },
   {
-    id: 'tr_crit_light', tier: 'basic', name: '聖光の刃', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'light', value: 0.04 }],
-    desc: '光属性の攻撃 クリティカル率 +4%',
+    id: 'tr_crit_light', tier: 'basic', name: '聖光の刃', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'element_crit', element: 'light', value: 0.05 }],
+    desc: '光属性の攻撃 クリティカル率 +5%',
   },
   {
-    id: 'tr_crit_dark', tier: 'basic', name: '常闇の刃', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'dark', value: 0.04 }],
-    desc: '闇属性の攻撃 クリティカル率 +4%',
+    id: 'tr_crit_dark', tier: 'basic', name: '常闇の刃', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'element_crit', element: 'dark', value: 0.05 }],
+    desc: '闇属性の攻撃 クリティカル率 +5%',
   },
 
   /* ===== 系統ごとの冴え (§5.8) ===== */
   {
-    id: 'tr_crit_phys', tier: 'basic', name: '武の冴え', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'tag_crit', tag: 'phys', value: 0.04 }],
-    desc: '[物理]技のクリティカル率 +4%',
+    id: 'tr_crit_phys', tier: 'basic', name: '武の冴え', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'tag_crit', tag: 'phys', value: 0.05 }],
+    desc: '[物理]技のクリティカル率 +5%',
   },
   {
-    id: 'tr_crit_magi', tier: 'basic', name: '術の冴え', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'tag_crit', tag: 'magi', value: 0.04 }],
-    desc: '[魔術]技のクリティカル率 +4%',
+    id: 'tr_crit_magi', tier: 'basic', name: '術の冴え', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'tag_crit', tag: 'magi', value: 0.05 }],
+    desc: '[魔術]技のクリティカル率 +5%',
   },
   {
-    id: 'tr_crit_reli', tier: 'basic', name: '理の冴え', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'tag_crit', tag: 'reli', value: 0.04 }],
-    desc: '[遺物]技のクリティカル率 +4%',
+    id: 'tr_crit_reli', tier: 'basic', name: '理の冴え', cost: 1, maxLevel: 4,
+    effects: [{ kind: 'tag_crit', tag: 'reli', value: 0.05 }],
+    desc: '[遺物]技のクリティカル率 +5%',
   },
 
   /* ===== ステータスの付け替え (§5.8) =====
@@ -1285,16 +1285,6 @@ RPG.data.skillTree = [
     id: 'tr_wave_revive_mid', tier: 'mid', name: '不屈の魂', cost: 4, maxLevel: 3,
     effects: [{ kind: 'wave_revive', value: 0.3 }],
     desc: 'ウェーブが変わるとき、倒れていてもHP30%で立ち上がる',
-  },
-  {
-    id: 'tr_crit_all_elem', tier: 'mid', name: '万象の刃', cost: 4, maxLevel: 4,
-    effects: [{ kind: 'element_crit', element: 'all', value: 0.015 }],
-    desc: '全属性の攻撃 クリティカル率 +1.5%',
-  },
-  {
-    id: 'tr_crit_all_tag', tier: 'mid', name: '三系統の冴え', cost: 4, maxLevel: 4,
-    effects: [{ kind: 'tag_crit', tag: 'all', value: 0.015 }],
-    desc: '全系統の技のクリティカル率 +1.5%',
   },
   {
     id: 'tr_res_all', tier: 'mid', name: '万象の胆力', cost: 3, maxLevel: 2,

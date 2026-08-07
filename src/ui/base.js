@@ -13,6 +13,15 @@
   /** @type {string} */
   let selectedChar = 'ch_hero';
   /** @type {any[]} 直近の鑑定結果 */
+  /**
+   * 鑑定結果として一度に並べるカードの上限 (§7.9)。
+   * 1枚あたり約29個のDOM要素になるので、ここを外すとスマホが落ちる。
+   */
+  const IDENTIFY_SHOW_MAX = 60;
+
+  /** 所持装備の一覧に一度に並べる上限 (§7.9)。理由は上と同じ。 */
+  const INVENTORY_SHOW_MAX = 120;
+
   let lastIdentified = [];
   /** @type {{count: number, gold: number, protectedCount: number}|null} 直近の自動売却の結果 */
   let lastAutoSold = null;
@@ -1397,10 +1406,25 @@
                       ? `（更新候補 ${lastAutoSold.protectedCount} 個は残しています）` : ''),
                 })
               : null,
-            h('div.item-grid', lastIdentified
-              .slice()
-              .sort((a, b) => RPG.gear.score(b) - RPG.gear.score(a))
-              .map((item) => W.itemCard(item)))
+            // 表示する枚数に上限を設ける (§7.9)。
+            // 上限が無いと、500個まとめて開いたときにカードを500枚組み立てることになり、
+            // DOMが1万5千要素を超える。スマホではここで固まって落ちる（実測: 2000個で5万7千要素）。
+            // そもそも500枚を目で追う人はいないので、良い順に上位だけ見せて残りは件数で示す。
+            (function () {
+              const sorted = lastIdentified.slice()
+                .sort((a, b) => RPG.gear.score(b) - RPG.gear.score(a));
+              const shown = sorted.slice(0, IDENTIFY_SHOW_MAX);
+              const rest = sorted.length - shown.length;
+              return h('div',
+                h('div.item-grid', shown.map((item) => W.itemCard(item))),
+                rest > 0
+                  ? h('p.hint.hint-sm', {
+                      text: `評価の高い ${shown.length} 個を表示しています。` +
+                        `残り ${rest} 個は「装備」タブで確認できます。`,
+                    })
+                  : null
+              );
+            })()
           )
         : null,
       autoSellPanel(root)
@@ -1504,9 +1528,8 @@
    */
   function openBoxes(boxId, count, keep) {
     if (!keep) { lastIdentified = []; lastAutoSold = null; }
-    for (let i = 0; i < count; i++) {
-      const item = RPG.state.identifyBox(boxId);
-      if (!item) break;
+    // まとめて処理する。1個ずつだとセーブの書き込みが個数の2乗で効いてくる (§7.9)。
+    for (const item of RPG.state.identifyBoxes(boxId, count)) {
       lastIdentified.push(item);
     }
     if (!keep) summariseIdentify();
@@ -1621,6 +1644,15 @@
           h('h3', { text: `所持装備（${inventory.length} / ${save.inventory.length}）` }),
           bulkSellButton(root, inventory, owner)
         ),
+        // 一覧にも上限を設ける (§7.9)。
+        // 周回を続けると所持数は数百に達し、全部並べるとスマホが固まる。
+        // 絞り込みと並べ替えがあるので、見たいものは上位に持ってこられる。
+        inventory.length > INVENTORY_SHOW_MAX
+          ? h('p.hint.hint-sm', {
+              text: `上位 ${INVENTORY_SHOW_MAX} 個を表示しています` +
+                `（該当 ${inventory.length} 個）。絞り込みと並べ替えで目的の装備を絞ってください。`,
+            })
+          : null,
         gearToolbar(root, save.inventory),
         inventory.length === 0
           ? h('p.empty', {
@@ -1628,7 +1660,7 @@
                 ? '装備がありません。宝箱を鑑定しましょう。'
                 : '条件に合う装備がありません。絞り込みを外してください。',
             })
-          : h('div.item-grid', inventory.map((/** @type {any} */ item) =>
+          : h('div.item-grid', inventory.slice(0, INVENTORY_SHOW_MAX).map((/** @type {any} */ item) =>
               h('div.inv-entry' + (item.locked ? '.is-locked' : ''),
                 W.itemCard(item, {
                   equippedBy: owner[item.uid],

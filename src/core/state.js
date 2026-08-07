@@ -294,6 +294,38 @@
   }
 
   /**
+   * 宝箱をまとめて鑑定する (§7.9)。
+   *
+   * 1個ずつ identifyBox() を呼ぶと、**そのたびにセーブ全体をJSON化して**
+   * localStorage へ書き込む。所持装備が増えるほど1回が重くなるので、
+   * 個数の2乗で効いてくる（実測: 2000個で4.7秒、スマホなら数十秒の停止）。
+   *
+   * 書き込みは最後の1回だけにする。途中で失敗しても、
+   * 書き込んでいない＝箱も装備も減っていない状態に戻るだけなので、
+   * 中途半端に消えることはない。
+   *
+   * @param {string} boxId
+   * @param {number} count
+   * @returns {any[]} 鑑定した装備
+   */
+  function identifyBoxes(boxId, count) {
+    const s = get();
+    /** @type {any[]} */
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      if (!s.boxes[boxId] || s.boxes[boxId] <= 0) break;
+      s.boxes[boxId] -= 1;
+      if (s.boxes[boxId] === 0) delete s.boxes[boxId];
+      const item = RPG.gear.identify(boxId, nextUid());
+      s.inventory.push(item);
+      s.stats.identified++;
+      out.push(item);
+    }
+    persist();
+    return out;
+  }
+
+  /**
    * 装備を付け替える。スロットが埋まっている場合は先頭を外す。
    * @param {string} charId
    * @param {number} uid
@@ -793,7 +825,7 @@
     load, persist, reset, get, nextUid, replaceSave, migrate,
     rescued, discardRescued, RESCUE_KEY,
     SAVE_VERSION,
-    addGold, addBox, identifyBox, equip, unequip, setLoadout, sell,
+    addGold, addBox, identifyBox, identifyBoxes, equip, unequip, setLoadout, sell,
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
