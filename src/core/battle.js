@@ -99,6 +99,81 @@
     }
   }
 
+  /* ======================== 闘技場のギミック (§17) ========================
+   *
+   * 闘技場は1戦で完結し、周回して稼ぐ場所ではない。
+   * だから通常のフィールドに置いたら苦痛でしかない、
+   * **特定のビルドを名指しで否定する** 仕掛けを置ける。
+   *
+   * ギミックが働くのは闘技場のボス本体だけ。取り巻きは普通に殴れる。
+   */
+
+  /**
+   * 闘技場のボス本体か。
+   * @param {any} battle @param {any} unit
+   */
+  function isArenaBoss(battle, unit) {
+    return !!(battle.arena && unit && unit.arenaBoss);
+  }
+
+  /**
+   * ギミックによってダメージが通るかを判定する (§17)。
+   *
+   * @param {any} battle @param {any} attacker @param {any} defender @param {any} skill @param {any} opts
+   * @returns {{blocked: boolean, reason?: string, absorb?: boolean}}
+   */
+  function arenaGate(battle, attacker, defender, skill, opts) {
+    if (!isArenaBoss(battle, defender)) return { blocked: false };
+    const g = battle.arena.gimmicks || {};
+
+    // 取り巻きが本体を庇う。1体でも立っていれば本体には通らない。
+    if (g.guardedByAdds && livingEnemies(battle).some((/** @type {any} */ u) => !u.arenaBoss)) {
+      return { blocked: true, reason: '衛士が守っている' };
+    }
+
+    // 全体攻撃は本体に届かない。単体で狙う順番を要求する。
+    if (g.singleTargetOnly && opts && opts.multiTarget) {
+      return { blocked: true, reason: '広い攻撃では届かない' };
+    }
+
+    // ラウンド内の初撃しか認識しない。手数ではなく一撃の重さを問う。
+    if (g.firstHitOnly && battle.arena.hitsThisRound > 0) {
+      return { blocked: true, reason: 'この者は一度きりしか見ない' };
+    }
+
+    // はじめのN発を数え終えるまで傷を負わない。重い一撃ほど無駄になる。
+    if (g.hitAbsorb && battle.arena.hitsThisRound < g.hitAbsorb) {
+      const left = g.hitAbsorb - battle.arena.hitsThisRound - 1;
+      return { blocked: true, reason: `数えている（あと${Math.max(0, left)}）` };
+    }
+
+    return { blocked: false };
+  }
+
+  /**
+   * ラウンドの変わり目にギミックの数え直しと、時間制限の裁きを行う (§17)。
+   * @param {any} battle
+   */
+  function arenaRoundTick(battle) {
+    if (!battle.arena) return;
+    battle.arena.hitsThisRound = 0;
+
+    const g = battle.arena.gimmicks || {};
+    if (!g.enrageRound || battle.round < g.enrageRound) return;
+
+    // 刻を告げる。あらゆる守りを貫くので、長期戦そのものが成立しない。
+    const boss = battle.enemies.find((/** @type {any} */ u) => u.arenaBoss && u.alive);
+    if (!boss) return;
+    pushLog(battle, `${boss.name} が刻を告げた——`, 'defeat');
+    for (const u of livingParty(battle)) {
+      u.shield = 0;
+      u.hp = 0;
+      u.alive = false;
+      pushEvent(battle, { type: 'down', key: u.key, side: u.side });
+    }
+    pushLog(battle, '裁きの前に、守りは意味を成さなかった', 'defeat');
+  }
+
   /* ======================== クラス技の制限 (§12) ========================
    *
    * 「全体蘇生」「全体8割軽減」のような技は、無条件だと戦闘の組み立てを消す。
@@ -809,11 +884,69 @@
           : targetPower(attacker, defender),
         // 小技だけを底上げする (§4.3)。強技には乗らないので置き換えは起きない。
         lowPowerBoost: isLowPower(skill) ? lowPowerBoost(attacker) : 0,
+        // 闘技場「属性の否定」(§17)。相性を等倍に均す。
+        // 適応・極意・貫通といった属性で解く道を丸ごと塞ぐのが狙いなので、
+        // 攻撃側の補正が乗るより前に damage.js 側で潰す必要がある。
+        elementNull: !!(battle.arena && isArenaBoss(battle, defender)
+          && (battle.arena.gimmicks || {}).elementNull),
         // 大技だけを底上げする (§5.8)。小技側とは排他で、同じ技には両方乗らない。
         highPowerBoost: isHighPower(skill)
           ? ((attacker.situational && attacker.situational.highPowerBoost) || 0) : 0,
       },
     });
+
+    // --- 闘技場のギミック (§17) ---
+    // 計算の後に判定する。演出上の数字は出さず、通らなかった理由だけを見せる。
+    const gate = arenaGate(battle, attacker, defender, skill, opts);
+    if (gate.blocked) {
+      if (battle.arena) battle.arena.hitsThisRound++;
+      if (!opts.silent) {
+        pushLog(battle, `${defender.name} には通らない（${gate.reason}）`, 'sub');
+      }
+      pushEvent(battle, { type: 'blocked', key: defender.key, label: gate.reason });
+      result.damage = 0;
+      return result;
+    }
+    if (battle.arena && isArenaBoss(battle, defender)) battle.arena.hitsThisRound++;
+
+    // 「虹を喰らう獣」— 有利属性の攻撃を回復として受ける (§17)。
+    // 有利で殴るほど不利になるので、属性の常識がそのまま裏返る。
+    // 判定は **素の属性表だけ** で行う (§17)。
+    //
+    // 実測した結果の倍率（result.breakdown.element）で見ると、
+    // 全属性適応を取った編成ではあらゆる攻撃が「有利」と判定され、
+    // 無属性で殴っても吸収されて逃げ道が消える（実測 0% 勝率）。
+    // それは謎かけではなく理不尽なので、ビルドの補正を含まない
+    // 攻撃属性 vs ボス属性の相性だけを見る。
+    const rawAdvantage = isArenaBoss(battle, defender)
+      && RPG.damage.elementMultiplier(skill.element, defender.element) > 1;
+
+    if (rawAdvantage && (battle.arena.gimmicks || {}).elementAbsorb && result.damage > 0) {
+      const healed = Math.min(defender.maxHp - defender.hp, result.damage);
+      defender.hp += healed;
+      if (!opts.silent) {
+        pushLog(battle, `${defender.name} は有利属性を喰らって ${healed.toLocaleString()} 回復した`, 'heal');
+      }
+      result.damage = 0;
+      return result;
+    }
+
+    // 闘技場のボスから受けるダメージには上限を設ける (§17)。
+    //
+    // 攻撃力を絞るだけでは足りない。技の威力倍率と属性有利が乗ると、
+    // ATKを1/3にしても味方の最大HPの3倍が飛んでくる（実測 33,918 vs HP 11,899）。
+    // それでは「ギミックを解く」以前に、何をしても1発で落ちる。
+    //
+    // 最大HPに対する割合で頭を押さえれば、装備やレベルが変わっても
+    // 「痛いが耐えられる」関係が保たれる。何ラウンド持つかが読めるようになるので、
+    // ギミックを解くことに意識を向けられる。
+    if (battle.arena && attacker.arenaBoss && defender.side === 'party' && result.damage > 0) {
+      const cap = battle.arena.def.maxHitRatio;
+      if (cap) {
+        const limit = Math.max(1, Math.floor(defender.maxHp * cap));
+        if (result.damage > limit) result.damage = limit;
+      }
+    }
 
     // 「凍結」— 受けるダメージが増える (§5.8)。
     // 自分の火力ではなく **場に置かれた敵の脆さ** なので、味方全員の攻撃に等しく乗る。
@@ -1183,7 +1316,10 @@
       log: (text, kind) => pushLog(battle, text, kind),
 
       /** @param {any} target @param {any} [opts] */
-      damage: (target, opts) => applyDamage(battle, actor, target, skill, opts),
+      damage: (target, opts) => applyDamage(battle, actor, target, skill,
+        // 同時に2体以上を殴っているなら「広い攻撃」と見なす (§17)。
+        // 闘技場の「単体でしか通らない」ボスがこれを見る。
+        Object.assign({ multiTarget: targets.length > 1 }, opts || {})),
 
       /**
        * 別の技として殴る。フルバースト (§4.3) のように、
@@ -1573,11 +1709,27 @@
         continue;
       }
 
-      const skillId = RPG.rng.pick(enemy.skills);
-      const skill = RPG.data.skills[skillId];
-      const kind = targetKind(skill);
-      const targets = kind === 'ally' ? [RPG.rng.pick(livingEnemies(battle))] : [RPG.rng.pick(alive)];
-      executeSkill(battle, enemy, skillId, targets);
+      // 闘技場のボスは複数回動く (§17)。
+      //
+      // 味方は4人が毎ラウンド殴るのに、ボスの手番は1回。
+      // この非対称のままHPだけ増やすと、50ラウンドかけて削るだけの
+      // 消耗戦になり、歯ごたえではなく作業になる（実測でそうなった）。
+      // 手数を揃えることで、短いラウンド数のうちに緊張が生まれる。
+      const acts = (battle.arena && enemy.arenaBoss)
+        ? Math.max(1, battle.arena.def.actionsPerRound || 1) : 1;
+
+      for (let a = 0; a < acts; a++) {
+        if (!enemy.alive) break;
+        const stillAlive = livingParty(battle);
+        if (stillAlive.length === 0) break;
+        const skillId = RPG.rng.pick(enemy.skills);
+        const skill = RPG.data.skills[skillId];
+        const kind = targetKind(skill);
+        const targets = kind === 'ally'
+          ? [RPG.rng.pick(livingEnemies(battle))]
+          : [RPG.rng.pick(stillAlive)];
+        executeSkill(battle, enemy, skillId, targets);
+      }
     }
 
     endOfRound(battle);
@@ -1642,6 +1794,9 @@
     }
 
     // 残響セットの予約を進める (§7.7)。ラウンドの終わりに炸裂させる。
+    // 闘技場のギミックを数え直し、時間制限の裁きを下す (§17)
+    arenaRoundTick(battle);
+
     resolveEchoes(battle);
 
     // クエストの「全員生存」はここで判定する。死者が出た時点で失敗にして、
@@ -1759,6 +1914,7 @@
     LOW_POWER, isLowPower, isAttackSkill, lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
     skillReady, startCooldown,
+    arenaGate, arenaRoundTick, isArenaBoss,
     currentActor, livingParty, livingEnemies, targetKind,
     executeSkill, applyDamage,
   };

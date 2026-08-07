@@ -61,6 +61,7 @@
 <script src="data/classes.js"></script>
 <script src="data/quests.js"></script>
 <script src="data/tower.js"></script>
+<script src="data/arena.js"></script>
 <script src="data/art.js"></script>
 
 <!-- データを使うコア -->
@@ -101,6 +102,7 @@
 <script src="src/core/dispatch.js"></script>
 <script src="src/core/autolimit.js"></script>
 <script src="src/core/tower.js"></script>
+<script src="src/core/arena.js"></script>
 
 <!-- UI -->
 <script src="src/ui/dom.js"></script>
@@ -116,11 +118,29 @@
 // Service Worker の登録 (§15)。
 // 圏外でも遊べるようにするためのもので、失敗してもゲームは普通に動く。
 // file:// で直接開いた場合や HTTPS でない場合は登録できないので、黙って諦める。
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+//
+// 開発機（localhost）では **あえて登録しない**。
+// キャッシュ優先で配る仕組みなので、手元で直したファイルが反映されず、
+// 「直したのに古い挙動のまま」という調査に時間を取られる（実際に何度も起きた）。
+// 既に登録が残っている場合はここで解除する。
+// オフライン動作の確認は、公開したURLで行うこと。
+(function () {
+  var host = location.hostname;
+  var dev = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+  if (dev) {
+    navigator.serviceWorker.getRegistrations().then(function (rs) {
+      rs.forEach(function (r) { r.unregister(); });
+      if (window.caches) {
+        caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
+      }
+    }).catch(function () {});
+    return;
+  }
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js').catch(function () { /* 使えなくても支障はない */ });
   });
-}
+})();
 </script>
 
 </body>

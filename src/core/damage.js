@@ -154,6 +154,7 @@
    * @property {number} [setPower]      装備セットの倍率 (§7.7)。battle.js が戦況を見てまとめる
    * @property {number} [lowPowerBoost] 小技だけの底上げ (§4.3)
    * @property {number} [highPowerBoost] 大技だけの底上げ (§5.8)
+   * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
    */
 
   /**
@@ -313,6 +314,13 @@
     if (rawElement > 1 && defender.weakGuard) {
       element *= Math.max(0, 1 - Math.min(0.9, defender.weakGuard));
     }
+
+    // 闘技場の「属性の否定」(§17)。
+    // ここまでで積み上げた属性まわりを最後に均す。
+    // 適応・極意・貫通・双極・心得・耐性が、まとめて意味を失う。
+    // 計算の流れは分岐させず、結果だけを1.0で塗り替えることで、
+    // 本流に手を入れたときにここだけ取り残される事故を避けている。
+    if (options.elementNull) element = NEUTRAL;
 
     // --- ステップ6: クリティカル ---
     // 属性・系統ごとのクリティカル率 (§5.8)。

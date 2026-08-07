@@ -77,6 +77,7 @@
     { id: 'sortie', label: '出撃', icon: 'tab-sortie' },
     { id: 'quest', label: 'クエスト', icon: 'tab-sortie' },
     { id: 'tower', label: '塔', icon: 'tab-sortie' },
+    { id: 'arena', label: '闘技場', icon: 'tab-sortie' },
     { id: 'gacha', label: 'ガチャ', icon: 'tab-gacha' },
     { id: 'identify', label: '鑑定', icon: 'tab-identify' },
     { id: 'gear', label: '装備', icon: 'tab-gear' },
@@ -106,6 +107,7 @@
     switch (activeTab) {
       case 'quest': return renderQuest(root);
       case 'tower': return renderTower(root);
+      case 'arena': return renderArena(root);
       case 'codex': return renderCodex(root);
       case 'gacha': return renderGacha(root);
       case 'identify': return renderIdentify(root);
@@ -962,6 +964,56 @@
    * 上限は無く、HPが階をまたいで持ち越される。倒れたらそこで終了。
    * @param {HTMLElement} root
    */
+  /* ============================ 闘技場 (§17) ============================ */
+
+  /** @param {HTMLElement} root */
+  function renderArena(root) {
+    const check = RPG.arena.canChallenge();
+    const total = RPG.arena.bosses().length;
+
+    return h('div.pane',
+      W.heading('闘技場',
+        '1体と1戦だけ戦う。連戦ではないぶん、通常の狩場には置けない悪辣な仕掛けを備えている。'),
+      h('p.hint.hint-sm', {
+        text: '周回して稼ぐ場所ではないので報酬は無い。記録だけが残る。' +
+          'ここの相手は、特定の組み立てを名指しで否定してくる。',
+      }),
+      h('p.hint.hint-sm', { text: `攻略済み ${RPG.arena.clearedCount()} / ${total}` }),
+      check.ok ? null : h('p.tier-locked-note', W.icon('lock'), h('span', { text: check.reason })),
+
+      h('div.arena-list', RPG.arena.bosses().map((/** @type {any} */ def) => {
+        const rec = RPG.arena.record(def.id);
+        return h('div.arena-card' + (rec && rec.cleared ? '.is-cleared' : ''),
+          { style: `--cls: ${def.color}` },
+          h('div.arena-head',
+            h('div.arena-title',
+              h('h3', { text: def.name }),
+              h('span.arena-sub', { text: def.title })
+            ),
+            rec && rec.cleared
+              ? h('span.chip.chip-done', { text: `最短 ${rec.bestRound}R` })
+              : h('span.chip', { text: '未攻略' })
+          ),
+          h('p.arena-desc', { text: def.desc }),
+          h('div.arena-gimmicks',
+            h('span.arena-label', { text: '特殊' }),
+            h('ul', RPG.arena.gimmickLines(def).map((/** @type {string} */ t) =>
+              h('li', { text: t })))
+          ),
+          h('p.arena-hint', { text: def.hint }),
+          h('div.arena-foot',
+            h('span.hint.hint-sm', {
+              text: `敵 Lv${def.lv}` + (def.adds ? ` ／ 取り巻きあり` : ''),
+            }),
+            W.button('挑む', () => RPG.app.startArena(def.id), {
+              variant: 'primary', disabled: !check.ok,
+            })
+          )
+        );
+      }))
+    );
+  }
+
   function renderTower(root) {
     const st = RPG.tower.status();
     const cfg = RPG.data.tower;

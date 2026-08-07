@@ -62,6 +62,9 @@
       autoLimit: RPG.autolimit ? RPG.autolimit.defaults() : null,
       // エンドレスタワー (§10.7)。best は永続、run は挑戦中だけ入る。
       tower: { best: 0, claimed: 0, run: null },
+      // 闘技場の記録 (§17)。migrate 側でも補うが、新規セーブにも最初から置く。
+      // 置かないと「新規作成した形」と「読み込んだ形」がずれ、往復が一致しなくなる。
+      arena: {},
       // 直前の出撃内容。ワンクリックで同じ場所へ再出撃するために覚えておく
       lastSortie: null,
     };
@@ -177,6 +180,8 @@
     if (s.dispatch === undefined) s.dispatch = null;
     if (RPG.autolimit) s.autoLimit = Object.assign(RPG.autolimit.defaults(), s.autoLimit || {});
     if (!s.tower) s.tower = { best: 0, claimed: 0, run: null };
+    // 闘技場の記録 (§17)。旧セーブには無い。
+    if (!s.arena) s.arena = {};
     if (s.tower.claimed == null) s.tower.claimed = 0;
     if (s.tower.run === undefined) s.tower.run = null;
     // 自動売却ルールは RPG.autosell が既定値を持つ。欠けているキーだけ補う。

@@ -408,6 +408,25 @@
   }
 
   /**
+   * 闘技場の挑戦を始める (§17)。
+   * 1戦で完結し、報酬は無い。記録だけが残る。
+   * @param {string} bossId
+   */
+  function startArena(bossId) {
+    const check = RPG.arena.canChallenge();
+    if (!check.ok) { toast(check.reason || '挑戦できません'); return; }
+
+    const battle = RPG.arena.start(bossId);
+    currentBattle = battle;
+    RPG.state.get().stats.battles++;
+    RPG.state.persist();
+
+    $('#screen-base').classList.add('hidden');
+    $('#screen-battle').classList.remove('hidden');
+    RPG.ui.battle.mount($('#screen-battle'), currentBattle);
+  }
+
+  /**
    * 戦闘終了。蓄積された報酬をここでまとめて付与する (§10.1)。
    * 装備の生成は行わず、宝箱の個数だけを加算する (§2.2)。
    * @param {any} battle
@@ -437,6 +456,15 @@
     // タワーの階の判定。HPの持ち越しと到達報酬はここで確定する (§10.7)
     let tower = null;
     if (battle.tower) tower = RPG.tower.resolve(battle);
+
+    // 闘技場の記録 (§17)。報酬は無いので、記録だけを残す。
+    if (battle.arena) {
+      const res = RPG.arena.finish(battle);
+      if (res) {
+        if (res.first) toast(`${battle.arena.def.name} を初めて打ち倒した`);
+        if (res.best) toast(`最短記録を更新 — ${battle.totalRounds}ラウンド`);
+      }
+    }
 
     // クエストの初回クリア報酬。2回目以降は何も出ない (§10.3)
     let questLines = /** @type {string[]} */ ([]);
@@ -485,7 +513,7 @@
   }
 
   RPG.app = {
-    boot, showBase, startBattle, startQuest, startTowerFloor, finishBattle,
+    boot, showBase, startBattle, startQuest, startTowerFloor, startArena, finishBattle,
     toast, refreshTopbar, showNameDialog, showDataDialog,
   };
 

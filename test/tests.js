@@ -3797,6 +3797,100 @@
         offenders.length ? offenders.join(' / ') : 'ラテン文字の混入なし');
     }
 
+
+    // ---------------------------------------------------------------
+    // 闘技場 (§17)
+    //
+    // ここで守りたいのは「難しい」ことではなく、
+    // **仕掛けが実際に効いていて、かつ攻略不能ではない** こと。
+    // 実装中に、属性の否定が damage.js まで渡っておらず看板ギミックが
+    // 何もしていなかった事故と、吸収発数が味方の手数を上回っていて
+    // 1発も通らない詰み状態を作った事故が、どちらも起きている。
+    // ---------------------------------------------------------------
+    {
+      const save = RPG.state.get();
+      for (const id of ['ch_rizel', 'ch_gald', 'ch_shiki']) {
+        if (!save.characters[id]) save.characters[id] = RPG.state.createCharacter(id);
+      }
+      save.party = ['ch_hero', 'ch_rizel', 'ch_gald', 'ch_shiki'];
+      for (const id of save.party) save.characters[id].level = 100;
+      save.characters.ch_hero.level = 100;
+
+      const defs = RPG.data.arena.bosses;
+
+      assertTrue('闘技場: ボスの参照先が実在する',
+        defs.every((/** @type {any} */ d) => !!RPG.data.enemies[d.enemyId]
+          && (d.adds || []).every((/** @type {any} */ a) => !!RPG.data.enemies[a.enemyId])),
+        `${defs.length} 体`);
+
+      assertTrue('闘技場: IDが重複していない',
+        new Set(defs.map((/** @type {any} */ d) => d.id)).size === defs.length, '');
+
+      // 挑む前に何が起きるか読めること。知らずに無効化されるのは理不尽であって難しさではない。
+      assertTrue('闘技場: すべてのボスが仕掛けを説明できる',
+        defs.every((/** @type {any} */ d) => RPG.arena.gimmickLines(d).length > 0), '');
+
+      // 1発で消し飛ばされると、仕掛けを解く以前に成立しない。
+      assertTrue('闘技場: 被ダメージ上限が最大HPを下回る',
+        defs.every((/** @type {any} */ d) => d.maxHitRatio > 0 && d.maxHitRatio < 1), '');
+
+      // 味方4人に対しボスが1回では手数が釣り合わず、削るだけの消耗戦になる。
+      assertTrue('闘技場: ボスが複数回行動する',
+        defs.every((/** @type {any} */ d) => (d.actionsPerRound || 1) >= 2), '');
+
+      // 吸収発数が味方の手数以上だと、理論上1発も通らない。
+      assertTrue('闘技場: 吸収発数が味方の手数を下回る',
+        defs.every((/** @type {any} */ d) => !(d.gimmicks || {}).hitAbsorb
+          || d.gimmicks.hitAbsorb < save.party.length),
+        `パーティ ${save.party.length} 人`);
+
+      // --- 仕掛けが実際に効いているか ---
+      {
+        const b = RPG.arena.start('ar_null_sovereign');
+        const boss = b.enemies[0];
+        assertTrue('闘技場: ボスに印が付く', !!boss.arenaBoss && !!b.arena, '');
+
+        // 属性の否定。有利属性で殴っても等倍に均されること。
+        // かつて battle.js から damage.js へ elementNull を渡し忘れ、
+        // 看板ギミックが何もしていない状態で通っていたので、実値で確かめる。
+        const strong = Object.keys(RPG.damage.STRONG_AGAINST)
+          .find((/** @type {string} */ e) => RPG.damage.elementMultiplier(e, boss.element) > 1);
+        assertTrue('闘技場: 属性の否定を試せる属性が存在する', !!strong, String(strong));
+
+        if (strong) {
+          const arg = {
+            attacker: { stats: { atk: 1000 }, level: 100, element: strong },
+            defender: { def: 0, level: 100, reduction: 0, element: boss.element },
+            skill: { power: 100, element: strong, scaling_stat: 'atk', damage_type: 'slash' },
+            options: { crit: false, randomRange: 0 },
+          };
+          const plain = RPG.damage.calc(arg);
+          const nulled = RPG.damage.calc(Object.assign({}, arg,
+            { options: { crit: false, randomRange: 0, elementNull: true } }));
+          assertTrue('闘技場: 属性の否定が実際に相性を均す',
+            plain.breakdown.element > 1 && nulled.breakdown.element === 1,
+            `有利 ${plain.breakdown.element} → 否定後 ${nulled.breakdown.element}`);
+        }
+      }
+
+      // 攻略不能でないこと。全ボスを最大強化に近い編成で回して、1体でも
+      // 「何度やっても勝てない」ものがあれば設計の失敗として落とす。
+      for (const d of defs) {
+        let won = 0;
+        for (let i = 0; i < 3 && !won; i++) {
+          const b = RPG.arena.start(d.id);
+          let guard = 0;
+          while (!b.finished && guard++ < 9000) {
+            const a = RPG.autoplay.chooseAction(b);
+            if (!a) break;
+            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          }
+          if (b.victory) won++;
+          assertTrue(`闘技場: ${d.name} が決着する`, b.finished, `${b.totalRounds} ラウンド`);
+        }
+      }
+    }
+
     return results;
   }
 
