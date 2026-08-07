@@ -177,8 +177,15 @@
     replace(root,
       h('div.battle', { style: { background: `linear-gradient(160deg, ${f.bg[0]}, ${f.bg[1]})` } },
         h('div.battle-top',
-          h('span.battle-field', { text: battle.quest ? battle.quest.name : f.name }),
-          h('span.battle-wave', { text: `ウェーブ ${battle.wave} / ${battle.totalWaves}` }),
+          // 闘技場は戦闘の器としてフィールドを1つ借りているだけなので、
+          // そのまま出すと関係のない地名が並ぶ (§17)。
+          h('span.battle-field', {
+            text: battle.arena ? battle.arena.def.name
+              : (battle.quest ? battle.quest.name : f.name),
+          }),
+          battle.arena
+            ? h('span.battle-wave', { text: battle.arena.def.title })
+            : h('span.battle-wave', { text: `ウェーブ ${battle.wave} / ${battle.totalWaves}` }),
           h('span.battle-round', {
             text: rules.maxRounds
               ? `ラウンド ${battle.totalRounds} / ${rules.maxRounds}`
