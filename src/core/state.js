@@ -152,6 +152,13 @@
         const parsed = JSON.parse(raw);
         if (parsed && parsed.version === SAVE_VERSION) {
           save = migrate(parsed);
+          // 移行の結果をその場で書き戻す。
+          //
+          // ここを省くと、直した内容がメモリ上にしか無い状態になる。
+          // 次に何かを保存するまで確定せず、その前に閉じられれば
+          // **起動のたびに直しては捨てる** ことになる。
+          // 実際、レベル上限の半端な値がいつまでも直らない形で表に出た。
+          persist();
           return save;
         }
         // 形は読めたが使えない（版が違うなど）。

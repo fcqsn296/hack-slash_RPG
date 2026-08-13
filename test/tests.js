@@ -4488,6 +4488,44 @@
         withTag.length ? withTag.join(' / ') : '竜の宝箱との住み分けを保っている');
     }
 
+
+    // ---------------------------------------------------------------
+    // 移行の結果がその場で保存されること (§16)
+    //
+    // ここを省くと、直した内容がメモリ上にしか無い状態になる。
+    // 次に何かを保存するまで確定せず、その前に閉じられれば
+    // **起動のたびに直しては捨てる** ことになる。
+    // レベル上限の半端な値がいつまでも直らない、という形で表に出た。
+    // ---------------------------------------------------------------
+    {
+      const KEY = RPG.state.STORAGE_KEY;
+      const keep = localStorage.getItem(KEY);
+      try {
+        // 上限を導入する前に育てていた人のセーブを、生の文字列で置く
+        RPG.state.reset();
+        const raw = JSON.parse(localStorage.getItem(KEY));
+        raw.levelCapBonus = 1;                       // 修正前の移行で入った半端な値
+        raw.characters.ch_hero.level = RPG.data.maxLevel + 1;
+        localStorage.setItem(KEY, JSON.stringify(raw));
+
+        // 起動と同じ経路を通す
+        RPG.state.load();
+
+        const inMemory = RPG.state.get().levelCapBonus;
+        const onDisk = JSON.parse(localStorage.getItem(KEY)).levelCapBonus;
+
+        assertTrue('移行: 直した内容がその場で保存される',
+          inMemory === onDisk,
+          `メモリ ${inMemory} / 保存 ${onDisk}`);
+        assertTrue('移行: 保存された上限も刻みの倍数になる',
+          onDisk % 10 === 0 && onDisk > 0, `+${onDisk}`);
+      } finally {
+        if (keep === null) localStorage.removeItem(KEY);
+        else localStorage.setItem(KEY, keep);
+        RPG.state.load();
+      }
+    }
+
     return results;
   }
 
