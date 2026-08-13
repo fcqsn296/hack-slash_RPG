@@ -410,6 +410,24 @@ RPG.data.skillTree = [
   // 小技の使い道 (§4.3)。
   // 強い技を1つ覚えると下位の攻撃技が死に技になるので、
   // 「威力が低いこと自体が条件になる」効果をここに集めている。
+  // ── 中技の使い道 (§5.8) ──
+  //
+  // 攻撃技89個のうち **44個** が威力101〜199%の帯にあるのに、
+  // この帯を伸ばす手段が1つも無かった。小技には5系統、大技には
+  // 上限突破がある一方で、いちばん数の多い帯だけが素通りされていた。
+  //
+  // ここに火力を足しても住み分けにならない（結局どちらかの下位互換になる）ので、
+  // **効果を通す側** を持たせた。弱体を確実に入れ、コンボを繋ぐのが中技の仕事。
+  {
+    id: 'tr_mid_status', tier: 'mid', name: '浸透の心得', cost: 2, maxLevel: 5,
+    effects: [{ kind: 'mid_power_status', value: 0.4 }],
+    desc: '威力101〜199%の技で攻撃したとき、弱体の付与率 +40%（重い技にも軽い技にも乗らない）',
+  },
+  {
+    id: 'tr_mid_combo', tier: 'high', name: '連環の理', cost: 3, maxLevel: 3,
+    effects: [{ kind: 'mid_power_combo', value: 1 }],
+    desc: '威力101〜199%の技で弱点コンボを積むとき、段数 +1（繋ぎ役に徹する編成が成立する）',
+  },
   {
     id: 'tr_low_boost', tier: 'basic', name: '手数の心得', cost: 2, maxLevel: 5,
     effects: [{ kind: 'low_power_boost', value: 0.12 }],
@@ -744,7 +762,8 @@ RPG.data.skillTree = [
     desc: '与えた弱体が 15%の確率で他の敵にも広がる',
   },
   {
-    id: 'tr_element_all', tier: 'mid', name: '万象の心得', cost: 3, maxLevel: 5,
+    // 特化型は 0.050/SP。3SP だと 0.040/SP で効率も上限も負けていた。
+    id: 'tr_element_all', tier: 'mid', name: '万象の心得', cost: 2, maxLevel: 5,
     effects: [{ kind: 'element_power', element: 'all', value: 0.02 }],
     desc: '全属性の攻撃 威力+2%（1属性に絞る「心得」より効率は悪いが腐らない）',
   },
@@ -1324,7 +1343,10 @@ RPG.data.skillTree = [
    * 上級 (§5.8)
    * =================================================================== */
   {
-    id: 'tr_mastery_all', tier: 'high', name: '万象の極意', cost: 6, maxLevel: 3,
+    // 特化型（火の極意など）は 0.200/SP。こちらが 6SP だと 0.100/SP で、
+    // 効率も上限（+0.30 対 +1.00）も負けていて選ぶ理由が消えていた。
+    // 効率を揃え、差は「上限が低いかわりに1ノードで済む」だけにする。
+    id: 'tr_mastery_all', tier: 'high', name: '万象の極意', cost: 3, maxLevel: 3,
     effects: [{ kind: 'element_mastery', element: 'all', value: 0.1 }],
     desc: '全属性の有利倍率 +0.1（1.5 → 最大1.8）',
   },
@@ -1369,9 +1391,14 @@ RPG.data.skillTree = [
     desc: 'ウェーブが変わるとき、倒れていてもHP60%で立ち上がる',
   },
   {
-    id: 'tr_hit_all_status', tier: 'high', name: '万病の理', cost: 8, maxLevel: 3,
-    effects: [{ kind: 'status_on_hit_kind', status: 'all', value: 0.06 }],
-    desc: '攻撃時 6%の確率で**全種類**の弱体をそれぞれ付与する',
+    // 元は 8SP × 3段（1段あたり6%）だった。SPあたりの効率は特化型より
+    // 良かった（0.045 対 0.040）が、**1段が重すぎた**。総予算154SPのうち
+    // 5%を一括で払って見返りが確率6%では、踏み切る判断ができない。
+    // 総額（24SP）と到達点はほぼ据え置きに、刻みを細かくして
+    // 「少しだけ試す」を選べるようにした。
+    id: 'tr_hit_all_status', tier: 'high', name: '万病の理', cost: 3, maxLevel: 8,
+    effects: [{ kind: 'status_on_hit_kind', status: 'all', value: 0.03 }],
+    desc: '攻撃時 3%の確率で**全種類**の弱体をそれぞれ付与する',
   },
   {
     id: 'tr_vs_all_status', tier: 'high', name: '弱者狩り', cost: 6, maxLevel: 3,

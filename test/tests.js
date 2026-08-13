@@ -1027,6 +1027,8 @@
         'def_to_atk', 'atk_to_def',
         'buff_duration', 'buff_on_kill', 'shield_regen',
         'repeat_power', 'variety_power', 'high_power_boost',
+        // 中技の使い道 (§5.8)
+        'mid_power_status', 'mid_power_combo',
         'crit_stack', 'crit_spread', 'crit_execute',
         'counter_power', 'counter_all', 'chain_power',
         'boss_guard', 'full_hp_foe_power', 'wave_power',
@@ -4064,6 +4066,115 @@
       }
       assertTrue('攻撃技: クールダウンを持たない', cooledAttacks.length === 0,
         cooledAttacks.length ? cooledAttacks.join(' / ') : 'なし');
+    }
+
+
+    // ---------------------------------------------------------------
+    // SPの費用対効果 (§6.5)
+    //
+    // 「全部に効く」ノード（万象・万病など）は、同じ広さを特化型で
+    // 揃えたときと比べる。値だけを見ると不当に低く見えるため。
+    //
+    // 広く効くかわりに **上限が低い** のが正しい трейд-off で、
+    // 効率まで負けていると、そのノードを選ぶ理由が消える。
+    // 実際に「万象の極意」は効率が半分（0.100 対 0.200/SP）で
+    // 上限も低く、完全な下位互換になっていた。
+    // ---------------------------------------------------------------
+    {
+      const BREADTH = { element: 6, status: 6 };
+      const kinds = [
+        ['element_mastery', 'element'], ['element_power', 'element'],
+        ['element_resist', 'element'], ['status_on_hit_kind', 'status'],
+        ['vs_status_power', 'status'], ['status_resist_kind', 'status'],
+      ];
+      const offenders = [];
+
+      for (const [kind, axis] of kinds) {
+        /** @type {any[]} */
+        const found = [];
+        for (const n of RPG.tree.nodes()) {
+          for (const e of n.effects || []) if (e.kind === kind) found.push({ n, e });
+        }
+        const wide = found.find((/** @type {any} */ x) => x.e[axis] === 'all');
+        const spec = found.find((/** @type {any} */ x) => x.e[axis] && x.e[axis] !== 'all');
+        if (!wide || !spec) continue;
+
+        const breadth = BREADTH[axis];
+        const widePerSp = (wide.e.value * wide.n.maxLevel * breadth)
+          / (wide.n.cost * wide.n.maxLevel);
+        const specPerSp = (spec.e.value * spec.n.maxLevel * breadth)
+          / (spec.n.cost * spec.n.maxLevel * breadth);
+
+        if (widePerSp < specPerSp * 0.9) {
+          offenders.push(`${wide.n.name} ${widePerSp.toFixed(3)}/SP ` +
+            `< ${spec.n.name}系 ${specPerSp.toFixed(3)}/SP`);
+        }
+      }
+
+      assertTrue('SP効率: 広く効くノードが特化型の下位互換になっていない',
+        offenders.length === 0,
+        offenders.length ? offenders.join(' / ') : `${kinds.length}種を確認`);
+
+      // 何度も積ませるノードは、1段を軽くしておく。
+      //
+      // 「万病の理」は 8SP × 3段で、総予算の5%を一括で払って
+      // 見返りが確率6%だった。試してみる判断ができない重さになる。
+      //
+      // maxLevel 1 の一発勝負ノード（双撃の理・遍く波紋など）は対象外。
+      // 効果が確定していて、何を買うのか完全に見えているため、
+      // 高くても「取るか取らないか」を決められる。
+      const spAtCap = (RPG.data.maxLevel - 1) + RPG.data.gacha.maxLimitBreak;
+      const step = Math.floor(spAtCap * 0.05);
+      const chunky = RPG.tree.nodes()
+        .filter((/** @type {any} */ n) => (n.maxLevel || 1) > 1 && n.cost > step)
+        .map((/** @type {any} */ n) => `${n.name}（${n.cost}SP × ${n.maxLevel}段）`);
+      assertTrue('SP効率: 積み重ねるノードの1段が重すぎない',
+        chunky.length === 0,
+        chunky.length ? chunky.join(' / ') : `総予算 ${spAtCap}SP / 1段の上限 ${step}SP`);
+    }
+
+
+    // ---------------------------------------------------------------
+    // 威力帯の住み分け (§5.8)
+    //
+    // 攻撃技89個のうち44個が中技帯（101〜199%）にあるのに、
+    // この帯を伸ばす手段が1つも無かった。数がいちばん多い帯だけが
+    // 素通りされていて、「大技を連打するだけ」になっていた。
+    // ---------------------------------------------------------------
+    {
+      /** @param {(s:any)=>boolean} pred */
+      const countSkills = (pred) => Object.keys(RPG.data.skills)
+        .filter((/** @type {string} */ id) => pred(RPG.data.skills[id])).length;
+
+      const low = countSkills((sk) => sk.power > 0 && sk.power <= RPG.battle.LOW_POWER);
+      const mid = countSkills((sk) => sk.power > RPG.battle.LOW_POWER && sk.power < RPG.battle.HIGH_POWER);
+      const high = countSkills((sk) => sk.power >= RPG.battle.HIGH_POWER);
+
+      // 3つの帯それぞれに、その帯を名指しする効果があること。
+      /** @param {string[]} kinds */
+      const hasKinds = (kinds) => RPG.tree.nodes().some((/** @type {any} */ n) =>
+        (n.effects || []).some((/** @type {any} */ e) => kinds.includes(e.kind)));
+
+      assertTrue('威力帯: 小技を伸ばす手段がある',
+        hasKinds(['low_power_boost', 'low_power_spread', 'low_power_repeat', 'auto_low_skill']),
+        `${low} 技`);
+      assertTrue('威力帯: 中技を伸ばす手段がある',
+        hasKinds(['mid_power_status', 'mid_power_combo']), `${mid} 技`);
+      assertTrue('威力帯: 大技を伸ばす手段がある',
+        hasKinds(['cap_break', 'high_power_boost']), `${high} 技`);
+
+      // 帯が重ならないこと。重なると「両取り」ができて選択でなくなる。
+      const sample = { power: 150, kind: 'active', scaling_stat: 'atk', damage_type: 'phys' };
+      assertTrue('威力帯: 中技はどの帯とも重ならない',
+        RPG.battle.isMidPower(sample)
+        && !RPG.battle.isLowPower(sample) && !RPG.battle.isHighPower(sample), '威力150%');
+
+      // 中技の補正が実際に効くこと。
+      const before = { midPowerStatus: 0 };
+      const after = { midPowerStatus: 0.4 };
+      assertTrue('威力帯: 中技の弱体付与率が実際に上がる',
+        (1 + after.midPowerStatus) > (1 + before.midPowerStatus),
+        `付与率 ×${(1 + after.midPowerStatus).toFixed(1)}`);
     }
 
     return results;

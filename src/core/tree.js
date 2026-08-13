@@ -224,6 +224,9 @@
       atkScale: 1,         // ATKへの倍率（二回攻撃の代償など）
       openingBuff: 0,      // 戦闘開始時に得る固有バフ
       // 小技の使い道 (§4.3)。威力100%以下の技だけに効く。
+      // 中技の役割 (§5.8)。火力ではなく「効果を通す」側で伸ばす。
+      midPowerStatus: 0,   // 中技で攻撃したときの弱体付与率への倍率
+      midPowerCombo: 0,    // 中技で弱点コンボを積む段数への上乗せ
       lowPowerBoost: 0,    // 小技の威力への上乗せ
       autoLowSkill: 0,     // 攻撃後に小技が自動で飛ぶ確率
       lowPowerSpread: 0,   // 小技が敵全体に当たるようになる
@@ -377,6 +380,9 @@
           case 'debuff_amp': situational.debuffAmp += amount; break;
           case 'first_round_power': situational.firstRoundPower += amount; break;
           case 'element_pierce': pierce += amount; break;
+          // 中技の使い道 (§5.8)
+          case 'mid_power_status': passives.midPowerStatus += amount; break;
+          case 'mid_power_combo': passives.midPowerCombo += amount; break;
           // 小技の使い道 (§4.3)
           case 'low_power_boost': passives.lowPowerBoost += amount; break;
           case 'auto_low_skill': passives.autoLowSkill += amount; break;

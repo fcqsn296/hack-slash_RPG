@@ -79,7 +79,8 @@
 
     if (advantage || weakened) {
       // 「連鎖の心得」— 1手で複数段積む (§5.7)
-      const gain = 1 + (p.comboGain || 0);
+      // 中技はコンボを繋ぐ役 (§5.8)。段の積み方そのものを上乗せする。
+      const gain = 1 + (p.comboGain || 0) + (isMidPower(skill) ? (p.midPowerCombo || 0) : 0);
       if (battle.combo.count < comboMax(battle)) {
         battle.combo.count = Math.min(comboMax(battle), battle.combo.count + gain);
         battle.combo.best = Math.max(battle.combo.best, battle.combo.count);
@@ -389,6 +390,25 @@
    */
   function isHighPower(skill) {
     return !!skill && skill.power >= HIGH_POWER && isAttackSkill(skill);
+  }
+
+  /**
+   * その技が中技か (§5.8)。
+   *
+   * ── なぜ帯を名指しするのか ──
+   * 攻撃技89個のうち **44個がこの帯** にあるのに、この帯を伸ばす手段は
+   * 1つも無かった。小技には5系統（連射・拡散・自動発動・底上げ）、
+   * 大技には上限突破がある一方で、中技を選ぶ理由だけが存在しなかった。
+   *
+   * ここに火力を足しても住み分けにならないので、**効果の確実さ** を持たせる。
+   *   小技 … 手数で押す
+   *   中技 … 弱体を通し、コンボを繋ぐ
+   *   大技 … 上限を破って一撃で沈める
+   *
+   * @param {any} skill
+   */
+  function isMidPower(skill) {
+    return !!skill && skill.power > LOW_POWER && skill.power < HIGH_POWER && isAttackSkill(skill);
   }
 
   /**
@@ -1571,7 +1591,7 @@
 
     // --- 「毒手」— 攻撃したついでに毒を撒く (§5.7) ---
     // 状態異常を撒く技を持っていないキャラでも、追撃・弱体系のビルドに乗れるようにする。
-    const onHit = (p.statusOnHit || 0);
+    const onHit = (p.statusOnHit || 0) * (isMidPower(skill) ? 1 + ((p.midPowerStatus) || 0) : 1);
     if (onHit > 0 && attackSkill && actor.alive) {
       for (const target of targets) {
         if (!target.alive || !RPG.rng.chance(onHit)) continue;
@@ -1584,8 +1604,11 @@
     // どれを撒くかで、パーティ全体の削り方が変わる。
     const byKind = p.statusOnHitKind || {};
     if (attackSkill && actor.alive) {
+      // 中技は弱体を通しやすい (§5.8)。付与率そのものに倍率をかける。
+      // 火力で並ぶのではなく「確実に効かせる」ことを中技の役割にしてある。
+      const midMul = isMidPower(skill) ? 1 + ((p.midPowerStatus) || 0) : 1;
       for (const kind of Object.keys(byKind)) {
-        const rate = byKind[kind];
+        const rate = byKind[kind] * midMul;
         if (!(rate > 0)) continue;
         for (const target of targets) {
           if (!target.alive || !RPG.rng.chance(rate)) continue;
@@ -1911,7 +1934,7 @@
     start, commandSkill, advanceWave, retreat, failQuest,
     comboPower, comboMax, updateCombo, COMBO_MAX, COMBO_STEP,
     setPower, targetPower, resolveEchoes, skipDeadActors,
-    LOW_POWER, isLowPower, isAttackSkill, lowPowerSkills, lowPowerBoost,
+    LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss,

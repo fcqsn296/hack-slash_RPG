@@ -69,10 +69,12 @@ RPG.data.nodeCategories = [
     ],
   },
   {
-    id: 'power_band', label: '小技と大技', icon: 'band',
-    desc: '威力帯を選ぶ枝。小技側と大技側は帯が重ならないので、両取りはできない。',
+    id: 'power_band', label: '威力帯', icon: 'band',
+    desc: '威力帯を選ぶ枝。3つの帯は重ならないので、どれかに寄せることになる。'
+      + '小技は手数、中技は効果を通す役、大技は上限を破って一撃で沈める役。',
     kinds: [
       'low_power_boost', 'auto_low_skill', 'low_power_spread', 'low_power_repeat',
+      'mid_power_status', 'mid_power_combo',
       'high_power_boost', 'repeat_power', 'variety_power',
     ],
   },
