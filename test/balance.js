@@ -19,10 +19,18 @@
     'tr_atk', 'tr_phys1', 'tr_hp',            // 初級（ここで中級が解放される）
     'tr_phys2', 'tr_crit', 'tr_crit_dmg',     // 中級の火力
     'tr_slot_acc', 'tr_slot_armor',           // 装備枠
-    'tr_all_tag', 'tr_cap', 'tr_slot_weapon', // 上級の火力と二刀流
+    'tr_all_tag', 'tr_slot_weapon',           // 上級の火力と二刀流
     'tr_guard', 'tr_execute',
     'tr_magi1', 'tr_reli1', 'tr_magi2', 'tr_reli2',
     'tr_def', 'tr_regen', 'tr_lifesteal',
+    // 限界超越（上限突破）はいちばん最後。
+    //
+    // この検証が見るのは Lv1〜100 の帯で、そこでの与ダメージは
+    // 最大でも約89,000。ダメージ上限の500,000には遠く届かないので、
+    // ここに振っても **1ダメージも増えない**。
+    // 効いてくるのは、装備とツリーを積み切って上限に張り付いてからで、
+    // それは Lv150 の最終盤の話になる (§3.2 ステップ8)。
+    'tr_cap',
   ];
 
   /**
