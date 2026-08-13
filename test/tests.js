@@ -4352,6 +4352,70 @@
         !RPG.state.moveSkill('ch_hero', first, -1).ok, '');
     }
 
+
+    // ---------------------------------------------------------------
+    // ガチャの天井 (§6.6)
+    //
+    // 排出率だけで回していると、後半は「欲しいキャラが出るまで連打する」
+    // 作業になる。運が悪くても必ず終わる、という保証をここで担保する。
+    // ---------------------------------------------------------------
+    {
+      RPG.state.reset();
+      const need = RPG.data.gacha.pityPerExchange;
+
+      // 天井は「引ける回数」として現実的な範囲にあること。
+      // 遠すぎると保証として働かず、近すぎると引く意味が消える。
+      assertTrue('天井: 引ける回数として妥当な位置にある',
+        need >= 50 && need <= 500, `${need} 回`);
+
+      // 引いた回数だけ貯まること
+      RPG.state.addGold(RPG.data.gacha.cost * 10);
+      RPG.gacha.pull(10);
+      assertTrue('天井: 引いた回数だけ貯まる',
+        RPG.state.get().gachaPoints === 10, `${RPG.state.get().gachaPoints} 点`);
+
+      // 足りないうちは交換できないこと
+      const someone = RPG.gacha.exchangeable()[0];
+      assertTrue('天井: 足りなければ交換できない',
+        !RPG.gacha.exchange(someone).ok, '');
+
+      // 貯まれば未所持の相手を仲間にできること
+      RPG.state.get().gachaPoints = need * 2 + 50;
+      const before = Object.keys(RPG.state.get().characters).length;
+      const got = RPG.gacha.exchange(someone);
+      assertTrue('天井: 未所持の相手を仲間にできる',
+        got.ok && got.kind === 'new'
+        && Object.keys(RPG.state.get().characters).length === before + 1, '');
+      assertTrue('天井: 使った分だけ減り、余りは残る',
+        RPG.state.get().gachaPoints === need + 50,
+        `${RPG.state.get().gachaPoints} 点`);
+
+      // 所持済みなら限界突破に回ること。
+      // 「持っているから選べない」にすると、凸を進めたい人の逃げ道が無くなる。
+      const again = RPG.gacha.exchange(someone);
+      assertTrue('天井: 所持済みなら限界突破になる',
+        again.ok && again.kind === 'limit_break', '');
+
+      // 完凸済みを選んでもポイントが減らないこと。
+      // 何も起きないのに消費されるのは事故。
+      RPG.state.get().characters[someone].limitBreak = RPG.data.gacha.maxLimitBreak;
+      RPG.state.get().gachaPoints = need * 2;
+      const maxed = RPG.gacha.exchange(someone);
+      assertTrue('天井: 完凸済みを選んでもポイントが減らない',
+        !maxed.ok && RPG.state.get().gachaPoints === need * 2,
+        `${RPG.state.get().gachaPoints} 点`);
+
+      // 交換の相手はガチャの排出対象と一致すること。
+      // ここがずれると「出ないのに交換もできない」キャラが生まれる。
+      const pool = RPG.gacha.poolByRarity();
+      const rolled = Object.keys(pool).reduce(
+        (/** @type {string[]} */ a, /** @type {string} */ k) => a.concat(pool[k]), []);
+      const ex = RPG.gacha.exchangeable();
+      assertTrue('天井: 交換の相手と排出対象が一致する',
+        rolled.length === ex.length && rolled.every((/** @type {string} */ id) => ex.includes(id)),
+        `排出 ${rolled.length} 種 / 交換 ${ex.length} 種`);
+    }
+
     return results;
   }
 

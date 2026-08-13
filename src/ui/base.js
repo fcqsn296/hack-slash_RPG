@@ -1487,6 +1487,75 @@
 
   /* ============================ ガチャ ============================ */
 
+  /** 交換相手を選ぶ画面を開いているか */
+  let pityPickOpen = false;
+
+  /**
+   * 天井 (§6.6)。
+   *
+   * 排出率だけで回していると、後半は「欲しいキャラが出るまで連打する」作業になる。
+   * 引くたびに貯まる点で好きな相手と交換できるようにして、
+   * **運が悪くても必ず終わる** という保証をつける。
+   *
+   * @param {HTMLElement} root
+   */
+  function pityPanel(root) {
+    const p = RPG.gacha.pity();
+    const pct = Math.min(100, (p.points % p.need) / p.need * 100);
+
+    return h('div.pity',
+      h('div.pity-head',
+        h('span.pity-label', { text: '交換ポイント' }),
+        h('b.pity-value', { text: p.points.toLocaleString() }),
+        p.ready > 0
+          ? h('span.chip.chip-done', { text: `${p.ready}体ぶん交換できる` })
+          : h('span.pity-next', { text: `次の1体まで あと${p.toNext}回` })
+      ),
+      h('div.pity-track', h('div.pity-fill', { style: { width: pct + '%' } })),
+      h('p.hint.hint-sm', {
+        text: `${p.need}回引くごとに、好きな仲間を1人選べる。` +
+          '持っている相手を選ぶと限界突破になる。余ったポイントは残る。',
+      }),
+
+      p.ready > 0
+        ? W.button(pityPickOpen ? '選ぶのをやめる' : '交換する相手を選ぶ', () => {
+            pityPickOpen = !pityPickOpen;
+            render(root);
+          }, { variant: pityPickOpen ? 'ghost' : 'primary' })
+        : null,
+
+      pityPickOpen && p.ready > 0
+        ? h('div.pity-picks', RPG.gacha.exchangeable().map((/** @type {string} */ id) => {
+            const def = RPG.data.characters[id];
+            const owned = RPG.state.get().characters[id];
+            const maxed = owned && owned.limitBreak >= RPG.data.gacha.maxLimitBreak;
+            const r = RPG.data.rarities[def.rarity];
+            return h('button.pity-pick' + (maxed ? '.is-maxed' : ''), {
+              disabled: !!maxed,
+              onclick: () => {
+                const label = owned ? `${def.name} を限界突破` : `${def.name} を仲間にする`;
+                if (!confirm(`${p.need} ポイントを使って ${label} しますか？`)) return;
+                const res = RPG.gacha.exchange(id);
+                if (!res.ok) { RPG.app.toast(res.reason || '交換できません'); return; }
+                RPG.app.toast(res.kind === 'new'
+                  ? `${def.name} が仲間になった`
+                  : `${def.name} が ${res.limitBreak}凸 になった`);
+                if (RPG.gacha.pity().ready === 0) pityPickOpen = false;
+                RPG.app.refreshTopbar();
+                render(root);
+              },
+            },
+              h('span.pity-pick-name', { style: { color: r.color }, text: def.name }),
+              h('span.pity-pick-sub', {
+                text: maxed ? '完凸済み'
+                  : (owned ? `${owned.limitBreak}凸 → ${owned.limitBreak + 1}凸` : '未所持'),
+              })
+            );
+          }))
+        : null
+    );
+  }
+
   /** @param {HTMLElement} root */
   function renderGacha(root) {
     const save = RPG.state.get();
@@ -1507,6 +1576,7 @@
             disabled: save.gold < cfg.cost * cfg.multiCount,
           })
         ),
+        pityPanel(root),
         h('div.gacha-odds',
           h('h4', { text: '排出率' }),
           h('div.odds-rows', Object.keys(weights).map((rarity) => {

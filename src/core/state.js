@@ -69,6 +69,8 @@
       levelCapBonus: 0,
       // 所持している道具 { 道具ID: 個数 }。装備とは別枠で数えるだけのもの。
       items: {},
+      // ガチャの天井 (§6.6)。引くたびに貯まり、好きなキャラとの交換に使う。
+      gachaPoints: 0,
       // 直前の出撃内容。ワンクリックで同じ場所へ再出撃するために覚えておく
       lastSortie: null,
     };
@@ -189,6 +191,7 @@
     // 闘技場の記録 (§17)。旧セーブには無い。
     if (!s.arena) s.arena = {};
     if (!s.items) s.items = {};
+    if (s.gachaPoints == null) s.gachaPoints = 0;
 
     // レベル上限 (§6.5)。
     //
