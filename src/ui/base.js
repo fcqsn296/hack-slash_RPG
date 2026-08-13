@@ -2199,11 +2199,26 @@
             h('p.hint.hint-sm', {
               text: `合計SP = (レベル${charSave.level} - 1) + 限界突破${charSave.limitBreak} = ${totalSp}`,
             })
+          )
+        ),
+
+        // 固有能力。ここに出さないと、どの方向に振るべきか確かめるために
+        // 毎回 図鑑を開いて戻ってくることになる。
+        h('div.innate',
+          h('div.innate-head',
+            h('span.innate-tag', { text: '固有' }),
+            h('b', { text: def.title })
           ),
-          h('div.sp-box',
-            h('span.sp-value', { text: String(available) }),
-            h('span.sp-label', { text: `残りSP（消費 ${spent}）` })
-          ),
+          h('p', { text: def.desc })
+        ),
+
+        // 残りSPは常に見える位置に貼り付ける。
+        // 下のほうのノードを見ているときに「あと何ポイント残っているか」を
+        // 確かめるためだけに、いちいち上まで戻る必要をなくす。
+        h('div.sp-bar',
+          h('span.sp-bar-value', { text: String(available) }),
+          h('span.sp-bar-label', { text: `残りSP` }),
+          h('span.sp-bar-sub', { text: `合計 ${totalSp} ／ 消費 ${spent}` }),
           W.button('振り直す', () => {
             if (!confirm(`${resetCost.toLocaleString()} G を消費して全て振り直しますか？`)) return;
             const res = RPG.state.resetTree(selectedChar);
@@ -2301,6 +2316,10 @@
   /** 転職パネルを開いているか */
   let classChangeOpen = false;
 
+  /** 詳細を開いているクラスのID。1つだけ開く。 */
+  /** @type {string|null} */
+  let classOpen = null;
+
   /**
    * クラスを選ぶカード。就任前と転職時で共通。
    * @param {HTMLElement} root
@@ -2311,18 +2330,32 @@
   function classChoice(root, charSave, c, paid) {
     const cost = paid ? (RPG.data.classChangeCost || 0) : 0;
     const save = RPG.state.get();
+    const open = classOpen === c.id;
 
-    return h('div.class-choice', { style: `--cls: ${c.color}` },
-      h('div.class-choice-head', W.icon(c.icon), h('b', { text: c.name })),
-      h('p.class-choice-flavor', { text: c.flavor }),
-      h('p.class-choice-desc', { text: c.desc }),
-      h('p.class-choice-innate', { text: `素質: ${c.innateDesc}` }),
-      h('div.class-choice-skills',
-        c.nodes.filter((/** @type {any} */ n) => n.name.startsWith('【技】'))
-          .map((/** @type {any} */ n) =>
-            h('span.chip.chip-active', { text: n.name.replace('【技】', ''), title: n.desc }))
+    // ── 畳んでおく理由 ──
+    // 6クラスぶんの「一言・説明・素質・技」を全部並べると、
+    // それだけで画面が文章で埋まる。まず何者かだけを6つ見比べて、
+    // 気になったものを開く、という読み順にする。
+    return h('div.class-choice' + (open ? '.is-open' : ''), { style: `--cls: ${c.color}` },
+      h('button.class-choice-head', {
+        onclick: () => { classOpen = open ? null : c.id; render(root); },
+        'aria-expanded': open ? 'true' : 'false',
+      },
+        W.icon(c.icon),
+        h('b', { text: c.name }),
+        h('span.class-choice-innate-brief', { text: c.innateDesc }),
+        h('span.class-choice-mark', { text: open ? '－' : '＋' })
       ),
-      W.button(paid ? '転職する' : 'このクラスに就く', () => {
+      open ? h('p.class-choice-flavor', { text: c.flavor }) : null,
+      open ? h('p.class-choice-desc', { text: c.desc }) : null,
+      open
+        ? h('div.class-choice-skills',
+            c.nodes.filter((/** @type {any} */ n) => n.name.startsWith('【技】'))
+              .map((/** @type {any} */ n) =>
+                h('span.chip.chip-active', { text: n.name.replace('【技】', ''), title: n.desc }))
+          )
+        : null,
+      open ? W.button(paid ? '転職する' : 'このクラスに就く', () => {
         if (paid && !confirm(`${cost.toLocaleString()} G を消費して ${c.name} に転職しますか？\n振ったクラスポイントは全て戻ります。`)) return;
         const res = RPG.state.setClass(selectedChar, c.id);
         if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
@@ -2334,7 +2367,7 @@
         variant: 'primary',
         sub: cost ? `${cost.toLocaleString()} G` : undefined,
         disabled: paid && save.gold < cost,
-      })
+      }) : null
     );
   }
 
@@ -2389,7 +2422,25 @@
   /** 'all' | 'available' | 'invested' */
   let treeFilter = 'all';
   /** 畳んでいる分類のID */
-  const treeCollapsed = new Set();
+  /**
+   * 畳んでいる分類。
+   *
+   * ── 既定で畳む ──
+   * 全部開いた状態だと、ビルド画面だけで5,854文字が縦一列に並ぶ。
+   * どこに何があるか分からないまま延々とスクロールすることになる。
+   * 分類の見出しと「投資済み / 総数」だけを並べ、開くのは見たい枝だけにする。
+   *
+   * null のうちは「まだ一度も触っていない」。最初の描画で全部を入れる。
+   */
+  /** @type {Set<string>|null} */
+  let treeCollapsed = null;
+
+  /** 初回だけ、全分類を畳んだ状態にする。 */
+  function ensureCollapsed() {
+    if (treeCollapsed) return treeCollapsed;
+    treeCollapsed = new Set(RPG.data.nodeCategories.map((/** @type {any} */ c) => c.id));
+    return treeCollapsed;
+  }
 
   /**
    * @param {HTMLElement} root
@@ -2475,7 +2526,7 @@
       shown === 0
         ? h('p.empty-note', { text: '条件に合うノードがありません。検索語や絞り込みを変えてみてください。' })
         : h('div.cat-list', groups.map((g) => {
-            const collapsed = treeCollapsed.has(g.cat.id);
+            const collapsed = ensureCollapsed().has(g.cat.id);
             const invested = g.nodes.filter((/** @type {any} */ n) => (tree[n.id] || 0) > 0).length;
             return h('section.cat' + (collapsed ? '.is-collapsed' : ''),
               h('button.cat-head', {

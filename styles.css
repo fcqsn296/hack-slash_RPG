@@ -2644,3 +2644,68 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   .stage { min-height: 228px; padding-top: 72px; }
   .stage-title { font-size: 28px; }
 }
+
+/* ------------------------------------------------------------
+   ビルド画面の整理 (§5)
+   ------------------------------------------------------------ */
+
+/* 固有能力。図鑑を開きに行かなくて済むようにここへ出す */
+.innate {
+  margin: 10px 0 12px; padding: 11px 13px;
+  border: 1px solid var(--line); border-left: 3px solid var(--relic);
+  background: var(--bg-panel);
+}
+.innate-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.innate-tag {
+  font-size: 10px; font-weight: 800; letter-spacing: .16em;
+  color: var(--relic);
+}
+.innate-head b { font-size: 12px; color: var(--text); }
+.innate p { margin: 0; font-size: 12px; line-height: 1.65; color: var(--text-dim); }
+
+/* 残りSP。下のノードを見ているときも常に見える位置に貼る。
+   「あと何ポイント残っているか」を確かめるために上まで戻らせない。 */
+.sp-bar {
+  position: sticky; top: 0; z-index: 12;
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 12px; padding: 10px 13px;
+  background: rgba(11, 13, 18, .94);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.sp-bar-value {
+  font-size: 26px; font-weight: 800; line-height: 1;
+  color: var(--ember-hot); font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 18px rgba(255, 106, 43, .45);
+}
+.sp-bar-label { font-size: 12px; font-weight: 700; color: var(--text); }
+.sp-bar-sub { font-size: 11px; color: var(--text-dim); }
+.sp-bar .btn { margin-left: auto; }
+
+/* 分類は既定で畳む。開くのは見たい枝だけ */
+.cat.is-collapsed .cat-desc { display: none; }
+.cat-head { width: 100%; }
+
+@media (max-width: 560px) {
+  .sp-bar { flex-wrap: wrap; gap: 6px 10px; }
+  .sp-bar .btn { margin-left: 0; width: 100%; }
+  .sp-bar-sub { width: 100%; }
+}
+
+/* クラスは畳んでおく。まず何者かだけを見比べ、気になったものを開く */
+.class-choice-head {
+  appearance: none; width: 100%; cursor: pointer;
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px; border: 0; background: none;
+  color: var(--text); font: 800 13px/1.3 inherit; text-align: left;
+}
+.class-choice-head > b { flex: 0 0 auto; }
+.class-choice-innate-brief {
+  flex: 1; min-width: 0; font-size: 10px; font-weight: 600; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.class-choice-mark { flex: 0 0 auto; color: var(--text-dim); font-weight: 800; }
+.class-choice-head:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; }
+.class-choice.is-open .class-choice-head { color: var(--ember-hot); }
+.class-choice.is-open { border-color: var(--ember); }
+.class-choice.is-open .class-choice-mark { color: var(--ember-hot); }
