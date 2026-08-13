@@ -118,13 +118,34 @@
     return resolved[key];
   }
 
+  /**
+   * 背景のパスを解決する (§1.3)。
+   *
+   * フィールドと画面で置き場所を分けず、同じフォルダに接頭辞で置く。
+   * フォルダを増やすと「どっちに入れるんだったか」を毎回考えることになる。
+   *
+   * @param {string} key 'fl_plain' や 'screen-gacha'
+   * @returns {Promise<string|null>}
+   */
+  function backdrop(key) {
+    const cacheKey = 'bg:' + key;
+    if (!resolved[cacheKey]) {
+      const cfg = RPG.data.artConfig;
+      const dir = cfg.backdropDir;
+      resolved[cacheKey] = (!cfg.autoDiscover || !dir || !key)
+        ? Promise.resolve(null)
+        : probe(cfg.extensions.map((/** @type {string} */ ext) => (cfg.basePath || '') + dir + key + ext));
+    }
+    return resolved[cacheKey];
+  }
+
   /** 探索結果を捨てる。画像を追加した直後に再読み込みさせたいときに使う。 */
   function clearCache() {
     for (const k of Object.keys(resolved)) delete resolved[k];
   }
 
   RPG.artSource = {
-    standee, icon, enemy, probe,
+    standee, icon, enemy, backdrop, probe,
     standeeCandidates, iconCandidates, enemyCandidates, clearCache,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

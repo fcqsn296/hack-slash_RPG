@@ -24,7 +24,15 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# .gitignore で外しているもの。ここを歩かない。
+# git が使えないときの保険。ふだんは .gitignore を直接 git に聞く。
+#
+# ── なぜ git に聞くのか ──
+# ここを手で並べていた頃、.gitignore に除外を足しても
+# この一覧が古いままになり、食い違いが出た。
+# 過剰報告で済むうちはよいが、**逆向きが危ない**。
+# この一覧にあるが .gitignore に無いフォルダは、
+# 実際には公開されるのに点検を素通りする。
+# 公開対象を決めているのは git なので、git に聞くのが正しい。
 SKIP_DIRS = {
     'raw_image', 'enemies_image', '__pycache__',
     'assets_backup_cutout', 'assets_png_master',
@@ -47,7 +55,37 @@ USER = re.compile(r'fcqsn', re.I)
 PNG_SIG = b'\x89PNG\r\n\x1a\n'
 
 
+def git_files():
+    """git が公開対象とみなすファイル。追跡済み＋未追跡（除外を除く）。
+
+    これが「push したら公開されるもの」そのものなので、
+    点検の対象もこれに合わせる。
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
+            cwd=ROOT, capture_output=True, text=True, encoding='utf-8', timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    names = [n.strip() for n in out.stdout.splitlines() if n.strip()]
+    return [os.path.join(ROOT, n.replace('/', os.sep)) for n in names] or None
+
+
 def walk():
+    tracked = git_files()
+    if tracked is not None:
+        for path in tracked:
+            if os.path.basename(path) in SKIP_FILES:
+                continue
+            if os.path.isfile(path):
+                yield path
+        return
+
+    # git が使えない場合の保険。フォルダ名の一覧で歩く。
+    print('※ git に問い合わせられないため、フォルダ名の一覧で点検します')
     for root, dirs, files in os.walk(ROOT):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for f in files:

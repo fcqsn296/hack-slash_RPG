@@ -73,33 +73,144 @@
   const ELEMENT_ORDER = ['none', 'fire', 'water', 'wind', 'earth', 'light', 'dark'];
 
   // アイコンは assets/ui/ のCC0素材。OSごとに絵柄が変わる絵文字を置き換えている。
+  /**
+   * 画面の一覧。
+   *
+   * primary を付けた4つだけを下部に常設し、残りは「その他」の引き出しに入れる。
+   *
+   * ── なぜ絞るのか ──
+   * 11個を横に並べると、スマートフォンでは3段に折り返す。
+   * 段が増えるぶん本文が押し下げられ、しかも指はいちばん下にあるのに
+   * タブはいちばん上にある。周回のたびに画面の端から端へ指を往復させていた。
+   *
+   * ── 何を常設にするか ──
+   * 中核の周回が「出撃 → 鑑定 → 装備」なので、この3つは必ず要る。
+   * ビルドはレベルが上がるたびに開くので4つ目に入れた。
+   * 残り（クエスト・塔・闘技場・ガチャ・鍛冶・編成・図鑑）は
+   * 開く頻度が明らかに低く、1手増えても支障がない。
+   */
   const TABS = [
-    { id: 'sortie', label: '出撃', icon: 'tab-sortie' },
+    { id: 'sortie', label: '出撃', icon: 'tab-sortie', primary: true },
+    { id: 'identify', label: '鑑定', icon: 'tab-identify', primary: true },
+    { id: 'gear', label: '装備', icon: 'tab-gear', primary: true },
+    { id: 'build', label: 'ビルド', icon: 'tab-build', primary: true },
     { id: 'quest', label: 'クエスト', icon: 'tab-sortie' },
     { id: 'tower', label: '塔', icon: 'tab-sortie' },
     { id: 'arena', label: '闘技場', icon: 'tab-sortie' },
     { id: 'gacha', label: 'ガチャ', icon: 'tab-gacha' },
-    { id: 'identify', label: '鑑定', icon: 'tab-identify' },
-    { id: 'gear', label: '装備', icon: 'tab-gear' },
     { id: 'forge', label: '鍛冶', icon: 'tab-gear' },
-    { id: 'build', label: 'ビルド', icon: 'tab-build' },
     { id: 'party', label: '編成', icon: 'tab-party' },
     { id: 'codex', label: '図鑑', icon: 'tab-identify' },
   ];
 
+  /** 「その他」の引き出しが開いているか */
+  let drawerOpen = false;
+
   /** @param {HTMLElement} root */
   function render(root) {
+    applyBackdrop();
+
+    /** @param {any} t */
+    const go = (t) => { activeTab = t.id; drawerOpen = false; render(root); };
+    const primary = TABS.filter((t) => t.primary);
+    const rest = TABS.filter((t) => !t.primary);
+    const inDrawer = rest.some((t) => t.id === activeTab);
+
     replace(root,
-      h('div.base-tabs', TABS.map((t) =>
-        h('button.tab' + (activeTab === t.id ? '.is-active' : ''), {
-          onClick: () => { activeTab = t.id; render(root); },
-        },
-          W.icon(t.icon, { size: '17px' }),
-          h('span.tab-label', { text: t.label })
-        )
-      )),
-      h('div.base-body', renderTab(root))
+      h('div.base-body', renderTab(root)),
+
+      // 引き出し。開いているときだけ組み立てる
+      drawerOpen
+        ? h('div.tab-sheet', { onClick: () => { drawerOpen = false; render(root); } },
+            h('div.tab-sheet-panel', {
+              onClick: (/** @type {Event} */ e) => e.stopPropagation(),
+            },
+              h('div.tab-sheet-grip'),
+              h('div.tab-sheet-grid', rest.map((t) =>
+                h('button.tab-sheet-item' + (activeTab === t.id ? '.is-active' : ''), {
+                  onClick: () => go(t),
+                  'aria-current': activeTab === t.id ? 'page' : null,
+                },
+                  W.icon(t.icon, { size: '20px' }),
+                  h('span', { text: t.label })
+                )
+              ))
+            )
+          )
+        : null,
+
+      h('nav.tab-rail', { 'aria-label': '画面の切り替え' },
+        primary.map((t) =>
+          h('button.tab-rail-btn' + (activeTab === t.id ? '.is-active' : ''), {
+            onClick: () => go(t),
+            'aria-current': activeTab === t.id ? 'page' : null,
+          },
+            W.icon(t.icon, { size: '19px' }),
+            h('span', { text: t.label })
+          )
+        ).concat([
+          h('button.tab-rail-btn' + (inDrawer || drawerOpen ? '.is-active' : ''), {
+            onClick: () => { drawerOpen = !drawerOpen; render(root); },
+            'aria-expanded': drawerOpen ? 'true' : 'false',
+          },
+            W.icon('tab-party', { size: '19px' }),
+            h('span', { text: inDrawer ? (TABS.find((t) => t.id === activeTab) || {}).label : 'その他' })
+          ),
+        ])
+      )
     );
+  }
+
+  /**
+   * 画面の背景を敷く (§1.3)。
+   *
+   * 出撃と戦闘は「いま選んでいるフィールド」の絵を映す。
+   * それ以外の画面は screen-<タブID>.webp を探す。
+   * どちらも無ければ何も敷かない（それでも画面は成立する）。
+   *
+   * 絵の上には必ず膜をかぶせる。生成した絵は明るさがばらつくので、
+   * 膜が無いと画像しだいで文字が読めなくなる。実測で、いちばん明るい絵でも
+   * 膜を通せば文字とのコントラストが 6.0:1 まで確保できている。
+   */
+  function backdropKeys() {
+    const save = RPG.state.get();
+    /** @type {string[]} */
+    const keys = [];
+    if (activeTab === 'sortie') {
+      // 直前に出撃した場所を映す。まだ出撃していない人には、
+      // 到達しているいちばん奥のフィールドを見せる。
+      // ここが最初に目にする画面なので、**必ず何かが映る** ようにしておく。
+      if (save.lastSortie && save.lastSortie.fieldId) keys.push(save.lastSortie.fieldId);
+      const reached = Object.keys(RPG.data.fields);
+      for (let i = reached.length - 1; i >= 0; i--) keys.push(reached[i]);
+    }
+    keys.push('screen-' + activeTab);
+    return keys;
+  }
+
+  /**
+   * 候補を順に試して、最初に見つかった絵を敷く。
+   * @param {string[]} keys @returns {Promise<string|null>}
+   */
+  function firstBackdrop(keys) {
+    return keys.reduce(
+      (/** @type {Promise<string|null>} */ chain, key) =>
+        chain.then((found) => (found ? found : RPG.artSource.backdrop(key))),
+      Promise.resolve(/** @type {string|null} */ (null))
+    );
+  }
+
+  function applyBackdrop() {
+    const keys = backdropKeys();
+    const stamp = keys.join('|');
+    const host = document.getElementById('app') || document.body;
+
+    firstBackdrop(keys).then((src) => {
+      // 解決を待っている間に画面が変わっていたら、もう反映しない
+      if (backdropKeys().join('|') !== stamp) return;
+      host.style.setProperty('--backdrop', src ? `url('${src}')` : 'none');
+      host.classList.toggle('has-backdrop', !!src);
+    });
   }
 
   /** @param {HTMLElement} root */

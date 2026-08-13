@@ -448,10 +448,21 @@ def run_generation(args, targets, cfg):
     print("対象 %d 件 × %d 枚 = %d 枚。%.0f 秒間隔で1件ずつ送ります。\n"
           % (len(chosen), args.count, total, limiter.delay))
 
+    # 出力サイズ。既定は立ち絵と同じ縦長。背景では横長にしたいことがある。
+    out_w, out_h = cfg["width"], cfg["height"]
+    if args.size:
+        try:
+            _w, _h = args.size.lower().split("x")
+            out_w, out_h = int(_w), int(_h)
+        except Exception:
+            print("--size の書き方が違います。例: 1216x832")
+            return
+
     made = 0
     for t in chosen:
         prompt = args.prompt or build_prompt(t, catalog, overrides, args.add)
-        negative = catalog["negative"] + ((", " + args.negative_add) if args.negative_add else "")
+        base_neg = args.negative if args.negative is not None else catalog["negative"]
+        negative = base_neg + ((", " + args.negative_add) if args.negative_add else "")
 
         print("[%s] %s" % (t["id"], t["name"]))
         print("  prompt: " + prompt)
@@ -463,7 +474,7 @@ def run_generation(args, targets, cfg):
             seed = args.seed if args.seed is not None else random.randint(1, 2 ** 31 - 1)
             try:
                 png = generate(token, prompt, negative, seed, limiter,
-                               cfg["width"], cfg["height"], args.steps, args.scale)
+                               out_w, out_h, args.steps, args.scale)
             except RuntimeError as e:
                 print("  失敗: %s" % e)
                 break
@@ -834,6 +845,10 @@ def main():
     parser.add_argument("--prompt", help="プロンプトを丸ごと差し替える")
     parser.add_argument("--add", default="", help="既定のプロンプトに足すタグ")
     parser.add_argument("--negative-add", default="", help="除外タグに足すもの")
+    # 背景を作るときに要る。立ち絵向けの除外タグには scenery / detailed background が
+    # 入っていて、そのままだと背景の指示と正面から喧嘩する (§1.3)。
+    parser.add_argument("--negative", help="除外タグを丸ごと差し替える（背景を作るとき）")
+    parser.add_argument("--size", help="画像サイズ。例 1216x832（既定は立ち絵と同じ縦長）")
     parser.add_argument("--save", action="store_true",
                         help="使ったプロンプトを prompt_overrides.json に保存する")
     parser.add_argument("--install", action="store_true",

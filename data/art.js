@@ -36,6 +36,18 @@ RPG.data.artConfig = {
   enemyDir: 'assets/enemies/',
 
   /**
+   * 背景画像を探すフォルダ (§1.3)。
+   *
+   * ここも「置くだけ」で効く。データを編集する必要はない。
+   *   フィールド … assets/bg/<フィールドID>.webp   出撃・戦闘の背景になる
+   *   画面       … assets/bg/screen-<タブID>.webp  ガチャ・装備などの背景になる
+   *
+   * 無ければ、これまで通り fields.bg の2色グラデーションに落ちる。
+   * 絵が1枚も無い状態でも画面は成立する。
+   */
+  backdropDir: 'assets/bg/',
+
+  /**
    * ファイル名からの自動読み込みを行うか。
    * false にすると data/characters.js の art.standeeImage に書いたパスだけを使う。
    */
