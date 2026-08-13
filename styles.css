@@ -2828,3 +2828,75 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .pity-pick.is-maxed { opacity: .38; cursor: default; }
 .pity-pick-name { font-size: 13px; }
 .pity-pick-sub { font-size: 10px; color: var(--text-dim); font-weight: 600; }
+
+/* ------------------------------------------------------------
+   板の質感 (§14)
+
+   この世界は「灰銀」——燃え尽きたあとの金属。
+   だから面はすべて **切り出した板** として扱い、角を斜めに落として、
+   その断面にだけ熱を持たせる。装飾はこれ1つに絞ってある。
+
+   .panel-cut は前からあったが3か所でしか使われていなかった。
+   主要な札へまとめて効かせる。
+   ------------------------------------------------------------ */
+.field-card,
+.arena-card,
+.quest-card,
+.item-card,
+.class-choice,
+.innate,
+.pity,
+.skill-order,
+.node-card {
+  position: relative;
+  clip-path: polygon(
+    var(--edge) 0,
+    100% 0,
+    100% calc(100% - var(--edge)),
+    calc(100% - var(--edge)) 100%,
+    0 100%,
+    0 var(--edge)
+  );
+}
+
+/* 左上の断面。ここだけが熱を持つ。
+   世界の名前（灰銀＝燃え尽きた金属）をそのまま形にした一本。 */
+.field-card::before,
+.arena-card::before,
+.quest-card::before,
+.item-card::before,
+.class-choice::before,
+.innate::before,
+.pity::before,
+.skill-order::before,
+.node-card::before {
+  content: '';
+  position: absolute; left: -2px; top: -2px;
+  width: calc(var(--edge) * 1.6); height: 2px;
+  background: linear-gradient(90deg, var(--ember), transparent);
+  box-shadow: 0 0 12px -2px var(--ember);
+  transform: rotate(-45deg); transform-origin: left top;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 選ばれている札だけ、断面が強く灯る */
+.class-choice.is-open::before,
+.field-card:hover::before,
+.arena-card:hover::before,
+.node-card:hover::before {
+  background: linear-gradient(90deg, var(--ember-hot), var(--ember) 50%, transparent);
+  box-shadow: 0 0 18px 0 var(--ember);
+}
+
+/* 左端に縦の線を持っている札は、斜めカットと喧嘩する。
+   線の色だけ残して、縁取りは切り口に任せる。 */
+.innate, .pity { border-left-width: 0; }
+.innate { box-shadow: inset 3px 0 0 var(--relic); }
+.pity { box-shadow: inset 3px 0 0 var(--ember); }
+
+@media (max-width: 380px) {
+  /* 幅が狭いと切り口が文字に食い込む。浅くする。 */
+  .field-card, .arena-card, .quest-card, .item-card,
+  .class-choice, .innate, .pity, .skill-order, .node-card { --edge: 9px; }
+}

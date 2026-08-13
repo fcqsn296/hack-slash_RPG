@@ -12,6 +12,61 @@
 // 新しいキーを足すときは battle.js / units.js 側にも処理を書くこと。
 RPG.data.uniqueEquips = {
 
+  // ── 中技帯 (§5.8) ──
+  // 攻撃技89個のうち44個がこの帯にあるのに、支える装備が1つも無かった。
+  uq_seeping_fang: {
+    name: '浸食の牙', base: 'eq_relic_claw', color: '#9ad6a0',
+    desc: '重すぎず軽すぎない一撃だけが、相手の芯まで届く。',
+    stats: { atk: 140, magi_power: 140 },
+    effects: { midPowerStatus: 0.8, statusPower: 0.25 },
+    note: '中技の弱体付与率 +80%／継続ダメージ +25%',
+  },
+
+  uq_linking_chain: {
+    name: '連環の鎖', base: 'eq_relic_core', color: '#7fc9ff',
+    desc: '繋ぐことに徹する者の得物。自分では決めない。',
+    stats: { hp: 900, def: 90 },
+    effects: { midPowerCombo: 1, comboPower: 0.04 },
+    note: '中技でコンボ +1段／コンボ1段あたりの伸び +4%',
+  },
+
+  // ── 大技と上限突破 (§3.2 ステップ8) ──
+  // 終盤の大技は上限に潰されて中技の1.9倍しか出ていない。そこを抜けるための道。
+  uq_breaking_dawn: {
+    name: '破暁の一撃', base: 'eq_relic_claw', color: '#ff9a5c',
+    desc: '限界の向こう側にしか用がない。届かぬうちは重いだけの鉄塊。',
+    stats: { atk: 190 },
+    effects: { capBreak: 0.45, highPowerBoost: 0.3 },
+    note: 'ダメージ上限突破 +45%／大技の火力 +30%',
+  },
+
+  // ── 状態異常で盤面を作る (§5.6) ──
+  uq_plague_seal: {
+    name: '疫の封', base: 'eq_relic_seal', color: '#b58cff',
+    desc: '削るのではない。相手が勝手に崩れていくのを待つ。',
+    stats: { def: 110, hp: 700 },
+    effects: { statusPower: 0.5, debuffDuration: 1 },
+    note: '継続ダメージ +50%／与える弱体の持続 +1ターン',
+  },
+
+  // ── 手数で押す (§17 千葬の守り手の答え) ──
+  uq_twin_moons: {
+    name: '双月の環', base: 'eq_relic_core', color: '#c8d4e8',
+    desc: '一度で足りぬなら二度。数を数える相手には、これしかない。',
+    stats: { hp: 800, atk: 90 },
+    effects: { doubleHits: 1 },
+    note: '攻撃技が必ず2回発動する',
+  },
+
+  // ── 1体と向き合う (§17 闘技場の答え) ──
+  uq_duelists_oath: {
+    name: '一騎の誓い', base: 'eq_relic_mail', color: '#ffd08a',
+    desc: '相手が一人なら、こちらも一人でよい。数を頼まぬ者の鎧。',
+    stats: { def: 150, hp: 1100 },
+    effects: { loneFoePower: 0.45, counterRate: 0.2 },
+    note: '敵が1体のとき火力 +45%／反撃 20%',
+  },
+
   uq_myriad_edge: {
     name: '万手の刃', base: 'eq_relic_claw', color: '#8fd8ff',
     desc: '威力の低い技ほど鋭くなる。小技を並べた構成でしか本領を出さない。',

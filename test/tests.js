@@ -4416,6 +4416,78 @@
         `排出 ${rolled.length} 種 / 交換 ${ex.length} 種`);
     }
 
+
+    // ---------------------------------------------------------------
+    // ユニーク装備の効果が実際に届くか (§7.8)
+    //
+    // 効果は setEffects 経由で読まれるが、**読み口が用意されていないキーは
+    // 装備しても何も起きない**。実際、ユニーク装備が小技寄りに偏っていたのは、
+    // 読み口が小技まわりのキーにしか無かったから。
+    // 見た目は正しいのに効かない、というのは気付きにくいのでここで見張る。
+    // ---------------------------------------------------------------
+    {
+      RPG.state.reset();
+      const c = RPG.state.get().characters.ch_hero;
+
+      // battle.js が `p.x + fx.x` と足しているキーは、setEffects に残るのが正しい。
+      // units.js 側で passives へ流すと二重に効いてしまう。
+      const READ_FROM_SET = [
+        'lowPowerBoost', 'lowPowerRepeat', 'lowPowerSpread', 'autoLowSkill',
+        'fallenPower', 'selfPower', 'decayPerRound', 'decayFloor',
+        'wrathRatio', 'wrathRelease', 'comboLock', 'comboMaxBonus',
+        'elementAdapt', 'firstRoundPower', 'reviveHp',
+      ];
+
+      /** @param {any} x @param {string} k */
+      const read = (x, k) => {
+        if (x.passives && x.passives[k] != null) return x.passives[k];
+        if (x.situational && x.situational[k] != null) return x.situational[k];
+        if (x.setEffects && x.setEffects[k] != null) return x.setEffects[k];
+        if (x[k] != null) return x[k];
+        return 0;
+      };
+
+      const dead = [];
+      let uid = 900;
+      for (const id of Object.keys(RPG.data.uniqueEquips)) {
+        const def = RPG.data.uniqueEquips[id];
+        const base = RPG.data.equipBases[def.base];
+        assertTrue(`ユニーク: ${def.name} のベース装備が実在する`, !!base, def.base);
+        if (!base) continue;
+
+        const item = {
+          uid: uid++, base: def.base, name: def.name, slot: base.slot, tag: base.tag,
+          rarity: 'LEGEND', stats: Object.assign({}, def.stats), tagBonuses: [],
+          critRate: 0, capBreak: 0, reduction: 0, affixLines: [], boxId: 'box_astral',
+          setId: null, uniqueId: id, uniqueEffects: Object.assign({}, def.effects), locked: true,
+        };
+
+        const before = RPG.units.buildCharacterUnit(c, []);
+        c.equipped = { weapon: [], armor: [], accessory: [] };
+        c.equipped[base.slot] = [item.uid];
+        const after = RPG.units.buildCharacterUnit(c, [item]);
+        c.equipped = { weapon: [], armor: [], accessory: [] };
+
+        for (const key of Object.keys(def.effects)) {
+          if (READ_FROM_SET.includes(key)) continue;
+          if (read(after, key) === read(before, key)) dead.push(`${def.name}: ${key}`);
+        }
+      }
+
+      assertTrue('ユニーク: すべての効果が実際に届く', dead.length === 0,
+        dead.length ? dead.join(' / ')
+          : `${Object.keys(RPG.data.uniqueEquips).length} 種を確認`);
+
+      // 星辰の宝箱の売りは「数値ではなく方向性」なので、系統タグ倍率は持たせない。
+      const withTag = Object.keys(RPG.data.uniqueEquips)
+        .filter((/** @type {string} */ id) => {
+          const e = RPG.data.uniqueEquips[id].effects || {};
+          return e.tagBonus || e.tagAll;
+        });
+      assertTrue('ユニーク: 系統タグ倍率を持たない', withTag.length === 0,
+        withTag.length ? withTag.join(' / ') : '竜の宝箱との住み分けを保っている');
+    }
+
     return results;
   }
 

@@ -145,6 +145,32 @@
     const sets = RPG.equipset.resolve(items);
     const setFx = sets.effects;
     if (setFx.reviveHp) passives.reviveHp = Math.max(passives.reviveHp || 0, setFx.reviveHp);
+
+    // ユニーク装備・セット効果から passives へ流すもの (§7.8)。
+    //
+    // ── なぜ一覧で持つのか ──
+    // ここに載せていないキーは、装備しても **何も起きない**。
+    // 実際、ユニーク装備が小技寄りに偏っていたのは、読み口が
+    // 小技まわりのキーにしか無かったからだった。
+    // 効果を持つ装備を足すときは、まずここを見て、載っていなければ足す。
+    //
+    // battle.js 側で `p.x + fx.x` と足している キー（lowPowerBoost など）は
+    // ここに載せてはいけない。二重に効いてしまう。
+    for (const key of [
+      'midPowerStatus', 'midPowerCombo',   // 中技の役割 (§5.8)
+      'statusPower', 'debuffDuration',     // 状態異常で押す構成 (§5.6)
+      'doubleHits',                        // 手数で押す構成
+      'comboGain', 'comboPower',           // 弱点コンボを繋ぐ構成 (§10.6)
+      'loneFoePower', 'soloPower',         // 単騎・1体相手に寄せる構成
+      'reflect', 'counterRate',            // 殴られる前提の構成
+    ]) {
+      if (setFx[key]) passives[key] = (passives[key] || 0) + setFx[key];
+    }
+    // 上限突破は passives ではなく素の値として持っている (§3.2 ステップ8)
+    if (setFx.capBreak) capBreak += setFx.capBreak;
+    if (setFx.highPowerBoost) {
+      situational.highPowerBoost = (situational.highPowerBoost || 0) + setFx.highPowerBoost;
+    }
     if (setFx.firstRoundPower) {
       situational.firstRoundPower = (situational.firstRoundPower || 0) + setFx.firstRoundPower;
     }
