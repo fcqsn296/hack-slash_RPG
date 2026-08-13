@@ -4223,6 +4223,33 @@
         RPG.state.levelCap() >= old.characters.ch_hero.level
         && old.characters.ch_hero.level === RPG.data.maxLevel + 37,
         `Lv${old.characters.ch_hero.level} / 上限 Lv${RPG.state.levelCap()}`);
+
+      // 上限は必ず道具の刻みの倍数にする。
+      //
+      // 超過ぶんをそのまま足すと Lv151 の人の上限が 151 になり、
+      // そこから 161・171 と半端な数字が続いて二度と戻らない。
+      assertTrue('上限アイテム: 引き取った上限が刻みの倍数になる',
+        old.levelCapBonus % step === 0,
+        `上乗せ +${old.levelCapBonus}（刻み ${step}）`);
+
+      // 一度でも起動して半端な値で保存された人も救う。
+      // 移行処理を直すだけでは既存のセーブは直らない。
+      //
+      // 直前の検査でレベルを上げてあるので、まず戻す。
+      // そうしないと「超過ぶんの繰り上げ」が混ざって、何を測ったのか分からなくなる。
+      RPG.state.reset();
+      const stale = RPG.state.get();
+      stale.levelCapBonus = 1;
+      RPG.state.migrate(stale);
+      assertTrue('上限アイテム: 保存済みの半端な上限も丸める',
+        stale.levelCapBonus === step, `1 → ${stale.levelCapBonus}`);
+
+      // 何度通しても結果が変わらないこと。移行処理は起動のたびに走る。
+      const before = stale.levelCapBonus;
+      RPG.state.migrate(stale);
+      RPG.state.migrate(stale);
+      assertTrue('上限アイテム: 何度移行しても増えない',
+        stale.levelCapBonus === before, `${before} → ${stale.levelCapBonus}`);
     }
 
     // ---------------------------------------------------------------

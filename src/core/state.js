@@ -202,12 +202,26 @@
     // 闘技場の報酬で伸ばしていくことになる。
     if (s.levelCapBonus == null) s.levelCapBonus = 0;
     {
+      // 伸ばす道具の刻み。上限は必ずこの倍数にする。
+      //
+      // 超過ぶんをそのまま足すと、Lv151 の人は上限が 151 になり、
+      // そこから道具を使うたびに 161・171 と半端な数字が続く。
+      // 一度そうなると二度と切りの良い数字へ戻らない。
+      const step = (RPG.data.items && RPG.data.items.it_star_shard
+        && RPG.data.items.it_star_shard.levelCap) || 10;
+      const roundUp = (/** @type {number} */ v) => Math.ceil(v / step) * step;
+
       let highest = 0;
       for (const id of Object.keys(s.characters || {})) {
         highest = Math.max(highest, s.characters[id].level || 1);
       }
       const over = highest - (RPG.data.maxLevel + s.levelCapBonus);
-      if (over > 0) s.levelCapBonus += over;
+      if (over > 0) s.levelCapBonus += roundUp(over);
+
+      // 既に半端な値で保存されているセーブも直す。
+      // 移行処理を直すだけでは、一度でも起動した人を救えない。
+      // 倍数を丸め直すだけなので、何度通しても結果は変わらない。
+      if (s.levelCapBonus % step !== 0) s.levelCapBonus = roundUp(s.levelCapBonus);
     }
     if (s.tower.claimed == null) s.tower.claimed = 0;
     if (s.tower.run === undefined) s.tower.run = null;
