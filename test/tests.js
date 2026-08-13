@@ -3891,6 +3891,181 @@
       }
     }
 
+
+    // ---------------------------------------------------------------
+    // オート回数の上限 (§10.5)
+    //
+    // 上限の頭打ちが、配れる報酬の総量より小さいと、後から手に入る
+    // 報酬が黙って消える。実際に MAX_CAP=60 に対して報酬が合計60あり、
+    // 塔の報酬 30 のうち 20 が捨てられていた。画面には
+    // 「上限 +10（60）」と出るのに数字が動かない、という形で現れる。
+    // ---------------------------------------------------------------
+    {
+      let grantable = 0;
+      for (const q of Object.keys(RPG.data.quests)) {
+        const rw = RPG.data.quests[q].reward || {};
+        if (rw.autoCharge) grantable += rw.autoCharge;
+      }
+      for (const m of RPG.data.tower.milestones) {
+        if (m.autoCharge) grantable += m.autoCharge;
+      }
+
+      const need = RPG.autolimit.BASE_MAX + grantable;
+      assertTrue('オート上限: 配れる報酬をすべて受け取れる',
+        RPG.autolimit.MAX_CAP >= need,
+        `初期 ${RPG.autolimit.BASE_MAX} ＋ 報酬 ${grantable} = ${need} / 頭打ち ${RPG.autolimit.MAX_CAP}`);
+
+      // 実際に全部配ってみて、最後の1つまで数字が動くこと
+      RPG.state.reset();
+      const before = RPG.autolimit.max();
+      let last = before;
+      let swallowed = 0;
+      for (let i = 0; i < grantable; i++) {
+        const now = RPG.autolimit.grantMax(1);
+        if (now === last) swallowed++;
+        last = now;
+      }
+      assertTrue('オート上限: 報酬が途中で飲み込まれない', swallowed === 0,
+        `${before} → ${last}（無視された回数 ${swallowed}）`);
+    }
+
+
+    // ---------------------------------------------------------------
+    // レベルの上限 (§6.5)
+    //
+    // 上限が無いとSPが無限に増え、ツリーを全部取れてしまう。
+    // そうなるとビルドは「何を選ぶか」ではなく「どれだけ回したか」になる。
+    // ---------------------------------------------------------------
+    {
+      const cap = RPG.data.maxLevel;
+
+      assertTrue('レベル上限: 用意した内容を相手にできる高さがある',
+        cap >= Math.max(...Object.keys(RPG.data.fields)
+          .map((/** @type {string} */ f) => RPG.data.fields[f].rec_level)),
+        `上限 ${cap}`);
+
+      // 上限のSPでツリーを取り切れてしまうと、選択そのものが消える。
+      let treeTotal = 0;
+      for (const n of RPG.tree.nodes()) treeTotal += (n.max || 1) * (n.cost || 1);
+      const spAtCap = (cap - 1) + RPG.data.gacha.maxLimitBreak;
+      assertTrue('レベル上限: 上限でもツリーを取り切れない',
+        spAtCap < treeTotal * 0.5,
+        `SP ${spAtCap} / ツリー全体 ${treeTotal}（${(spAtCap / treeTotal * 100).toFixed(1)}%）`);
+
+      // 実際に経験値を注ぎ込んでも上限を超えないこと。
+      RPG.state.reset();
+      RPG.state.addExp('ch_hero', 1e12);
+      const lv = RPG.state.get().characters.ch_hero.level;
+      assertTrue('レベル上限: 経験値を注いでも上限を超えない', lv === cap, `Lv${lv} / 上限 ${cap}`);
+      assertTrue('レベル上限: 上限に達したら経験値を貯めない',
+        RPG.state.get().characters.ch_hero.exp === 0 && RPG.state.atMaxLevel('ch_hero'), '');
+
+      // 上限を超えた既存セーブからレベルを取り上げない。
+      // 取り上げると振り済みのSPが宙に浮き、ツリーが壊れる。
+      RPG.state.get().characters.ch_hero.level = cap + 20;
+      RPG.state.addExp('ch_hero', 1e9);
+      assertTrue('レベル上限: 既存の超過レベルを引き下げない',
+        RPG.state.get().characters.ch_hero.level === cap + 20, '');
+    }
+
+
+    // ---------------------------------------------------------------
+    // ダメージ上限突破と大技 (§3.2 ステップ8)
+    //
+    // 上限は「ボスの瞬殺を防ぐ」ためのものだが、突破手段が足りないと
+    // 威力の高い技ほど損をする。実測では、最大強化のビルドで
+    // 威力620%の技が素 1,241,220 → 上限に潰されて 574,684 になり、
+    // 中技150%との差が 4.10倍から 1.90倍まで縮んでいた。
+    // 突破を積み切れば素の値が通る、という関係を保つ。
+    // ---------------------------------------------------------------
+    {
+      // 突破が上限に潰されなくなる地点。実測値。
+      const NEEDED = 1.92;
+
+      let fromTree = 0;
+      for (const n of RPG.tree.nodes()) {
+        for (const e of n.effects || []) {
+          if (e.kind === 'cap_break') fromTree += e.value * (n.maxLevel || 1);
+        }
+      }
+      let fromClass = 0;
+      for (const id of Object.keys(RPG.data.classes)) {
+        for (const n of RPG.data.classes[id].nodes || []) {
+          for (const e of n.effects || []) {
+            if (e.kind === 'cap_break') fromClass = Math.max(fromClass, e.value * (n.maxLevel || 1));
+          }
+        }
+      }
+
+      assertTrue('上限突破: 積み切れば大技が上限に潰されない',
+        fromTree + fromClass >= NEEDED - 1e-9,
+        `ツリー +${Math.round(fromTree * 100)}% ＋ クラス +${Math.round(fromClass * 100)}% ` +
+        `= +${Math.round((fromTree + fromClass) * 100)}% / 必要 +${Math.round(NEEDED * 100)}%`);
+
+      // 実際に効くことを値で確かめる。上限を抜けたら素の値がそのまま出る。
+      //
+      // 上限に **届く火力** で比べること。届かない数値で比べると
+      // 突破の有無で差が出ず、乱数の揺れだけを見ることになる（一度そうなった）。
+      // 乱数を止める手段が無いので、平均を取って比べる。
+      const base = {
+        stats: { atk: 300000 }, level: 150, element: 'none',
+        tagBonuses: [], uniqueBuffs: [],
+      };
+      const def = { def: 0, level: 150, reduction: 0, element: 'none' };
+      const skill = { power: 620, element: 'none', scaling_stat: 'atk', damage_type: 'phys' };
+      const mean = (/** @type {number} */ capBreak) => {
+        let sum = 0;
+        for (let i = 0; i < 200; i++) {
+          sum += RPG.damage.calc({
+            attacker: Object.assign({}, base, { capBreak }),
+            defender: def, skill, options: { crit: false },
+          }).damage;
+        }
+        return sum / 200;
+      };
+      const capped = mean(0);
+      const freed = mean(NEEDED);
+      assertTrue('上限突破: 突破するほど出力が伸びる',
+        freed > capped * 1.5,
+        `突破なし ${Math.round(capped).toLocaleString()} → +${Math.round(NEEDED * 100)}% ` +
+        `${Math.round(freed).toLocaleString()}`);
+    }
+
+
+    // ---------------------------------------------------------------
+    // 軽減バフの無限無敵を防ぐ (§3.1-3)
+    //
+    // 切れる直前に撃ち直せば1人で永久に無敵を維持できる。
+    // クールダウンを持続より1だけ長く取ることで、1人だと必ず隙が空き、
+    // 複数人で受け渡せば繋がる、という境目にしてある。
+    // ---------------------------------------------------------------
+    {
+      const offenders = [];
+      for (const id of Object.keys(RPG.data.skills)) {
+        const sk = RPG.data.skills[id];
+        if (sk.plugin !== 'reduction_buff') continue;
+        const turns = (sk.params || {}).turns || 0;
+        if (!sk.cooldown || sk.cooldown <= turns) {
+          offenders.push(`${sk.name}（持続${turns} / CD${sk.cooldown || 'なし'}）`);
+        }
+      }
+      assertTrue('軽減バフ: 1人では途切れずに維持できない',
+        offenders.length === 0,
+        offenders.length ? offenders.join(' / ') : '全て 持続 < クールダウン');
+
+      // 攻撃技にはクールダウンを入れない。終盤の大技は上限に潰されていて、
+      // 待ち時間まで課すと選ぶ理由が無くなるため。
+      const cooledAttacks = [];
+      for (const id of Object.keys(RPG.data.skills)) {
+        const sk = RPG.data.skills[id];
+        if (!sk.cooldown || !sk.power || sk.power <= 0) continue;
+        if (sk.cls) continue; // クラス技は解禁ラウンドとセットの設計で別枠
+        cooledAttacks.push(sk.name);
+      }
+      assertTrue('攻撃技: クールダウンを持たない', cooledAttacks.length === 0,
+        cooledAttacks.length ? cooledAttacks.join(' / ') : 'なし');
+    }
+
     return results;
   }
 

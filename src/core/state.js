@@ -617,14 +617,32 @@
    */
   function addExp(charId, amount) {
     const c = get().characters[charId];
+    const cap = RPG.data.maxLevel;
+
+    // 上限に達したら経験値そのものを受け取らない。
+    // 貯めさせても使い道が無く、増え続ける数字は「まだ伸びる」と誤解させる。
+    // 既存のセーブが上限を超えている場合は、そのレベルを取り上げない
+    // （振ったSPを引き剥がすことになり、ツリーが壊れるため）。伸びが止まるだけ。
+    if (c.level >= cap) { c.exp = 0; return 0; }
+
     c.exp += amount;
     let gained = 0;
-    while (c.exp >= RPG.units.expToNext(c.level)) {
+    while (c.level < cap && c.exp >= RPG.units.expToNext(c.level)) {
       c.exp -= RPG.units.expToNext(c.level);
       c.level++;
       gained++;
     }
+    if (c.level >= cap) c.exp = 0;
     return gained;
+  }
+
+  /**
+   * 上限に達しているか。表示側が「MAX」を出すのに使う。
+   * @param {string} charId
+   */
+  function atMaxLevel(charId) {
+    const c = get().characters[charId];
+    return !!c && c.level >= RPG.data.maxLevel;
   }
 
   /**
@@ -834,7 +852,7 @@
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
-    addExp, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    addExp, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
     investNode, resetTree, tryJoinParty,
     setClass, investClassNode, resetClassTree,
     charName, setCharName, NAME_MAX,

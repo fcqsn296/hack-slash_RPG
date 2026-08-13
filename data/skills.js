@@ -202,6 +202,7 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
     power: 0, crit_rate: 0,
     params: { value: 0.28, turns: 3, party: true, label: '光帷' },
+    cooldown: 4,
     desc: '【固有】3ターンの間、パーティ全員の被ダメージを28%軽減する。',
   },
   sk_mu_impact: {
@@ -280,6 +281,7 @@ RPG.data.skills = {
     scaling_stat: 'atk', damage_type: 'phys', element: 'none',
     power: 0, crit_rate: 0,
     params: { value: 0.4, turns: 3, party: true, label: '不動' },
+    cooldown: 4,
     desc: '【ツリー】3ターンの間、パーティ全員の被ダメージを40%軽減する。',
   },
 
@@ -301,6 +303,7 @@ RPG.data.skills = {
     scaling_stat: 'atk', damage_type: 'phys', element: 'none',
     power: 0, crit_rate: 0,
     params: { value: 0.25, turns: 3, party: true, label: '守りの号令' },
+    cooldown: 4,
     desc: '【ツリー】味方全体の被ダメージを3ターン 25% 軽減する。',
   },
   sk_tree_venom: {
@@ -418,6 +421,7 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
     power: 0, crit_rate: 0,
     params: { value: 0.35, turns: 3, party: true, label: '不落' },
+    cooldown: 4,
     desc: '【ツリー】味方全体の被ダメージを3ターン 35%軽減する。他の軽減と足し合わせて無敵を狙える。',
   },
 
@@ -621,6 +625,7 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'earth',
     power: 0, crit_rate: 0,
     params: { value: 0.45, turns: 3, party: true, label: '万人の盾' },
+    cooldown: 4,
     desc: '味方全体の被ダメージを3ターン45%軽減する。他の軽減と足し合わせて無敵を狙える。',
   },
   sk_lg_thousand_needles: {

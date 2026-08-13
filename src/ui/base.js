@@ -597,7 +597,7 @@
       W.portrait(def, 'md'),
       h('div.codex-card-body',
         h('span.codex-name', { text: RPG.state.charName(id) }),
-        h('span.codex-sub', { text: `${def.title} / Lv${c.level}${c.limitBreak ? ` +${c.limitBreak}` : ''}` }),
+        h('span.codex-sub', { text: `${def.title} / Lv${c.level}${RPG.state.atMaxLevel(c.id) ? '(MAX)' : ''}${c.limitBreak ? ` +${c.limitBreak}` : ''}` }),
         h('div.chips', W.rarityChip(def.rarity), W.elementChip(def.element))
       )
     );
@@ -2434,7 +2434,7 @@
           h('div.party-slot-info',
             h('span.name', { text: RPG.state.charName(id) }),
             h('span.sub', {
-              text: `Lv${c.level}${c.limitBreak ? ` +${c.limitBreak}凸` : ''} / ${def.title}`,
+              text: `Lv${c.level}${RPG.state.atMaxLevel(id) ? '(MAX)' : ''}${c.limitBreak ? ` +${c.limitBreak}凸` : ''} / ${def.title}`,
             }),
             h('div.chips', W.rarityChip(def.rarity), W.elementChip(def.element))
           ),
