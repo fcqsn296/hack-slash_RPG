@@ -69,7 +69,10 @@ def collect():
     # キャラ・敵の立ち絵まで含めると 40MB を超えるが、初回にまとめて落とす方針。
     # 実行時キャッシュに任せると「圏外で初めて引いたキャラの絵が出ない」ことになり、
     # 外出先で遊ぶという目的と噛み合わないため。
-    for sub in ('ui', 'characters', 'enemies', 'pwa'):
+    # bg は画面の背景 (§1.3)。実行時に探索するので index.html からは辿れない。
+    # 実行時キャッシュでも一度見れば貯まるが、それだと
+    # 「初めて開いた画面が圏外だと絵が無い」ことになる。合計450KB程度なので先に入れる。
+    for sub in ('ui', 'characters', 'enemies', 'pwa', 'bg'):
         d = os.path.join(ROOT, 'assets', sub)
         if not os.path.isdir(d):
             continue
