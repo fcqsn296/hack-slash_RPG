@@ -975,10 +975,36 @@
       W.heading('闘技場',
         '1体と1戦だけ戦う。連戦ではないぶん、通常の狩場には置けない悪辣な仕掛けを備えている。'),
       h('p.hint.hint-sm', {
-        text: '周回して稼ぐ場所ではないので報酬は無い。記録だけが残る。' +
-          'ここの相手は、特定の組み立てを名指しで否定してくる。',
+        text: 'ここの相手は、特定の組み立てを名指しで否定してくる。' +
+          `初回制覇で「${RPG.data.items.it_star_shard.name}」がひとつ手に入る。`,
+      }),
+      h('p.hint.hint-sm', {
+        text: `ハードは敵のレベルが現在の上限（Lv${RPG.state.levelCap()}）に合わせられ、` +
+          `倒すたびに ${Math.round(RPG.arena.HARD_DROP_RATE * 100)}% で ` +
+          `${RPG.data.items.it_star_shard.name} が出る。`,
       }),
       h('p.hint.hint-sm', { text: `攻略済み ${RPG.arena.clearedCount()} / ${total}` }),
+
+      // 手に入れた場所で使えるようにしておく。
+      // 上限を伸ばす → もっと強い相手に挑める、が一画面で完結する。
+      (() => {
+        const itemId = RPG.arena.CAP_ITEM;
+        const def = RPG.data.items[itemId];
+        const have = RPG.state.itemCount(itemId);
+        return h('div.arena-item',
+          h('div.arena-item-body',
+            h('b', { text: `${def.name} ×${have}` }),
+            h('span.hint.hint-sm', { text: def.desc }),
+            h('span.hint.hint-sm', { text: `現在のレベル上限 Lv${RPG.state.levelCap()}` })
+          ),
+          W.button(have > 1 ? `まとめて使う（${have}個）` : '使う', () => {
+            const r = RPG.state.useItem(itemId, have);
+            if (!r.ok) { RPG.app.toast(r.reason || '使えません'); return; }
+            RPG.app.toast(`レベル上限が Lv${r.levelCap} になった`);
+            render(root);
+          }, { variant: have > 0 ? 'primary' : 'ghost', disabled: have === 0 })
+        );
+      })(),
       check.ok ? null : h('p.tier-locked-note', W.icon('lock'), h('span', { text: check.reason })),
 
       h('div.arena-list', RPG.arena.bosses().map((/** @type {any} */ def) => {
@@ -991,7 +1017,9 @@
               h('span.arena-sub', { text: def.title })
             ),
             rec && rec.cleared
-              ? h('span.chip.chip-done', { text: `最短 ${rec.bestRound}R` })
+              ? h('span.chip.chip-done', {
+                  text: `最短 ${rec.bestRound}R` + (rec.hardCleared ? ' ／ ハード制覇' : ''),
+                })
               : h('span.chip', { text: '未攻略' })
           ),
           h('p.arena-desc', { text: def.desc }),
@@ -1007,7 +1035,18 @@
             }),
             W.button('挑む', () => RPG.app.startArena(def.id), {
               variant: 'primary', disabled: !check.ok,
-            })
+              sub: rec && rec.cleared ? '報酬は初回のみ' : null,
+            }),
+            (() => {
+              const hardGate = RPG.arena.canChallengeHard(def.id);
+              return W.button('ハード', () => RPG.app.startArena(def.id, { hard: true }), {
+                variant: 'ghost',
+                disabled: !check.ok || !hardGate.ok,
+                sub: hardGate.ok
+                  ? `Lv${RPG.state.levelCap()} ／ ${Math.round(RPG.arena.HARD_DROP_RATE * 100)}%で戦利品`
+                  : hardGate.reason,
+              });
+            })()
           )
         );
       }))

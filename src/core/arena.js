@@ -17,6 +17,44 @@
 (function (RPG) {
   'use strict';
 
+  /**
+   * ハードモードの上乗せ。
+   *
+   * ── 耐久を積んでも効かない ──
+   * 実測で、能力倍率を20倍にしても勝率は100%のまま、
+   * 決着が 3.4 → 5.0 ラウンドに延びるだけだった。
+   * 1発の被害に上限を置いてあるので、**パーティが死なない** のが理由。
+   *
+   * 効くのは手数と、その1発の重さ。ハードではそこを動かす。
+   */
+  const HARD_SCALE = 6;
+  /** 1ラウンドの行動回数への上乗せ。 */
+  const HARD_ACTIONS = 2;
+  /**
+   * 取り巻きにかける倍率。本体より控えめにしてある。
+   *
+   * 取り巻きは「本体へ届くまでの関門」であって、削り合いの相手ではない。
+   * 本体と同じ6倍にしたら、庇うボス（三重の守護者・闘技場の主）だけが
+   * 勝率0%になった。時間の関門が、そのまま壁になっていた。
+   */
+  const HARD_ADD_SCALE = 2;
+  /**
+   * 1発で受ける被害の上限にかける倍率。
+   *
+   * ここは **崖** になっている。1.5 にすると「刹那の巨兵」だけが
+   * 勝率0%へ落ちた。あのボスは初撃しか通らないので戦闘が長引き、
+   * そのぶん被害が積み上がって、少し重くしただけで生き残れなくなる。
+   * 1.25 まで戻すと 0% → 88% へ跳ね返る。
+   * 手数（HARD_ACTIONS）のほうが、どのボスでも素直に効く。
+   */
+  const HARD_HIT_RATIO = 1.25;
+
+  /** ハードモードで戦利品が出る確率。 */
+  const HARD_DROP_RATE = 0.2;
+
+  /** 上限を伸ばす道具のID。 */
+  const CAP_ITEM = 'it_star_shard';
+
   /** セーブ側の記録 { ボスID: { cleared, bestRound } } */
   function store() {
     const s = RPG.state.get();
@@ -82,9 +120,10 @@
    * @param {string} id
    * @returns {any} battle
    */
-  function start(id) {
+  function start(id, opts) {
     const def = boss(id);
     if (!def) throw new Error('未知の闘技場ボス: ' + id);
+    const hard = !!(opts && opts.hard);
 
     // 戦闘の器は既存のものを流用する。ウェーブは1つだけ。
     const battle = RPG.battle.start({
@@ -97,8 +136,16 @@
     // 出てくる敵を丸ごと差し替える
     /** @type {any[]} */
     const enemies = [];
-    const main = RPG.units.buildEnemyUnit(def.enemyId, def.lv, true, 0, def.scale);
-    main.name = def.name;
+    // ハードモードは **敵のレベルを、いまのレベル上限に合わせる** (§17)。
+    //
+    // 固定値にすると、上限を伸ばした人にとってすぐ作業になる。
+    // 上限に追随させておけば、伸ばすほど相手も伸びるので、
+    // 「上限を上げる → もっと強い相手に挑める」が途切れない。
+    const lv = hard ? Math.max(def.lv, RPG.state.levelCap()) : def.lv;
+    const scale = hard ? def.scale * HARD_SCALE : def.scale;
+
+    const main = RPG.units.buildEnemyUnit(def.enemyId, lv, true, 0, scale);
+    main.name = def.name + (hard ? '（ハード）' : '');
     main.arenaBoss = true;
 
     // 攻撃力そのものは触らない。
@@ -108,14 +155,21 @@
 
     for (const add of def.adds || []) {
       for (let i = 0; i < add.count; i++) {
-        enemies.push(RPG.units.buildEnemyUnit(add.enemyId, add.lv, false, enemies.length, add.scale));
+        enemies.push(RPG.units.buildEnemyUnit(
+          add.enemyId, hard ? Math.max(add.lv, lv - 10) : add.lv,
+          false, enemies.length, hard ? add.scale * HARD_ADD_SCALE : add.scale));
       }
     }
     enemies.forEach((e, i) => { e.key = 'e' + i; });
     battle.enemies = enemies;
 
     // ギミックの状態。hitsThisRound はラウンドごとに数え直す。
-    battle.arena = { id: def.id, def, gimmicks: def.gimmicks || {}, hitsThisRound: 0 };
+    battle.arena = {
+      id: def.id, def, hard, gimmicks: def.gimmicks || {}, hitsThisRound: 0,
+      // 実効値。ハードはここで上書きし、battle.js はこちらを見る。
+      actionsPerRound: (def.actionsPerRound || 1) + (hard ? HARD_ACTIONS : 0),
+      maxHitRatio: Math.min(0.95, def.maxHitRatio * (hard ? HARD_HIT_RATIO : 1)),
+    };
     battle.totalWaves = 1;
     battle.wave = 1;
     battle.actorIndex = 0;
@@ -123,7 +177,10 @@
     battle.phase = 'command';
 
     battle.log.length = 0;
-    battle.log.push({ text: `── ${def.name} ──`, kind: 'wave' });
+    battle.log.push({ text: `── ${def.name}${hard ? '（ハード）' : ''} ──`, kind: 'wave' });
+    if (hard) {
+      battle.log.push({ text: `敵のレベルは現在の上限 ${lv} に合わせられている`, kind: 'debuff' });
+    }
     battle.log.push({ text: def.desc, kind: 'info' });
     for (const line of gimmickLines(def)) {
       battle.log.push({ text: '【特殊】' + line, kind: 'debuff' });
@@ -146,23 +203,50 @@
     if (!battle.arena || !battle.finished || !battle.victory) return null;
     const st = store();
     const id = battle.arena.id;
+    const hard = !!battle.arena.hard;
     const prev = st[id] || { cleared: false, bestRound: null };
     const rounds = battle.totalRounds;
 
-    const first = !prev.cleared;
+    const first = hard ? !prev.hardCleared : !prev.cleared;
     const best = prev.bestRound == null || rounds < prev.bestRound;
 
-    st[id] = {
-      cleared: true,
+    st[id] = Object.assign({}, prev, {
+      cleared: prev.cleared || !hard,
+      hardCleared: prev.hardCleared || hard,
       bestRound: best ? rounds : prev.bestRound,
       clears: (prev.clears || 0) + 1,
-    };
+    });
+
+    // ── 報酬 (§17) ──
+    //
+    // 通常は **初回制覇のときだけ**。周回して稼ぐ場所ではないので、
+    // 何度倒しても出るようにすると、結局いちばん楽なボスを回すだけになる。
+    //
+    // ハードは倒すたびに抽選する。こちらは相手がレベル上限に追随するので、
+    // 「楽な相手を回す」が成立しない。通う理由をここに置いてある。
+    let shards = 0;
+    if (!hard && first) shards = 1;
+    if (hard && RPG.rng.chance(HARD_DROP_RATE)) shards = 1;
+    if (shards > 0) RPG.state.addItem(CAP_ITEM, shards);
+
     RPG.state.persist();
-    return { first, best };
+    return { first, best, hard, shards };
+  }
+
+  /**
+   * ハードに挑めるか。通常を先に制覇していること。
+   * 順番を強制しないと、仕掛けを理解しないまま殴られて終わる。
+   * @param {string} id
+   */
+  function canChallengeHard(id) {
+    const r = record(id);
+    if (!r || !r.cleared) return { ok: false, reason: 'まず通常を制覇すること' };
+    return { ok: true };
   }
 
   RPG.arena = {
     bosses, boss, canChallenge, record, clearedCount,
-    gimmickLines, start, finish,
+    gimmickLines, start, finish, canChallengeHard,
+    HARD_SCALE, HARD_ADD_SCALE, HARD_ACTIONS, HARD_HIT_RATIO, HARD_DROP_RATE, CAP_ITEM,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

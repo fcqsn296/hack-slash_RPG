@@ -4177,6 +4177,104 @@
         `付与率 ×${(1 + after.midPowerStatus).toFixed(1)}`);
     }
 
+
+    // ---------------------------------------------------------------
+    // レベル上限を伸ばす道具 (§6.5 / §17)
+    //
+    // 上限を固定値にすると、それは壁でしかない。到達した時点で
+    // 育成の目標が装備だけになり、そこから先に進む理由が消える。
+    // 闘技場の報酬で伸ばせるようにして、上限そのものを目標にしてある。
+    // ---------------------------------------------------------------
+    {
+      RPG.state.reset();
+      const base = RPG.state.levelCap();
+      assertTrue('上限アイテム: 初期の上限はデータの値と一致する',
+        base === RPG.data.maxLevel, `Lv${base}`);
+
+      const itemId = RPG.arena.CAP_ITEM;
+      const step = RPG.data.items[itemId].levelCap;
+
+      // 持っていなければ使えない
+      assertTrue('上限アイテム: 持っていなければ使えない',
+        !RPG.state.useItem(itemId, 1).ok, '');
+
+      RPG.state.addItem(itemId, 3);
+      const used = RPG.state.useItem(itemId, 3);
+      assertTrue('上限アイテム: まとめて使える',
+        used.ok && used.used === 3 && RPG.state.itemCount(itemId) === 0, `${used.used} 個`);
+      assertTrue('上限アイテム: 使った分だけ上限が伸びる',
+        RPG.state.levelCap() === base + step * 3,
+        `Lv${base} → Lv${RPG.state.levelCap()}`);
+
+      // 伸びた上限まで実際に育つこと
+      RPG.state.addExp('ch_hero', 1e12);
+      assertTrue('上限アイテム: 伸びた上限まで育つ',
+        RPG.state.get().characters.ch_hero.level === RPG.state.levelCap(),
+        `Lv${RPG.state.get().characters.ch_hero.level}`);
+
+      // 上限を導入する前のセーブ（既に超えている）を矛盾なく引き取れること。
+      // レベルを取り上げると振り済みのSPが宙に浮くので、
+      // 超過ぶんを「既に稼いだ上限」として移し替える。
+      const old = RPG.state.get();
+      old.levelCapBonus = 0;
+      old.characters.ch_hero.level = RPG.data.maxLevel + 37;
+      RPG.state.migrate(old);
+      assertTrue('上限アイテム: 上限を超えた旧セーブと辻褄が合う',
+        RPG.state.levelCap() >= old.characters.ch_hero.level
+        && old.characters.ch_hero.level === RPG.data.maxLevel + 37,
+        `Lv${old.characters.ch_hero.level} / 上限 Lv${RPG.state.levelCap()}`);
+    }
+
+    // ---------------------------------------------------------------
+    // 闘技場のハードモード (§17)
+    // ---------------------------------------------------------------
+    {
+      const id = RPG.arena.bosses()[0].id;
+
+      // 通常を制覇する前はハードに挑めない。
+      // 順番を強制しないと、仕掛けを理解しないまま殴られて終わる。
+      RPG.state.reset();
+      assertTrue('ハード: 通常の制覇前は挑めない',
+        !RPG.arena.canChallengeHard(id).ok, RPG.arena.canChallengeHard(id).reason || '');
+
+      RPG.state.get().arena[id] = { cleared: true, bestRound: 5, clears: 1 };
+      assertTrue('ハード: 通常を制覇すると解禁される',
+        RPG.arena.canChallengeHard(id).ok, '');
+
+      // 敵のレベルが現在の上限に追随すること。
+      // 固定値だと、上限を伸ばした人にとってすぐ作業になる。
+      RPG.state.get().levelCapBonus = 100;
+      const b = RPG.arena.start(id, { hard: true });
+      assertTrue('ハード: 敵レベルが現在の上限に追随する',
+        b.enemies[0].level >= RPG.state.levelCap(),
+        `敵 Lv${b.enemies[0].level} / 上限 Lv${RPG.state.levelCap()}`);
+      assertTrue('ハード: 通常より手強い',
+        b.enemies[0].maxHp > RPG.arena.start(id).enemies[0].maxHp,
+        `${b.enemies[0].maxHp.toLocaleString()} 対 ${RPG.arena.start(id).enemies[0].maxHp.toLocaleString()}`);
+
+      // 取り巻きは「本体へ届くまでの関門」であって、削り合いの相手ではない。
+      // 本体と同じ倍率を掛けたら、庇うボスだけが勝率0%になった。
+      assertTrue('ハード: 取り巻きを本体ほど硬くしない',
+        RPG.arena.HARD_ADD_SCALE < RPG.arena.HARD_SCALE,
+        `取り巻き ×${RPG.arena.HARD_ADD_SCALE} / 本体 ×${RPG.arena.HARD_SCALE}`);
+
+      // 手数と1発の重さ。重さは崖になりやすいので、控えめに保つ。
+      assertTrue('ハード: 手数で難しくし、1発の重さは控えめにする',
+        RPG.arena.HARD_ACTIONS >= 1 && RPG.arena.HARD_HIT_RATIO <= 1.3,
+        `手数 +${RPG.arena.HARD_ACTIONS} / 重さ ×${RPG.arena.HARD_HIT_RATIO}`);
+
+      // 庇うボスでも本体に届くこと。届かなければ、それは難易度ではなく詰み。
+      for (const def of RPG.arena.bosses()) {
+        if (!(def.gimmicks || {}).guardedByAdds) continue;
+        const hb = RPG.arena.start(def.id, { hard: true });
+        const adds = hb.enemies.filter((/** @type {any} */ e) => !e.arenaBoss);
+        const addHp = adds.reduce((/** @type {number} */ a, /** @type {any} */ e) => a + e.maxHp, 0);
+        assertTrue(`ハード: ${def.name} の衛士が壁にならない`,
+          addHp < hb.enemies[0].maxHp,
+          `衛士 計${addHp.toLocaleString()} / 本体 ${hb.enemies[0].maxHp.toLocaleString()}`);
+      }
+    }
+
     return results;
   }
 

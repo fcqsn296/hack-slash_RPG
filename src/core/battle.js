@@ -961,7 +961,7 @@
     // 「痛いが耐えられる」関係が保たれる。何ラウンド持つかが読めるようになるので、
     // ギミックを解くことに意識を向けられる。
     if (battle.arena && attacker.arenaBoss && defender.side === 'party' && result.damage > 0) {
-      const cap = battle.arena.def.maxHitRatio;
+      const cap = battle.arena.maxHitRatio != null ? battle.arena.maxHitRatio : battle.arena.def.maxHitRatio;
       if (cap) {
         const limit = Math.max(1, Math.floor(defender.maxHp * cap));
         if (result.damage > limit) result.damage = limit;
@@ -1739,7 +1739,8 @@
       // 消耗戦になり、歯ごたえではなく作業になる（実測でそうなった）。
       // 手数を揃えることで、短いラウンド数のうちに緊張が生まれる。
       const acts = (battle.arena && enemy.arenaBoss)
-        ? Math.max(1, battle.arena.def.actionsPerRound || 1) : 1;
+        ? Math.max(1, (battle.arena.actionsPerRound != null
+            ? battle.arena.actionsPerRound : battle.arena.def.actionsPerRound) || 1) : 1;
 
       for (let a = 0; a < acts; a++) {
         if (!enemy.alive) break;

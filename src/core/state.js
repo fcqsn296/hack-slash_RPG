@@ -65,6 +65,10 @@
       // 闘技場の記録 (§17)。migrate 側でも補うが、新規セーブにも最初から置く。
       // 置かないと「新規作成した形」と「読み込んだ形」がずれ、往復が一致しなくなる。
       arena: {},
+      // レベル上限の上乗せぶん (§6.5)。闘技場の報酬で伸びる。
+      levelCapBonus: 0,
+      // 所持している道具 { 道具ID: 個数 }。装備とは別枠で数えるだけのもの。
+      items: {},
       // 直前の出撃内容。ワンクリックで同じ場所へ再出撃するために覚えておく
       lastSortie: null,
     };
@@ -182,6 +186,27 @@
     if (!s.tower) s.tower = { best: 0, claimed: 0, run: null };
     // 闘技場の記録 (§17)。旧セーブには無い。
     if (!s.arena) s.arena = {};
+    if (!s.items) s.items = {};
+
+    // レベル上限 (§6.5)。
+    //
+    // 上限を導入する前のセーブは、上限を超えたレベルのままになっている。
+    // レベルを取り上げると、振り済みのSPが宙に浮いてツリーが壊れる。
+    // かといって超えたままにすると「自分の上限より上にいる」矛盾が残り、
+    // 上限を伸ばしても何も起きない（既に超えているので）。
+    //
+    // そこで **超過ぶんを、既に稼いだ上限として移し替える**。
+    // これで状態の辻褄が合い、そこから先は他の人と同じように
+    // 闘技場の報酬で伸ばしていくことになる。
+    if (s.levelCapBonus == null) s.levelCapBonus = 0;
+    {
+      let highest = 0;
+      for (const id of Object.keys(s.characters || {})) {
+        highest = Math.max(highest, s.characters[id].level || 1);
+      }
+      const over = highest - (RPG.data.maxLevel + s.levelCapBonus);
+      if (over > 0) s.levelCapBonus += over;
+    }
     if (s.tower.claimed == null) s.tower.claimed = 0;
     if (s.tower.run === undefined) s.tower.run = null;
     // 自動売却ルールは RPG.autosell が既定値を持つ。欠けているキーだけ補う。
@@ -617,12 +642,10 @@
    */
   function addExp(charId, amount) {
     const c = get().characters[charId];
-    const cap = RPG.data.maxLevel;
+    const cap = levelCap();
 
     // 上限に達したら経験値そのものを受け取らない。
     // 貯めさせても使い道が無く、増え続ける数字は「まだ伸びる」と誤解させる。
-    // 既存のセーブが上限を超えている場合は、そのレベルを取り上げない
-    // （振ったSPを引き剥がすことになり、ツリーが壊れるため）。伸びが止まるだけ。
     if (c.level >= cap) { c.exp = 0; return 0; }
 
     c.exp += amount;
@@ -637,12 +660,73 @@
   }
 
   /**
+   * 現在のレベル上限 (§6.5)。
+   *
+   * ── なぜセーブ側に持たせるのか ──
+   * 上限を固定値にすると、**それは壁でしかない**。到達した時点で
+   * 育成の目標が装備だけになり、そこから先に進む理由が消える。
+   *
+   * 闘技場の報酬で伸ばせるようにしたことで、上限そのものが到達目標になる。
+   * 「上限に達した → 闘技場へ挑む → また伸びる」という往復が生まれる。
+   *
+   * 併せて、上限を導入する前のセーブ（既に上限を超えているもの）も
+   * 矛盾なく扱えるようになった。migrate 側で、超過ぶんを
+   * 「既に稼いだ上限」として levelCapBonus に移し替えている。
+   */
+  function levelCap() {
+    return RPG.data.maxLevel + (get().levelCapBonus || 0);
+  }
+
+  /**
+   * 道具の所持数。
+   * @param {string} itemId
+   */
+  function itemCount(itemId) {
+    return (get().items || {})[itemId] || 0;
+  }
+
+  /**
+   * 道具を増やす。
+   * @param {string} itemId @param {number} count
+   */
+  function addItem(itemId, count) {
+    const s = get();
+    if (!s.items) s.items = {};
+    s.items[itemId] = (s.items[itemId] || 0) + count;
+    persist();
+    return s.items[itemId];
+  }
+
+  /**
+   * 道具を使う。効果は data/items 側の定義から引く。
+   *
+   * まとめて使えるようにしてあるのは、闘技場を周回すると
+   * 一度に何個も溜まるため。1個ずつ押させる意味がない。
+   *
+   * @param {string} itemId @param {number} [count]
+   * @returns {{ok: boolean, reason?: string, used?: number, levelCap?: number}}
+   */
+  function useItem(itemId, count) {
+    const def = RPG.data.items[itemId];
+    if (!def) return { ok: false, reason: '不明な道具' };
+    const have = itemCount(itemId);
+    const n = Math.max(1, Math.min(count == null ? 1 : count, have));
+    if (have < n) return { ok: false, reason: '足りない' };
+
+    const s = get();
+    if (def.levelCap) s.levelCapBonus = (s.levelCapBonus || 0) + def.levelCap * n;
+    s.items[itemId] = have - n;
+    persist();
+    return { ok: true, used: n, levelCap: levelCap() };
+  }
+
+  /**
    * 上限に達しているか。表示側が「MAX」を出すのに使う。
    * @param {string} charId
    */
   function atMaxLevel(charId) {
     const c = get().characters[charId];
-    return !!c && c.level >= RPG.data.maxLevel;
+    return !!c && c.level >= levelCap();
   }
 
   /**
@@ -852,7 +936,7 @@
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
-    addExp, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    addExp, levelCap, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
     investNode, resetTree, tryJoinParty,
     setClass, investClassNode, resetClassTree,
     charName, setCharName, NAME_MAX,

@@ -409,14 +409,19 @@
 
   /**
    * 闘技場の挑戦を始める (§17)。
-   * 1戦で完結し、報酬は無い。記録だけが残る。
+   * 1戦で完結する。報酬はレベル上限を伸ばす道具だけ。
    * @param {string} bossId
+   * @param {{hard?: boolean}} [opts]
    */
-  function startArena(bossId) {
+  function startArena(bossId, opts) {
     const check = RPG.arena.canChallenge();
     if (!check.ok) { toast(check.reason || '挑戦できません'); return; }
+    if (opts && opts.hard) {
+      const gate = RPG.arena.canChallengeHard(bossId);
+      if (!gate.ok) { toast(gate.reason || 'ハードはまだ挑戦できません'); return; }
+    }
 
-    const battle = RPG.arena.start(bossId);
+    const battle = RPG.arena.start(bossId, opts);
     currentBattle = battle;
     RPG.state.get().stats.battles++;
     RPG.state.persist();
@@ -457,12 +462,18 @@
     let tower = null;
     if (battle.tower) tower = RPG.tower.resolve(battle);
 
-    // 闘技場の記録 (§17)。報酬は無いので、記録だけを残す。
+    // 闘技場の記録と報酬 (§17)。
     if (battle.arena) {
       const res = RPG.arena.finish(battle);
       if (res) {
-        if (res.first) toast(`${battle.arena.def.name} を初めて打ち倒した`);
+        if (res.first) {
+          toast(`${battle.arena.def.name} を${res.hard ? 'ハードで' : ''}初めて打ち倒した`);
+        }
         if (res.best) toast(`最短記録を更新 — ${battle.totalRounds}ラウンド`);
+        if (res.shards) {
+          const item = RPG.data.items[RPG.arena.CAP_ITEM];
+          toast(`${item.name} を手に入れた（所持 ${RPG.state.itemCount(RPG.arena.CAP_ITEM)} 個）`);
+        }
       }
     }
 
