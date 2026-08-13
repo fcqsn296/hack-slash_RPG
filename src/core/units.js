@@ -191,6 +191,23 @@
       if (!skills.includes(id)) skills.push(id);
     }
 
+    // プレイヤーが決めた並び順を反映する (§4)。
+    //
+    // 技が増えると、よく使うものが一覧の後ろに埋もれる。毎ターン
+    // 下までスクロールして探すことになるので、自分で前へ出せるようにした。
+    //
+    // 保存してあるのは順番だけ。習得していない技が混ざっていても、
+    // 覚えた技が消えていても壊れないよう、突き合わせて組み直す。
+    const order = charSave.skillOrder || [];
+    if (order.length) {
+      const rank = new Map(order.map((/** @type {string} */ id, /** @type {number} */ i) => [id, i]));
+      skills.sort((a, b) => {
+        const ra = rank.has(a) ? rank.get(a) : Infinity;
+        const rb = rank.has(b) ? rank.get(b) : Infinity;
+        return ra === rb ? 0 : ra - rb;
+      });
+    }
+
     return {
       side: 'party',
       id: charSave.id,

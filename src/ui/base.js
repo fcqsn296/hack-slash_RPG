@@ -2230,9 +2230,64 @@
         ),
 
         buildSummary(unit),
+        skillOrderPanel(root, charSave, unit),
         classPanel(root, charSave),
         treeBrowser(root, charSave)
       )
+    );
+  }
+
+  /**
+   * 戦闘コマンドの並び替え (§4)。
+   *
+   * 技が増えると、よく使うものが一覧の後ろに埋もれる。戦闘中に毎ターン
+   * 下までスクロールして探すことになるので、ここで前へ出せるようにした。
+   *
+   * 戦闘中ではなくビルド画面に置いてある。戦闘は手を止めたくない場面で、
+   * 並べ替えのような落ち着いた操作を混ぜる場所ではない。
+   *
+   * @param {HTMLElement} root @param {any} charSave @param {any} unit
+   */
+  function skillOrderPanel(root, charSave, unit) {
+    const list = unit.skills || [];
+    if (list.length < 2) return null;
+
+    return h('section.skill-order',
+      h('button.skill-order-head', {
+        onclick: () => { skillOrderOpen = !skillOrderOpen; render(root); },
+        'aria-expanded': skillOrderOpen ? 'true' : 'false',
+      },
+        h('span.cat-mark', { text: skillOrderOpen ? '▼' : '▶' }),
+        h('span.cat-label', { text: 'コマンドの並び' }),
+        h('span.cat-count', { text: `${list.length} 技` }),
+        h('span.cat-desc', { text: '戦闘で上から並ぶ順。よく使う技を前に出せる。' })
+      ),
+      skillOrderOpen
+        ? h('ol.skill-order-list', list.map((/** @type {string} */ id, /** @type {number} */ i) => {
+            const sk = RPG.data.skills[id];
+            if (!sk) return null;
+            const move = (/** @type {number} */ dir) => {
+              const res = RPG.state.moveSkill(selectedChar, id, dir);
+              if (!res.ok) { RPG.app.toast(res.reason || '動かせません'); return; }
+              render(root);
+            };
+            return h('li.skill-order-item',
+              h('span.skill-order-no', { text: String(i + 1) }),
+              h('span.skill-order-name', { text: sk.name }),
+              h('span.skill-order-meta', {
+                text: sk.power > 0 ? `威力${sk.power}%` : '補助',
+              }),
+              h('button.skill-order-btn', {
+                text: '↑', title: '前へ', disabled: i === 0,
+                onclick: () => move(-1),
+              }),
+              h('button.skill-order-btn', {
+                text: '↓', title: '後ろへ', disabled: i === list.length - 1,
+                onclick: () => move(1),
+              })
+            );
+          }))
+        : null
     );
   }
 
@@ -2315,6 +2370,9 @@
 
   /** 転職パネルを開いているか */
   let classChangeOpen = false;
+
+  /** コマンドの並び替えを開いているか */
+  let skillOrderOpen = false;
 
   /** 詳細を開いているクラスのID。1つだけ開く。 */
   /** @type {string|null} */

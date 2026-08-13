@@ -4275,6 +4275,56 @@
       }
     }
 
+
+    // ---------------------------------------------------------------
+    // コマンドの並び替え (§4)
+    //
+    // 保存してあるのは順番だけ。習得していない技が混ざっていても、
+    // 覚えた技が増えていても壊れないように、組み立て側で突き合わせる。
+    // ここが崩れると、戦闘中に技が消えたり重複したりする。
+    // ---------------------------------------------------------------
+    {
+      RPG.state.reset();
+      const save = RPG.state.get();
+      const c = save.characters.ch_hero;
+      const base = RPG.units.buildCharacterUnit(c, save.inventory).skills.slice();
+
+      assertTrue('コマンド順: 既定では定義順のまま',
+        base.length > 1, `${base.length} 技`);
+
+      // 3番目を先頭へ
+      RPG.state.moveSkill('ch_hero', base[2], -1);
+      RPG.state.moveSkill('ch_hero', base[2], -1);
+      const moved = RPG.units.buildCharacterUnit(c, save.inventory).skills;
+      assertTrue('コマンド順: 動かした技が先頭に来る', moved[0] === base[2],
+        `${RPG.data.skills[moved[0]].name}`);
+      assertTrue('コマンド順: 技が増減しない',
+        moved.length === base.length
+        && base.every((/** @type {string} */ id) => moved.includes(id)),
+        `${base.length} → ${moved.length}`);
+
+      // 保存に「持っていない技」が混ざっても壊れないこと
+      c.skillOrder = ['sk_does_not_exist'].concat(c.skillOrder);
+      const dirty = RPG.units.buildCharacterUnit(c, save.inventory).skills;
+      assertTrue('コマンド順: 知らない技が混ざっても崩れない',
+        dirty.length === base.length
+        && base.every((/** @type {string} */ id) => dirty.includes(id)),
+        `${dirty.length} 技`);
+
+      // 保存に無い技（新しく覚えた技）が落ちないこと
+      c.skillOrder = [base[0]];
+      const partial = RPG.units.buildCharacterUnit(c, save.inventory).skills;
+      assertTrue('コマンド順: 並びに無い技も残る',
+        partial.length === base.length && partial[0] === base[0],
+        `${partial.length} 技 / 先頭 ${RPG.data.skills[partial[0]].name}`);
+
+      // 端では動かせないこと
+      c.skillOrder = [];
+      const first = RPG.units.buildCharacterUnit(c, save.inventory).skills[0];
+      assertTrue('コマンド順: 先頭より上へは動かせない',
+        !RPG.state.moveSkill('ch_hero', first, -1).ok, '');
+    }
+
     return results;
   }
 

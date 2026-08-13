@@ -552,9 +552,33 @@
     if (pendingSkill) {
       const skill = RPG.data.skills[pendingSkill];
       const kind = RPG.battle.targetKind(skill);
-      return h('div.command-center',
-        h('p.targeting', { text: `${skill.name} — ${kind === 'ally' ? '味方' : '敵'}を選択してください` }),
-        W.button('キャンセル', () => { pendingSkill = null; render(); }, { variant: 'ghost' })
+      const candidates = kind === 'ally'
+        ? RPG.battle.livingParty(battle) : RPG.battle.livingEnemies(battle);
+
+      // ── 対象をここに出す理由 ──
+      // 以前は「上に並んだ敵か味方のカードを押す」形だった。
+      // 技が増えると一覧が伸びるので、**下へスクロールして技を探し、
+      // 上へ戻って対象を押す** という往復が毎ターン発生していた。
+      // 対象は数が知れているので、コマンド欄にそのまま並べたほうが速い。
+      // 上のカードを押す道も残してあるので、慣れた人はそちらでも選べる。
+      return h('div.command-target',
+        h('p.targeting', { text: `${skill.name} — ${kind === 'ally' ? '味方' : '敵'}を選ぶ` }),
+        h('div.target-buttons', candidates.map((/** @type {any} */ t) =>
+          h('button.target-btn' + (t.side === 'enemy' ? '.is-foe' : ''), {
+            onClick: () => confirmTarget(t),
+          },
+            h('span.target-name', { text: t.name }),
+            h('span.target-hp',
+              h('span.target-hp-bar', {
+                style: `--w: ${Math.max(0, Math.round(t.hp / t.maxHp * 100))}%`,
+              }),
+              h('span.target-hp-text', {
+                text: `${t.hp.toLocaleString()} / ${t.maxHp.toLocaleString()}`,
+              })
+            )
+          )
+        )),
+        W.button('やめる', () => { pendingSkill = null; render(); }, { variant: 'ghost' })
       );
     }
 
@@ -606,8 +630,16 @@
       act(() => RPG.battle.commandSkill(battle, skillId, [candidates[0]]));
       return;
     }
+    // 一覧が対象欄に置き換わると、その分ページが縮んで
+    // スクロール位置が勝手に上へ動く。指を置いた場所と押す場所が
+    // ずれるので、描き替えの前後で見た目の位置を保つ。
+    const keep = window.scrollY;
     pendingSkill = skillId;
     render();
+    requestAnimationFrame(() => {
+      const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(keep, max));
+    });
   }
 
   /** @param {any} target */

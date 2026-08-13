@@ -90,6 +90,8 @@
       limitBreak: 0,
       // スキルツリーの投資内容 { ノードID: レベル } (§5)
       tree: {},
+      // 戦闘コマンドの並び順 (§4)。空なら定義順。
+      skillOrder: [],
       // クラス (§12)。就いていなければ null。klassTree はクラスノードへの投資内容。
       klass: null,
       klassTree: {},
@@ -214,6 +216,7 @@
     for (const id of Object.keys(s.characters)) {
       const c = s.characters[id];
       if (!c.tree) c.tree = {};
+      if (!Array.isArray(c.skillOrder)) c.skillOrder = [];
       // クラス (§12)。旧セーブは未就任として扱う。
       if (c.klass === undefined) c.klass = null;
       if (!c.klassTree) c.klassTree = {};
@@ -678,6 +681,32 @@
   }
 
   /**
+   * 戦闘コマンドの並び順を1つ動かす (§4)。
+   *
+   * 保存するのは順番だけ。習得していない技が混ざっても、覚えた技が
+   * 増えても壊れないよう、組み立て側（units.js）で突き合わせている。
+   *
+   * @param {string} charId @param {string} skillId @param {number} dir -1 で上、+1 で下
+   */
+  function moveSkill(charId, skillId, dir) {
+    const c = get().characters[charId];
+    if (!c) return { ok: false, reason: '不明なキャラクター' };
+
+    // いま画面に出ている並びを起点にする。保存が空でも動かせるように。
+    const unit = RPG.units.buildCharacterUnit(c, get().inventory);
+    const list = unit.skills.slice();
+    const i = list.indexOf(skillId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return { ok: false, reason: 'これ以上動かせない' };
+
+    list[i] = list[j];
+    list[j] = skillId;
+    c.skillOrder = list;
+    persist();
+    return { ok: true, order: list };
+  }
+
+  /**
    * 道具の所持数。
    * @param {string} itemId
    */
@@ -936,7 +965,7 @@
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
-    addExp, levelCap, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    addExp, levelCap, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
     investNode, resetTree, tryJoinParty,
     setClass, investClassNode, resetClassTree,
     charName, setCharName, NAME_MAX,
