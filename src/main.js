@@ -106,7 +106,7 @@
     const boxTotal = Object.keys(save.boxes).reduce((s, k) => s + save.boxes[k], 0);
     replace($('#topbar-right'),
       h('div.currency',
-        W.icon('coin', { size: '15px', color: 'var(--gold)' }),
+        W.icon('coin', { size: '15px', color: 'var(--currency)' }),
         h('b', { text: save.gold.toLocaleString() }),
         h('span', { text: 'G' })
       ),

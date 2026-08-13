@@ -3,16 +3,43 @@
    キャラアートが入るまでのプレースホルダーを含む暫定ビジュアル。
    ============================================================ */
 
+/* ── 配色 (§14) ──
+   世界の語彙から取っている。灰銀・灰燼・遺構・遺物・残響。
+   燃え尽きたあとの金属と灰であって、王道ファンタジーの金でも、
+   黒地に蛍光1色でもない。
+
+   主役は **銀**。装飾のほとんどは刻線と紋章で作る。
+   熱を持つのは斜めカットの断面と、押せるものだけ。
+
+   色には役割を固定してある。混ぜると意味が消える。
+     銀   … 文字・刻線
+     燠火 … 押せるもの、選択中のもの、熱
+     紫   … 遺物・ユニークだけ
+     金   … 通貨だけ
+     青   … 情報・補足だけ */
 :root {
-  --bg: #0a0c11;
-  --bg-panel: #141821;
+  --bg: #0b0d12;
+  --bg-panel: #151922;
   --bg-panel-2: #1b202b;
-  --line: #2a3140;
-  --text: #e6eaf2;
-  --text-dim: #98a2b3;
-  --gold: #f0c14b;
-  --gold-dim: #8a6f26;
-  --accent: #6ea8ff;
+  --line: #2c3340;
+  --text: #dbe2ee;
+  --text-dim: #96a0b3;
+
+  /* 主アクセント。「燠火」がこの役を持つ。 */
+  --ember: #ff6a2b;
+  --ember-hot: #ffb066;
+  --ember-deep: #7d2f10;
+
+  /* --gold は64か所から参照されている「主アクセント」の旧名。
+     一斉に置き換えると差分が大きく、取りこぼしも出るので委譲にした。
+     新しく書くときは --ember を使うこと。 */
+  --gold: var(--ember);
+  --gold-dim: var(--ember-deep);
+
+  /* 役割を固定した色 */
+  --currency: #e9b949;   /* 通貨の表示だけ */
+  --relic: #a184ff;      /* 遺物・ユニークだけ */
+  --accent: #6ea8ff;     /* 情報・補足だけ */
   --danger: #ff6b6b;
   --ok: #4ee08a;
   --radius: 12px;
@@ -23,7 +50,7 @@
      色の層 / 幾何の層 / 粒子の層 を重ねて奥行きを出している。 */
   --edge: 14px;                       /* 斜めカットの深さ */
   --sheen: rgba(255, 255, 255, 0.055); /* パネル上端の光沢 */
-  --glow-gold: 0 0 24px -6px rgba(240, 193, 75, 0.55);
+  --glow-gold: 0 0 24px -6px rgba(255, 106, 43, 0.55);
   --glow-accent: 0 0 24px -6px rgba(110, 168, 255, 0.5);
 }
 
@@ -2559,4 +2586,61 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 @media (max-width: 380px) {
   .tab-rail-btn { font-size: 9px; }
   .tab-sheet-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ------------------------------------------------------------
+   舞台 (§14)
+
+   出撃画面の頭。**ここにはパネルを置かない。**
+   画面が端から端までパネルで埋まっていると、どれだけ透かしても
+   絵は枠の隙間からちらちら見えるだけになる。実機で確かめた。
+   絵を見せたいなら、絵しか無い帯を作るしかない。
+
+   下端は地の色へ溶かし、そこから先はいつもの一覧が続く。
+   ------------------------------------------------------------ */
+.stage {
+  position: relative;
+  min-height: 264px;
+  margin: -14px -14px 6px;
+  padding: 92px 18px 20px;
+  display: flex; flex-direction: column; justify-content: flex-end;
+}
+/* 下端の溶かし。絵と一覧の境目を作らない */
+.stage::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 96px;
+  background: linear-gradient(180deg, transparent, var(--bg));
+  pointer-events: none;
+}
+.stage > * { position: relative; z-index: 1; }
+
+.stage-rank { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.stage-rank b {
+  font-size: 10px; letter-spacing: .28em; font-weight: 800;
+  color: var(--ember-hot);
+}
+.stage-rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--ember), transparent); }
+
+.stage-title {
+  margin: 0 0 8px; font-size: 34px; line-height: 1.05; font-weight: 800;
+  letter-spacing: .01em; color: var(--text);
+  text-shadow: 0 4px 22px rgba(0, 0, 0, .95);
+}
+/* 金属の照り。切り抜きに対応している環境でだけ透明にする。
+   無条件に transparent を置くと、未対応の環境で見出しが消える。 */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .stage-title {
+    background: linear-gradient(180deg, #fff 8%, var(--text) 46%, #6f7a8e 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 18px rgba(0, 0, 0, .95));
+    text-shadow: none;
+  }
+}
+
+.stage-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-dim); }
+.stage-meta b { color: var(--text); font-variant-numeric: tabular-nums; }
+.stage .btn { margin-top: 14px; align-self: flex-start; }
+
+@media (max-width: 380px) {
+  .stage { min-height: 228px; padding-top: 72px; }
+  .stage-title { font-size: 28px; }
 }

@@ -382,28 +382,67 @@
     return best;
   }
 
+  /**
+   * フィールドの色を、背景の絵が透ける濃さで返す (§14)。
+   *
+   * カードは 2色のグラデーションで塗っている。不透明のままだと、
+   * 一覧がそのまま壁になって背景が1ミリも見えない。実機で確かめた。
+   * 場所ごとの色は残したいので、色は変えず透明度だけを与える。
+   *
+   * @param {any} f フィールド定義 @param {number} a 不透明度
+   */
+  function fieldWash(f, a) {
+    const rgba = (/** @type {string} */ hex) => {
+      const v = hex.replace('#', '');
+      const n = parseInt(v.length === 3 ? v.split('').map((c) => c + c).join('') : v, 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+    };
+    return `linear-gradient(140deg, ${rgba(f.bg[0])}, ${rgba(f.bg[1])})`;
+  }
+
   /** @param {HTMLElement} root */
   function renderSortie(root) {
     const save = RPG.state.get();
     const party = RPG.state.partyUnits();
 
+    // いま向かう先。ここだけはパネルを置かず、背景の絵をそのまま見せる。
+    //
+    // ── なぜ空白が要るのか ──
+    // 画面が端から端までパネルで埋まっていると、パネルをどれだけ透かしても
+    // 絵は「枠の隙間からちらちら見える」だけになる。実機で確かめて分かった。
+    // 絵を見せたいなら、絵しか無い帯を作るしかない。
+    const here = save.lastSortie && RPG.data.fields[save.lastSortie.fieldId]
+      ? RPG.data.fields[save.lastSortie.fieldId]
+      : null;
+
     return h('div.pane',
-      W.heading('出撃', 'フィールドを選び、連戦数を決めて戦闘へ向かう。'),
-      // 派遣中なら、まずその状況を見せる
-      dispatchPanel(root),
-      // 周回しやすいよう、直前と同じ場所へワンクリックで戻れるようにする
-      save.lastSortie && RPG.data.fields[save.lastSortie.fieldId]
-        ? h('div.repeat-bar',
-            h('span', {
-              text: `前回: ${RPG.data.fields[save.lastSortie.fieldId].name} / ` +
-                `${save.lastSortie.waves}戦${save.lastSortie.bossFinale ? '（ボスあり）' : ''}`,
-            }),
-            W.button('同じ場所へ再出撃', () => {
+      h('div.stage',
+        h('div.stage-body',
+          h('div.stage-rank',
+            h('b', { text: here ? '前回の出撃先' : '灰銀の継承者' }),
+            h('span.stage-rule')
+          ),
+          h('h1.stage-title', { text: here ? here.name : '継承の座' }),
+          h('div.stage-meta',
+            here
+              ? [
+                  h('span', { text: '推奨 ' }, h('b', { text: 'Lv' + here.rec_level })),
+                  h('span', { text: '敵 ' }, h('b', { text: 'Lv' + here.enemy_lv })),
+                  h('span', { text: save.lastSortie.waves + '戦' }),
+                ]
+              : [h('span', { text: 'まだ出撃していない。下から場所を選ぶ。' })]
+          )
+        ),
+        here
+          ? W.button('同じ場所へ再出撃', () => {
               if (party.length === 0) { RPG.app.toast('パーティが空です'); return; }
               RPG.app.startBattle(save.lastSortie.fieldId, save.lastSortie.waves, save.lastSortie.bossFinale);
             }, { variant: 'primary' })
-          )
-        : null,
+          : null
+      ),
+      // 派遣中なら、まずその状況を見せる
+      dispatchPanel(root),
+
       // 仲間が居ないまま連戦に挑むと詰まるので、最初はガチャへ誘導する
       save.party.length < 2 && save.gold >= RPG.data.gacha.cost
         ? h('div.nudge',
@@ -415,7 +454,7 @@
         const f = RPG.data.fields[id];
         const selected = selectedField === id;
         return h('button.field-card' + (selected ? '.is-selected' : ''), {
-          style: { background: `linear-gradient(140deg, ${f.bg[0]}, ${f.bg[1]})` },
+          style: { background: fieldWash(f, 0.5) },
           onClick: () => { selectedField = selected ? null : id; render(root); },
         },
           h('div.field-head',
@@ -746,7 +785,7 @@
     const members = f.pool.concat([f.boss]);
     const found = members.filter(RPG.codex.enemySeen).length;
     return h('div.codex-card.is-field' + (codexView.selected === id ? '.is-active' : ''), {
-      style: { background: `linear-gradient(140deg, ${f.bg[0]}, ${f.bg[1]})` },
+      style: { background: fieldWash(f, 0.5) },
       onClick: () => { codexView.selected = codexView.selected === id ? null : id; render(root); },
     },
       h('div.codex-card-body',
