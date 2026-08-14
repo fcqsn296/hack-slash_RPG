@@ -246,6 +246,7 @@
       overhealShield: 0,   // 回復の超過分をバリアに変える割合
       guardAlly: 0,        // 味方が受けるダメージを肩代わりする割合
       hpToAtk: 0,          // 最大HPの一部を攻撃力と魔力に上乗せ
+      hpToDef: 0,          // 最大HPの一部をDEFに上乗せ（防御で耐える道 §5.8）
       // 安定性
       stableDamage: 0,     // ダメージの下振れを縮める
       ambush: 0,           // 1ラウンド目に追加行動する確率
@@ -400,6 +401,7 @@
           case 'overheal_shield': passives.overhealShield += amount; break;
           case 'guard_ally': passives.guardAlly += amount; break;
           case 'hp_to_atk': passives.hpToAtk += amount; break;
+          case 'hp_to_def': passives.hpToDef += amount; break;
           case 'stable_damage': passives.stableDamage += amount; break;
           case 'ambush': passives.ambush += amount; break;
           case 'element_convert': convert = e.element; break;

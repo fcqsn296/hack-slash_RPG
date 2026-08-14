@@ -44,6 +44,36 @@ RPG.data.skillTree = [
     effects: [{ kind: 'stat_pct', stat: 'hp', value: 0.05 }],
     desc: '最大HP +5%',
   },
+  /* ===== 防御で耐える道 (§5.8) =====
+   *
+   * ── なぜ用意するのか ──
+   * 実測すると、素のDEFは Lv255 でも 1,385 しかなく、軽減は5%前後だった。
+   * 7割カットに届くには 24,967 が要る。**18倍足りない。**
+   *
+   * 防御定数を下げるだけでは、敵の攻撃が一律に軽くなって既存のバランスが動く。
+   * そこで係数は控えめ（100→40）に留め、**特化したときだけ届く梃子** を置く。
+   *
+   * 下の3つは掛け算で重なる。全部積んで初めて実用になる重さにしてあり、
+   * 片手間に取っても意味が無い。
+   */
+  {
+    id: 'tr_def_wall', tier: 'mid', name: '城壁の心得', cost: 3, maxLevel: 5,
+    effects: [{ kind: 'stat_pct', stat: 'def', value: 0.35 }],
+    desc: 'DEF +35%（防御で耐える道の入口）',
+  },
+  {
+    id: 'tr_def_fortress', tier: 'high', name: '不落の理', cost: 5, maxLevel: 5,
+    effects: [{ kind: 'stat_pct', stat: 'def', value: 0.85 }],
+    desc: 'DEF +85%。ここまで積んで、ようやく防御が火力に並ぶ',
+  },
+  {
+    // HPをDEFへ回す。HPは母数が大きいので、変換率が低くても効く。
+    // 「命を刃に」の防御版。耐久に寄せた装備がそのままDEFに化ける。
+    id: 'tr_hp_to_def', tier: 'high', name: '肉の壁', cost: 4, maxLevel: 5,
+    effects: [{ kind: 'hp_to_def', value: 0.09 }],
+    desc: '最大HPの 9% をDEFに上乗せする',
+  },
+
   {
     id: 'tr_def', tier: 'basic', name: '防御訓練', cost: 1, maxLevel: 5,
     effects: [{ kind: 'stat_pct', stat: 'def', value: 0.05 }],

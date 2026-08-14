@@ -93,7 +93,7 @@ RPG.data.nodeCategories = [
     id: 'convert', label: '変換・特殊', icon: 'convert',
     desc: 'ステータスを別の役へ回したり、ルールそのものを緩めたりする枝。',
     kinds: [
-      'hp_to_atk', 'def_to_atk', 'atk_to_def', 'stable_damage', 'cap_break',
+      'hp_to_atk', 'def_to_atk', 'atk_to_def', 'hp_to_def', 'stable_damage', 'cap_break',
       'slot', 'opening_buff', 'buff_duration', 'buff_on_kill',
     ],
   },

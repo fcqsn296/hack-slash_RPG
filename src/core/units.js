@@ -158,6 +158,7 @@
     // ここに載せてはいけない。二重に効いてしまう。
     for (const key of [
       'midPowerStatus', 'midPowerCombo',   // 中技の役割 (§5.8)
+      'hpToDef', 'guardAlly',              // 防御で耐える道 (§5.8)
       'statusPower', 'debuffDuration',     // 状態異常で押す構成 (§5.6)
       'doubleHits',                        // 手数で押す構成
       'comboGain', 'comboPower',           // 弱点コンボを繋ぐ構成 (§10.6)
@@ -184,6 +185,13 @@
       const bonus = Math.floor((stats.hp || 0) * passives.hpToAtk);
       stats.atk = (stats.atk || 0) + bonus;
       stats.magi_power = (stats.magi_power || 0) + bonus;
+    }
+
+    // 「肉の壁」— 最大HPの一部をDEFへ回す (§5.8)。
+    // HPは母数が大きいので、変換率が低くても効く。
+    // 防御で耐えるビルドは、DEFの割合増しだけでは必要な桁に届かない。
+    if (passives.hpToDef) {
+      stats.def = (stats.def || 0) + Math.floor((stats.hp || 0) * passives.hpToDef);
     }
 
     // 「守りを刃に」「攻めを盾に」— ステータスを別の役へ回す (§5.8)。

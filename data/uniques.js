@@ -67,6 +67,17 @@ RPG.data.uniqueEquips = {
     note: '敵が1体のとき火力 +45%／反撃 20%',
   },
 
+  // ── 防御で耐える道 (§5.8) ──
+  // ツリーだけで完結させると、装備の選択が関与しなくなる。
+  // ここを着けて初めて7割カットに手が届く、という位置に置いてある。
+  uq_bulwark_heart: {
+    name: '不落の心臓', base: 'eq_relic_mail', color: '#8fb0d8',
+    desc: '守りを極めた者だけが意味を持てる。攻める者が着けても重いだけ。',
+    stats: { def: 260, hp: 1600 },
+    effects: { hpToDef: 0.10, guardAlly: 0.2 },
+    note: '最大HPの10%をDEFへ／味方をかばう +20%',
+  },
+
   uq_myriad_edge: {
     name: '万手の刃', base: 'eq_relic_claw', color: '#8fd8ff',
     desc: '威力の低い技ほど鋭くなる。小技を並べた構成でしか本領を出さない。',

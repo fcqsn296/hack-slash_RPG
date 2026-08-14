@@ -135,21 +135,24 @@
         options: { random: 1.0, crit: false },
       });
 
+      // C = 1×40 + 500 = 540。係数を100から40へ下げた経緯は damage.js のコメントにある。
+      // 偶然だが、これで設計書本文の「≈45」と一致するようになった。
+      const C1 = 1 * RPG.damage.constants.DEF_CONST_PER_LEVEL + RPG.damage.constants.DEF_CONST_BASE;
       assertNear(
         '§11 テストケース1: 初期状態・不利属性',
-        r.damage, 46, 0,
-        '設計書の期待値は「≈45」だが、そこでの軽減率の計算は 50/550 = C:500 で行われている。' +
-        '一方 §3.2 に明記された式は C = 被攻撃側レベル×100 + 500 = 600 であり、' +
-        'こちらに従うと 50/650 → 最終46 になる。式の記述を正としてこの実装は 46 を返す。'
+        r.damage, 45, 0,
+        `C = 被攻撃側レベル×${RPG.damage.constants.DEF_CONST_PER_LEVEL} + ` +
+        `${RPG.damage.constants.DEF_CONST_BASE} = ${C1}。50/${50 + C1} → 最終45。` +
+        '係数が100だった頃はここが46で、設計書本文の「≈45」と1だけずれていた。'
       );
       assertNear('  ├ 基礎ダメージ', r.breakdown.base, 100, 0);
       assertNear('  ├ 系統タグ倍率（装備なし）', r.breakdown.tag, 1, 0);
-      assertNear('  ├ 被ダメ倍率 1 - 50/(50+600)', r.breakdown.defense, 1 - 50 / 650, 1e-9);
+      assertNear(`  ├ 被ダメ倍率 1 - 50/(50+${C1})`, r.breakdown.defense, 1 - 50 / (50 + C1), 1e-9);
       assertNear('  └ 属性倍率（火→水は不利）', r.breakdown.element, 0.5, 0);
 
-      // 設計書の算術（C=500）をそのまま再現した場合の参考値
-      const legacy = Math.floor(100 * (1 - 50 / 550) * 0.5);
-      assertTrue('  （参考）C=500 で計算した場合', legacy === 45, `最終ダメージ ${legacy}（設計書本文の 45 に一致）`);
+      // 係数100だった頃の値。戻したくなったときの比較用に残してある。
+      const legacy = Math.floor(100 * (1 - 50 / 650) * 0.5);
+      assertTrue('  （参考）係数100 で計算した場合', legacy === 46, `最終ダメージ ${legacy}`);
     }
 
     /* ===== §11 テストケース2: 終盤フルビルド・有利属性 ===== */
@@ -1027,6 +1030,8 @@
         'def_to_atk', 'atk_to_def',
         'buff_duration', 'buff_on_kill', 'shield_regen',
         'repeat_power', 'variety_power', 'high_power_boost',
+        // 防御で耐える道 (§5.8)
+        'hp_to_def',
         // 中技の使い道 (§5.8)
         'mid_power_status', 'mid_power_combo',
         'crit_stack', 'crit_spread', 'crit_execute',
@@ -4624,6 +4629,119 @@
         assertTrue(`クラス: ${def.name} は初期上限で取り切れない`,
           need > cpAtCap, `必要 ${need} / Lv${capLv} で ${cpAtCap} 点`);
       }
+    }
+
+    // ---------------------------------------------------------------
+    // 防御で耐える道 (§5.8)
+    //
+    // 防御は「後半で無意味になる」のではなく、最初から効いていなかった。
+    // C はレベル×100 で伸びるのに DEF はレベルあたり約4しか伸びず、
+    // 装備を固めても素で 11% 程度しか削れていなかった。
+    //
+    // 係数を 40 に下げ、DEF を重ねる枝を足した結果が下の2点。
+    // **素と全振りの差が開いていること**が要点で、片方だけを見ても意味が無い。
+    // 素が高いと防御に振る意味が消え、全振りが低いとビルドが成立しない。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        const LV = 255;
+        const C = LV * RPG.damage.constants.DEF_CONST_PER_LEVEL + RPG.damage.constants.DEF_CONST_BASE;
+        const cut = (/** @type {number} */ def) => def / (def + C);
+
+        /** 防御に全振りしたときの DEF を測る。nodes が空なら素の状態。 */
+        const measure = (/** @type {string[]} */ nodes, /** @type {boolean} */ withGear) => {
+          RPG.state.reset();
+          const s = RPG.state.get();
+          s.named = true;
+          s.levelCapBonus = 200;
+          RPG.state.addGold(90000000);
+          RPG.state.addBox('box_dragon', 400);
+          RPG.state.identifyBoxes('box_dragon', 400);
+          const c = s.characters.ch_hero;
+          c.level = LV;
+          RPG.autoequip.forParty();
+          for (const id of nodes) {
+            const n = RPG.tree.node(id);
+            if (!n) continue;
+            for (let i = 0; i < n.maxLevel; i++) {
+              try { RPG.state.investNode('ch_hero', id); } catch (e) { /* SP切れ */ }
+            }
+          }
+          if (nodes.length) {
+            RPG.state.setClass('ch_hero', 'cls_guardian');
+            c.klassTree['gd_bastion'] = 1;
+          }
+          if (withGear) {
+            const d = RPG.data.uniqueEquips.uq_bulwark_heart;
+            const b = RPG.data.equipBases[d.base];
+            const item = {
+              uid: 990001, base: d.base, name: d.name, slot: b.slot, tag: b.tag,
+              rarity: 'LEGEND', stats: Object.assign({}, d.stats), tagBonuses: [],
+              critRate: 0, capBreak: 0, reduction: 0, affixLines: [],
+              boxId: 'box_astral', setId: null, uniqueId: 'uq_bulwark_heart',
+              uniqueEffects: Object.assign({}, d.effects), locked: true,
+            };
+            s.inventory.push(item);
+            c.equipped[b.slot] = [item.uid];
+          }
+          return RPG.units.buildCharacterUnit(c, s.inventory).stats.def || 0;
+        };
+
+        const DEF_NODES = ['tr_def', 'tr_def_wall', 'tr_def_fortress', 'tr_hp_to_def', 'tr_atk_to_def'];
+        const plain = cut(measure([], false));
+        const tank = cut(measure(DEF_NODES, true));
+
+        // 素は「あってないようなもの」のまま。ここが高いと全員が勝手に硬くなる。
+        assertTrue('防御: 何も振らなければ2割も削れない',
+          plain < 0.20, `Lv${LV} 素で ${(plain * 100).toFixed(1)}%`);
+
+        // 全振りは7割前後。利用者の狙いは「防御特化で耐えるビルドの成立」で、
+        // 被ダメカットと乗算になるため 6割台では体感が変わらない。
+        assertNear('防御: 全振りすれば7割前後まで削れる', tank, 0.70, 0.06,
+          `Lv${LV} 全振りで ${(tank * 100).toFixed(1)}%`);
+
+        // 差が開いていること。倍率で見ないと、両方が高い状態を見逃す。
+        assertTrue('防御: 全振りは素の3倍以上削る',
+          tank / plain >= 3, `素 ${(plain * 100).toFixed(1)}% / 全振り ${(tank * 100).toFixed(1)}%`);
+
+        // 免疫にはしない。被ダメカット等と乗算になるので、
+        // ここが8割を超えると殴られても減らない状態が作れてしまう。
+        assertTrue('防御: 全振りでも8割は超えない',
+          tank < 0.80, `${(tank * 100).toFixed(1)}%`);
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // ビルド画面の分類漏れ (§5.2)
+    //
+    // 分類表に無い kind は無言で「その他」に落ちる。エラーも出ないので、
+    // 枝を足した本人が気付かない。実際、肉の壁 (hp_to_def) が防御の枝から
+    // 離れた場所に1つだけ表示され、並べて比べられない状態になっていた。
+    // ---------------------------------------------------------------
+    {
+      const categorized = new Set();
+      for (const c of RPG.data.nodeCategories) for (const k of c.kinds) categorized.add(k);
+
+      /** ツリーが実際に使っている kind を集める */
+      const used = new Set();
+      for (const n of RPG.data.skillTree) {
+        for (const e of n.effects || []) used.add(e.kind);
+      }
+
+      const orphans = [...used].filter((k) => !categorized.has(k));
+      assertTrue('ビルド画面: 全ての効果種別が分類されている',
+        orphans.length === 0, orphans.length ? `未分類: ${orphans.join(', ')}` : '');
+
+      // 逆向きも見る。使われていない kind が表に残っていると、
+      // 空の見出しが並んで画面が読みにくくなる。
+      const stale = [...categorized].filter((k) => !used.has(k));
+      assertTrue('ビルド画面: 分類表に使われていない種別が無い',
+        stale.length === 0, stale.length ? `余分: ${stale.join(', ')}` : '');
     }
 
     return results;

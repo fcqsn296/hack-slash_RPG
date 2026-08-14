@@ -93,7 +93,10 @@ RPG.data.fields = {
     name: '終わりなき回廊', rec_level: 200, enemy_lv: 200, size: [2, 3],
     pool: ['em_first_flame', 'em_null_weaver', 'em_world_root'],
     boss: 'bs_genesis_echo',
-    gold_mult: 0.22, exp_mult: 0.36, postGacha: true,
+    // 最深部なのに手前の創世の残響より実入りが少なかった（1周 5,002 対 5,924）。
+    // ここは常にパーティ+15レベルの敵が出るぶん勝率も落ちるので、
+    // 倍率で追いつかせないと「戻ったほうが得」になる。
+    gold_mult: 0.32, exp_mult: 0.52, postGacha: true,
     bg: ['#241a2e', '#0a0710'],
     /**
      * 敵のレベルをパーティに追随させる (§10.8)。
