@@ -2498,10 +2498,10 @@ body.has-backdrop #backdrop { display: block; }
      この濃さで、パネル越しの本文コントラストは 7.0:1（基準 4.5:1）。 */
   background:
     linear-gradient(180deg,
-      rgba(10, 12, 17, .22) 0%,
-      rgba(10, 12, 17, .32) 34%,
-      rgba(10, 12, 17, .42) 72%,
-      rgba(10, 12, 17, .58) 100%);
+      rgba(10, 12, 17, .10) 0%,
+      rgba(10, 12, 17, .18) 34%,
+      rgba(10, 12, 17, .26) 72%,
+      rgba(10, 12, 17, .38) 100%);
 }
 
 /* ── 背景があるときは、パネルそのものを透かす ──
@@ -2523,9 +2523,10 @@ body.has-backdrop { background: transparent; }
      絵は **パネルの無いところ**（舞台や余白）で見せる。膜を薄くしてあるので
      そこは明るい。文字が乗るパネルだけを濃くして、読みやすさを確保する。
 
-     実測: 最も明るい絵でも、この濃さなら本文 7.7:1 / 補助 5.3:1。 */
-  --bg-panel: rgba(20, 24, 33, .62);
-  --bg-panel-2: rgba(27, 32, 43, .54);
+     実測: 最も明るい絵でも、この濃さなら本文 7.9:1 / 補助 5.5:1。
+     余白の明るさは 0.76 で、当初の 0.025 から30倍になっている。 */
+  --bg-panel: rgba(20, 24, 33, .78);
+  --bg-panel-2: rgba(27, 32, 43, .70);
   --line: rgba(96, 110, 134, .5);
   /* 板を透かしたぶん、板の面が明るくなる。補助文字がそのままだと
      コントラストが 3.8:1 まで落ちて基準（4.5:1）を切ったので、
@@ -2692,7 +2693,9 @@ body.has-backdrop { background: transparent; }
 /* 残りSP。下のノードを見ているときも常に見える位置に貼る。
    「あと何ポイント残っているか」を確かめるために上まで戻らせない。 */
 .sp-bar {
-  position: sticky; top: 0; z-index: 12;
+  /* 上部バーも sticky なので、その下に潜らないよう高さぶん下げる。
+     高さは通貨の折り返しで変わるため、実測した値を main.js から受け取る。 */
+  position: sticky; top: var(--topbar-h, 56px); z-index: 12;
   display: flex; align-items: baseline; gap: 10px;
   margin: 0 0 12px; padding: 10px 13px;
   background: rgba(11, 13, 18, .94);
@@ -2945,16 +2948,16 @@ body.has-backdrop { background: transparent; }
 #app.has-backdrop .data-section,
 #app.has-backdrop .standee,
 #app.has-backdrop .name-input {
-  background: rgba(15, 19, 26, .42);
+  background: rgba(15, 19, 26, .74);
 }
-#app.has-backdrop .data-text { background: rgba(8, 11, 15, .5); }
-#app.has-backdrop .sp-box { background: rgba(36, 28, 8, .42); }
+#app.has-backdrop .data-text { background: rgba(8, 11, 15, .78); }
+#app.has-backdrop .sp-box { background: rgba(36, 28, 8, .74); }
 
 /* 選択中の行。旧・金色のまま残っていたので、燠火へ寄せつつ透かす */
 #app.has-backdrop .char-row.is-active,
 #app.has-backdrop .forge-row.is-active,
 #app.has-backdrop .codex-card.is-active {
-  background: rgba(58, 26, 10, .46);
+  background: rgba(58, 26, 10, .74);
 }
 
 /* 貼り付く帯は、下を流れる内容と区別が要るので少しだけ濃く残す */

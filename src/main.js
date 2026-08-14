@@ -101,9 +101,29 @@
     setTimeout(() => input.focus(), 30);
   }
 
+  /**
+   * 上部バーの高さを測って渡す (§14)。
+   *
+   * ビルド画面の残りSPは sticky で貼り付けているが、上部バーも sticky で
+   * 重なりも上（z-index 40 対 12）。**SPが上部バーの下へ潜り込んで**、
+   * 見えているのは下端の「振り直す」だけ、という状態になっていた。
+   *
+   * 上部バーは通貨が増えると折り返して高さが変わるので、
+   * 固定値を書かずに実測した値を CSS 変数で渡す。
+   */
+  window.addEventListener('resize', () => measureTopbar());
+
+  function measureTopbar() {
+    const bar = $('#topbar');
+    if (!bar) return;
+    const h = Math.round(bar.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--topbar-h', h + 'px');
+  }
+
   function refreshTopbar() {
     const save = RPG.state.get();
     const boxTotal = Object.keys(save.boxes).reduce((s, k) => s + save.boxes[k], 0);
+    requestAnimationFrame(measureTopbar);
     replace($('#topbar-right'),
       h('div.currency',
         W.icon('coin', { size: '15px', color: 'var(--currency)' }),
