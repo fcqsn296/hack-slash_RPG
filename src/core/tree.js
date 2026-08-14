@@ -172,6 +172,55 @@
   }
 
   /**
+   * ノードから1レベル戻せるか (§5.5)。
+   *
+   * ── なぜ判定が要るか ──
+   * 中級は初級に5レベル、上級は初級＋中級に10レベル入っていることが条件。
+   * 初級から抜くと、その条件を満たさなくなった上位ノードが
+   * 「投資済みだが解放されていない」状態で残る。効果は生きたまま
+   * 画面には錠前が出る、という説明のつかない盤面になる。
+   *
+   * 抜いた後の姿で全ノードを見直し、破綻するなら断る。
+   * 上から順に外せば必ず抜けるので、行き止まりにはならない。
+   *
+   * @param {any} charSave
+   * @param {string} nodeId
+   * @returns {{ ok: boolean, reason?: string, cost?: number }}
+   */
+  function canRefund(charSave, nodeId) {
+    const n = node(nodeId);
+    if (!n) return { ok: false, reason: '不明なノード' };
+
+    const tree = charSave.tree || {};
+    const current = tree[nodeId] || 0;
+    if (current <= 0) return { ok: false, reason: 'まだ振っていない' };
+
+    // 1レベル抜いた後の姿を作って、条件が崩れないか確かめる
+    const after = Object.assign({}, tree);
+    if (current === 1) delete after[nodeId];
+    else after[nodeId] = current - 1;
+
+    for (const id of Object.keys(after)) {
+      const other = node(id);
+      if (!other || after[id] <= 0) continue;
+      if (!tierUnlocked(after, other.tier)) {
+        const label = RPG.data.skillTreeTiers[other.tier].label;
+        return { ok: false, reason: `${label}の「${other.name}」が解放条件を割る。先にそちらを戻す` };
+      }
+    }
+
+    return { ok: true, cost: refundCost(n) };
+  }
+
+  /**
+   * 1レベル戻すのにかかるゴールド (§5.5)。
+   * @param {any} n ノード定義
+   */
+  function refundCost(n) {
+    return (n.cost || 1) * (RPG.data.skillRefundCostPerSp || 0);
+  }
+
+  /**
    * ツリーの投資内容を、ユニット構築で使える形の効果に畳み込む。
    * @param {Record<string, number>} tree
    */
@@ -666,6 +715,6 @@
   RPG.tree = {
     nodes, node, grouped, category, byCategory,
     investedLevels, tierUnlocked, tierRemaining,
-    spentSp, canInvest, effects, effectsOf, mergeEffects, resetCost,
+    spentSp, canInvest, canRefund, effects, effectsOf, mergeEffects, resetCost, refundCost,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

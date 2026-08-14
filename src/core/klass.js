@@ -86,6 +86,32 @@
   }
 
   /**
+   * クラスノードから1レベル戻せるか (§12)。
+   *
+   * クラスには段階の解放条件が無いので、投資済みなら常に戻せる。
+   * ツリー側 (tree.canRefund) が条件を見ているのと対になっている。
+   *
+   * @param {any} charSave
+   * @param {string} nodeId
+   * @returns {{ ok: boolean, reason?: string, cost?: number }}
+   */
+  function canRefund(charSave, nodeId) {
+    if (!charSave.klass) return { ok: false, reason: 'クラスに就いていない' };
+    const n = node(charSave.klass, nodeId);
+    if (!n) return { ok: false, reason: '不明なノード' };
+    if (((charSave.klassTree || {})[nodeId] || 0) <= 0) return { ok: false, reason: 'まだ振っていない' };
+    return { ok: true, cost: refundCost(n) };
+  }
+
+  /**
+   * クラスポイントを1レベル戻すのにかかるゴールド (§12)。
+   * @param {any} n ノード定義
+   */
+  function refundCost(n) {
+    return (n.cost || 1) * (RPG.data.classRefundCostPerPoint || 0);
+  }
+
+  /**
    * クラス由来の効果を、スキルツリーと同じ形に畳み込む。
    *
    * 効果種別はツリーと共通なので、集約そのものは tree.effects に任せる。
@@ -142,6 +168,6 @@
 
   RPG.klass = {
     def, all, node, totalPoints, spentPoints, availablePoints,
-    canInvest, effects, summary,
+    canInvest, canRefund, refundCost, effects, summary,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

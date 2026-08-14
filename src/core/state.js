@@ -816,6 +816,73 @@
   }
 
   /**
+   * ノードから1レベルだけ戻す (§5.5)。
+   *
+   * ── なぜ全体リセットだけでは足りないか ──
+   * 終盤は250点近いSPを1点ずつ振ることになる。1か所を試したいだけでも
+   * 全部が消えるので、**振り直すより我慢するほうが楽**という状態になっていた。
+   * それでは組み替えて遊ぶ余地が無い。
+   *
+   * 全体リセットは残してある。まとめてやり直すならそちらが安く、
+   * ここは「1か所だけ差し替える」ための割高な手段という関係になる。
+   *
+   * @param {string} charId
+   * @param {string} nodeId
+   * @returns {{ ok: boolean, cost?: number, reason?: string }}
+   */
+  function refundNode(charId, nodeId) {
+    const s = get();
+    const c = s.characters[charId];
+    if (!c) return { ok: false, reason: '不明なキャラクター' };
+
+    const check = RPG.tree.canRefund(c, nodeId);
+    if (!check.ok) return check;
+
+    const cost = check.cost || 0;
+    if (s.gold < cost) {
+      return { ok: false, reason: `ゴールドが${(cost - s.gold).toLocaleString()}足りない` };
+    }
+
+    s.gold -= cost;
+    const left = (c.tree[nodeId] || 0) - 1;
+    if (left <= 0) delete c.tree[nodeId];
+    else c.tree[nodeId] = left;
+
+    afterTreeShrink(c);
+    persist();
+    return { ok: true, cost };
+  }
+
+  /**
+   * ツリーが縮んだ後の後始末 (§5.5)。
+   *
+   * 投資を戻すと、それに紐づいていたものが宙に浮く。
+   *   ・装備スロットが減る  → はみ出した装備が装備欄に残ったままになる
+   *   ・習得技が消える      → 並び順の指定だけが残る
+   * 全体リセットは前者しか見ていなかったが、1レベルずつ戻せるようになると
+   * 後者も日常的に起きるので、まとめてここで処理する。
+   *
+   * @param {any} c キャラクターのセーブ
+   */
+  function afterTreeShrink(c) {
+    // スロットが減ったぶん、はみ出した装備を外す
+    const slots = RPG.units.slotCounts(c);
+    for (const slot of Object.keys(c.equipped)) {
+      c.equipped[slot] = c.equipped[slot].slice(0, slots[slot]);
+    }
+
+    // 覚えていない技が並び順に残っていても表示は壊れないが、
+    // 溜まり続けると「戻したはずの技」が並び替え画面に出てくる。
+    if (c.skillOrder && c.skillOrder.length) {
+      const owned = new Set(RPG.tree.effects(c.tree).skills || []);
+      const def = RPG.data.characters[c.id] || {};
+      for (const id of (def.unique_skills || []).concat(def.common_skills || [])) owned.add(id);
+      for (const id of (RPG.klass.effects(c) || { skills: [] }).skills || []) owned.add(id);
+      c.skillOrder = c.skillOrder.filter((/** @type {string} */ id) => owned.has(id));
+    }
+  }
+
+  /**
    * スキルの振り直し (§5.5)。レベルに比例したゴールドを消費する。
    * スロット拡張が失われる場合は、はみ出した装備を自動的に外す。
    * @param {string} charId
@@ -830,11 +897,8 @@
     s.gold -= cost;
     c.tree = {};
 
-    // スロットが初期数に戻るため、超過分の装備を外す
-    const slots = RPG.units.slotCounts(c);
-    for (const slot of Object.keys(c.equipped)) {
-      c.equipped[slot] = c.equipped[slot].slice(0, slots[slot]);
-    }
+    // スロットの調整と、消えた技の並び順の掃除は1レベル戻しと共通
+    afterTreeShrink(c);
 
     persist();
     return { ok: true, cost };
@@ -886,6 +950,38 @@
   }
 
   /**
+   * クラスノードから1レベルだけ戻す (§12)。
+   * ツリー側 (refundNode) と対になっている。
+   *
+   * @param {string} charId
+   * @param {string} nodeId
+   * @returns {{ ok: boolean, cost?: number, reason?: string }}
+   */
+  function refundClassNode(charId, nodeId) {
+    const s = get();
+    const c = s.characters[charId];
+    if (!c) return { ok: false, reason: '不明なキャラクター' };
+
+    const check = RPG.klass.canRefund(c, nodeId);
+    if (!check.ok) return check;
+
+    const cost = check.cost || 0;
+    if (s.gold < cost) {
+      return { ok: false, reason: `ゴールドが${(cost - s.gold).toLocaleString()}足りない` };
+    }
+
+    s.gold -= cost;
+    const left = (c.klassTree[nodeId] || 0) - 1;
+    if (left <= 0) delete c.klassTree[nodeId];
+    else c.klassTree[nodeId] = left;
+
+    // クラス技を戻したときも並び順を掃除する
+    afterTreeShrink(c);
+    persist();
+    return { ok: true, cost };
+  }
+
+  /**
    * クラスポイントだけを振り直す（クラスは変えない）。
    * 転職と同じ費用にすると「別クラスに移るほうが得」になってしまうので、半額にしてある。
    * @param {string} charId
@@ -901,6 +997,7 @@
     }
     s.gold -= cost;
     c.klassTree = {};
+    afterTreeShrink(c);
     persist();
     return { ok: true, cost };
   }
@@ -990,8 +1087,8 @@
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
     addExp, levelCap, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
-    investNode, resetTree, tryJoinParty,
-    setClass, investClassNode, resetClassTree,
+    investNode, refundNode, resetTree, tryJoinParty,
+    setClass, investClassNode, refundClassNode, resetClassTree,
     charName, setCharName, NAME_MAX,
     STORAGE_KEY,
   };

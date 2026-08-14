@@ -555,6 +555,17 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   gap: 24px;
   align-items: start;
 }
+/* グリッドの子は既定で min-width:auto、つまり **中身より狭くなれない**。
+   狭い画面で1列に落としても、中に縮まないカードが1枚あれば
+   列ごとそのカードの幅まで広がり、画面の外まで押し出される。
+
+   実測: 375px の端末で、クラス選択のカード（.class-choice）だけが縮まず
+   列が 445px になり、下部タブバーごと90px はみ出していた。
+   タブバーは left:0/right:0 なので、文書が広がると一緒に広がる——
+   つまり症状は「右端のタブが切れる」という無関係な形で出る。
+
+   ここで縮む許可を出しておけば、中身の側は overflow や折り返しで各自処理できる。 */
+.pane-split > * { min-width: 0; }
 
 /* ---------------- 出撃 ---------------- */
 
@@ -1642,13 +1653,19 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 }
 .class-choice {
   display: grid; gap: 6px; align-content: start;
+  /* 見出し行の「素質」表示は nowrap なので、ここが縮めないとカードが伸びる。
+     カード自身とその子の両方に許可が要る——グリッドは階層ごとに
+     min-width:auto を効かせるので、途中で1つでも縮めない層があると
+     そこで止まってしまう。 */
+  min-width: 0;
   padding: 14px;
   border: 1px solid var(--line);
   border-top: 3px solid var(--cls);
   border-radius: 12px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--cls) 7%, var(--bg-panel-2)), var(--bg-panel));
 }
-.class-choice-head { display: flex; align-items: center; gap: 7px; color: var(--cls); font-size: 14px; }
+.class-choice > * { min-width: 0; }
+.class-choice-head { display: flex; align-items: center; gap: 7px; color: var(--cls); font-size: 14px; min-width: 0; }
 .class-choice-head .icn { font-size: 15px; }
 .class-choice-flavor { margin: 0; font-size: 11px; color: var(--text-dim); font-style: italic; }
 .class-choice-desc { margin: 0; font-size: 11px; line-height: 1.6; color: var(--text); }

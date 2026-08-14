@@ -19,6 +19,13 @@
 RPG.data.classPointsPerLevel = 5;   // 何レベルごとに1ポイント配るか
 RPG.data.classChangeCost = 30000;   // 転職（＝クラスポイントの振り直し）にかかるゴールド
 
+/**
+ * クラスポイントを1点だけ戻すときの費用 (§12)。
+ * 全部戻すと 15,000G で、上限レベルなら約 300G/点。
+ * ツリー側と同じ考えで、1点だけ抜くほうを割高にしてある。
+ */
+RPG.data.classRefundCostPerPoint = 800;
+
 RPG.data.classes = {
 
   cls_guardian: {

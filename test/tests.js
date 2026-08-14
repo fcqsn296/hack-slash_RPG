@@ -5050,6 +5050,182 @@
         marked.length === 0, marked.join(' / '));
     }
 
+    // ---------------------------------------------------------------
+    // 1レベルだけの払い戻し (§5.5 / §12)
+    //
+    // 終盤は250点近いSPを1点ずつ振ることになる。全体リセットしか無いと
+    // 1か所を試したいだけでも全部消えるので、振り直すより我慢するほうが楽になる。
+    // それでは組み替えて遊ぶ余地が無い。
+    //
+    // 危ないのは「戻せてしまう」ほうで、上位ノードの解放条件を割ったまま
+    // 投資が残ると、効果は生きているのに画面には錠前が出る盤面ができる。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        /** Lv200・金持ちの主人公を1人用意する。 */
+        const rig = () => {
+          RPG.state.reset();
+          const s = RPG.state.get();
+          s.named = true;
+          s.levelCapBonus = 200;
+          RPG.state.addGold(2000000);
+          s.characters.ch_hero.level = 200;
+          return s;
+        };
+
+        // --- 解放条件を割る払い戻しは断る ---
+        {
+          const s = rig();
+          const c = s.characters.ch_hero;
+          // 初級ちょうど5・中級5 で上級が解禁される、という際どい形を作る
+          for (let i = 0; i < 5; i++) RPG.state.investNode('ch_hero', 'tr_atk');
+          for (let i = 0; i < 5; i++) RPG.state.investNode('ch_hero', 'tr_debuff_amp');
+          RPG.state.investNode('ch_hero', 'tr_def_fortress');
+
+          const goldBefore = s.gold;
+          const before = JSON.stringify(c.tree);
+          const res = RPG.state.refundNode('ch_hero', 'tr_atk');
+
+          assertTrue('払い戻し: 上位の解放条件を割る戻しは断る', !res.ok, res.reason || '通ってしまった');
+          // 断ったのに金だけ減る／木だけ変わる、が一番たちが悪い
+          assertTrue('払い戻し: 断ったときは金も木も動かさない',
+            s.gold === goldBefore && JSON.stringify(c.tree) === before,
+            `金 ${goldBefore} → ${s.gold}`);
+
+          // 上から順に外せば必ず抜ける。行き止まりを作らないことが条件。
+          assertTrue('払い戻し: 上位そのものは戻せる',
+            RPG.tree.canRefund(c, 'tr_def_fortress').ok, '');
+        }
+
+        // --- 通常の払い戻し ---
+        {
+          const s = rig();
+          const c = s.characters.ch_hero;
+          for (let i = 0; i < 3; i++) RPG.state.investNode('ch_hero', 'tr_atk');
+          const spBefore = RPG.tree.spentSp(c.tree);
+          const goldBefore = s.gold;
+
+          const res = RPG.state.refundNode('ch_hero', 'tr_atk');
+          assertTrue('払い戻し: 1レベルだけ戻る',
+            res.ok && c.tree.tr_atk === 2, `${c.tree.tr_atk}`);
+          assertTrue('払い戻し: SPが戻る',
+            RPG.tree.spentSp(c.tree) === spBefore - RPG.tree.node('tr_atk').cost, '');
+          assertTrue('払い戻し: 費用ぶんだけ金が減る',
+            s.gold === goldBefore - (res.cost || 0),
+            `${goldBefore.toLocaleString()} → ${s.gold.toLocaleString()}（費用 ${res.cost}）`);
+
+          // 0まで戻したらキーごと消えること。0が残ると spentSp 以外の
+          // 「投資済みか」を見ている箇所が誤判定する。
+          RPG.state.refundNode('ch_hero', 'tr_atk');
+          RPG.state.refundNode('ch_hero', 'tr_atk');
+          assertTrue('払い戻し: 0まで戻すとキーごと消える',
+            !('tr_atk' in c.tree), JSON.stringify(c.tree));
+          assertTrue('払い戻し: 振っていないノードは戻せない',
+            !RPG.state.refundNode('ch_hero', 'tr_atk').ok, '');
+        }
+
+        // --- まとめて直すなら全体リセットのほうが安い、という関係を保つ ---
+        {
+          // ここが逆転すると全体リセットが存在意義を失う。
+          const perSp = RPG.data.skillRefundCostPerSp;
+          const level = 200;
+          const bulkPerSp = RPG.tree.resetCost(level) / (level - 1);
+          assertTrue('払い戻し: 1点ずつのほうが割高',
+            perSp > bulkPerSp,
+            `1点 ${perSp} G / 全体リセット 約 ${Math.round(bulkPerSp)} G per SP`);
+        }
+
+        // --- 戻したときの後始末 ---
+        {
+          const s = rig();
+          const c = s.characters.ch_hero;
+          RPG.state.addBox('box_dragon', 60);
+          RPG.state.identifyBoxes('box_dragon', 60);
+
+          const slotNode = RPG.data.skillTree.find((/** @type {any} */ n) =>
+            (n.effects || []).some((/** @type {any} */ e) => e.kind === 'slot'));
+          let moved = true;
+          let guard = 0;
+          while (moved && guard++ < 40) {
+            moved = false;
+            for (const id of ['tr_atk', 'tr_def', slotNode.id]) {
+              const before = c.tree[id] || 0;
+              try { RPG.state.investNode('ch_hero', id); } catch (e) { /* SP切れ */ }
+              if ((c.tree[id] || 0) > before) moved = true;
+            }
+          }
+          RPG.autoequip.forParty();
+          const slotsBefore = RPG.units.slotCounts(c);
+          const equippedBefore = c.equipped.accessory.length;
+
+          RPG.state.refundNode('ch_hero', slotNode.id);
+          const slotsAfter = RPG.units.slotCounts(c);
+
+          assertTrue('払い戻し: 装備枠が減る',
+            slotsAfter.accessory < slotsBefore.accessory,
+            `${slotsBefore.accessory} → ${slotsAfter.accessory}`);
+          // 外し忘れると、枠が無いのに装備している状態が残る
+          assertTrue('払い戻し: 枠からはみ出した装備は外れる',
+            c.equipped.accessory.length <= slotsAfter.accessory,
+            `装備 ${equippedBefore} → ${c.equipped.accessory.length} / 枠 ${slotsAfter.accessory}`);
+        }
+
+        // 習得技を戻したら、並び順の指定も掃除する。
+        // 残しても表示は壊れないが、戻したはずの技が並び替え画面に出続ける。
+        {
+          const s = rig();
+          const c = s.characters.ch_hero;
+          let moved = true;
+          let guard = 0;
+          while (moved && guard++ < 40) {
+            moved = false;
+            for (const id of ['tr_atk', 'tr_status_power', 'tr_grant_venom', 'tr_grant_detonate']) {
+              const before = c.tree[id] || 0;
+              try { RPG.state.investNode('ch_hero', id); } catch (e) { /* SP切れ */ }
+              if ((c.tree[id] || 0) > before) moved = true;
+            }
+          }
+          c.skillOrder = ['sk_tree_detonate', 'sk_tree_venom', 'sk_hero_slash'];
+          RPG.state.refundNode('ch_hero', 'tr_grant_detonate');
+
+          const skills = RPG.units.buildCharacterUnit(c, s.inventory).skills;
+          assertTrue('払い戻し: 習得していた技が消える',
+            !skills.includes('sk_tree_detonate'), skills.join(', '));
+          assertTrue('払い戻し: 並び順から消えた技が取り除かれる',
+            !c.skillOrder.includes('sk_tree_detonate'), JSON.stringify(c.skillOrder));
+          assertTrue('払い戻し: 残っている技の並び順は保たれる',
+            c.skillOrder.includes('sk_tree_venom'), JSON.stringify(c.skillOrder));
+        }
+
+        // --- クラス側 ---
+        {
+          const s = rig();
+          const c = s.characters.ch_hero;
+          c.level = 240;
+          RPG.state.setClass('ch_hero', 'cls_breaker');
+          const ruin = RPG.klass.node('cls_breaker', 'bk_ruin');
+          RPG.state.investClassNode('ch_hero', 'bk_ruin');
+          const cpBefore = RPG.klass.availablePoints(c);
+          const goldBefore = s.gold;
+
+          const res = RPG.state.refundClassNode('ch_hero', 'bk_ruin');
+          assertTrue('払い戻し: クラスノードも1レベル戻せる', res.ok, res.reason || '');
+          assertTrue('払い戻し: クラスポイントが戻る',
+            RPG.klass.availablePoints(c) === cpBefore + ruin.cost,
+            `${cpBefore} → ${RPG.klass.availablePoints(c)}`);
+          assertTrue('払い戻し: クラス側も費用を取る',
+            s.gold === goldBefore - (res.cost || 0), '');
+          assertTrue('払い戻し: 戻したクラス技は使えなくなる',
+            !RPG.units.buildCharacterUnit(c, s.inventory).skills.includes('sk_cls_ruin'), '');
+        }
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
     return results;
   }
 

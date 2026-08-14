@@ -2632,6 +2632,7 @@
     const level = (charSave.klassTree || {})[n.id] || 0;
     const maxed = level >= n.maxLevel;
     const check = RPG.klass.canInvest(charSave, n.id);
+    const refund = RPG.klass.canRefund(charSave, n.id);
     const isSkill = n.name.startsWith('【技】');
 
     return h('div.class-node' + (level > 0 ? '.is-invested' : '') + (maxed ? '.is-maxed' : ''),
@@ -2647,6 +2648,13 @@
       h('div.node-foot',
         h('span.node-cost', { text: `${n.cost} CP` }),
         isSkill ? h('span.chip.chip-active', { text: 'クラス技' }) : null,
+        // 1レベルだけ戻す (§12)。ツリー側と対になっている。
+        level > 0 ? W.button(`戻す ${refund.cost ? refund.cost.toLocaleString() + 'G' : ''}`, () => {
+          const res = RPG.state.refundClassNode(selectedChar, n.id);
+          if (!res.ok) { RPG.app.toast(res.reason || '戻せません'); return; }
+          RPG.app.toast(`${n.name.replace('【技】', '')} を1レベル戻した（${(res.cost || 0).toLocaleString()} G）`);
+          render(root);
+        }, { disabled: !refund.ok }) : null,
         W.button(maxed ? 'MAX' : '投資', () => {
           const res = RPG.state.investClassNode(selectedChar, n.id);
           if (!res.ok) { RPG.app.toast(res.reason || '投資できません'); return; }
@@ -2868,6 +2876,7 @@
     const level = (charSave.tree || {})[n.id] || 0;
     const maxed = level >= n.maxLevel;
     const check = RPG.tree.canInvest(charSave, n.id);
+    const refund = RPG.tree.canRefund(charSave, n.id);
     const isSlot = n.effects.some((/** @type {any} */ e) => e.kind === 'slot');
     const isStrategy = n.effects.some((/** @type {any} */ e) =>
       e.kind === 'element_adapt' || e.kind === 'element_mastery' || e.kind === 'chaos');
@@ -2890,6 +2899,15 @@
         isStrategy ? h('span.chip.chip-strategy', { text: '属性戦略' }) : null,
         isActive ? h('span.chip.chip-active', { text: 'アクティブ技' }) : null,
         isDefensive ? h('span.chip.chip-passive', { text: '生存' }) : null,
+        // 1レベルだけ戻す (§5.5)。振ってあるときだけ出す。
+        // 終盤は250点近いSPを1点ずつ振るので、全体リセットしか無いと
+        // 「1か所試したいだけ」でも全部消える。それでは組み替えて遊べない。
+        level > 0 ? W.button(`戻す ${refund.cost ? refund.cost.toLocaleString() + 'G' : ''}`, () => {
+          const res = RPG.state.refundNode(selectedChar, n.id);
+          if (!res.ok) { RPG.app.toast(res.reason || '戻せません'); return; }
+          RPG.app.toast(`${n.name} を1レベル戻した（${(res.cost || 0).toLocaleString()} G）`);
+          render(root);
+        }, { disabled: !refund.ok }) : null,
         W.button(maxed ? 'MAX' : '投資', () => {
           const res = RPG.state.investNode(selectedChar, n.id);
           if (!res.ok) { RPG.app.toast(res.reason || '投資できません'); return; }
@@ -2897,7 +2915,9 @@
         }, { disabled: !check.ok, variant: check.ok ? 'primary' : undefined })
       ),
       // ティアごと未解放のときは見出しに理由が出ているので、ノード側では繰り返さない
-      !check.ok && !maxed && tierUnlocked ? h('p.node-reason', { text: check.reason }) : null
+      !check.ok && !maxed && tierUnlocked ? h('p.node-reason', { text: check.reason }) : null,
+      // 戻せない理由は投資できない理由と別物なので、混ざらないよう分けて出す
+      level > 0 && !refund.ok ? h('p.node-reason', { text: refund.reason }) : null
     );
   }
 
