@@ -63,6 +63,21 @@ RPG.data.classes = {
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_aegis', value: 1 }],
         desc: 'クラス技「絶対防壁」を習得（3R目以降・CT5）',
       },
+      {
+        // ── 極点 (§12) ──
+        // 上限を伸ばすとクラスポイントが余る。Lv240 で48点あるのに、
+        // 全部取っても28〜39点しか要らなかった。行き先を作る。
+        //
+        // どれも **代償のある強い効果** にしてある。ポイントが余るからと
+        // 素直な上積みを置くと、ただの数値インフレになるため。
+        id: 'gd_bastion', name: '【極】不動の城塞', cost: 6, maxLevel: 1,
+        effects: [
+          { kind: 'damage_share', value: 0.35 },
+          { kind: 'stat_pct', stat: 'def', value: 0.6 },
+          { kind: 'stat_pct', stat: 'atk', value: -0.5 },
+        ],
+        desc: '味方の被害を追加で35%肩代わりし DEF +60%。ただし ATK -50%',
+      },
     ],
   },
 
@@ -112,6 +127,16 @@ RPG.data.classes = {
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_rebirth', value: 1 }],
         desc: 'クラス技「再臨の光」を習得（4R目以降・CT6）',
       },
+      {
+        // ── 極点 (§12) ──
+        id: 'md_eternal', name: '【極】絶えぬ灯', cost: 6, maxLevel: 1,
+        effects: [
+          { kind: 'regen', value: 0.08 },
+          { kind: 'heal_power', value: 0.5 },
+          { kind: 'stat_pct', stat: 'atk', value: -0.4 },
+        ],
+        desc: '毎ラウンド最大HPの8%回復、回復量 +50%。ただし ATK -40%',
+      },
     ],
   },
 
@@ -159,6 +184,16 @@ RPG.data.classes = {
         id: 'bk_ruin', name: '【技】終焉の一撃', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_ruin', value: 1 }],
         desc: 'クラス技「終焉の一撃」を習得（3R目以降・CT4）',
+      },
+      {
+        // ── 極点 (§12) ──
+        id: 'bk_apex', name: '【極】一撃必倒', cost: 6, maxLevel: 1,
+        effects: [
+          { kind: 'high_power_boost', value: 0.8 },
+          { kind: 'cap_break', value: 0.6 },
+          { kind: 'stat_pct', stat: 'hp', value: -0.5 },
+        ],
+        desc: '大技の火力 +80%、上限突破 +60%。ただし最大HP -50%',
       },
     ],
   },
@@ -209,6 +244,16 @@ RPG.data.classes = {
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_crucible', value: 1 }],
         desc: 'クラス技「疫病の坩堝」を習得（2R目以降・CT4）',
       },
+      {
+        // ── 極点 (§12) ──
+        id: 'hx_plague', name: '【極】万疫の主', cost: 6, maxLevel: 1,
+        effects: [
+          { kind: 'status_power', value: 1.2 },
+          { kind: 'vs_status_power', status: 'all', value: 0.25 },
+          { kind: 'stat_pct', stat: 'atk', value: -0.35 },
+        ],
+        desc: '継続ダメージ +120%、弱体中の敵への火力 +25%。ただし ATK -35%',
+      },
     ],
   },
 
@@ -258,6 +303,16 @@ RPG.data.classes = {
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_command', value: 1 }],
         desc: 'クラス技「刻の号令」を習得（3R目以降・CT6）',
       },
+      {
+        // ── 極点 (§12) ──
+        id: 'tc_tempo', name: '【極】刻の支配', cost: 6, maxLevel: 1,
+        effects: [
+          { kind: 'extra_action', value: 0.35 },
+          { kind: 'buff_duration', value: 2 },
+          { kind: 'stat_pct', stat: 'atk', value: -0.45 },
+        ],
+        desc: '35%で再行動、味方バフの持続 +2ターン。ただし ATK -45%',
+      },
     ],
   },
 
@@ -301,6 +356,16 @@ RPG.data.classes = {
         id: 'as_behead', name: '【技】首刈り', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_behead', value: 1 }],
         desc: 'クラス技「首刈り」を習得（2R目以降・CT3）',
+      },
+      {
+        // ── 極点 (§12) ──
+        id: 'as_lethal', name: '【極】必殺の理', cost: 6, maxLevel: 1,
+        effects: [
+          { kind: 'crit', value: 0.5 },
+          { kind: 'crit_damage', value: 1.2 },
+          { kind: 'stat_pct', stat: 'def', value: -0.6 },
+        ],
+        desc: 'クリティカル率 +50%、倍率 +1.2。ただし DEF -60%',
       },
     ],
   },

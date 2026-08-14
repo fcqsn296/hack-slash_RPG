@@ -2330,10 +2330,99 @@
         ),
 
         buildSummary(unit),
+        damageBreakdown(root, unit, charSave),
         skillOrderPanel(root, charSave, unit),
         classPanel(root, charSave),
         treeBrowser(root, charSave)
       )
+    );
+  }
+
+  /**
+   * ダメージの内訳を、実際に計算して見せる (§3.2)。
+   *
+   * ── なぜ要るのか ──
+   * 「火力」「与ダメージ」「ATK」が加算なのか乗算なのか、
+   * 説明文からは読み取れない。プレイヤーは自分で検証するしかなく、
+   * 検証しても確信が持てない。
+   *
+   * ここでは **実際に damage.calc を通した結果** を段ごとに出す。
+   * 説明ではなく計算そのものなので、式が変わればここも自動で変わる。
+   *
+   * 相手は「同レベルの基準敵」。絶対値ではなく、
+   * どの段が何倍効いているかを見るための物差しにしている。
+   *
+   * @param {HTMLElement} root @param {any} unit @param {any} charSave
+   */
+  function damageBreakdown(root, unit, charSave) {
+    // いちばん素直な攻撃技を選ぶ。補助や特殊な技だと段の見え方が変わる。
+    const skillId = (unit.skills || []).find((/** @type {string} */ id) => {
+      const sk = RPG.data.skills[id];
+      return sk && sk.power > 0 && !sk.plugin;
+    }) || (unit.skills || [])[0];
+    const skill = RPG.data.skills[skillId];
+    if (!skill || !skill.power) return null;
+
+    const level = charSave.level;
+    const defender = RPG.autoequip.referenceDefender(level);
+    const attacker = RPG.units.toAttacker(unit);
+
+    // 乱数と会心を止めて、素の倍率だけを見る
+    const r = RPG.damage.calc({
+      attacker, defender, skill,
+      options: { crit: false },
+    });
+    const b = r.breakdown;
+
+    /** @param {number} v */
+    const x = (v) => '×' + (v || 1).toFixed(3);
+
+    const rows = [
+      ['基礎', Math.round(b.base).toLocaleString(),
+        `${RPG.units.STAT_LABEL[skill.scaling_stat] || skill.scaling_stat} × 威力${skill.power}%`],
+      ['系統タグ', x(b.tag), '同じタグは足し算、違うタグは掛け算'],
+      ['固有バフ', x(b.unique), 'それぞれ独立して掛かる'],
+      ['防御', x(b.defense), `相手 DEF ${defender.def.toLocaleString()}`],
+      ['属性', x(b.element), '有利・不利'],
+      ['追い打ち', x(b.execute), '相手のHPが減っているほど'],
+      ['戦況', x(b.situational), 'ラウンド・人数・残HPなど'],
+      ['相手の軽減', x(b.taken), '相手側の減算'],
+    ].filter((row) => row[1] !== '×1.000' || row[0] === '基礎' || row[0] === '防御');
+
+    return h('section.dmg-break',
+      h('button.dmg-break-head', {
+        onclick: () => { dmgBreakOpen = !dmgBreakOpen; render(root); },
+        'aria-expanded': dmgBreakOpen ? 'true' : 'false',
+      },
+        h('span.cat-mark', { text: dmgBreakOpen ? '▼' : '▶' }),
+        h('span.cat-label', { text: 'ダメージの内訳' }),
+        h('span.cat-count', { text: Math.round(r.damage).toLocaleString() }),
+        h('span.cat-desc', { text: `${skill.name} を同レベルの基準敵に当てたとき` })
+      ),
+      dmgBreakOpen
+        ? h('div.dmg-break-body',
+            h('table.dmg-table',
+              h('tbody', rows.map((row) =>
+                h('tr',
+                  h('th', { text: row[0] }),
+                  h('td.dmg-val', { text: row[1] }),
+                  h('td.dmg-note', { text: row[2] })
+                )
+              ))
+            ),
+            h('p.hint.hint-sm', {
+              text: `会心は ${(1.5 + (unit.critDamage || 0)).toFixed(2)}倍（発生率 `
+                + `${Math.round((unit.baseCritRate || 0) * 100)}%）。`
+                + `最後に 0.85〜1.15 の乱数が掛かり、上限 `
+                + `${(RPG.damage.constants.BASE_DAMAGE_CAP * (1 + (unit.capBreak || 0))).toLocaleString()} `
+                + 'を超えたぶんは10%まで減衰する。',
+            }),
+            h('p.hint.hint-sm', {
+              text: '各段は掛け算で繋がる。同じ段の中だけが足し算になる'
+                + '（同じ系統タグを複数積んだ場合など）。',
+            })
+          )
+        : null
     );
   }
 
@@ -2473,6 +2562,9 @@
 
   /** コマンドの並び替えを開いているか */
   let skillOrderOpen = false;
+
+  /** ダメージの内訳を開いているか */
+  let dmgBreakOpen = false;
 
   /** 詳細を開いているクラスのID。1つだけ開く。 */
   /** @type {string|null} */

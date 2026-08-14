@@ -2962,3 +2962,27 @@ body.has-backdrop { background: transparent; }
 
 /* 貼り付く帯は、下を流れる内容と区別が要るので少しだけ濃く残す */
 #app.has-backdrop .sp-bar { background: rgba(11, 13, 18, .78); }
+
+/* ダメージの内訳 (§3.2)。加算か乗算かを、計算結果そのもので示す */
+.dmg-break { margin: 12px 0; border: 1px solid var(--line); background: var(--bg-panel); }
+.dmg-break-head {
+  appearance: none; width: 100%; cursor: pointer; text-align: left;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 12px; border: 0; background: none; color: var(--text);
+  font: 700 13px/1.3 inherit;
+}
+.dmg-break-head:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; }
+.dmg-break-head .cat-count { color: var(--ember-hot); font-variant-numeric: tabular-nums; }
+.dmg-break-body { padding: 0 12px 12px; }
+.dmg-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.dmg-table th, .dmg-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.dmg-table th { width: 6.5em; font-size: 12px; font-weight: 700; color: var(--text); }
+.dmg-val {
+  width: 5.5em; font-size: 13px; font-weight: 800; color: var(--ember-hot);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.dmg-note { font-size: 11px; color: var(--text-dim); }
+@media (max-width: 420px) {
+  .dmg-table th { width: 5.5em; font-size: 11px; }
+  .dmg-note { display: none; }
+}

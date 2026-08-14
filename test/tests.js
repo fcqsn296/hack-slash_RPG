@@ -4589,6 +4589,43 @@
         `敵 Lv${plain.enemy_lv}`);
     }
 
+
+    // ---------------------------------------------------------------
+    // クラスの極点 (§12)
+    //
+    // レベル上限を伸ばせるようにしたら、クラスポイントが余るようになった。
+    // Lv240 で48点もらえるのに、全部取っても28〜39点しか要らなかった。
+    // 余った点の行き先として、代償のある強い効果を1つずつ置いてある。
+    // ---------------------------------------------------------------
+    {
+      const cpPer = RPG.data.classPointsPerLevel;
+      const classes = Object.keys(RPG.data.classes).map((/** @type {string} */ id) => ({
+        id, def: RPG.data.classes[id],
+      }));
+
+      for (const { def } of classes) {
+        const peak = (def.nodes || []).find((/** @type {any} */ n) => n.name.indexOf('【極】') === 0);
+        assertTrue(`クラス: ${def.name} に極点がある`, !!peak, peak ? peak.name : '無い');
+        if (!peak) continue;
+
+        // 代償があること。素直な上積みだと、余った点がそのまま数値インフレになる。
+        const hasCost = (peak.effects || []).some((/** @type {any} */ e) => e.value < 0);
+        assertTrue(`クラス: ${def.name} の極点に代償がある`, hasCost,
+          (peak.effects || []).map((/** @type {any} */ e) => `${e.kind}:${e.value}`).join(' '));
+      }
+
+      // 上限まで育てても、まだ全部は取り切れないこと。
+      // 取り切れると「どのクラスでも同じ」になり、選ぶ意味が消える。
+      const capLv = RPG.data.maxLevel;
+      const cpAtCap = Math.floor(capLv / cpPer);
+      for (const { def } of classes) {
+        const need = (def.nodes || [])
+          .reduce((/** @type {number} */ a, /** @type {any} */ n) => a + (n.cost || 1) * (n.maxLevel || 1), 0);
+        assertTrue(`クラス: ${def.name} は初期上限で取り切れない`,
+          need > cpAtCap, `必要 ${need} / Lv${capLv} で ${cpAtCap} 点`);
+      }
+    }
+
     return results;
   }
 
