@@ -34,6 +34,8 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHAR_DIR = os.path.join(ROOT, 'assets', 'characters')
+import contentscan
+
 CHAR_JS = os.path.join(ROOT, 'data', 'characters.js')
 
 # 全身の高さに対する頭の高さの割合。アニメ調の全身立ち絵はおおむね6〜7頭身。
@@ -142,41 +144,69 @@ def detect(path):
 
 
 def existing_faces():
-    """characters.js に手で書かれている face を拾う。"""
-    s = io.open(CHAR_JS, encoding='utf-8').read()
+    """手で書かれている face を拾う。コアと拡張 (§18) の両方を見る。"""
     out = {}
-    for m in re.finditer(r'\n  (ch_[a-z0-9_]+):', s):
-        cid = m.group(1)
-        block = s[m.end(): m.end() + 1400]
-        fm = re.search(r'face:\s*\{\s*x:\s*([\d.]+),\s*y:\s*([\d.]+),\s*size:\s*([\d.]+)', block)
+    for entry in contentscan.scan_characters():
+        fm = re.search(r'face:\s*\{\s*x:\s*([\d.]+),\s*y:\s*([\d.]+),\s*size:\s*([\d.]+)',
+                       entry['chunk'])
         if fm:
-            out[cid] = dict(x=float(fm.group(1)), y=float(fm.group(2)), size=float(fm.group(3)))
+            out[entry['id']] = dict(x=float(fm.group(1)), y=float(fm.group(2)),
+                                    size=float(fm.group(3)))
     return out
 
 
 def write_faces(results):
-    """art: { の直後に face を差し込む。既にある場合は置き換える。"""
-    s = io.open(CHAR_JS, encoding='utf-8').read()
+    """art: { の直後に face を差し込む。既にある場合は置き換える。
+
+    ── 書き込み先 ──
+    そのキャラを定義しているファイルへ書く。拡張 (§18) のキャラなら
+    content/ のほうへ書き込む。data/characters.js へ書いてしまうと、
+    **拡張はコアを書き換えない** という約束が、絵を入れた瞬間に破れる。
+
+    インデントも定義元に合わせる。コアは 6、拡張は add() の中なので 8。
+    """
+    entries = {e['id']: e for e in contentscan.scan_characters()}
+
+    # 同じファイルへの書き込みをまとめる（1ファイルずつ読み書きする）
+    by_file = {}
+    for cid in results:
+        entry = entries.get(cid)
+        if not entry:
+            continue
+        by_file.setdefault(entry['source'], []).append(cid)
+
     written = 0
-    for cid, r in results.items():
-        m = re.search(r'(\n  %s:\s*\{)' % re.escape(cid), s)
-        if not m:
-            continue
-        art = s.find('art: {', m.end())
-        if art < 0:
-            continue
-        line = ('\n      // 立ち絵から自動計測（tools/detect_faces.py）。'
-                '調整は test/art.html から。\n'
-                '      face: { x: %s, y: %s, size: %s },' % (r['x'], r['y'], r['size']))
-        # 既存の face 行があれば消してから入れる
-        seg_end = s.find('\n    },', art)
-        seg = s[art:seg_end]
-        seg_new = re.sub(r'\n\s*//[^\n]*\n\s*face:\s*\{[^}]*\},', '', seg)
-        seg_new = re.sub(r'\n\s*face:\s*\{[^}]*\},', '', seg_new)
-        seg_new = seg_new.replace('art: {', 'art: {' + line, 1)
-        s = s[:art] + seg_new + s[seg_end:]
-        written += 1
-    io.open(CHAR_JS, 'w', encoding='utf-8').write(s)
+    for path, ids in by_file.items():
+        s = io.open(path, encoding='utf-8').read()
+        # 拡張は add() の中にあるぶん、1段深い
+        is_core = os.path.dirname(path).endswith('data')
+        pad = ' ' * (6 if is_core else 8)
+        head = ' ' * (2 if is_core else 4)
+        close = '\n' + ' ' * (4 if is_core else 6) + '},'
+
+        for cid in ids:
+            r = results[cid]
+            m = re.search(r'(\n%s%s:\s*\{)' % (head, re.escape(cid)), s)
+            if not m:
+                continue
+            art = s.find('art: {', m.end())
+            if art < 0:
+                continue
+            line = ('\n%s// 立ち絵から自動計測（tools/detect_faces.py）。'
+                    '調整は test/art.html から。\n'
+                    '%sface: { x: %s, y: %s, size: %s },'
+                    % (pad, pad, r['x'], r['y'], r['size']))
+            seg_end = s.find(close, art)
+            if seg_end < 0:
+                continue
+            seg = s[art:seg_end]
+            seg_new = re.sub(r'\n\s*//[^\n]*\n\s*face:\s*\{[^}]*\},', '', seg)
+            seg_new = re.sub(r'\n\s*face:\s*\{[^}]*\},', '', seg_new)
+            seg_new = seg_new.replace('art: {', 'art: {' + line, 1)
+            s = s[:art] + seg_new + s[seg_end:]
+            written += 1
+
+        io.open(path, 'w', encoding='utf-8').write(s)
     return written
 
 

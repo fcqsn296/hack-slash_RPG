@@ -25,6 +25,8 @@ import re
 import shutil
 import sys
 
+import contentscan
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 
@@ -88,16 +90,22 @@ def _parse_art_config():
 
 
 def load_targets():
-    """(id, 表示名, 種別ラベル, 保存先ディレクトリ, 既存ファイルのパス or None) の一覧。"""
+    """(id, 表示名, 種別ラベル, 保存先ディレクトリ, 既存ファイルのパス or None) の一覧。
+
+    コアの data/ だけでなく content/ の拡張 (§18) も対象にする。
+    ここが片方しか見ていないと、生成はできるのに取り込めない、という
+    噛み合わない状態になる。走査は tools/contentscan.py に集約してある。
+    """
     cfg = _parse_art_config()
     groups = [
-        ("キャラクター", _parse_catalog("characters.js", "RPG.data.characters"), cfg["character_dir"]),
-        ("エネミー", _parse_catalog("enemies.js", "RPG.data.enemies"), cfg["enemy_dir"]),
+        ("キャラクター", contentscan.scan_characters(), cfg["character_dir"]),
+        ("エネミー", contentscan.scan_enemies(), cfg["enemy_dir"]),
     ]
 
     targets = []
     for label, entries, rel_dir in groups:
-        for cid, name in entries:
+        for entry in entries:
+            cid, name = entry["id"], entry["name"]
             existing = None
             for ext in cfg["extensions"]:
                 path = os.path.join(ROOT, rel_dir.replace("/", os.sep), cid + ext)
@@ -107,6 +115,8 @@ def load_targets():
             targets.append({
                 "id": cid, "name": name, "kind": label,
                 "dir": rel_dir, "existing": existing,
+                # どの拡張のものか。コア由来なら None
+                "pack": entry.get("pack"),
             })
     return targets, cfg
 

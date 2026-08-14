@@ -30,6 +30,8 @@ MIN_DELAY 未満にはできない）。429 や 5xx が返ったら待ち時間�
 気に入ったものを --pick か --install で assets/ へ入れる。
 """
 import argparse
+
+import contentscan
 import io
 import json
 import os
@@ -146,24 +148,27 @@ def save_override(target_id, prompt):
         json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
 
 
+def _entry(target):
+    """定義そのものを引く。コアと拡張 (§18) の両方から探す。"""
+    pool = (contentscan.scan_enemies() if target["kind"] == "エネミー"
+            else contentscan.scan_characters())
+    return next((e for e in pool if e["id"] == target["id"]), None)
+
+
 def _meta(target):
     """定義から element / boss / 髪色などを読む。個別プロンプトが無いときに使う。
 
-    敵とキャラで読むファイルが違うだけで、やることは同じ。
+    コアの data/ と拡張の content/ で書き方が違う（インデントと入れ子）ので、
+    切り出しは contentscan に任せて、ここは読むだけにしてある。
     """
-    filename = "enemies.js" if target["kind"] == "エネミー" else "characters.js"
-    text = open(os.path.join(DATA, filename), encoding="utf-8").read()
-    m = re.search(r"^  " + re.escape(target["id"]) + r":\s*\{(.*?)^  \},", text,
-                  re.DOTALL | re.MULTILINE)
-    if not m:
+    entry = _entry(target)
+    if not entry:
         return {"element": "none", "boss": False, "hair": None}
-    body = m.group(1)
-
-    def s(key):
-        found = re.search(key + r":\s*'([^']*)'", body)
-        return found.group(1) if found else None
-
-    return {"element": s("element") or "none", "boss": "boss: true" in body, "hair": s("hair")}
+    return {
+        "element": contentscan.field_of(entry, "element") or "none",
+        "boss": contentscan.is_boss(entry),
+        "hair": contentscan.field_of(entry, "hair"),
+    }
 
 
 #: 自動合成でキャラの髪型タグに使う対応表。data 側に無い値はそのまま英語として出す。
@@ -183,7 +188,14 @@ HAIR_TAGS = {
 def build_prompt(target, catalog, overrides, extra=""):
     """その取り込み先に使うプロンプトを決める。
 
-    優先順位:  overrides（手で調整したもの） → artprompts.js の個別指定 → 自動合成
+    優先順位:
+        overrides（手で調整したもの）
+        → 定義に書かれた artPrompt（拡張コンテンツ §18 はここに書く）
+        → artprompts.js の個別指定（コアの分）
+        → 自動合成
+
+    拡張を artprompts.js より先に見るのは、**拡張が data/ を書き換えない**
+    という約束を保つため。拡張の絵の指定は拡張ファイルの中で完結する。
 
     主語（1girl / 1boy / monster girl）は、個別プロンプトが自分で宣言していない
     ときだけ subject から補う。主人公だけ男性という前提と矛盾させないため。
@@ -192,8 +204,13 @@ def build_prompt(target, catalog, overrides, extra=""):
     is_enemy = target["kind"] == "エネミー"
     kind = "enemy" if is_enemy else "character"
 
+    entry = _entry(target)
+    inline = contentscan.art_prompt(entry) if entry else None
+
     if tid in overrides:
         detail = overrides[tid]
+    elif inline:
+        detail = inline
     else:
         table = catalog["enemies"] if is_enemy else catalog["characters"]
         if tid in table:

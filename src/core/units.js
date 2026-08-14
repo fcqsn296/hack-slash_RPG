@@ -78,6 +78,43 @@
    * @param {any[]} inventory
    * @returns {any}
    */
+  /**
+   * ユニーク装備・セット効果が passives へ流せるキー (§7.8)。
+   *
+   * ここに載っていないキーは、装備しても **何も起きない**。
+   * エラーも警告も出ないので、書いた側は効いているつもりで先へ進む。
+   * 実際、ユニーク装備が小技寄りに偏っていたのは、読み口が
+   * 小技まわりのキーにしか無かったからだった。
+   *
+   * battle.js 側で `p.x + fx.x` と足しているキー（lowPowerBoost など）は
+   * ここに載せてはいけない。二重に効いてしまう。それらは
+   * BATTLE_KEYS のほうに並べてある。
+   */
+  const PASSIVE_KEYS = [
+    'midPowerStatus', 'midPowerCombo',   // 中技の役割 (§5.8)
+    'hpToDef', 'guardAlly',              // 防御で耐える道 (§5.8)
+    'statusPower', 'debuffDuration',     // 状態異常で押す構成 (§5.6)
+    'doubleHits',                        // 手数で押す構成
+    'comboGain', 'comboPower',           // 弱点コンボを繋ぐ構成 (§10.6)
+    'loneFoePower', 'soloPower',         // 単騎・1体相手に寄せる構成
+    'reflect', 'counterRate',            // 殴られる前提の構成
+  ];
+
+  /** 組み立て時に別枠で処理するキー (§7.8)。passives には流さない。 */
+  const BUILD_KEYS = ['capBreak', 'highPowerBoost', 'firstRoundPower', 'reviveHp'];
+
+  /** battle.js が戦闘中に直接読むキー (§7.8)。ここで足すと二重になる。 */
+  const BATTLE_KEYS = [
+    'lowPowerBoost', 'lowPowerSpread', 'lowPowerRepeat', 'autoLowSkill',
+    'selfPower', 'fallenPower', 'decayPerRound', 'decayFloor', 'wrathRelease',
+  ];
+
+  /**
+   * ユニーク装備の effects に書けるキーの全体。
+   * 拡張コンテンツ (§18) の検査がここを見る。
+   */
+  const UNIQUE_EFFECT_KEYS = PASSIVE_KEYS.concat(BUILD_KEYS, BATTLE_KEYS);
+
   function buildCharacterUnit(charSave, inventory) {
     const def = RPG.data.characters[charSave.id];
     const stats = statsAtLevel(def, charSave.level);
@@ -156,15 +193,7 @@
     //
     // battle.js 側で `p.x + fx.x` と足している キー（lowPowerBoost など）は
     // ここに載せてはいけない。二重に効いてしまう。
-    for (const key of [
-      'midPowerStatus', 'midPowerCombo',   // 中技の役割 (§5.8)
-      'hpToDef', 'guardAlly',              // 防御で耐える道 (§5.8)
-      'statusPower', 'debuffDuration',     // 状態異常で押す構成 (§5.6)
-      'doubleHits',                        // 手数で押す構成
-      'comboGain', 'comboPower',           // 弱点コンボを繋ぐ構成 (§10.6)
-      'loneFoePower', 'soloPower',         // 単騎・1体相手に寄せる構成
-      'reflect', 'counterRate',            // 殴られる前提の構成
-    ]) {
+    for (const key of PASSIVE_KEYS) {
       if (setFx[key]) passives[key] = (passives[key] || 0) + setFx[key];
     }
     // 上限突破は passives ではなく素の値として持っている (§3.2 ステップ8)
@@ -442,6 +471,7 @@
   }
 
   RPG.units = {
+    UNIQUE_EFFECT_KEYS, PASSIVE_KEYS, BUILD_KEYS, BATTLE_KEYS,
     STAT_LABEL, SLOT_LABEL, DEFAULT_SLOTS,
     expToNext, statsAtLevel, slotCounts, equippedItems, totalReduction,
     buildCharacterUnit, buildEnemyUnit, toAttacker, toDefender,

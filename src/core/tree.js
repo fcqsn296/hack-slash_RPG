@@ -235,6 +235,40 @@
   }
 
   /**
+   * effectsOf が解釈できる効果種別の全体 (§18)。
+   *
+   * ここに無い kind は **黙って捨てられる**。効果は乗らないのに
+   * ノードは画面に出るので、書いた側からは「効いていない」としか見えない。
+   * 拡張コンテンツの検査 (src/core/content.js) がこの一覧を見る。
+   *
+   * 中身は下の switch から機械的に写したもの。ずれると検査が意味を失うので、
+   * test/tests.js が tree.js を読み直して突き合わせている。
+   */
+  const KNOWN_EFFECT_KINDS = [
+    'all_spread', 'ambush', 'atk_to_def', 'auto_low_skill', 'back_guard', 'boss_guard',
+    'boss_slayer', 'buff_duration', 'buff_on_kill', 'cap_break', 'chain', 'chain_power',
+    'chaos', 'combo_gain', 'combo_keep', 'combo_power', 'counter', 'counter_all',
+    'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
+    'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
+    'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
+    'dual_element', 'element_adapt', 'element_convert', 'element_crit', 'element_mastery',
+    'element_pierce', 'element_power', 'element_resist', 'execute', 'extra_action',
+    'first_hit_crit', 'first_round_power', 'foe_count_power', 'front_power',
+    'full_hp_foe_power', 'grant_skill', 'guard_ally', 'guard_break', 'heal_on_kill',
+    'heal_power', 'high_hp_power', 'high_power_boost', 'hit_stack', 'hp_to_atk',
+    'hp_to_def', 'kill_extra_action', 'last_stand', 'lifesteal', 'lone_foe_power',
+    'low_hp_guard', 'low_hp_power', 'low_power_boost', 'low_power_repeat',
+    'low_power_spread', 'mid_power_combo', 'mid_power_status', 'mono_element_power',
+    'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
+    'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen', 'repeat_power',
+    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage',
+    'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
+    'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
+    'thorns', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
+    'wave_stack', 'weak_guard', 'weak_hunter'
+  ];
+
+  /**
    * ノード定義と投資レベルを受け取って効果を畳み込む (§5 / §12)。
    *
    * effects() から切り出してあるのは、クラス (§12) が
@@ -716,5 +750,6 @@
     nodes, node, grouped, category, byCategory,
     investedLevels, tierUnlocked, tierRemaining,
     spentSp, canInvest, canRefund, effects, effectsOf, mergeEffects, resetCost, refundCost,
+    KNOWN_EFFECT_KINDS,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

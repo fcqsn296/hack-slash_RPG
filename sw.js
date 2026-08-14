@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v39';
+const CACHE_VERSION = 'v40';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -62,6 +62,7 @@ const PRECACHE = [
   './data/tower.js',
   './data/arena.js',
   './data/art.js',
+  './src/core/content.js',
   './src/core/tree.js',
   './src/core/klass.js',
   './src/core/units.js',
@@ -97,6 +98,7 @@ const PRECACHE = [
   './src/core/autolimit.js',
   './src/core/tower.js',
   './src/core/arena.js',
+  './src/core/content-seal.js',
   './src/ui/dom.js',
   './src/ui/art.js',
   './src/ui/facecrop.js',

@@ -120,7 +120,12 @@
           ' ／ 頭部 上52 下298 左299 右533');
       }
 
-      onDone(results);
+      // 手順書の突き合わせも同じ非同期の枠でやる (§18)。
+      // 文書はネットワーク越しに取りに行くので、同期の run() には入れられない。
+      checkDoc(function (docResults) {
+        for (const r of docResults) results.push(r);
+        onDone(results);
+      });
       return results;
     });
   }
@@ -5226,7 +5231,226 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // 拡張コンテンツ (§18)
+    //
+    // キャラや装備を足すだけなら data/*.js に追記すれば済む。だが
+    // その追記を人以外に任せると、既存の定義を壊した事故が混ざったまま
+    // 気付けない。差分の中で「足した行」と「壊した行」が混ざるためで、
+    // 後から原因を追えなくなる。
+    //
+    // 追加分は content/ の別ファイルに置き、重ねる前に検査する。
+    // **検査が素通りすると仕組みごと意味を失う** ので、
+    // 断るべきものを本当に断っているかをここで固定する。
+    // ---------------------------------------------------------------
+    {
+      const good = () => ({ skills: { sk_t_ok: { name: '検査用', kind: 'active' } } });
+
+      /** 拡張を並べて封をし、結果を返す。取り込み状態は毎回巻き戻す。 */
+      const trial = (/** @type {any[]} */ packs) => {
+        RPG.content._reset();
+        for (const p of packs) RPG.content.add(p[0], p[1]);
+        return RPG.content.seal();
+      };
+
+      // 素直なものは通ること。ここが落ちると仕組みが使えない。
+      {
+        const r = trial([['まっとうな拡張', good()]]);
+        assertTrue('拡張: 正しい拡張は取り込まれる',
+          r.loaded.length === 1 && !!RPG.data.skills.sk_t_ok, r.problems.join(' / '));
+        assertTrue('拡張: どの拡張が入れたIDか分かる',
+          RPG.content.ownerOf('sk_t_ok') === 'まっとうな拡張', '');
+      }
+
+      // 参照切れ。通すと、遊んでいる最中に undefined を触って落ちる。
+      // 落ちる場所と原因の場所が離れるので、これが一番追いにくい。
+      {
+        const r = trial([['参照切れ', {
+          characters: {
+            ch_t_bad: {
+              name: 'x', rarity: 'RARE', element: 'fire',
+              base: { hp: 1, atk: 1, def: 1, magi_power: 1 },
+              growth: { hp: 1, atk: 1, def: 1, magi_power: 1 },
+              unique_skills: ['sk_この技は存在しない'],
+            },
+          },
+        }]]);
+        assertTrue('拡張: 存在しない技を参照する拡張は取り込まない',
+          r.rejected.length === 1 && !RPG.data.characters.ch_t_bad, '');
+      }
+
+      // コアの上書き。黙って差し替えられると、バランスを測り直したときに
+      // 「直したはずの値」が効いていない事態になる。
+      {
+        const before = RPG.data.skills.sk_slash.name;
+        const r = trial([['すり替え', { skills: { sk_slash: { name: '別物', kind: 'active' } } }]]);
+        assertTrue('拡張: コアの定義は上書きできない',
+          r.rejected.length === 1 && RPG.data.skills.sk_slash.name === before,
+          RPG.data.skills.sk_slash.name);
+      }
+
+      // 効果キーの綴り違い。読み口の無いキーは装備しても何も起きない。
+      // エラーも警告も出ないので、一番気付きにくい。
+      {
+        const r = trial([['効かない効果', {
+          uniques: {
+            uq_t_bad: {
+              name: 'x', base: 'eq_relic_mail', desc: 'x',
+              effects: { そんなキーは無い: 1 },
+            },
+          },
+        }]]);
+        assertTrue('拡張: 読み口の無い効果キーは取り込まない',
+          r.rejected.length === 1, r.problems.join(' / '));
+      }
+
+      // ツリーの効果種別も同じ。未対応の kind は畳み込みで捨てられる。
+      {
+        const r = trial([['未対応の種別', {
+          treeNodes: [{
+            id: 'tr_t_bad', tier: 'mid', name: 'x', cost: 1, maxLevel: 1, desc: 'x',
+            effects: [{ kind: 'そんな種別は無い', value: 1 }],
+          }],
+        }]]);
+        assertTrue('拡張: コアが解釈できない効果種別は取り込まない',
+          r.rejected.length === 1, r.problems.join(' / '));
+      }
+
+      // 綴り違いの種別。書いたのに何も起きないまま通ると、
+      // 反映されたと思い込んで先へ進んでしまう。
+      {
+        const r = trial([['種別の綴り違い', { charactors: {} }]]);
+        assertTrue('拡張: 知らない種別があれば取り込まない', r.rejected.length === 1, '');
+      }
+
+      // 1つの事故で全部が消えると、原因の切り分けができない。
+      {
+        const r = trial([['壊れているほう', { skills: { 変なID: { name: 'x', kind: 'active' } } }],
+          ['無事なほう', good()]]);
+        assertTrue('拡張: 壊れた拡張は他を巻き込まない',
+          r.loaded.indexOf('無事なほう') >= 0 && r.rejected.indexOf('壊れているほう') >= 0,
+          `通った ${r.loaded.join(',')} / 弾いた ${r.rejected.join(',')}`);
+      }
+
+      // 効果キーの一覧がずれると検査が意味を失う。ソースと突き合わせる。
+      {
+        assertTrue('拡張: ユニークの効果キー一覧がある',
+          Array.isArray(RPG.units.UNIQUE_EFFECT_KEYS) && RPG.units.UNIQUE_EFFECT_KEYS.length > 0, '');
+        assertTrue('拡張: ツリーの効果種別一覧がある',
+          Array.isArray(RPG.tree.KNOWN_EFFECT_KINDS) && RPG.tree.KNOWN_EFFECT_KINDS.length > 0, '');
+
+        // コアが実際に使っている種別は、必ず一覧に載っていること。
+        const used = new Set();
+        for (const n of RPG.data.skillTree) for (const e of n.effects || []) used.add(e.kind);
+        for (const cid of Object.keys(RPG.data.classes)) {
+          for (const n of RPG.data.classes[cid].nodes || []) {
+            for (const e of n.effects || []) used.add(e.kind);
+          }
+        }
+        const missing = [...used].filter((k) => RPG.tree.KNOWN_EFFECT_KINDS.indexOf(k) < 0);
+        assertTrue('拡張: 実際に使われている効果種別は全て一覧にある',
+          missing.length === 0, missing.join(', '));
+      }
+
+      // 後片付け。ここを忘れると、以降のテストが検査用のIDを見てしまう。
+      RPG.content._reset();
+      delete RPG.data.skills.sk_t_ok;
+    }
+
     return results;
+  }
+
+  /**
+   * 手順書と実装の突き合わせ (§18)。
+   *
+   * docs/拡張コンテンツの作り方.md は、他のエージェントがこれ **だけ** を読んで
+   * 作業する前提の文書。中身が実装からずれると、
+   * 「書いてある通りに書いたのに動かない」という形で外に出る。
+   * しかも書いた側は原因に辿り着けない。
+   *
+   * 実際、最初に書いたときは4か所ずれていた（plugin 名・params・
+   * 系統タグの綴り・レアリティの数値）。人の目では見つからない種類なので、
+   * 文書から表を読み取って実装と突き合わせる。
+   *
+   * 非同期なのは、文書をネットワーク越しに取りに行くため。
+   * @param {(results: any[]) => void} onDone
+   */
+  function checkDoc(onDone) {
+    /** @type {any[]} */
+    const results = [];
+    /** @param {string} name @param {boolean} pass @param {string} detail */
+    const check = (name, pass, detail) => results.push({ name, pass, detail });
+
+    fetch('../docs/拡張コンテンツの作り方.md')
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
+      .then((text) => {
+        /** 表の1列目に出てくる `code` を全部拾う */
+        const cells = (/** @type {string} */ section, /** @type {string} */ until) => {
+          const from = text.indexOf(section);
+          if (from < 0) return [];
+          const to = until ? text.indexOf(until, from) : text.length;
+          const body = text.slice(from, to < 0 ? text.length : to);
+          return (body.match(/^\|\s*`([a-zA-Z_]+)`/gm) || [])
+            .map((m) => m.replace(/^\|\s*`/, '').replace(/`$/, ''));
+        };
+
+        // --- plugin 名 ---
+        const docPlugins = cells('**plugin に書けるもの**', '**バフは3つ');
+        const realPlugins = Object.keys(RPG.plugins);
+        const ghost = docPlugins.filter((k) => realPlugins.indexOf(k) < 0);
+        const missed = realPlugins.filter((k) => docPlugins.indexOf(k) < 0);
+        check('手順書: 載っている plugin は全て実在する', ghost.length === 0, ghost.join(', '));
+        check('手順書: 実在する plugin は全て載っている', missed.length === 0, missed.join(', '));
+
+        // --- ユニークの効果キー ---
+        const docKeys = cells('**effects に書けるキー**', '最新の一覧は');
+        const realKeys = RPG.units.UNIQUE_EFFECT_KEYS;
+        const ghostKeys = docKeys.filter((k) => realKeys.indexOf(k) < 0);
+        const missedKeys = realKeys.filter((k) => docKeys.indexOf(k) < 0);
+        check('手順書: 載っている効果キーは全て実在する', ghostKeys.length === 0, ghostKeys.join(', '));
+        check('手順書: 実在する効果キーは全て載っている', missedKeys.length === 0, missedKeys.join(', '));
+
+        // --- 装備ベース ---
+        const docBases = cells('**base に書けるもの**', '**effects に書けるキー**');
+        const realBases = Object.keys(RPG.data.equipBases);
+        const ghostBases = docBases.filter((k) => realBases.indexOf(k) < 0);
+        const missedBases = realBases.filter((k) => docBases.indexOf(k) < 0);
+        check('手順書: 載っている装備ベースは全て実在する', ghostBases.length === 0, ghostBases.join(', '));
+        check('手順書: 実在する装備ベースは全て載っている', missedBases.length === 0, missedBases.join(', '));
+
+        // --- 状態異常 ---
+        const docStatus = cells('**状態異常の種類**', '### 4.2');
+        const realStatus = RPG.data.statusKinds;
+        const ghostStatus = docStatus.filter((k) => realStatus.indexOf(k) < 0);
+        const missedStatus = realStatus.filter((k) => docStatus.indexOf(k) < 0);
+        check('手順書: 載っている状態異常は全て実在する', ghostStatus.length === 0, ghostStatus.join(', '));
+        check('手順書: 実在する状態異常は全て載っている', missedStatus.length === 0, missedStatus.join(', '));
+
+        // --- ツリーの効果種別（本文中に出てくるぶん） ---
+        const docKinds = cells('| kind | 追加で要る項目 | 意味 |', '- **SPの費用対効果**');
+        const ghostKinds = docKinds.filter((k) => RPG.tree.KNOWN_EFFECT_KINDS.indexOf(k) < 0);
+        check('手順書: 載っている効果種別は全て実在する', ghostKinds.length === 0, ghostKinds.join(', '));
+
+        // --- 系統タグの綴り ---
+        // 「relic と書いてはいけない」という注意書き自体が文中にあるので、
+        // 出てこないことを条件にはできない。実装側の綴りが
+        // すべて載っていることを見る（肯定で確かめる）。
+        const tagKeys = Object.keys(RPG.damage.TAG_LABEL);
+        const shownTags = tagKeys.filter((k) => text.indexOf('`' + k + '`') >= 0);
+        check('手順書: 系統タグの綴りが全て載っている',
+          shownTags.length === tagKeys.length,
+          '載っていない: ' + tagKeys.filter((k) => shownTags.indexOf(k) < 0).join(', '));
+
+        // --- 禁止事項が消えていないこと ---
+        for (const must of ['data/', 'src/', 'index.html']) {
+          check(`手順書: 「${must} を書き換えない」が残っている`,
+            text.indexOf(must) >= 0, '');
+        }
+      })
+      .catch((e) => {
+        check('手順書: docs/拡張コンテンツの作り方.md が読める', false, String(e && e.message));
+      })
+      .then(() => onDone(results));
   }
 
   RPG.tests = { run, runAsync };
