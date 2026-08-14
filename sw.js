@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v33';
+const CACHE_VERSION = 'v34';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -204,6 +204,7 @@ const PRECACHE = [
   './assets/enemies/em_world_root.webp',
   './assets/bg/fl_abyss.webp',
   './assets/bg/fl_ashfall.webp',
+  './assets/bg/fl_endless.webp',
   './assets/bg/fl_mine.webp',
   './assets/bg/fl_nest.webp',
   './assets/bg/fl_origin.webp',

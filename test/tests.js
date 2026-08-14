@@ -3941,10 +3941,17 @@
     {
       const cap = RPG.data.maxLevel;
 
-      assertTrue('レベル上限: 用意した内容を相手にできる高さがある',
-        cap >= Math.max(...Object.keys(RPG.data.fields)
-          .map((/** @type {string} */ f) => RPG.data.fields[f].rec_level)),
-        `上限 ${cap}`);
+      // 上限を伸ばす前でも、**据え置きの狩場** は全部相手にできること。
+      //
+      // 追随する狩場（§10.8）は「上限を伸ばした先」に置いてあるので、
+      // ここに含めない。含めると、終盤コンテンツを足すたびに
+      // 初期上限を上げろ、という誤った圧力がかかる。
+      const fixedFields = Object.keys(RPG.data.fields)
+        .map((/** @type {string} */ f) => RPG.data.fields[f])
+        .filter((/** @type {any} */ f) => !f.scaling);
+      assertTrue('レベル上限: 据え置きの狩場は初期上限で相手にできる',
+        cap >= Math.max(...fixedFields.map((/** @type {any} */ f) => f.rec_level)),
+        `上限 ${cap} / 狩場の最高 ${Math.max(...fixedFields.map((/** @type {any} */ f) => f.rec_level))}`);
 
       // 上限のSPでツリーを取り切れてしまうと、選択そのものが消える。
       let treeTotal = 0;
@@ -4379,10 +4386,15 @@
       assertTrue('天井: 足りなければ交換できない',
         !RPG.gacha.exchange(someone).ok, '');
 
-      // 貯まれば未所持の相手を仲間にできること
+      // 貯まれば未所持の相手を仲間にできること。
+      // **10連で偶然引いている相手を選ばないこと。** 引きは乱数なので、
+      // 決め打ちにすると「未所持」の前提がときどき崩れて落ちる。
       RPG.state.get().gachaPoints = need * 2 + 50;
+      const owned = RPG.state.get().characters;
+      const fresh = RPG.gacha.exchangeable().find((/** @type {string} */ id) => !owned[id]);
+      assertTrue('天井: まだ持っていない相手が残っている', !!fresh, String(fresh));
       const before = Object.keys(RPG.state.get().characters).length;
-      const got = RPG.gacha.exchange(someone);
+      const got = RPG.gacha.exchange(fresh || someone);
       assertTrue('天井: 未所持の相手を仲間にできる',
         got.ok && got.kind === 'new'
         && Object.keys(RPG.state.get().characters).length === before + 1, '');
@@ -4392,15 +4404,15 @@
 
       // 所持済みなら限界突破に回ること。
       // 「持っているから選べない」にすると、凸を進めたい人の逃げ道が無くなる。
-      const again = RPG.gacha.exchange(someone);
+      const again = RPG.gacha.exchange(fresh || someone);
       assertTrue('天井: 所持済みなら限界突破になる',
         again.ok && again.kind === 'limit_break', '');
 
       // 完凸済みを選んでもポイントが減らないこと。
       // 何も起きないのに消費されるのは事故。
-      RPG.state.get().characters[someone].limitBreak = RPG.data.gacha.maxLimitBreak;
+      RPG.state.get().characters[fresh || someone].limitBreak = RPG.data.gacha.maxLimitBreak;
       RPG.state.get().gachaPoints = need * 2;
-      const maxed = RPG.gacha.exchange(someone);
+      const maxed = RPG.gacha.exchange(fresh || someone);
       assertTrue('天井: 完凸済みを選んでもポイントが減らない',
         !maxed.ok && RPG.state.get().gachaPoints === need * 2,
         `${RPG.state.get().gachaPoints} 点`);
@@ -4524,6 +4536,57 @@
         else localStorage.setItem(KEY, keep);
         RPG.state.load();
       }
+    }
+
+
+    // ---------------------------------------------------------------
+    // レベルに追随する狩場 (§10.8)
+    //
+    // 上限を伸ばせるようにしたのに、その先の周回先が無かった。
+    // 固定レベルの狩場を足すと、上限を上げるたびに作り直すことになる。
+    // ---------------------------------------------------------------
+    {
+      const scaled = Object.keys(RPG.data.fields)
+        .map((/** @type {string} */ id) => RPG.data.fields[id])
+        .filter((/** @type {any} */ f) => f.scaling);
+
+      assertTrue('追随する狩場: 少なくとも1つある', scaled.length > 0, `${scaled.length} 箇所`);
+
+      for (const f of scaled) {
+        const sc = f.scaling;
+
+        // 床が効くこと。
+        // 追随だけにすると序盤のパーティでも入れてしまい、
+        // **そこだけ回れば良い** ことになって前の狩場が全部無意味になる。
+        assertTrue(`追随: ${f.name} は床より下がらない`,
+          RPG.battle.scaledEnemyLv(f, [{ level: 1 }]) === sc.floor,
+          `Lv1 のパーティ → 敵 Lv${RPG.battle.scaledEnemyLv(f, [{ level: 1 }])}`);
+
+        // 床は「そこまでの狩場」より高いこと。低いと終盤専用にならない。
+        const others = Object.keys(RPG.data.fields)
+          .map((/** @type {string} */ id) => RPG.data.fields[id])
+          .filter((/** @type {any} */ o) => !o.scaling);
+        const highest = Math.max(...others.map((/** @type {any} */ o) => o.rec_level));
+        assertTrue(`追随: ${f.name} の床が既存の狩場より高い`,
+          sc.floor > highest, `床 ${sc.floor} / 既存の最高 ${highest}`);
+
+        // 床を越えたら実際に追随すること
+        const high = RPG.battle.scaledEnemyLv(f, [{ level: sc.floor + 100 }]);
+        assertTrue(`追随: ${f.name} は床を越えると追いかける`,
+          high === sc.floor + 100 + (sc.above || 0), `敵 Lv${high}`);
+
+        // パーティの **最高** レベルを見ること。
+        // 平均にすると、低レベルを1人混ぜるだけで敵を下げられてしまう。
+        const mixed = RPG.battle.scaledEnemyLv(f, [{ level: sc.floor + 100 }, { level: 1 }]);
+        assertTrue(`追随: ${f.name} は最高レベルを見る`, mixed === high,
+          `混成 ${mixed} / 単独 ${high}`);
+      }
+
+      // 追随を持たない狩場は、これまで通り定義値のままであること
+      const plain = RPG.data.fields.fl_plain;
+      assertTrue('追随: 持たない狩場は影響を受けない',
+        RPG.battle.scaledEnemyLv(plain, [{ level: 999 }]) === plain.enemy_lv,
+        `敵 Lv${plain.enemy_lv}`);
     }
 
     return results;

@@ -650,6 +650,28 @@
   }
 
   /**
+   * フィールドの敵レベルを決める (§10.8)。
+   *
+   * ふつうは data/fields.js の enemy_lv をそのまま使う。
+   * `scaling` を持つフィールドだけ、**パーティの最高レベルに追随** させる。
+   *
+   * ── 床を張る理由 ──
+   * 追随だけにすると序盤のパーティでも入れてしまい、
+   * そこだけ回れば良いことになる。前の狩場が全部無意味になるので、
+   * floor より下には決して下がらないようにしてある。
+   *
+   * @param {any} field @param {any[]} party
+   * @returns {number}
+   */
+  function scaledEnemyLv(field, party) {
+    const sc = field.scaling;
+    if (!sc) return field.enemy_lv;
+    let top = 0;
+    for (const u of party || []) top = Math.max(top, u.level || 1);
+    return Math.max(sc.floor, top + (sc.above || 0));
+  }
+
+  /**
    * 戦闘を開始する。
    * @param {{fieldId: string, waves: number, party: any[], bossFinale?: boolean, quest?: any}} config
    */
@@ -685,7 +707,7 @@
       questId: quest ? quest.id : null,
       rules,
       // 敵レベルと強化倍率。クエストが指定していなければフィールドの既定値。
-      enemyLv: quest && quest.enemyLv ? quest.enemyLv : field.enemy_lv,
+      enemyLv: quest && quest.enemyLv ? quest.enemyLv : scaledEnemyLv(field, config.party),
       enemyScale: quest && quest.enemyScale ? quest.enemyScale : 1,
       // 縛りを破ったときの理由。勝っても達成にならない。
       ruleBroken: /** @type {string|null} */ (null),
@@ -1935,7 +1957,8 @@
     start, commandSkill, advanceWave, retreat, failQuest,
     comboPower, comboMax, updateCombo, COMBO_MAX, COMBO_STEP,
     setPower, targetPower, resolveEchoes, skipDeadActors,
-    LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, lowPowerSkills, lowPowerBoost,
+    LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
+    lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss,

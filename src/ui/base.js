@@ -416,6 +416,20 @@
     return `linear-gradient(140deg, ${rgba(f.bg[0])}, ${rgba(f.bg[1])})`;
   }
 
+  /**
+   * そのフィールドで実際に出る敵のレベルを、表示用に文字にする (§10.8)。
+   *
+   * 追随するフィールドで固定値を出すと「Lv200 なら余裕だ」と誤解させる。
+   * いま出撃したら何レベルが出るのかを、そのまま見せる。
+   *
+   * @param {any} f
+   */
+  function enemyLvLabel(f) {
+    if (!f.scaling) return 'Lv' + f.enemy_lv;
+    const lv = RPG.battle.scaledEnemyLv(f, RPG.state.partyUnits());
+    return 'Lv' + lv + '（追随）';
+  }
+
   /** @param {HTMLElement} root */
   function renderSortie(root) {
     const save = RPG.state.get();
@@ -443,7 +457,7 @@
             here
               ? [
                   h('span', { text: '推奨 ' }, h('b', { text: 'Lv' + here.rec_level })),
-                  h('span', { text: '敵 ' }, h('b', { text: 'Lv' + here.enemy_lv })),
+                  h('span', { text: '敵 ' }, h('b', { text: enemyLvLabel(here) })),
                   h('span', { text: save.lastSortie.waves + '戦' }),
                 ]
               : [h('span', { text: 'まだ出撃していない。下から場所を選ぶ。' })]
@@ -479,7 +493,7 @@
           ),
           h('p.field-desc', { text: f.desc }),
           h('div.field-foot',
-            h('span', { text: '敵 Lv' + f.enemy_lv }),
+            h('span', { text: '敵 ' + enemyLvLabel(f) }),
             h('span', { text: 'ボス: ' + RPG.data.enemies[f.boss].name }),
             // gold_mult は内部の調整つまみなので出さない。代わりに狙える宝箱を見せる。
             h('span', { text: '最上位: ' + bestBoxOf(f).name })
@@ -806,7 +820,7 @@
     },
       h('div.codex-card-body',
         h('span.codex-name', { text: f.name }),
-        h('span.codex-sub', { text: `推奨 Lv${f.rec_level} / 敵 Lv${f.enemy_lv}` }),
+        h('span.codex-sub', { text: `推奨 Lv${f.rec_level} / 敵 ${enemyLvLabel(f)}` }),
         h('span.codex-sub', { text: `出現する敵 ${found} / ${members.length}` }),
         h('span.codex-sub', { text: `出撃 ${RPG.codex.fieldEntry(id).visits} 回` })
       )
@@ -937,7 +951,7 @@
         W.button('閉じる', close, { variant: 'ghost' })
       ),
       h('p.char-desc', { text: f.desc }),
-      h('div.codex-line', h('em', { text: '推奨レベル' }), h('span', { text: `Lv${f.rec_level}（敵 Lv${f.enemy_lv}）` })),
+      h('div.codex-line', h('em', { text: '推奨レベル' }), h('span', { text: `Lv${f.rec_level}（敵 ${enemyLvLabel(f)}）` })),
       h('div.codex-line', h('em', { text: '1ウェーブの敵数' }), h('span', { text: `${f.size[0]}〜${f.size[1]} 体` })),
       h('div.codex-line', h('em', { text: '狙える最上位' }), h('span', { text: bestBoxOf(f).name })),
       h('h4.codex-sub-head', { text: '出現する敵' }),
