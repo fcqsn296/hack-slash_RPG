@@ -205,11 +205,27 @@
     const stamp = keys.join('|');
     const host = document.getElementById('app') || document.body;
 
+    // 絵を置く器。負の z-index に頼らず、実体のある要素として body の直下に置く。
+    // PCでは見えるのに Android Chrome では見えない、という報告があり、
+    // 重なり順の解釈に頼った書き方をやめた。
+    let layer = document.getElementById('backdrop');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'backdrop';
+      layer.setAttribute('aria-hidden', 'true');
+      document.body.insertBefore(layer, document.body.firstChild);
+    }
+
     firstBackdrop(keys).then((src) => {
       // 解決を待っている間に画面が変わっていたら、もう反映しない
       if (backdropKeys().join('|') !== stamp) return;
-      host.style.setProperty('--backdrop', src ? `url('${src}')` : 'none');
-      host.classList.toggle('has-backdrop', !!src);
+      const on = !!src;
+      layer.style.setProperty('--backdrop', on ? `url('${src}')` : 'none');
+      // 器・本体・body の3つに同じ印を付ける。
+      // body は地色を外すため、#app はパネルを透かすため。
+      layer.style.display = on ? 'block' : 'none';
+      host.classList.toggle('has-backdrop', on);
+      document.body.classList.toggle('has-backdrop', on);
     });
   }
 

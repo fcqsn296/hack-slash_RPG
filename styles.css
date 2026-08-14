@@ -2466,19 +2466,33 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
    これが無いと画像しだいで文字が読めなくなる。
    実測: いちばん明るい絵でも、膜を通せば文字とのコントラストは 6.0:1。
    ------------------------------------------------------------ */
-#app.has-backdrop::before,
-#app.has-backdrop::after {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+/* ── 実体のある要素に置く ──
+   以前は #app::before に position:fixed / z-index:-1 で潜り込ませていた。
+   PCでは見えるのに **Android Chrome では見えない** という報告があり、
+   負の z-index と、html・body 両方に置かれた不透明な地色との
+   重なり順の解釈に頼った書き方が原因と判断した。
+
+   実体のある要素を body の直下に置き、z-index は 0 と 1 だけで並べる。
+   負の値を使わなければ、どの描画系でも順序は一意に決まる。 */
+#backdrop {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  display: none;
 }
-/* 絵そのもの。動かさず、内容だけがこの上をスクロールする */
-#app.has-backdrop::before {
+#app.has-backdrop ~ #backdrop,
+body.has-backdrop #backdrop { display: block; }
+
+#backdrop::before {
+  content: ''; position: absolute; inset: 0;
   background-image: var(--backdrop, none);
   background-size: cover;
   background-position: 50% 38%;
 }
+#backdrop::after {
+  content: ''; position: absolute; inset: 0;
+}
 /* 膜。全体を均す役で、これ単体で読ませるほど濃くはしない。
    濃くしすぎると絵が沈み、何のために置いたのか分からなくなる。 */
-#app.has-backdrop::after {
+#backdrop::after {
   background:
     linear-gradient(180deg,
       rgba(10, 12, 17, .38) 0%,
@@ -2493,6 +2507,11 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
    絵が「枠の隙間からちらちら見える」だけでは置いた意味がない。
    板の下に絵が透けていて、板が絵の上に載っているように見せる。 */
+/* 背景を敷いているあいだは body の地色を外す。
+   html 側に同じ色があるので、外しても地の色は保たれる。
+   ここを不透明のまま残すと、背景の上に必ず1枚かぶることになる。 */
+body.has-backdrop { background: transparent; }
+
 #app.has-backdrop {
   /* 実測して決めた濃さ。
      .62 では絵が透けず（パネル面の明るさ 0.035）、置いた意味が無かった。
