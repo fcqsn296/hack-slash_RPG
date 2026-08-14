@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v36';
+const CACHE_VERSION = 'v37';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -77,6 +77,7 @@ const PRECACHE = [
   './src/plugins/multi_hit.js',
   './src/plugins/def_ignore.js',
   './src/plugins/poison.js',
+  './src/plugins/detonate.js',
   './src/plugins/status.js',
   './src/plugins/vengeance.js',
   './src/plugins/mass_revive.js',

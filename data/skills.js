@@ -313,6 +313,25 @@ RPG.data.skills = {
     params: { turns: 4, ratio: 0.06 },
     desc: '【ツリー】威力60%と強い毒。「毒の心得」「呪詛の心得」と噛み合う小技。',
   },
+  sk_tree_detonate: {
+    name: '疫斃', kind: 'active', plugin: 'detonate', tree: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 70, crit_rate: 0.05,
+    params: {},
+    cooldown: 3,
+    desc: '【ツリー】威力70%で殴り、対象の毒と火傷を消し飛ばして'
+      + 'その残り（最大3ターンぶん）の60%を一度に与える。'
+      + 'その他の弱体は消えず、1種につき +25%。相手の最大HPの35%が上限。',
+  },
+  sk_tree_plague_burst: {
+    name: '疫斃・広域', kind: 'active', plugin: 'detonate', tree: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 30, crit_rate: 0.03,
+    params: { all: true },
+    cooldown: 5,
+    desc: '【ツリー】敵全体を起爆する。威力は低いが、'
+      + '「疫病の広がり」で撒き散らした弱体をまとめて回収できる。',
+  },
   sk_tree_bulwark: {
     name: '城塞', kind: 'active', plugin: 'def_buff', tree: true,
     scaling_stat: 'atk', damage_type: 'phys', element: 'none',

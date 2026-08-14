@@ -430,7 +430,10 @@
       reduction: totalReduction(unit),
       hpRatio: unit.maxHp > 0 ? unit.hp / unit.maxHp : 1,
       isBoss: !!unit.isBoss,
-      debuffs: (unit.statusEffects || []).length + (unit.defIgnoredTurns > 0 ? 1 : 0),
+      // def_buff（防御上昇）も statusEffects に入るので、数えるときは除く。
+      // 数に入れると、自分で守りを固めた敵が「弱体まみれ」として殴られる。
+      debuffs: (unit.statusEffects || []).filter((/** @type {any} */ e) => e.kind !== 'def_buff').length
+        + (unit.defIgnoredTurns > 0 ? 1 : 0),
       // 弱点耐性と属性耐性 (§5.7)。攻撃側の elementMods とは別に、受ける側の分を渡す。
       weakGuard: (unit.situational && unit.situational.weakGuard) || 0,
       bossGuard: (unit.situational && unit.situational.bossGuard) || 0,

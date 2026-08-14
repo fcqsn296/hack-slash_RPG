@@ -401,6 +401,19 @@ RPG.data.skillTree = [
     effects: [{ kind: 'grant_skill', skill: 'sk_tree_venom', value: 1 }],
     desc: 'アクティブ技「腐蝕の霧」を習得（敵全体に毒）',
   },
+  // 継続ダメージは1刻みが最大HPの数%で、通常攻撃の3〜4割にあたる。
+  // 数字は悪くないのに、戦闘が3〜5ラウンドで終わるので満期まで待てない。
+  // この2つは「待つ」を「弱体を全部失う」に置き換える出口 (§5.8)。
+  {
+    id: 'tr_grant_detonate', tier: 'mid', name: '起爆の型', cost: 4, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_tree_detonate', value: 1 }],
+    desc: 'アクティブ技「疫斃」を習得（弱体を消して残りターンぶんを即座に与える）',
+  },
+  {
+    id: 'tr_grant_plague_burst', tier: 'high', name: '広域起爆の型', cost: 5, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_tree_plague_burst', value: 1 }],
+    desc: 'アクティブ技「疫斃・広域」を習得（敵全体を起爆）',
+  },
   {
     id: 'tr_grant_bulwark', tier: 'mid', name: '城塞の型', cost: 4, maxLevel: 1,
     effects: [{ kind: 'grant_skill', skill: 'sk_tree_bulwark', value: 1 }],

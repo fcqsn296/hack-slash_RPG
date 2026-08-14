@@ -73,7 +73,7 @@
     if (!skill || skill.power <= 0) return;   // 補助技は増減の対象外
 
     const advantage = RPG.damage.elementMultiplier(skill.element, defender.element) > 1;
-    const weakened = (defender.statusEffects || []).length > 0 || defender.defIgnoredTurns > 0;
+    const weakened = debuffsOn(defender).length > 0 || defender.defIgnoredTurns > 0;
 
     const p = attacker.passives || {};
 
@@ -259,6 +259,31 @@
     freeze: 1.0,      // 被ダメージ2倍まで
     curse: 1.0,       // 回復を完全に塞ぐところまでは許す
   };
+
+  /**
+   * 起爆 (§5.8) の調整値。
+   *   RATE      … 残っている継続ダメージのうち、前借りできる割合
+   *   PER_KIND  … 継続ダメージ以外の弱体1種につき、合計に乗る上乗せ
+   *   MAX_TURNS … 前借りできる残りターン数の上限
+   *   CEILING   … それでも残る極端な値を切る天井（対象の最大HPに対する割合）
+   *
+   * ── なぜ「率」なのか ──
+   * 最初は天井だけで抑えようとしたが、実測すると **何も振っていない状態で既に
+   * 天井に当たっていた**（毒6%×3 + 火傷5%×3 = 33% > 天井30%）。
+   * つまり「毒の心得」に何レベル振っても起爆の値は1点も動かない。
+   * 天井は極端な値を切る道具であって、常用域の調整には使えない。
+   *
+   * 率にすると、割合を伸ばす投資がそのまま起爆に乗る。
+   * 同時に「残りの6割しか受け取れない」という損が、
+   * 待たずに今もらうことと弱体を全部失うことの対価として表に出る。
+   *
+   * MAX_TURNS は別の穴を塞ぐためのもの。持続を伸ばす枝（呪詛の心得）が
+   * 無ければ、伸ばしたターン数がそのまま威力になってしまう。
+   */
+  const DETONATE_RATE = 0.6;
+  const DETONATE_PER_KIND = 0.25;
+  const DETONATE_MAX_TURNS = 3;
+  const DETONATE_CEILING = 0.35;
 
   /**
    * かかっている異常の強さを返す (§5.8)。
@@ -839,6 +864,95 @@
    */
   function pushEvent(battle, event) {
     battle.events.push(event);
+  }
+
+  /**
+   * その効果が「弱体」かどうか (§5.8)。
+   *
+   * statusEffects には弱体だけでなく **def_buff（防御上昇）も同じ配列に入る**。
+   * 種類を見ずに配列の長さだけで判定していたため、
+   * 自分で防御を固めた敵が「弱体中」と見なされ、
+   * 追い討ち・弱者狩り・コンボが不当に乗っていた。判定はここに集約する。
+   *
+   * @param {any} effect
+   */
+  function isDebuff(effect) {
+    if (!effect || effect.turns <= 0) return false;
+    return effect.kind !== 'def_buff';
+  }
+
+  /** 対象にかかっている弱体だけを取り出す。 @param {any} unit */
+  function debuffsOn(unit) {
+    return ((unit && unit.statusEffects) || []).filter(isDebuff);
+  }
+
+  /**
+   * 起爆したら何点入るかを、盤面を変えずに計算する (§5.8)。
+   *
+   * オート戦闘の見積もりと実際の起爆で **同じ関数を通す**。
+   * 別々に書くと、片方を直したときにもう片方が古い式のまま残り、
+   * 「オートは撃たないのに手動なら強い技」ができあがる。
+   *
+   * @param {any} target
+   * @returns {{ total: number, ticks: number, kinds: number }}
+   */
+  function detonationValue(target) {
+    if (!target || !target.alive) return { total: 0, ticks: 0, kinds: 0 };
+    const effects = debuffsOn(target);
+    if (!effects.length) return { total: 0, ticks: 0, kinds: 0 };
+
+    // 数値を持つ継続ダメージ（毒・火傷）だけが本体。
+    // 出血は「受けたダメージの割合」なので、残りターンから額を出せない。
+    // 麻痺・凍結・呪詛も同じで、これらは種類数のぶんだけ上乗せに回す。
+    let total = 0;
+    let ticks = 0;
+    let others = 0;
+    for (const e of effects) {
+      if (e.kind !== 'poison' && e.kind !== 'burn') { others++; continue; }
+      const cap = STATUS_CAP[e.kind];
+      const ratio = cap == null ? (e.ratio || 0) : Math.min(cap, e.ratio || 0);
+      // 前借りできるのは3ターンぶんまで。「呪詛の心得」で持続を伸ばした構成が、
+      // 伸ばした回数ぶんそのまま起爆の威力になるのを止める。
+      const turns = Math.min(DETONATE_MAX_TURNS, Math.max(0, e.turns || 0));
+      total += target.maxHp * ratio * turns;
+      ticks += turns;
+    }
+
+    // 残りぶんをそのまま渡すと、待つより起爆したほうが常に得になる。
+    // 一部を捨てることで「今もらう」ことに値段が付く。
+    total *= DETONATE_RATE;
+    // 継続ダメージ以外の弱体は1種につき上乗せ。6種を撒き分ける構成への見返り。
+    // こちらは消費しない（消すと「弱体中の敵に強い」枝を自分で止めてしまう）ので、
+    // あくまで着火剤の扱い。天井があるので青天井にはならない。
+    total *= 1 + DETONATE_PER_KIND * others;
+    // 天井。最大HPの割合で殴る手なので、外すとHPの大きいボスほど大きく溶ける。
+    total = Math.min(total, target.maxHp * DETONATE_CEILING);
+
+    return { total, ticks, kinds: effects.length };
+  }
+
+  /**
+   * 防御も属性も通さず、素の数値をそのままHPから引く (§5.8)。
+   *
+   * 毒の刻みと起爆で同じ経路を通すために切り出してある。
+   * ダメージ計算式 (§3.2) を通さないのは、これらが「最大HPの割合」で
+   * 決まる値であり、相手のDEFや属性で変わってはいけないため。
+   *
+   * @param {any} battle @param {any} unit @param {number} amount @param {string} text
+   * @returns {number} 実際に減ったHP
+   */
+  function directDamage(battle, unit, amount, text) {
+    if (!unit.alive || amount <= 0) return 0;
+    const dealt = Math.min(unit.hp, Math.max(1, Math.floor(amount)));
+    unit.hp -= dealt;
+    pushLog(battle, text.replace('{n}', dealt.toLocaleString()), 'damage');
+    pushEvent(battle, { type: 'damage', key: unit.key, amount: dealt });
+    if (unit.hp === 0) {
+      unit.alive = false;
+      pushLog(battle, `${unit.name} は力尽きた`, 'defeat');
+      pushEvent(battle, { type: 'down', key: unit.key, side: unit.side });
+    }
+    return dealt;
   }
 
   /** 生存している味方 */
@@ -1449,6 +1563,41 @@
         pushEvent(battle, { type: 'buff', key: target.key, label });
       },
 
+      /**
+       * かかっている弱体を、残りターンぶんの継続ダメージに変えて叩き出す (§5.8)。
+       *
+       * ── なぜ必要か ──
+       * 継続ダメージは1刻みが相手の最大HPの数%で、通常攻撃1発の3〜4割にあたる。
+       * 数字としては悪くないのに、**戦闘が3〜5ラウンドで終わる**ため、
+       * 撒いた毒が満期を迎える前に相手が死ぬか、こちらが押し切られる。
+       * 「撒く1手」と「待つ数ラウンド」を払って、殴り続けるより遅い。
+       *
+       * そこで、残りターンぶんを前借りして一度に放出する手を用意した。
+       * 遅さは「即座に受け取る代わりに弱体を全部失う」という取引に置き換わる。
+       * 値は最大HPの割合なので、相手が固くても大きくても目減りしない。
+       *
+       * @param {any} target
+       * @returns {{ dealt: number, ticks: number, kinds: number }}
+       */
+      detonate: (target) => {
+        const v = detonationValue(target);
+        if (v.total <= 0) return { dealt: 0, ticks: 0, kinds: v.kinds };
+
+        // ── 消えるのは現金化した継続ダメージだけ ──
+        // 最初は弱体を全部消していた。取引として筋は通っていたが、
+        // 実測すると **起爆を撃つほど負けた**（12戦で勝8→勝5）。
+        // 異常構成の火力は「弱体中の敵に強い」枝から出ているので、
+        // 全部消すと自分の主力を自分で止めることになる。
+        // 受け取ったぶんだけ失う形にすれば、取引は成立したまま矛盾が消える。
+        target.statusEffects = (target.statusEffects || []).filter(
+          (/** @type {any} */ e) => !(isDebuff(e) && (e.kind === 'poison' || e.kind === 'burn'))
+        );
+
+        const dealt = directDamage(battle, target, v.total,
+          `${target.name} の弱体が一斉に弾けた — {n} のダメージ`);
+        return { dealt, ticks: v.ticks, kinds: v.kinds };
+      },
+
       /** @param {any} target @param {number} turns */
       setDefIgnore: (target, turns) => {
         const t = debuffTurns(actor, target, turns);
@@ -1795,14 +1944,7 @@
       // statusRatio 経由で引くことで、上限 (STATUS_CAP) が必ず効く。
       const poison = statusRatio(unit, 'poison');
       if (poison > 0) {
-        const dmg = Math.max(1, Math.floor(unit.maxHp * poison));
-        unit.hp = Math.max(0, unit.hp - dmg);
-        pushLog(battle, `${unit.name} は毒で ${dmg.toLocaleString()} のダメージ`, 'damage');
-        if (unit.hp === 0) {
-          unit.alive = false;
-          pushLog(battle, `${unit.name} は力尽きた`, 'defeat');
-          pushEvent(battle, { type: 'down', key: unit.key, side: unit.side });
-        }
+        directDamage(battle, unit, unit.maxHp * poison, `${unit.name} は毒で {n} のダメージ`);
       }
     }
 
@@ -1963,6 +2105,7 @@
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss,
     currentActor, livingParty, livingEnemies, targetKind,
+    detonationValue, isDebuff, debuffsOn,
     executeSkill, applyDamage,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

@@ -59,6 +59,14 @@
         ignoreDefense: skill.plugin === 'def_ignore' || target.defIgnoredTurns > 0,
       },
     });
+    // 起爆 (§5.8) は、たまっている弱体ぶんが本体で、
+    // 技そのものの威力は前座にすぎない。ここで足しておかないと
+    // オートは威力70の弱い技としか見えず、永久に選ばない。
+    // 実際に入る額と同じ関数を通す。
+    if (skill.plugin === 'detonate') {
+      return result.damage * hits + RPG.battle.detonationValue(target).total;
+    }
+
     return result.damage * hits;
   }
 
@@ -122,8 +130,12 @@
 
     let best = null;
     for (const s of attacks) {
-      // 全体攻撃は敵全員に入るので、削れる量を合計して評価する
-      if (s.def.plugin === 'all_enemies') {
+      // 全体攻撃は敵全員に入るので、削れる量を合計して評価する。
+      // 起爆の広域版も「全員を巻き込む技」なので同じ扱いにする。
+      // 単体として見積もると1体ぶんの価値しか付かず、まず選ばれない。
+      const wide = s.def.plugin === 'all_enemies'
+        || (s.def.plugin === 'detonate' && s.def.params && s.def.params.all);
+      if (wide) {
         const total = foes.reduce((sum, t) => sum + Math.min(estimate(actor, t, s.def), t.hp), 0);
         if (!best || total > best.score) {
           best = { score: total, dmg: total, skillId: s.id, target: foes[0] };

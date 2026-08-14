@@ -4074,6 +4074,11 @@
         const sk = RPG.data.skills[id];
         if (!sk.cooldown || !sk.power || sk.power <= 0) continue;
         if (sk.cls) continue; // クラス技は解禁ラウンドとセットの設計で別枠
+        // 起爆はこの規則の前提から外れる。威力がダメージ計算式ではなく
+        // 「たまっている継続ダメージ」で決まるので、上限減衰の影響を受けない。
+        // むしろ待ち時間が無いと、撒き直しの効くパッシブと組んだ瞬間に
+        // 全員が毎ターン起爆するだけの戦闘になる（実測で1戦7.4回）。
+        if (sk.plugin === 'detonate') continue;
         cooledAttacks.push(sk.name);
       }
       assertTrue('攻撃技: クールダウンを持たない', cooledAttacks.length === 0,
@@ -4742,6 +4747,107 @@
       const stale = [...categorized].filter((k) => !used.has(k));
       assertTrue('ビルド画面: 分類表に使われていない種別が無い',
         stale.length === 0, stale.length ? `余分: ${stale.join(', ')}` : '');
+    }
+
+    // ---------------------------------------------------------------
+    // 起爆 (§5.8)
+    //
+    // 継続ダメージは1刻みが相手の最大HPの数%あり、数字としては弱くない。
+    // 弱いのは速さで、戦闘が3〜5ラウンドで終わるため満期まで待てなかった。
+    // 実測でも継続ダメージは総ダメージの1割止まりだった。
+    // 起爆はその待ち時間を「毒と火傷を失う」という取引に置き換える。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        /** 毒と火傷を載せた敵を1体用意する。 */
+        const rig = (/** @type {number} */ statusPower) => {
+          RPG.state.reset();
+          const s = RPG.state.get();
+          s.named = true;
+          s.characters.ch_hero.level = 150;
+          if (statusPower) s.characters.ch_hero.tree.tr_status_power = statusPower;
+          const party = RPG.state.partyUnits();
+          const battle = RPG.battle.start({
+            fieldId: 'fl_origin', waves: 1, bossFinale: false, party,
+          });
+          const foe = RPG.battle.livingEnemies(battle)[0];
+          RPG.battle.inflict(battle, party[0], foe, 'poison', 3, 0.06);
+          RPG.battle.inflict(battle, party[0], foe, 'burn', 3, 0.05);
+          return { battle, actor: party[0], foe };
+        };
+
+        // 1) 投資が素直に効くこと。
+        //    最初は天井だけで抑えていたが、何も振っていない時点で既に天井に
+        //    当たっており、「毒の心得」に何レベル振っても値が1点も動かなかった。
+        //    それでは減らしたい種類の死に投資を新しく作ることになる。
+        const at0 = RPG.battle.detonationValue(rig(0).foe);
+        const at3 = RPG.battle.detonationValue(rig(3).foe);
+        assertTrue('起爆: 「毒の心得」への投資で威力が伸びる',
+          at3.total > at0.total * 1.2,
+          `Lv0 ${Math.round(at0.total).toLocaleString()} → Lv3 ${Math.round(at3.total).toLocaleString()}`);
+
+        // 2) 天井を超えないこと。最大HPの割合で殴る手なので、
+        //    外すとHPの大きいボスほど大きく溶ける（本来は逆であってほしい）。
+        const heavy = rig(5);
+        RPG.battle.inflict(heavy.battle, heavy.actor, heavy.foe, 'freeze', 3, 0.3);
+        RPG.battle.inflict(heavy.battle, heavy.actor, heavy.foe, 'curse', 3, 0.3);
+        RPG.battle.inflict(heavy.battle, heavy.actor, heavy.foe, 'paralyze', 3, 0.3);
+        const cap = RPG.battle.detonationValue(heavy.foe);
+        assertTrue('起爆: 積み上げても最大HPの4割は超えない',
+          cap.total <= heavy.foe.maxHp * 0.4,
+          `最大HPの ${(cap.total / heavy.foe.maxHp * 100).toFixed(1)}%`);
+
+        // 3) 消えるのは現金化した毒と火傷だけ。
+        //    最初は弱体を全部消していたが、実測すると起爆を撃つほど負けた。
+        //    異常構成の火力は「弱体中の敵に強い」枝から出ているので、
+        //    全部消すと自分の主力を自分で止めることになる。
+        {
+          const r = rig(0);
+          RPG.battle.inflict(r.battle, r.actor, r.foe, 'freeze', 3, 0.2);
+          RPG.battle.executeSkill(r.battle, r.actor, 'sk_tree_detonate', [r.foe]);
+          const left = (r.foe.statusEffects || []).map((/** @type {any} */ e) => e.kind);
+          assertTrue('起爆: 毒と火傷は消える',
+            !left.includes('poison') && !left.includes('burn'), left.join(', '));
+          assertTrue('起爆: それ以外の弱体は残る',
+            left.includes('freeze'), left.join(', '));
+        }
+
+        // 4) オートが正しく値踏みできること。
+        //    見積もりと実額を別々に書くと、片方を直したときにもう片方が古い式で
+        //    残り、「オートは撃たないのに手動なら強い技」ができあがる。
+        {
+          const r = rig(2);
+          const want = RPG.battle.detonationValue(r.foe).total;
+          const est = RPG.autoplay.estimate(r.actor, r.foe, RPG.data.skills.sk_tree_detonate);
+          assertTrue('起爆: オートの見積もりに起爆ぶんが乗っている',
+            est > want, `見積もり ${Math.round(est).toLocaleString()} / 起爆ぶん ${Math.round(want).toLocaleString()}`);
+        }
+
+        // 5) 何も乗っていない相手には0。空撃ちで数字が出ると、
+        //    継続ダメージを撒かない構成でも取り得る技になってしまう。
+        {
+          const r = rig(0);
+          r.foe.statusEffects = [];
+          assertTrue('起爆: 弱体が無ければ0',
+            RPG.battle.detonationValue(r.foe).total === 0, '');
+        }
+
+        // 6) 防御バフを弱体として数えないこと。
+        //    def_buff は statusEffects に同居しているので、種類を見ずに
+        //    配列の長さで判定すると、自分で守りを固めた敵が「弱体中」になる。
+        {
+          const r = rig(0);
+          r.foe.statusEffects = [{ kind: 'def_buff', turns: 3, label: '砦', value: 1 }];
+          assertTrue('起爆: 防御バフは弱体に数えない',
+            RPG.battle.detonationValue(r.foe).total === 0
+              && RPG.battle.debuffsOn(r.foe).length === 0, '');
+        }
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
     }
 
     return results;
