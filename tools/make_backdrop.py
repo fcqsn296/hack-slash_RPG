@@ -33,7 +33,7 @@ OUT_DIR = os.path.join(ROOT, "assets", "bg")
 WIDTH = 832
 QUALITY = 72
 
-# 明るさの上限。上位2%の画素の輝度がここを超えていたら、超えたぶんだけ全体を落とす。
+# 明るさの狙い。上位2%の画素の輝度がここに来るよう、全体を上下させる。
 #
 # ── なぜ画像の側で揃えるのか ──
 # 絵ごとに明るさがばらつくと、そのぶん CSS 側で膜を濃くするしかなくなる。
@@ -42,7 +42,17 @@ QUALITY = 72
 #
 # 実測: 17枚のうち15枚が、この処理なしでは補助文字のコントラストが
 # 3.0〜3.4:1 まで落ちていた（基準は 4.5:1）。
-TARGET_TOP = 0.24
+#
+# ── 落としすぎない ──
+# 最初 0.24 にしたところ、実機で「ほぼ視認できない」という報告を受けた。
+# 表示側の膜と合わせて **二重に暗く** していたため。
+# 膜を 0.40 まで薄くしたうえで、ここを 0.42 に上げてある。
+# このときパネル面の明るさは 0.065、本文とのコントラストは 7.0:1 で、
+# 基準（4.5:1）に余裕がある。
+TARGET_TOP = 0.42
+
+# 明るくする側の上限。暗い絵を無理に持ち上げると、粒状感だけが増える。
+MAX_GAIN = 2.2
 
 # 上位何%の画素で見るか。数点の光源まで抑えると絵が死ぬので、少し余裕を見る。
 TOP_PERCENTILE = 98
@@ -75,7 +85,11 @@ def luminance(px):
 
 
 def normalize(im):
-    """上位 TOP_PERCENTILE% の輝度を見て、明るすぎる絵を落とす倍率を求める。
+    """上位 TOP_PERCENTILE% の輝度が TARGET_TOP に来るよう、上下させる倍率を求める。
+
+    暗い絵は持ち上げ、明るい絵は落とす。**片方向だけだと揃いません。**
+    最初は「落とす」だけにしていたため、暗い絵はそのまま暗く残り、
+    表示側の膜と重なって視認できなくなった。
 
     戻り値: (処理前の輝度, 処理後の輝度, 掛ける倍率)
     """
@@ -83,10 +97,10 @@ def normalize(im):
     vals = sorted(luminance(p) for p in small.getdata())
     idx = min(len(vals) - 1, int(len(vals) * TOP_PERCENTILE / 100))
     top = vals[idx]
-    if top <= TARGET_TOP:
+    if top <= 0:
         return top, top, 1.0
-    factor = TARGET_TOP / top
-    return top, TARGET_TOP, factor
+    factor = min(MAX_GAIN, TARGET_TOP / top)
+    return top, top * factor, factor
 
 
 def main():
@@ -111,8 +125,8 @@ def main():
     im = im.resize((WIDTH, h), Image.LANCZOS)
 
     before, after, factor = normalize(im)
-    if factor < 1.0:
-        im = Image.eval(im, lambda v: int(round(v * factor)))
+    if abs(factor - 1.0) > 0.01:
+        im = Image.eval(im, lambda v: min(255, int(round(v * factor))))
 
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, key + ".webp")
@@ -120,8 +134,8 @@ def main():
 
     print("置きました: assets/bg/%s.webp  (%d×%d / %d KB)"
           % (key, WIDTH, h, os.path.getsize(out) // 1024))
-    if factor < 1.0:
-        print("  明るさを %.2f 倍に落としました（上位%d%%の輝度 %.3f → %.3f）"
+    if abs(factor - 1.0) > 0.01:
+        print("  明るさを %.2f 倍にしました（上位%d%%の輝度 %.3f → %.3f）"
               % (factor, TOP_PERCENTILE, before, after))
     else:
         print("  明るさはそのまま（上位%d%%の輝度 %.3f）" % (TOP_PERCENTILE, before))

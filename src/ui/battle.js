@@ -169,13 +169,47 @@
     return `オート (${st.charges})`;
   }
 
+  /**
+   * フィールドの色を、背景の絵が透ける濃さで返す (§14)。
+   *
+   * 戦闘の器は画面いっぱいに広がるので、不透明のままだと
+   * せっかく敷いた絵が1ミリも見えない。実機で確かめた。
+   * 場所ごとの色は残したいので、色は変えず透明度だけを与える。
+   *
+   * @param {any} f @param {number} a
+   */
+  function fieldWash(f, a) {
+    const rgba = (/** @type {string} */ hex) => {
+      const v = hex.replace('#', '');
+      const n = parseInt(v.length === 3 ? v.split('').map((c) => c + c).join('') : v, 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+    };
+    return `linear-gradient(160deg, ${rgba(f.bg[0])}, ${rgba(f.bg[1])})`;
+  }
+
+  /**
+   * 戦っている場所の絵を敷く (§1.3)。
+   * 基本画面と同じ器を使い回すので、戦闘に入るときだけ差し替える。
+   */
+  function applyBattleBackdrop() {
+    const layer = document.getElementById('backdrop');
+    if (!layer || !battle || !battle.fieldId) return;
+    RPG.artSource.backdrop(battle.fieldId).then((src) => {
+      if (!src) return;
+      layer.style.setProperty('--backdrop', `url('${src}')`);
+      layer.style.display = 'block';
+      document.body.classList.add('has-backdrop');
+    });
+  }
+
   function render() {
     if (!root || !battle) return;
     const f = battle.field;
     const rules = battle.rules || {};
+    applyBattleBackdrop();
 
     replace(root,
-      h('div.battle', { style: { background: `linear-gradient(160deg, ${f.bg[0]}, ${f.bg[1]})` } },
+      h('div.battle', { style: { background: fieldWash(f, 0.34) } },
         h('div.battle-top',
           // 闘技場は戦闘の器としてフィールドを1つ借りているだけなので、
           // そのまま出すと関係のない地名が並ぶ (§17)。
