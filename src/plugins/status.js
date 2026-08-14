@@ -37,6 +37,8 @@
           if (!def) continue;
           ctx.addStatus(target, {
             kind, label: def.label, turns: p.turns || 3, ratio: p.ratio || 0.05,
+            // 経過しない弱体 (§12 呪術師)。撒く技の側で明示したときだけ立つ。
+            lasting: !!p.lasting,
           });
         }
       }

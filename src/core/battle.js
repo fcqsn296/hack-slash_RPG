@@ -1048,6 +1048,8 @@
         // 大技だけを底上げする (§5.8)。小技側とは排他で、同じ技には両方乗らない。
         highPowerBoost: isHighPower(skill)
           ? ((attacker.situational && attacker.situational.highPowerBoost) || 0) : 0,
+        // 破壊者の「終焉の一撃」だけがダメージ上限の外に出る (§12)。
+        ignoreCap: !!(skill && skill.ignoreCap),
       },
     });
 
@@ -1232,6 +1234,24 @@
           }
         }
       }
+    }
+
+    // 首刈り (§12 暗殺者) — HPが一定割合を切っている相手を、数字を通さずに落とす。
+    //
+    // 火力を伸ばして削り切るのは他のクラスにもできる。
+    // 「HPバーが残っていても終わる」という規則の破り方は、ここにしか無い。
+    // ボスには通さない。通すと、耐久を売りにした相手の設計が丸ごと無意味になる。
+    const behead = skill && skill.executeBelow;
+    if (behead && defender.alive && !defender.isBoss && !defender.arenaBoss
+        && defender.hp > 0 && defender.hp <= defender.maxHp * behead) {
+      result.damage = defender.hp;
+      defender.hp = 0;
+      defender.alive = false;
+      if (!opts.silent) {
+        pushLog(battle, `${defender.name} の首が落ちた`, 'defeat');
+      }
+      pushEvent(battle, { type: 'down', key: defender.key, side: defender.side });
+      return result;
     }
 
     // 「不屈」— 致死ダメージをHP1で耐える（1戦闘に1回）
@@ -2038,7 +2058,9 @@
    */
   function tickAndFilter(list) {
     return list
-      .map((e) => Object.assign({}, e, { turns: e.turns - 1 }))
+      // lasting が立っているものは経過しない (§12 呪術師「疫病の坩堝」)。
+      // ウェーブが替われば敵ごと入れ替わるので、戦闘全体には残らない。
+      .map((e) => (e.lasting ? e : Object.assign({}, e, { turns: e.turns - 1 })))
       .filter((e) => e.turns > 0);
   }
 

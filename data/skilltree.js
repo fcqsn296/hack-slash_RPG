@@ -1451,7 +1451,7 @@ RPG.data.skillTree = [
     // 「少しだけ試す」を選べるようにした。
     id: 'tr_hit_all_status', tier: 'high', name: '万病の理', cost: 3, maxLevel: 8,
     effects: [{ kind: 'status_on_hit_kind', status: 'all', value: 0.03 }],
-    desc: '攻撃時 3%の確率で**全種類**の弱体をそれぞれ付与する',
+    desc: '攻撃時 3%の確率で、6種類すべての弱体をそれぞれ判定して付与する',
   },
   {
     id: 'tr_vs_all_status', tier: 'high', name: '弱者狩り', cost: 6, maxLevel: 3,

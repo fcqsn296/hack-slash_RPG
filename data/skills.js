@@ -536,8 +536,8 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
     power: 0, crit_rate: 0,
     readyRound: 3, cooldown: 5,
-    params: { value: 0.8, turns: 1, party: true, label: '絶対防壁' },
-    desc: '【クラス】味方全体の被ダメージを1ターン 80%軽減する。' +
+    params: { value: 1.0, turns: 1, party: true, label: '絶対防壁' },
+    desc: '【クラス】味方全体が1ターンのあいだ、何を受けてもダメージを負わない。' +
       '3ラウンド目以降・使用後5ラウンド使えない。',
   },
   sk_cls_rebirth: {
@@ -545,16 +545,20 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
     power: 0, crit_rate: 0,
     readyRound: 4, cooldown: 6,
-    params: { hp: 0.5, healRatio: 0.8 },
-    desc: '【クラス】倒れた味方を全員HP50%で蘇生し、生存者も回復する。' +
-      '4ラウンド目以降・使用後6ラウンド使えない。',
+    params: { hp: 1.0, healRatio: 0.8, actNow: true },
+    desc: '【クラス】倒れた味方を全員 全快 で蘇生し、そのラウンド中にもう一度動かす。' +
+      '生存者も回復する。4ラウンド目以降・使用後6ラウンド使えない。',
   },
   sk_cls_ruin: {
     name: '終焉の一撃', kind: 'active', plugin: null, cls: true,
     scaling_stat: 'atk', damage_type: 'phys', element: 'none',
-    power: 800, crit_rate: 0.2,
+    power: 800, crit_rate: 1,
     readyRound: 3, cooldown: 4,
-    desc: '【クラス】威力800%の単体攻撃。' +
+    ignoreCap: true,
+    // 上限無視だけでは、上限に届いていない段階では何も起きない。
+    // 確定会心で必ず壁まで押し上げ、その壁を無視で抜ける。2つで1つの効果。
+    desc: '【クラス】威力800%・確定会心の単体攻撃。ダメージ上限の減衰を受けない。' +
+      '育つほど上限との差が開くので、伸ばした火力がそのまま数字になる。' +
       '3ラウンド目以降・使用後4ラウンド使えない。',
   },
   sk_cls_crucible: {
@@ -564,9 +568,10 @@ RPG.data.skills = {
     readyRound: 2, cooldown: 4,
     params: {
       statuses: ['poison', 'burn', 'bleed', 'paralyze', 'freeze', 'curse'],
-      turns: 4, ratio: 0.08, all: true,
+      turns: 4, ratio: 0.10, all: true, lasting: true,
     },
     desc: '【クラス】敵全体に6種類すべての弱体を撒く。' +
+      'ここで撒いた弱体は時間で消えない（そのウェーブのあいだ残り続ける）。' +
       '2ラウンド目以降・使用後4ラウンド使えない。',
   },
   sk_cls_command: {
@@ -574,8 +579,9 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
     power: 0, crit_rate: 0,
     readyRound: 3, cooldown: 6,
-    params: { buff: 0.3, turns: 2 },
-    desc: '【クラス】味方全員がこのラウンド中にもう一度行動できるようになり、火力+30%。' +
+    params: { buff: 0.3, turns: 2, resetCooldowns: true },
+    desc: '【クラス】味方全員がこのラウンド中にもう一度行動でき、火力+30%。' +
+      'さらに他の味方のクールタイムをすべて解除する（切った奥の手をもう一度）。' +
       '3ラウンド目以降・使用後6ラウンド使えない。',
   },
   sk_cls_behead: {
@@ -584,7 +590,9 @@ RPG.data.skills = {
     power: 320, crit_rate: 1,
     readyRound: 2, cooldown: 3,
     forceIgnoreDefense: true,
+    executeBelow: 0.3,
     desc: '【クラス】威力320%・確定会心・防御無視の単体攻撃。' +
+      'HPが3割以下の相手は、残量にかかわらず即座に落ちる（ボスを除く）。' +
       '2ラウンド目以降・使用後3ラウンド使えない。',
   },
 

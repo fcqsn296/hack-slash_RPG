@@ -61,7 +61,7 @@ RPG.data.classes = {
       {
         id: 'gd_aegis', name: '【技】絶対防壁', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_aegis', value: 1 }],
-        desc: 'クラス技「絶対防壁」を習得（3R目以降・CT5）',
+        desc: 'クラス技「絶対防壁」を習得。1ターンのあいだ、味方全体が何を受けてもダメージ0（3R目以降・CT5）',
       },
       {
         // ── 極点 (§12) ──
@@ -125,7 +125,7 @@ RPG.data.classes = {
       {
         id: 'md_rebirth', name: '【技】再臨の光', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_rebirth', value: 1 }],
-        desc: 'クラス技「再臨の光」を習得（4R目以降・CT6）',
+        desc: 'クラス技「再臨の光」を習得。倒れた味方を全快で起こし、その場でもう一度動かす（4R目以降・CT6）',
       },
       {
         // ── 極点 (§12) ──
@@ -183,7 +183,7 @@ RPG.data.classes = {
       {
         id: 'bk_ruin', name: '【技】終焉の一撃', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_ruin', value: 1 }],
-        desc: 'クラス技「終焉の一撃」を習得（3R目以降・CT4）',
+        desc: 'クラス技「終焉の一撃」を習得。確定会心。ダメージ上限の減衰を受けない唯一の技（3R目以降・CT4）',
       },
       {
         // ── 極点 (§12) ──
@@ -242,7 +242,7 @@ RPG.data.classes = {
       {
         id: 'hx_crucible', name: '【技】疫病の坩堝', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_crucible', value: 1 }],
-        desc: 'クラス技「疫病の坩堝」を習得（2R目以降・CT4）',
+        desc: 'クラス技「疫病の坩堝」を習得。撒いた6種の弱体が時間で消えない（2R目以降・CT4）',
       },
       {
         // ── 極点 (§12) ──
@@ -301,7 +301,7 @@ RPG.data.classes = {
       {
         id: 'tc_command', name: '【技】刻の号令', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_command', value: 1 }],
-        desc: 'クラス技「刻の号令」を習得（3R目以降・CT6）',
+        desc: 'クラス技「刻の号令」を習得。全員に追加行動。さらに仲間の待ち時間をすべて解除（3R目以降・CT6）',
       },
       {
         // ── 極点 (§12) ──
@@ -355,7 +355,7 @@ RPG.data.classes = {
       {
         id: 'as_behead', name: '【技】首刈り', cost: 4, maxLevel: 1,
         effects: [{ kind: 'grant_skill', skill: 'sk_cls_behead', value: 1 }],
-        desc: 'クラス技「首刈り」を習得（2R目以降・CT3）',
+        desc: 'クラス技「首刈り」を習得。HP3割以下の相手を、残量にかかわらず落とす（ボスを除く／2R目以降・CT3）',
       },
       {
         // ── 極点 (§12) ──

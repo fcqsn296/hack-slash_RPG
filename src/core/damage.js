@@ -172,6 +172,7 @@
    * @property {number} [lowPowerBoost] 小技だけの底上げ (§4.3)
    * @property {number} [highPowerBoost] 大技だけの底上げ (§5.8)
    * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
+   * @property {boolean} [ignoreCap]   ダメージ上限の減衰を通さない (§12 破壊者)
    */
 
   /**
@@ -415,7 +416,12 @@
       * execute * situational * taken;
 
     // --- ステップ8: ダメージ上限（減衰処理） ---
-    const capped = applyCap(raw, attacker.capBreak || 0);
+    // 破壊者の「終焉の一撃」だけは上限の外に出る (§12)。
+    // このゲームで一番硬い規則が 500,000 の壁で、
+    // 上限突破率を積んでも押し広げられるだけだった。
+    // 壁そのものを無い扱いにできる手を1つだけ置くことで、
+    // 破壊者を選ぶ理由が「数値が少し大きい」から「規則が違う」に変わる。
+    const capped = options.ignoreCap ? raw : applyCap(raw, attacker.capBreak || 0);
 
     return {
       // 軽減が100%に達したときだけ0を許し、それ以外は最低1ダメージを保証する

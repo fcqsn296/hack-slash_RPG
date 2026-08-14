@@ -4850,6 +4850,206 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // クラス技の「規則破り」 (§12)
+    //
+    // 数値だけを見ると、クラス技は弱くなかった（終焉の一撃は通常攻撃の4.4倍、
+    // 首刈りは4.9倍）。足りていなかったのは倍率ではなく、
+    // **そのクラスにしか許されていない振る舞い** のほうだった。
+    // 6クラスそれぞれに、他では絶対に起きないことを1つずつ持たせてある。
+    // ここが消えると、クラス選択は「どの数字が少し大きいか」に戻る。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        /** Lv150 の4人パーティで戦闘を1つ用意する。 */
+        const arena = (/** @type {number} */ round) => {
+          RPG.state.reset();
+          const s = RPG.state.get();
+          s.named = true;
+          for (const id of ['ch_rizel', 'ch_gald', 'ch_noa']) {
+            s.characters[id] = RPG.state.createCharacter(id);
+            RPG.state.tryJoinParty(id);
+          }
+          for (const id of Object.keys(s.characters)) s.characters[id].level = 150;
+          const party = RPG.state.partyUnits();
+          const battle = RPG.battle.start({
+            fieldId: 'fl_origin', waves: 1, bossFinale: false, party,
+          });
+          battle.round = round;
+          return { battle, party };
+        };
+
+        // 守護者 — 軽減ではなく無効化。80%と100%の違いは程度ではなく種類で、
+        // 「削られる」が「何も起きない」に変わる。
+        {
+          const { battle, party } = arena(3);
+          RPG.battle.executeSkill(battle, party[0], 'sk_cls_aegis', []);
+          const before = party[1].hp;
+          RPG.battle.applyDamage(
+            battle, RPG.battle.livingEnemies(battle)[0], party[1], RPG.data.skills.sk_slash, {}
+          );
+          assertTrue('守護者: 絶対防壁の間はダメージを負わない',
+            party[1].hp === before, `${(before - party[1].hp).toLocaleString()} 受けた`);
+          assertTrue('守護者: 絶対防壁は1ターンで切れる',
+            (RPG.data.skills.sk_cls_aegis.params.turns || 0) === 1
+              && RPG.data.skills.sk_cls_aegis.cooldown > 1,
+            `持続 ${RPG.data.skills.sk_cls_aegis.params.turns} / CD ${RPG.data.skills.sk_cls_aegis.cooldown}`);
+        }
+
+        // 癒し手 — 半端なHPで起こして次ラウンドまで棒立ちだと、
+        // 「全滅を1ラウンド先延ばしにする技」にしかならない。
+        {
+          const { battle, party } = arena(4);
+          party[1].alive = false;
+          party[1].hp = 0;
+          RPG.battle.executeSkill(battle, party[0], 'sk_cls_rebirth', []);
+          assertTrue('癒し手: 再臨の光は全快で蘇生する',
+            party[1].alive && party[1].hp === party[1].maxHp,
+            `${party[1].hp.toLocaleString()} / ${party[1].maxHp.toLocaleString()}`);
+          assertTrue('癒し手: 起き上がった味方はそのラウンド中に動ける',
+            !!party[1].grantedExtra, '');
+        }
+
+        // 破壊者 — ダメージ上限（500,000の壁）の外に出られる唯一の手。
+        // 上限に届いていなければ差が出ないので、確定会心とセットで初めて意味を持つ。
+        {
+          const ruin = RPG.data.skills.sk_cls_ruin;
+          assertTrue('破壊者: 終焉の一撃は上限を無視する', ruin.ignoreCap === true, '');
+          assertTrue('破壊者: 確定会心で必ず上限まで届かせる', ruin.crit_rate >= 1, `${ruin.crit_rate}`);
+
+          // 上限（500,000）を必ず超える攻撃力にする。
+          // 超えていない状態で比べても両者は一致し、テストが何も見ていないことになる。
+          const attacker = {
+            level: 255, stats: { atk: 150000, magi_power: 0 }, element: 'none',
+            tagBonuses: [], uniqueBuffs: [], capBreak: 0,
+          };
+          const defender = { level: 255, def: 2000, element: 'none' };
+          const opts = { random: 1.0, crit: true };
+          const capped = RPG.damage.calc({ attacker, defender, skill: ruin, options: opts });
+          const free = RPG.damage.calc({
+            attacker, defender, skill: ruin, options: Object.assign({ ignoreCap: true }, opts),
+          });
+          assertTrue('破壊者: 上限を超えた分がそのまま数字になる',
+            free.damage > capped.damage * 1.2,
+            `上限あり ${capped.damage.toLocaleString()} → 無視 ${free.damage.toLocaleString()}`);
+        }
+
+        // 呪術師 — 撒いた弱体が時間で消えない。
+        // 「起爆」で現金化する相手でもあるので、持続の扱いは両方に効く。
+        {
+          const { battle, party } = arena(2);
+          RPG.battle.executeSkill(battle, party[0], 'sk_cls_crucible', []);
+          const foe = RPG.battle.livingEnemies(battle)[0];
+          const kinds = (foe.statusEffects || []).length;
+          assertTrue('呪術師: 疫病の坩堝は6種すべてを撒く', kinds >= 6, `${kinds}種`);
+          assertTrue('呪術師: 坩堝の弱体は経過しない',
+            (foe.statusEffects || []).every((/** @type {any} */ e) => e.lasting), '');
+        }
+
+        // 戦術家 — 追加行動を配るだけでは、既に切ったクラス技は戻らない。
+        // 待ち時間まで巻き戻して初めて「他人の一番強い手をもう一度撃たせる」役になる。
+        {
+          const { battle, party } = arena(3);
+          party[1].cooldowns = { sk_cls_ruin: 99 };
+          party[0].cooldowns = { sk_cls_command: 99 };
+          RPG.battle.executeSkill(battle, party[0], 'sk_cls_command', []);
+          assertTrue('戦術家: 号令は仲間の待ち時間を解除する',
+            Object.keys(party[1].cooldowns || {}).length === 0,
+            JSON.stringify(party[1].cooldowns));
+          // 自分のぶんまで戻ると号令自体を撃ち直せて際限が無くなる。
+          assertTrue('戦術家: 自分の待ち時間は戻らない',
+            (party[0].cooldowns || {}).sk_cls_command === 99,
+            JSON.stringify(party[0].cooldowns));
+        }
+
+        // 暗殺者 — HPバーが残っていても終わる。
+        {
+          const { battle, party } = arena(2);
+          const threshold = RPG.data.skills.sk_cls_behead.executeBelow;
+          assertTrue('暗殺者: 首刈りに即死の閾値がある', threshold > 0, `${threshold}`);
+
+          const foe = RPG.battle.livingEnemies(battle)[0];
+          foe.hp = Math.floor(foe.maxHp * (threshold - 0.02));
+          RPG.battle.applyDamage(battle, party[0], foe, RPG.data.skills.sk_cls_behead, {});
+          assertTrue('暗殺者: 閾値を切った相手は即座に落ちる', !foe.alive, `HP ${foe.hp}`);
+        }
+
+        // ボスには通さない。通すと、耐久を売りにした相手の設計が丸ごと無意味になる。
+        // 即死したかどうかは「与えたダメージが残りHPちょうどか」では見分けられないので、
+        // **通常の計算で入る額より残りHPを多くして** 判定する。
+        {
+          const { battle, party } = arena(2);
+          const boss = RPG.battle.livingEnemies(battle)[0];
+          boss.isBoss = true;
+          boss.hp = boss.maxHp;   // 満タンなら通常のダメージでは落ちない
+          const threshold = RPG.data.skills.sk_cls_behead.executeBelow;
+          boss.maxHp = Math.floor(boss.hp / threshold) * 2;  // HP割合を閾値未満に見せる
+          RPG.battle.applyDamage(battle, party[0], boss, RPG.data.skills.sk_cls_behead, {});
+          assertTrue('暗殺者: ボスは首刈りで即死しない',
+            boss.alive && boss.hp > 0,
+            `HP ${boss.hp.toLocaleString()} / ${boss.maxHp.toLocaleString()}`);
+        }
+
+        // すべてのクラスが1つずつ持っていること。
+        // 数値だけの技に戻すと、クラス選択が「どの数字が大きいか」に戻る。
+        {
+          const RULE_BREAKERS = {
+            sk_cls_aegis: (/** @type {any} */ sk) => sk.params.value >= 1,
+            sk_cls_rebirth: (/** @type {any} */ sk) => sk.params.hp >= 1 && sk.params.actNow,
+            sk_cls_ruin: (/** @type {any} */ sk) => sk.ignoreCap,
+            sk_cls_crucible: (/** @type {any} */ sk) => sk.params.lasting,
+            sk_cls_command: (/** @type {any} */ sk) => sk.params.resetCooldowns,
+            sk_cls_behead: (/** @type {any} */ sk) => sk.executeBelow > 0,
+          };
+          for (const id of Object.keys(RULE_BREAKERS)) {
+            const sk = RPG.data.skills[id];
+            assertTrue(`クラス技: ${sk ? sk.name : id} に規則破りが残っている`,
+              !!sk && RULE_BREAKERS[id](sk), '');
+          }
+        }
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 説明文に装飾記法を混ぜない (§5.2)
+    //
+    // desc は素のテキストとして描画される。強調のつもりで ** を書くと
+    // そのまま画面に出る。実際にクラス技の説明で出してしまった。
+    // 目で見つけるしかない種類の崩れなので、ここで塞ぐ。
+    // ---------------------------------------------------------------
+    {
+      /** @type {string[]} */
+      const marked = [];
+      /** @param {string} where @param {any} table */
+      const scan = (where, table) => {
+        for (const id of Object.keys(table || {})) {
+          const d = table[id] && table[id].desc;
+          if (typeof d === 'string' && /\*\*|__|`/.test(d)) marked.push(`${where}: ${id}`);
+        }
+      };
+      scan('技', RPG.data.skills);
+      scan('ユニーク', RPG.data.uniqueEquips);
+      scan('フィールド', RPG.data.fields);
+
+      // ツリーとクラスは配列なので別に回す
+      for (const n of RPG.data.skillTree || []) {
+        if (typeof n.desc === 'string' && /\*\*|__|`/.test(n.desc)) marked.push(`ツリー: ${n.id}`);
+      }
+      for (const cid of Object.keys(RPG.data.classes || {})) {
+        for (const n of RPG.data.classes[cid].nodes || []) {
+          if (typeof n.desc === 'string' && /\*\*|__|`/.test(n.desc)) marked.push(`クラス: ${n.id}`);
+        }
+      }
+
+      assertTrue('説明文: 装飾記法がそのまま画面に出ていない',
+        marked.length === 0, marked.join(' / '));
+    }
+
     return results;
   }
 
