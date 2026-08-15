@@ -262,8 +262,17 @@ def main(argv):
               % (cid, r['x'], r['y'], r['size'], cur_s))
 
     if '--sheet' in argv:
-        p = sheet(results, os.path.join(ROOT, 'face_sheet.png'))
+        # ── 実際に使われる値で描くこと ──
+        # 自動計測の結果だけで描いていたため、手で直した顔を確認できなかった。
+        # 手順書は「--write の前に --sheet を見よ」と言っているのに、
+        # その一覧が手動指定を映さないのでは、直したかどうかが分からない。
+        # 手動指定があるものはそちらを優先して描く（--write の挙動と揃える）。
+        effective = dict(results)
+        effective.update(manual)
+        p = sheet(effective, os.path.join(ROOT, 'face_sheet.png'))
         print('\n確認用の一覧画像:', os.path.relpath(p, ROOT))
+        if manual:
+            print('  （手動指定 %d 体はその値で描いています）' % len(manual))
 
     if '--write' in argv:
         # 手動指定があるものは触らない（作者が意図して決めた値のため）

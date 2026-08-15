@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v41';
+const CACHE_VERSION = 'v42';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -155,6 +155,12 @@ const PRECACHE = [
   './assets/characters/ch_gow.webp',
   './assets/characters/ch_hero.webp',
   './assets/characters/ch_hikari.webp',
+  './assets/characters/ch_hr_elena.webp',
+  './assets/characters/ch_hr_kagura.webp',
+  './assets/characters/ch_hr_luna.webp',
+  './assets/characters/ch_hr_mylene.webp',
+  './assets/characters/ch_hr_philia.webp',
+  './assets/characters/ch_hr_serena.webp',
   './assets/characters/ch_kaze.webp',
   './assets/characters/ch_lg_aegis.webp',
   './assets/characters/ch_lg_alvina.webp',

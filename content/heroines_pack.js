@@ -106,6 +106,8 @@ RPG.content.add('六姫の協奏曲', {
       accent: '#1b3827',
       glyph: '風',
       art: {
+        // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+        face: { x: 0.5325, y: 0.1097, size: 0.3645 },
         gender: 'female',
         hair: 'ponytail',
         expression: 'gentle',
@@ -136,6 +138,8 @@ RPG.content.add('六姫の協奏曲', {
       accent: '#3d1210',
       glyph: '舞',
       art: {
+        // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+        face: { x: 0.5252, y: 0.1135, size: 0.3578 },
         gender: 'female',
         hair: 'hime',
         expression: 'smug',
@@ -170,6 +174,8 @@ RPG.content.add('六姫の協奏曲', {
       accent: '#152b30',
       glyph: '零',
       art: {
+        // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+        face: { x: 0.4892, y: 0.1385, size: 0.3391 },
         gender: 'female',
         hair: 'wavy',
         expression: 'cool',
@@ -205,6 +211,8 @@ RPG.content.add('六姫の協奏曲', {
       accent: '#251a38',
       glyph: '蝕',
       art: {
+        // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+        face: { x: 0.5517, y: 0.1117, size: 0.3584 },
         gender: 'female',
         hair: 'twin',
         expression: 'smug',
@@ -242,6 +250,9 @@ RPG.content.add('六姫の協奏曲', {
       accent: '#42320a',
       glyph: '受',
       art: {
+      // 手で指定。自動計測は頭上の光輪を顔と誤検出する（§game-art-pipeline）。
+      // ここを消すと tools/detect_faces.py が上書きしてしまう。
+      face: { x: 0.504, y: 0.178, size: 0.29 },
         gender: 'female',
         hair: 'bob',
         expression: 'fierce',
@@ -277,6 +288,8 @@ RPG.content.add('六姫の協奏曲', {
       accent: '#263016',
       glyph: '律',
       art: {
+        // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+        face: { x: 0.524, y: 0.1263, size: 0.3507 },
         gender: 'female',
         hair: 'long',
         expression: 'cool',
