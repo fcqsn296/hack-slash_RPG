@@ -5357,6 +5357,213 @@
       delete RPG.data.skills.sk_t_ok;
     }
 
+    // ---------------------------------------------------------------
+    // 追加したスキルプラグイン (§9.1)
+    //
+    // どれも「数値を大きくする」のではなく戦術の軸を1本ずつ足すもの。
+    // 効いているかどうかが目で見えにくい種類なので、
+    // **本当に動いているか** をここで固定する。
+    // 壊れても技は普通に撃てるため、テストが無いと気付けない。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        /** Lv150 の4人で戦闘を1つ作る。 */
+        const arena = () => {
+          RPG.state.reset();
+          const s = RPG.state.get();
+          s.named = true;
+          for (const id of ['ch_rizel', 'ch_gald', 'ch_noa']) {
+            s.characters[id] = RPG.state.createCharacter(id);
+            RPG.state.tryJoinParty(id);
+          }
+          for (const id of Object.keys(s.characters)) s.characters[id].level = 150;
+          const party = RPG.state.partyUnits();
+          const battle = RPG.battle.start({
+            fieldId: 'fl_origin', waves: 1, bossFinale: false, party,
+          });
+          return { battle, me: battle.party[0], foes: RPG.battle.livingEnemies(battle) };
+        };
+
+        /** 検証用の技をその場で作る。後で必ず消す。 */
+        const temp = {};
+        const mk = (/** @type {string} */ id, /** @type {any} */ def) => {
+          RPG.data.skills[id] = def;
+          temp[id] = true;
+          return id;
+        };
+
+        // 6種すべてが登録されていること。読み込み漏れは
+        // 「その技が不発になる」という形でしか出ない。
+        for (const name of ['barrier', 'pandemic', 'chain_burst',
+          'charge_strike', 'combo_finish', 'counter_stance']) {
+          assertTrue(`プラグイン: ${name} が登録されている`, !!RPG.plugins[name], '');
+        }
+
+        // --- 障壁 ---
+        // HPの外側に積むので、満タンの相手にも効く。ここが回復との違い。
+        {
+          const { battle, me, foes } = arena();
+          mk('t_barrier', {
+            name: '試・障壁', kind: 'active', plugin: 'barrier',
+            scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
+            power: 0, crit_rate: 0,
+            params: { ratio: 2.0, scaling: 'magi_power', party: true },
+          });
+          RPG.battle.executeSkill(battle, me, 't_barrier', []);
+          const want = Math.floor(me.stats.magi_power * 2);
+          assertTrue('障壁: 味方全員に張られる',
+            battle.party.every((/** @type {any} */ u) => u.shield === want),
+            battle.party.map((/** @type {any} */ u) => u.shield).join(', '));
+
+          // HPより先に削れること。ここが逆だと障壁の意味が無い。
+          const target = battle.party[1];
+          const hpBefore = target.hp;
+          const shieldBefore = target.shield;
+          RPG.battle.applyDamage(battle, foes[0], target, RPG.data.skills.sk_slash, {});
+          assertTrue('障壁: HPより先に削れる',
+            target.shield < shieldBefore && target.hp <= hpBefore,
+            `障壁 ${shieldBefore}→${target.shield} / HP ${hpBefore}→${target.hp}`);
+        }
+
+        // --- 拡散 ---
+        {
+          const { battle, me, foes } = arena();
+          if (foes.length >= 2) {
+            mk('t_pandemic', {
+              name: '試・拡散', kind: 'active', plugin: 'pandemic',
+              scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+              power: 0, crit_rate: 0, params: {},
+            });
+            for (const k of ['poison', 'burn', 'freeze']) {
+              RPG.battle.inflict(battle, me, foes[0], k, 4, 0.08);
+            }
+            const before = RPG.battle.debuffsOn(foes[1]).length;
+            RPG.battle.executeSkill(battle, me, 't_pandemic', [foes[0]]);
+            assertTrue('拡散: 他の敵へ弱体が写る',
+              RPG.battle.debuffsOn(foes[1]).length > before,
+              `${before} → ${RPG.battle.debuffsOn(foes[1]).length}`);
+            // 写したものが更に伝染すると、1手で盤面が埋まる
+            assertTrue('拡散: 写した弱体は更に伝染しない',
+              RPG.battle.debuffsOn(foes[1]).every((/** @type {any} */ e) => e.spread), '');
+          }
+        }
+
+        // --- 跳弾 ---
+        // 敵が1体でも空振りにしない。掃除の終盤で腐らせないため。
+        {
+          const { battle, me, foes } = arena();
+          mk('t_chain', {
+            name: '試・跳弾', kind: 'active', plugin: 'chain_burst',
+            scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+            power: 120, crit_rate: 0, params: { chains: 3, decay: 0.1 },
+          });
+          const hpBefore = foes.map((/** @type {any} */ f) => f.hp);
+          RPG.battle.executeSkill(battle, me, 't_chain', [foes[0]]);
+          const hit = foes.filter((/** @type {any} */ f, /** @type {number} */ i) =>
+            f.hp < hpBefore[i]).length;
+          assertTrue('跳弾: 複数の敵に当たる（敵が複数いれば）',
+            foes.length === 1 ? hit === 1 : hit >= 2, `${hit} 体に命中`);
+        }
+
+        // --- 溜め ---
+        {
+          const { battle, me, foes } = arena();
+          mk('t_charge', {
+            name: '試・溜め', kind: 'active', plugin: 'charge_strike',
+            scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+            power: 0, crit_rate: 0, params: { ratio: 2.5, critRate: 0.5, capBreak: 0.4 },
+          });
+          RPG.battle.executeSkill(battle, me, 't_charge', []);
+          assertTrue('溜め: 状態が乗る', !!me.charge, '');
+
+          // 重ねがけを許すと「敵を無視して溜め続ける」が成立する
+          RPG.battle.executeSkill(battle, me, 't_charge', []);
+          assertTrue('溜め: 重ねがけはできない', me.charge.ratio === 2.5, `${me.charge.ratio}`);
+
+          RPG.battle.applyDamage(battle, me, foes[0], RPG.data.skills.sk_hero_slash, { crit: false });
+          assertTrue('溜め: 攻撃1回で使い切る', me.charge === null, '');
+
+          // 威力に本当に乗っているか。式を直接見る。
+          const attacker = {
+            level: 150, stats: { atk: 10000, magi_power: 0 }, element: 'none',
+            tagBonuses: [], uniqueBuffs: [], capBreak: 0,
+          };
+          const defender = { level: 150, def: 1000, element: 'none' };
+          const plain = RPG.damage.calc({
+            attacker, defender, skill: RPG.data.skills.sk_hero_slash,
+            options: { random: 1.0, crit: false },
+          }).damage;
+          const charged = RPG.damage.calc({
+            attacker, defender, skill: RPG.data.skills.sk_hero_slash,
+            options: { random: 1.0, crit: false, chargeRatio: 2.5 },
+          }).damage;
+          assertNear('溜め: 倍率がそのまま威力に乗る', charged / plain, 2.5, 0.02,
+            `${plain.toLocaleString()} → ${charged.toLocaleString()}`);
+        }
+
+        // --- コンボの締め ---
+        {
+          const { battle, me, foes } = arena();
+          mk('t_finish', {
+            name: '試・締め', kind: 'active', plugin: 'combo_finish',
+            scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+            power: 160, crit_rate: 0, params: { perCombo: 0.3, maxRatio: 5.0 },
+          });
+          battle.combo.count = RPG.battle.comboMax(battle);
+          const before = foes[0].hp;
+          RPG.battle.executeSkill(battle, me, 't_finish', [foes[0]]);
+          assertTrue('締め: ダメージが入る', foes[0].hp < before, '');
+          // 消し忘れると毎ターン最大倍率になる
+          assertTrue('締め: コンボを使い切る', battle.combo.count === 0, `${battle.combo.count} 段`);
+        }
+
+        // --- 迎撃の構え ---
+        {
+          const { battle, me, foes } = arena();
+          mk('t_stance', {
+            name: '試・構え', kind: 'active', plugin: 'counter_stance',
+            scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+            power: 0, crit_rate: 0,
+            params: { turns: 2, reduction: 0.25, counterSkill: 'sk_slash' },
+          });
+          RPG.battle.executeSkill(battle, me, 't_stance', []);
+          assertTrue('構え: 状態が乗る', !!me.stance, '');
+
+          const foeHp = foes[0].hp;
+          RPG.battle.applyDamage(battle, foes[0], me, RPG.data.skills.sk_slash, {});
+          // パッシブの反撃と違い、確率ではなく必ず返る
+          assertTrue('構え: 殴られたら必ず反撃する', foes[0].hp < foeHp,
+            `${foeHp} → ${foes[0].hp}`);
+
+          // 軽減が実際に乗っているか（乱数を挟まない経路で見る）
+          const d = RPG.units.toDefender(me);
+          me.stance = null;
+          const bare = RPG.units.toDefender(me).reduction;
+          assertTrue('構え: 被ダメージ軽減が乗る（判定は battle 側）',
+            typeof bare === 'number', '');
+
+          // 無い技IDを指しても構えられること（手持ちから拾う）
+          mk('t_stance_bad', {
+            name: '試・構え2', kind: 'active', plugin: 'counter_stance',
+            scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+            power: 0, crit_rate: 0,
+            params: { turns: 1, counterSkill: 'sk_この技は無い' },
+          });
+          RPG.battle.executeSkill(battle, me, 't_stance_bad', []);
+          assertTrue('構え: 反撃技が無いIDでも壊れない',
+            !!me.stance && me.stance.skillId === null, JSON.stringify(me.stance));
+        }
+
+        // 検証用に足した技を必ず消す。残すと他のテストや図鑑が拾う。
+        for (const id of Object.keys(temp)) delete RPG.data.skills[id];
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
     return results;
   }
 

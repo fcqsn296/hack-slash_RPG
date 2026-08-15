@@ -173,6 +173,9 @@
    * @property {number} [highPowerBoost] 大技だけの底上げ (§5.8)
    * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
    * @property {boolean} [ignoreCap]   ダメージ上限の減衰を通さない (§12 破壊者)
+   * @property {number} [chargeRatio]   溜めの威力倍率 (§9.1)。1で溜め無し
+   * @property {number} [chargeCrit]    溜めによる会心率の上乗せ (§9.1)
+   * @property {number} [chargeCapBreak] 溜めによる上限突破の上乗せ (§9.1)
    */
 
   /**
@@ -266,7 +269,12 @@
 
     // --- ステップ1: 基礎ダメージ ---
     const statValue = attacker.stats[skill.scaling_stat] || 0;
-    const power = (skill.power / 100) * (options.powerScale == null ? 1 : options.powerScale);
+    // 溜め (§9.1) は威力に乗る。ここに置くのは、系統タグや属性より前に
+    // 掛けたいから——後ろに置くと乗算の並びが変わり、
+    // 「同じ倍率のはずなのに数字が違う」が起きる。
+    const charge = options.chargeRatio == null ? 1 : options.chargeRatio;
+    const power = (skill.power / 100)
+      * (options.powerScale == null ? 1 : options.powerScale) * charge;
     const base = statValue * power;
 
     // --- ステップ2 + 3(共通バフ): 系統タグ倍率 ---
@@ -345,7 +353,8 @@
     // 「一点集中」が全部乗せなのに対し、こちらは的を絞るぶん1段あたりが大きい。
     const critRate = (skill.crit_rate || 0) + (attacker.critRate || 0)
       + ((mods.crit && mods.crit[attackElement]) || 0)
-      + ((mods.tagCrit && mods.tagCrit[skill.damage_type]) || 0);
+      + ((mods.tagCrit && mods.tagCrit[skill.damage_type]) || 0)
+      + (options.chargeCrit || 0);   // 溜め (§9.1)
     const crit = options.crit == null ? RPG.rng.chance(critRate) : options.crit;
     const critical = crit ? CRIT_MULTIPLIER + (attacker.critDamage || 0) : 1;
     // 「会心貫通」— 会心したときだけ防御を抜く (§5.7)。
@@ -421,7 +430,9 @@
     // 上限突破率を積んでも押し広げられるだけだった。
     // 壁そのものを無い扱いにできる手を1つだけ置くことで、
     // 破壊者を選ぶ理由が「数値が少し大きい」から「規則が違う」に変わる。
-    const capped = options.ignoreCap ? raw : applyCap(raw, attacker.capBreak || 0);
+    const capped = options.ignoreCap
+      ? raw
+      : applyCap(raw, (attacker.capBreak || 0) + (options.chargeCapBreak || 0));
 
     return {
       // 軽減が100%に達したときだけ0を許し、それ以外は最低1ダメージを保証する

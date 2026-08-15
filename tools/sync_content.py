@@ -1,13 +1,22 @@
 # -*- coding: utf-8 -*-
-"""content/ に置いた拡張ファイルを、各HTMLの読み込みリストへ反映する (§18)。
+"""script タグの並びを、フォルダの中身から作り直す (§18)。
+
+扱うのは2つ:
+  ・content/*.js      拡張コンテンツ
+  ・src/plugins/*.js  スキルプラグイン
 
 ── なぜ要るのか ──
 拡張を足すたびに index.html と3つのテストページへ script タグを手で書き足すと、
 書き忘れが必ず起きる。しかも症状は「拡張が反映されない」ではなく
 **「本編では動くのにテストだけ落ちる」** のような、原因の見えにくい形で出る。
 
-このツールは content/*.js を並べ直して、4つのHTMLの決まった区間を書き換える。
+このツールはフォルダを見て、4つのHTMLの決まった区間を書き換える。
 書き換えるのは印で挟んだ区間だけで、他の行には触らない。
+
+プラグインも見るのは、実際にずれていたため。
+full_burst が index.html と test/index.html にはあるのに
+test/balance.html と test/builds.html には無い、という状態が残っていた。
+その2ページでは full_burst を使う技が黙って不発になる。
 
 使い方:
     python tools/sync_content.py            # 差分を見るだけ
@@ -41,6 +50,10 @@ END = '<!-- /拡張コンテンツ -->'
 SEAL_BEGIN = '<!-- 拡張コンテンツの締め (§18) — tools/sync_content.py が書き換える -->'
 SEAL_END = '<!-- /拡張コンテンツの締め -->'
 
+PLUGIN_BEGIN = '<!-- スキルプラグイン (§9.1) — tools/sync_content.py が書き換える。手で編集しない -->'
+PLUGIN_END = '<!-- /スキルプラグイン -->'
+PLUGINS = os.path.join(ROOT, 'src', 'plugins')
+
 
 def read(path):
     with io.open(path, encoding='utf-8') as f:
@@ -59,6 +72,36 @@ def content_files():
     names = [n for n in os.listdir(CONTENT)
              if n.endswith('.js') and not n.startswith('_')]
     return sorted(names)
+
+
+def plugin_files():
+    """src/plugins/*.js を名前順に返す。"""
+    if not os.path.isdir(PLUGINS):
+        return []
+    return sorted(n for n in os.listdir(PLUGINS) if n.endswith('.js'))
+
+
+def build_plugins(prefix, names):
+    lines = [PLUGIN_BEGIN]
+    for n in names:
+        lines.append('<script src="%ssrc/plugins/%s"></script>' % (prefix, n))
+    lines.append(PLUGIN_END)
+    return '\n'.join(lines)
+
+
+def locate_plugins(text):
+    """プラグインの区間。無ければ既存の並びを丸ごと置き換える。"""
+    b = text.find(PLUGIN_BEGIN)
+    if b >= 0:
+        e = text.find(PLUGIN_END, b)
+        if e >= 0:
+            return ('replace', b, e + len(PLUGIN_END))
+
+    hits = list(re.finditer(
+        r'^<script src="(?:\.\./)?src/plugins/[^"]+\.js"></script>$', text, re.MULTILINE))
+    if not hits:
+        return (None, -1, -1)
+    return ('replace', hits[0].start(), hits[-1].end())
 
 
 def build_block(prefix, names):
@@ -139,7 +182,7 @@ def locate_seal(text):
     return ('insert', last.end(), last.end())
 
 
-def sync(page, prefix, names, apply_changes):
+def sync(page, prefix, names, plugin_names, apply_changes):
     path = os.path.join(ROOT, page)
     if not os.path.exists(path):
         return '見つからない: %s' % page
@@ -161,6 +204,11 @@ def sync(page, prefix, names, apply_changes):
     text = (text[:sstart] + seal + text[send:]) if smode == 'replace' \
         else (text[:sstart] + '\n\n' + seal + text[send:])
 
+    pmode, pstart, pend = locate_plugins(text)
+    if pmode is None:
+        return 'プラグインの読み込み行が見つからない: %s' % page
+    text = text[:pstart] + build_plugins(prefix, plugin_names) + text[pend:]
+
     if text == original:
         return '変更なし: %s' % page
     if apply_changes:
@@ -176,6 +224,9 @@ def main(argv):
         os.makedirs(CONTENT)
         print('content/ を作りました。ここに拡張ファイルを置いてください。')
 
+    plugin_names = plugin_files()
+    print('スキルプラグイン %d 件' % len(plugin_names))
+
     names = content_files()
     if names:
         print('拡張ファイル %d 件:' % len(names))
@@ -188,7 +239,7 @@ def main(argv):
     print()
     changed = False
     for page, prefix in PAGES:
-        line = sync(page, prefix, names, apply_changes)
+        line = sync(page, prefix, names, plugin_names, apply_changes)
         print(' ', line)
         if line.startswith('要更新') or line.startswith('更新'):
             changed = True

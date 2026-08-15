@@ -1019,9 +1019,24 @@
       forcedCrit = true;
     }
 
+    // 溜め (§9.1)。次の攻撃1回だけに乗せて、その場で使い切る。
+    //
+    // 使い切りにするのは、乗ったまま残ると「溜めてから小技を連打する」のが
+    // 最善手になり、溜める緊張感が消えるため。
+    // 反撃や跳弾のような「おまけの一撃」には乗せない——
+    // 1回の溜めが何発にも化けて、倍率が読めなくなる。
+    let charge = null;
+    if (attacker.charge && skill && skill.power > 0 && !opts.isCounter) {
+      charge = attacker.charge;
+      attacker.charge = null;
+      pushLog(battle, `${attacker.name} の溜めが解き放たれた`, 'buff');
+    }
+
     // 受ける側の状況で決まる軽減 (§5.7)。装備の恒常軽減とは別枠で足す。
     const attackerDefender = RPG.units.toDefender(defender);
-    attackerDefender.reduction = Math.min(1, attackerDefender.reduction + situationalGuard(battle, defender));
+    attackerDefender.reduction = Math.min(1,
+      attackerDefender.reduction + situationalGuard(battle, defender)
+      + ((defender.stance && defender.stance.reduction) || 0));
 
     const result = RPG.damage.calc({
       attacker: RPG.units.toAttacker(attacker),
@@ -1050,6 +1065,10 @@
           ? ((attacker.situational && attacker.situational.highPowerBoost) || 0) : 0,
         // 破壊者の「終焉の一撃」だけがダメージ上限の外に出る (§12)。
         ignoreCap: !!(skill && skill.ignoreCap),
+        // 溜め (§9.1)。威力・会心・上限突破の3つに同時に効く。
+        chargeRatio: charge ? (charge.ratio || 1) : 1,
+        chargeCrit: charge ? (charge.critRate || 0) : 0,
+        chargeCapBreak: charge ? (charge.capBreak || 0) : 0,
       },
     });
 
@@ -1433,6 +1452,13 @@
     }
 
     // --- パッシブ: 反撃（反撃からは反撃しない）---
+    // 迎撃の構え (§9.1)。確率ではなく必ず返す。
+    // 構えている間だけなので、パッシブの反撃と食い合わない。
+    if (!opts.isCounter && defender.stance && defender.alive && attacker.alive
+        && result.damage > 0) {
+      counterAttack(battle, defender, attacker, defender.stance.skillId);
+    }
+
     const counterRate = (defender.passives && defender.passives.counterRate) || 0;
     if (!opts.isCounter && counterRate > 0 && defender.alive && attacker.alive && result.damage > 0) {
       if (RPG.rng.chance(counterRate)) {
@@ -1449,11 +1475,15 @@
    * @param {any} defender 反撃する側
    * @param {any} attacker 反撃される側
    */
-  function counterAttack(battle, defender, attacker) {
-    const skillId = defender.skills.find((/** @type {string} */ id) => {
-      const s = RPG.data.skills[id];
-      return s.power > 0 && s.plugin !== 'heal';
-    });
+  function counterAttack(battle, defender, attacker, forcedSkillId) {
+    // 構えが技を名指ししていればそれを使う (§9.1)。
+    // 指定が無ければ、持っている中から殴れるものを拾う（従来どおり）。
+    const skillId = (forcedSkillId && RPG.data.skills[forcedSkillId])
+      ? forcedSkillId
+      : defender.skills.find((/** @type {string} */ id) => {
+        const s = RPG.data.skills[id];
+        return s && s.power > 0 && s.plugin !== 'heal';
+      });
     if (!skillId) return;
 
     const power = (defender.passives && defender.passives.counterPower) || 0.6;
@@ -1999,6 +2029,14 @@
         unit.defMultiplier = 1;
       }
       if (unit.defIgnoredTurns > 0) unit.defIgnoredTurns--;
+      // 迎撃の構えも時間で解ける (§9.1)
+      if (unit.stance) {
+        unit.stance.turns--;
+        if (unit.stance.turns <= 0) {
+          unit.stance = null;
+          pushLog(battle, `${unit.name} は構えを解いた`, 'sub');
+        }
+      }
     }
 
     // 残響セットの予約を進める (§7.7)。ラウンドの終わりに炸裂させる。

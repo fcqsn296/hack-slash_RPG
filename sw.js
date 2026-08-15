@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v40';
+const CACHE_VERSION = 'v41';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -63,6 +63,7 @@ const PRECACHE = [
   './data/arena.js',
   './data/art.js',
   './src/core/content.js',
+  './content/heroines_pack.js',
   './src/core/tree.js',
   './src/core/klass.js',
   './src/core/units.js',
@@ -75,22 +76,28 @@ const PRECACHE = [
   './src/core/gacha.js',
   './src/core/quest.js',
   './src/core/codex.js',
-  './src/plugins/multi_hit.js',
+  './src/plugins/all_enemies.js',
+  './src/plugins/barrier.js',
+  './src/plugins/buffs.js',
+  './src/plugins/chain_burst.js',
+  './src/plugins/charge_strike.js',
+  './src/plugins/combo_finish.js',
+  './src/plugins/counter_stance.js',
   './src/plugins/def_ignore.js',
-  './src/plugins/poison.js',
   './src/plugins/detonate.js',
+  './src/plugins/full_burst.js',
+  './src/plugins/heal.js',
+  './src/plugins/hp_cost.js',
+  './src/plugins/lifesteal_hit.js',
+  './src/plugins/mass_extra.js',
+  './src/plugins/mass_revive.js',
+  './src/plugins/multi_debuff.js',
+  './src/plugins/multi_hit.js',
+  './src/plugins/pandemic.js',
+  './src/plugins/poison.js',
+  './src/plugins/reduction_buff.js',
   './src/plugins/status.js',
   './src/plugins/vengeance.js',
-  './src/plugins/mass_revive.js',
-  './src/plugins/mass_extra.js',
-  './src/plugins/buffs.js',
-  './src/plugins/heal.js',
-  './src/plugins/lifesteal_hit.js',
-  './src/plugins/reduction_buff.js',
-  './src/plugins/multi_debuff.js',
-  './src/plugins/hp_cost.js',
-  './src/plugins/all_enemies.js',
-  './src/plugins/full_burst.js',
   './src/core/battle.js',
   './src/core/autoplay.js',
   './src/core/autoequip.js',

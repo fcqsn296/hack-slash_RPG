@@ -322,6 +322,12 @@
       // クラス技のクールタイム {技ID: 次に使えるラウンド} と、配られた追加行動 (§12)
       cooldowns: {},
       grantedExtra: false,
+      // 溜め (§9.1 charge_strike)。次の攻撃1回だけに乗る。
+      //   { ratio, critRate, capBreak } を持つか null
+      charge: null,
+      // 迎撃の構え (§9.1 counter_stance)。被弾するたびに自動で反撃する。
+      //   { turns, reduction, skillId } を持つか null
+      stance: null,
       // 戦闘中に積まれる一時効果
       buffTags: [],
       buffUnique: [],
