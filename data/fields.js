@@ -68,7 +68,11 @@ RPG.data.fields = {
     name: '創世の残響', rec_level: 150, enemy_lv: 170, size: [2, 3],
     pool: ['em_first_flame', 'em_null_weaver', 'em_world_root'],
     boss: 'bs_genesis_echo',
-    gold_mult: 0.26, exp_mult: 0.42, postGacha: true,
+    // 主人公を無属性にしたら (§19)、闇の弱点が消えて灰燼の果てが速く終わるようになり、
+    // 1ラウンドあたりの収益で灰燼(1,775)が創世(1,751)を追い越した。
+    // 1.4%の僅差だが2回測って同じ値なので、乱数の揺れではなく実際の逆転。
+    // 「上位フィールドほど1ラウンドの実入りが良い」を保つために上げる。
+    gold_mult: 0.28, exp_mult: 0.42, postGacha: true,
     bg: ['#1b2338', '#07090f'],
     desc: '世界が始まった場所の余韻。ここまで来ると、強化と厳選を詰めていなければ削りきれない。',
   },
