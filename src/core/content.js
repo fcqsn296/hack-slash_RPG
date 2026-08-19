@@ -66,6 +66,14 @@
       required: ['name', 'tier', 'cost', 'maxLevel', 'effects', 'desc'],
       refs: {},
     },
+    fields: {
+      target: 'fields', idPrefix: 'fl_',
+      required: ['name', 'rec_level', 'enemy_lv', 'size', 'pool', 'boss',
+        'gold_mult', 'exp_mult', 'desc'],
+      // 敵を置く場所なので、置く敵が実在するかを必ず見る。
+      // ここが抜けると「入ったのに戦闘が始まらないフィールド」ができる。
+      refs: { pool: 'enemies', boss: 'enemies' },
+    },
   };
 
   /** 読み込まれた拡張。{ pack, kind, id } の記録も兼ねる。 */
@@ -158,6 +166,26 @@
       }
     }
 
+    // フィールド固有の検査。
+    if (kind === 'fields') {
+      const size = entry.size;
+      if (!Array.isArray(size) || size.length !== 2
+          || !(size[0] >= 1) || !(size[1] >= size[0])) {
+        out.push(`${where}: size は [最小, 最大] の2要素で、1以上・最小<=最大にする`);
+      }
+      if (Array.isArray(entry.pool) && entry.pool.length === 0) {
+        out.push(`${where}: pool が空。通常ウェーブに出す敵が1体も無い`);
+      }
+      // 敵レベルが推奨レベルから極端に離れていると、勝てないか手応えが無いかになる。
+      // 幅は広めに取ってあり、止めたいのは桁を間違えた場合だけ。
+      if (entry.rec_level > 0 && entry.enemy_lv > 0) {
+        const ratio = entry.enemy_lv / entry.rec_level;
+        if (ratio < 0.5 || ratio > 3) {
+          out.push(`${where}: enemy_lv ${entry.enemy_lv} が rec_level ${entry.rec_level} と釣り合わない`);
+        }
+      }
+    }
+
     // 属性。綴りを間違えると相性表に載らず、常に等倍になる。
     if (entry.element && RPG.damage.ELEMENT_LABEL
         && !(entry.element in RPG.damage.ELEMENT_LABEL)) {
@@ -202,7 +230,7 @@
     // 検査に使うID集合。コアにあるものから始めて、拡張ぶんを足していく。
     /** @type {Record<string, Set<string>>} */
     const known = {};
-    const catalogs = ['skills', 'characters', 'enemies', 'uniqueEquips', 'equipBases'];
+    const catalogs = ['skills', 'characters', 'enemies', 'uniqueEquips', 'equipBases', 'fields'];
     for (const c of catalogs) known[c] = new Set(Object.keys(RPG.data[c] || {}));
     known.skillTree = new Set((RPG.data.skillTree || []).map((/** @type {any} */ n) => n.id));
 

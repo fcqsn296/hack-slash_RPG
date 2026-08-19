@@ -261,20 +261,43 @@
   }
 
   // ---------- 3. 収益効率 ----------
+
+  /**
+   * 表に出すフィールド名。拡張 (§18) のものには印を付ける。
+   * 印が無いと、判定が落ちたときに **コアの調整ミスと区別が付かない**。
+   */
+  function fieldLabel(fieldId) {
+    var f = RPG.data.fields[fieldId];
+    var pack = RPG.content && RPG.content.ownerOf ? RPG.content.ownerOf(fieldId) : null;
+    return pack ? f.name + '（拡張: ' + pack + '）' : f.name;
+  }
+
   function runIncome(rows) {
     var atRec = rows.filter(function (r) { return r.level === RPG.data.fields[r.fieldId].rec_level; });
     table(document.getElementById('income'),
       ['フィールド', '推奨Lv', 'ゴールド倍率', '1周のG', '1ラウンドのG', '1周のEXP', '宝箱/周', 'ガチャ1回に必要な周回数'],
-      atRec.map(function (r) {
+      atRec.slice().sort(function (a, b) {
+        return RPG.data.fields[a.fieldId].rec_level - RPG.data.fields[b.fieldId].rec_level;
+      }).map(function (r) {
         var f = RPG.data.fields[r.fieldId];
         return [
-          f.name, 'Lv' + f.rec_level, '×' + f.gold_mult,
+          fieldLabel(r.fieldId), 'Lv' + f.rec_level, '×' + f.gold_mult,
           num(r.gold), r.goldPerRound.toFixed(0), num(r.exp), r.boxes.toFixed(1),
           (RPG.data.gacha.cost / Math.max(1, r.gold)).toFixed(1) + '周',
         ];
       }));
 
-    var increasing = atRec.every(function (r, i) { return i === 0 || r.goldPerRound > atRec[i - 1].goldPerRound; });
+    // ── 推奨レベル順で見ること ──
+    // 以前は宣言順で隣どうしを比べていた。コアだけなら宣言順＝推奨レベル順なので
+    // 気付かなかったが、拡張フィールド (§18) は末尾に足されるので、
+    // 低レベルの狩場を1つ足しただけで落ちるようになる。
+    // 「進む動機がある」は進行順の話なので、推奨レベルで並べ直してから判定する。
+    var byLevel = atRec.slice().sort(function (a, b) {
+      return RPG.data.fields[a.fieldId].rec_level - RPG.data.fields[b.fieldId].rec_level;
+    });
+    var increasing = byLevel.every(function (r, i) {
+      return i === 0 || r.goldPerRound > byLevel[i - 1].goldPerRound;
+    });
     verdict(document.getElementById('income-verdict'), [
       { ok: increasing, text: '上位フィールドほど1ラウンドあたりの収益が高い — 進む動機がある' },
       { ok: atRec[0].gold > 0 && RPG.data.gacha.cost / atRec[0].gold <= 30,
@@ -308,13 +331,15 @@
     table(document.getElementById('econ'),
       ['フィールド', '推奨Lv', '勝率', '直接G', '宝箱G', '合計G', '直接の比率',
        '宝箱の内訳', 'EXP(1人)', '必要EXP', '1レベルに何周', 'ガチャ何回/レベル'],
-      rows.map(function (r) {
+      rows.slice().sort(function (a, b) {
+        return RPG.data.fields[a.fieldId].rec_level - RPG.data.fields[b.fieldId].rec_level;
+      }).map(function (r) {
         // 直接ドロップが総収入の半分を超えていたら「拾って売る」動機が薄い
         var shareCls = r.directShare <= 0.45 ? 'good' : r.directShare <= 0.6 ? 'warn' : 'bad';
         var rplCls = r.runsPerLevel <= 8 ? 'good' : r.runsPerLevel <= 14 ? 'warn' : 'bad';
         var pplCls = r.pullsPerLevel <= 12 ? 'good' : r.pullsPerLevel <= 25 ? 'warn' : 'bad';
         return [
-          r.name, 'Lv' + r.level, pct(r.winRate),
+          fieldLabel(r.fieldId), 'Lv' + r.level, pct(r.winRate),
           num(r.directGold), num(r.boxGold), num(r.totalGold),
           '<span class="' + shareCls + '">' + pct(r.directShare) + '</span>',
           r.boxDetail || '—',
@@ -334,17 +359,35 @@
     var lateEra = rows.filter(function (r) { return RPG.data.fields[r.fieldId].postGacha; });
     var worstEraPpl = Math.max.apply(null, gachaEra.map(function (r) { return r.pullsPerLevel; }));
 
+    // 単調性は必ず推奨レベル順で見る。宣言順だと、拡張フィールド (§18) を
+    // 末尾に足したときに、内容と関係なく落ちる。
+    function byRecLevel(list) {
+      return list.slice().sort(function (a, b) {
+        return RPG.data.fields[a.fieldId].rec_level - RPG.data.fields[b.fieldId].rec_level;
+      });
+    }
+    // どのフィールドが最悪値だったかを名前で出す。
+    // 数字だけだと、落ちたときにどこを直せばよいのか分からない。
+    function worstOf(list, key) {
+      var w = list.reduce(function (a, b) { return b[key] > a[key] ? b : a; }, list[0]);
+      return w ? fieldLabel(w.fieldId) : '—';
+    }
+
+    var lateSorted = byRecLevel(lateEra);
+    var rowsSorted = byRecLevel(rows);
+
     verdict(document.getElementById('econ-verdict'), [
       { ok: rows.every(function (r) { return r.runsPerLevel <= 14; }),
-        text: '推奨レベルなら 14周以内で1レベル上がる（最悪 ' + worstRpl.toFixed(1) + '周）— ' +
-          'オートに頼らなくてもレベルが進む' },
+        text: '推奨レベルなら 14周以内で1レベル上がる（最悪 ' + worstRpl.toFixed(1) + '周 / ' +
+          worstOf(rows, 'runsPerLevel') + '）— オートに頼らなくてもレベルが進む' },
       { ok: rows.every(function (r) { return r.runsPerLevel >= 2; }),
         text: 'とはいえ 2周未満で上がってしまうフィールドは無い — 育成が一瞬で終わらない' },
       { ok: gachaEra.every(function (r) { return r.pullsPerLevel <= 25; }),
         text: 'ガチャを集めている間の狩り場では、1レベルあたり 25回以下（最悪 ' +
-          worstEraPpl.toFixed(1) + '回）— ゴールドが無限に余る状態ではない' },
-      { ok: lateEra.length === 0 || lateEra.every(function (r, i) {
-          return i === 0 || r.totalGold > lateEra[i - 1].totalGold;
+          worstEraPpl.toFixed(1) + '回 / ' + worstOf(gachaEra, 'pullsPerLevel') +
+          '）— ゴールドが無限に余る状態ではない' },
+      { ok: lateSorted.length === 0 || lateSorted.every(function (r, i) {
+          return i === 0 || r.totalGold > lateSorted[i - 1].totalGold;
         }),
         text: 'ガチャを引き終えた後の狩り場（' +
           lateEra.map(function (r) { return r.name; }).join('・') +
@@ -352,7 +395,9 @@
       { ok: rows.every(function (r) { return r.directShare <= 0.6; }),
         text: '直接ドロップのゴールドが総収入の6割以下（最悪 ' + pct(worstShare) +
           '）— 主収入は宝箱の鑑定と売却' },
-      { ok: rows.every(function (r, i) { return i === 0 || r.totalGold > rows[i - 1].totalGold; }),
+      { ok: rowsSorted.every(function (r, i) {
+          return i === 0 || r.totalGold > rowsSorted[i - 1].totalGold;
+        }),
         text: '上位フィールドほど1周の総収入が多い' },
     ]);
 

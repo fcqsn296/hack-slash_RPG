@@ -1719,15 +1719,29 @@
 
       // 主人公は男性、他は全員美少女 (§8.1)
       assertTrue('プロンプト: 主人公だけが男性として書かれている',
-        /\b1boy\b/.test(P.characters.ch_hero) &&
-        Object.keys(P.characters).filter((id) => id !== 'ch_hero')
-          .every((id) => !/\b1boy\b/.test(P.characters[id])), '');
+        (function () {
+          // 世界設定の芯になっている不変条件なので、拡張 (§18) も含めて見る。
+          // 拡張は artPrompt を定義の中に直接書くので、そちらも読まないと素通りする。
+          const promptOf = (id) => P.characters[id]
+            || (RPG.data.characters[id] && RPG.data.characters[id].artPrompt) || '';
+          const males = Object.keys(RPG.data.characters)
+            .filter((id) => /\b1boy\b/.test(promptOf(id)));
+          return /\b1boy\b/.test(promptOf('ch_hero'))
+            && males.length === 1 && males[0] === 'ch_hero';
+        })(), '');
       assertTrue('プロンプト: 敵の主語は monster girl',
         /monster girl/.test(P.subject.enemy), P.subject.enemy);
 
       // 全ての敵に個別プロンプトがある（無くても自動合成で動くが、質のために揃えておく）
+      //
+      // 置き場所が2つあることに注意。コアは data/artprompts.js に一覧で持ち、
+      // 拡張 (§18) は定義の中に artPrompt として直接書く
+      // （拡張は data/ を書き換えられないので、そうするしかない）。
+      // 片方しか見ないと、**拡張の敵は必ず未指定として落ちる**。
       {
-        const uncovered = Object.keys(RPG.data.enemies).filter((id) => !P.enemies[id]);
+        const hasPrompt = (/** @type {string} */ id) =>
+          !!P.enemies[id] || !!(RPG.data.enemies[id] && RPG.data.enemies[id].artPrompt);
+        const uncovered = Object.keys(RPG.data.enemies).filter((id) => !hasPrompt(id));
         assertTrue('プロンプト: 全ての敵に個別の指定がある',
           uncovered.length === 0,
           uncovered.length ? uncovered.join('、') + '（自動合成にフォールバックする）'
@@ -5562,6 +5576,83 @@
         else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
         RPG.state.load();
       }
+    }
+
+    // ---------------------------------------------------------------
+    // 拡張からフィールドを足す (§18)
+    //
+    // 「深い場所ほど人型が増える」という設定を決めたのに、
+    // 敵を足しても置く場所を指定できない状態だった。
+    // 場所ごと足せるようにしたぶん、**壊れた場所を通さない**ことが要る。
+    // 入ったのに戦闘が始まらないフィールドは、遊んで初めて分かる種類の事故になる。
+    // ---------------------------------------------------------------
+    {
+      /** 正しいフィールド定義。ここから1項目ずつ壊して試す。 */
+      const sane = () => ({
+        name: '検査用の谷', rec_level: 40, enemy_lv: 44, size: [2, 3],
+        pool: ['em_wisp'], boss: 'bs_mine_tyrant',
+        gold_mult: 0.9, exp_mult: 1.1, desc: '検査用',
+      });
+      const trial = (/** @type {any} */ patch, /** @type {string} */ id) => {
+        RPG.content._reset();
+        RPG.content.add('検査', { fields: { [id || 'fl_t_probe']: Object.assign(sane(), patch) } });
+        return RPG.content.seal();
+      };
+
+      assertTrue('拡張フィールド: 正しい定義は取り込まれる',
+        trial({}).loaded.length === 1, '');
+      assertTrue('拡張フィールド: RPG.data.fields に入る',
+        !!RPG.data.fields.fl_t_probe, '');
+
+      // 置く敵が実在しないと、入ったのに戦闘が始まらない
+      assertTrue('拡張フィールド: 存在しない敵を pool に書くと断る',
+        trial({ pool: ['em_この敵は無い'] }).rejected.length === 1, '');
+      assertTrue('拡張フィールド: 存在しないボスを書くと断る',
+        trial({ boss: 'bs_このボスは無い' }).rejected.length === 1, '');
+
+      // size は [最小, 最大]。逆だと敵の数が決まらない
+      assertTrue('拡張フィールド: size が逆なら断る',
+        trial({ size: [3, 1] }).rejected.length === 1, '');
+      assertTrue('拡張フィールド: pool が空なら断る',
+        trial({ pool: [] }).rejected.length === 1, '');
+
+      // 桁を間違えた敵レベルは、勝てないか手応えが無いかになる
+      assertTrue('拡張フィールド: 敵レベルが推奨と釣り合わなければ断る',
+        trial({ enemy_lv: 400 }).rejected.length === 1, '');
+
+      // 経済の調整つまみが欠けていると、収益の検証が成立しない
+      assertTrue('拡張フィールド: gold_mult が無ければ断る',
+        trial({ gold_mult: undefined }).rejected.length === 1, '');
+
+      assertTrue('拡張フィールド: IDの頭が違えば断る',
+        trial({}, 'bad_id').rejected.length === 1, '');
+
+      RPG.content._reset();
+      delete RPG.data.fields.fl_t_probe;
+    }
+
+    // ---------------------------------------------------------------
+    // 生成プロンプトの置き場所は2つある (§18)
+    //
+    // コアは data/artprompts.js に一覧で持ち、拡張は定義の中に artPrompt を書く
+    // （拡張は data/ を書き換えられないので、そうするしかない）。
+    // 検査が片方しか見ないと、**拡張の敵は必ず未指定として落ちる**。実際に落ちた。
+    // ---------------------------------------------------------------
+    {
+      const packOwned = Object.keys(RPG.data.enemies)
+        .filter((id) => RPG.content.ownerOf(id));
+      const withInline = packOwned.filter((id) => !!RPG.data.enemies[id].artPrompt);
+      assertTrue('プロンプト: 拡張の敵は定義内の artPrompt で指定できる',
+        packOwned.length === 0 || withInline.length === packOwned.length,
+        packOwned.length ? `${withInline.length} / ${packOwned.length} 体` : '拡張の敵なし');
+
+      // 生成ツールが実際にそれを読むこと（tools/novelai_gen.py と同じ優先順位）。
+      // ここがずれると「テストは通るのに生成では使われない」が起きる。
+      const chars = Object.keys(RPG.data.characters).filter((id) => RPG.content.ownerOf(id));
+      assertTrue('プロンプト: 拡張のキャラも artPrompt を持てる',
+        chars.length === 0 || chars.every((id) => typeof RPG.data.characters[id].artPrompt === 'string'
+          || RPG.data.characters[id].artPrompt === undefined),
+        `${chars.length} 人`);
     }
 
     return results;

@@ -480,7 +480,12 @@
             W.button('ガチャへ', () => { activeTab = 'gacha'; render(root); }, { variant: 'primary' })
           )
         : null,
-      h('div.field-grid', Object.keys(RPG.data.fields).map((id) => {
+      // 推奨レベル順に並べる (§18)。
+      // コアだけなら宣言順＝推奨レベル順なので今まで気付かなかったが、
+      // 拡張フィールドは末尾に足されるので、Lv40の狩場が Lv200 の後ろに出る。
+      // 一覧は進行の道しるべなので、レベルで並べないと選ぶ順が読めない。
+      h('div.field-grid', Object.keys(RPG.data.fields).sort((a, b) =>
+        RPG.data.fields[a].rec_level - RPG.data.fields[b].rec_level).map((id) => {
         const f = RPG.data.fields[id];
         const selected = selectedField === id;
         return h('button.field-card' + (selected ? '.is-selected' : ''), {
