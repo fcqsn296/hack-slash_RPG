@@ -5655,6 +5655,75 @@
         `${chars.length} 人`);
     }
 
+    // ---------------------------------------------------------------
+    // 行き先が消える (§18)
+    //
+    // 派遣は実時間で進むので、**その間に拡張コンテンツが外される**ことがある。
+    // 開始時には行き先を確かめているが、受け取り時には見ていなかった。
+    // そのまま戦闘を始めると undefined を触って落ち、例外で collect が中断し、
+    // **派遣が回収不能なまま残り続ける**。実際に再現した。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const s = RPG.state.get();
+        s.named = true;
+        RPG.state.addGold(300000);
+        s.characters.ch_rizel = RPG.state.createCharacter('ch_rizel');
+        RPG.state.tryJoinParty('ch_rizel');
+        for (const id of Object.keys(s.characters)) s.characters[id].level = 60;
+
+        // 拡張フィールドがある体で派遣を出す
+        RPG.data.fields.fl_t_gone = {
+          name: '消える谷', rec_level: 50, enemy_lv: 55, size: [2, 3],
+          pool: ['em_wisp'], boss: 'bs_mine_tyrant',
+          gold_mult: 0.9, exp_mult: 1.0, desc: '検査用',
+        };
+        const started = RPG.dispatch.start({
+          fieldId: 'fl_t_gone', waves: 3, bossFinale: true, planId: 'short',
+        });
+        assertTrue('派遣: 拡張フィールドへ送り出せる', started.ok, started.reason || '');
+
+        // 名前を控えていないと、消えたときに利用者へ何も伝えられない
+        assertTrue('派遣: 行き先の名前を控えている',
+          RPG.state.get().dispatch.fieldName === '消える谷',
+          String(RPG.state.get().dispatch.fieldName));
+
+        // 拡張が外された状況を作り、帰還時刻を過去にする
+        delete RPG.data.fields.fl_t_gone;
+        RPG.state.get().dispatch.endsAt = Date.now() - 1000;
+
+        let threw = null;
+        let res = null;
+        try { res = RPG.dispatch.collect(); } catch (e) { threw = e.message; }
+
+        assertTrue('派遣: 行き先が消えても例外にならない', threw === null, String(threw));
+        assertTrue('派遣: 行き先が消えたら断る', !!res && res.ok === false, JSON.stringify(res));
+        assertTrue('派遣: 理由に行き先の名前が出る',
+          !!res && /消える谷/.test(res.reason || ''), (res && res.reason) || '');
+
+        // ここが要点。解除しないと、二度と派遣できないまま詰む。
+        assertTrue('派遣: 隊は呼び戻される（派遣が残らない）',
+          RPG.state.get().dispatch === null, JSON.stringify(RPG.state.get().dispatch));
+        assertTrue('派遣: そのあと再び派遣できる',
+          RPG.dispatch.start({ fieldId: 'fl_ruins', waves: 1, bossFinale: false, planId: 'short' }).ok, '');
+
+        // 戦闘の入口でも、原因の見えない例外にしない
+        let msg = '';
+        try {
+          RPG.battle.start({ fieldId: 'fl_この場所は無い', waves: 1, party: [] });
+        } catch (e) { msg = e.message; }
+        assertTrue('戦闘: 無いフィールドは名指しで止める',
+          /fl_この場所は無い/.test(msg), msg || '例外が出なかった');
+      } finally {
+        delete RPG.data.fields.fl_t_gone;
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
     return results;
   }
 

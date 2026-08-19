@@ -81,6 +81,9 @@
     const p = plan(cfg.planId);
     s.dispatch = {
       fieldId: cfg.fieldId,
+      // 行き先が消えたときの表示用に名前も控える (§18)。
+      // IDだけ残っても、利用者には何のことか分からない。
+      fieldName: RPG.data.fields[cfg.fieldId].name,
       waves: cfg.waves,
       bossFinale: cfg.bossFinale !== false,
       planId: p.id,
@@ -161,6 +164,25 @@
         formatDuration(d.endsAt - Date.now()) + '）' };
     }
     if (s.party.length === 0) return { ok: false, reason: 'パーティが空です' };
+
+    // 送り出した先が無くなっていることがある (§18)。
+    //
+    // 開始時には確かめているが、派遣は実時間で進むので、
+    // **その間に拡張コンテンツが外される**と行き先が消える。
+    // そのまま戦闘を始めると undefined を触って落ち、
+    // 例外で collect が中断するので **派遣が回収不能なまま残り続ける**。
+    //
+    // 隊は帰す。報酬は出さない——行けなかったのだから。
+    if (!RPG.data.fields[d.fieldId]) {
+      const lostName = d.fieldName || d.fieldId;
+      s.dispatch = null;
+      RPG.state.persist();
+      return {
+        ok: false,
+        reason: `派遣先「${lostName}」が見つからないため、隊を呼び戻しました`
+          + '（拡張コンテンツが外された可能性があります）',
+      };
+    }
 
     const runs = runsFor(d.endsAt - d.startedAt);
     let wins = 0;

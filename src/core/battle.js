@@ -702,6 +702,16 @@
    */
   function start(config) {
     const field = RPG.data.fields[config.fieldId];
+    // 無いフィールドで呼ばれたら、ここで名指しして止める (§18)。
+    //
+    // 拡張コンテンツが外れると、保存されていたフィールドIDが宙に浮く。
+    // そのまま進むと、ずっと先の `field.scaling` を読むところで
+    // 「undefined の scaling が読めない」という、原因の見えない例外になる。
+    // 落ちる場所と原因の場所を近づけておく。
+    if (!field) {
+      throw new Error(`フィールド ${config.fieldId} が見つかりません`
+        + '（拡張コンテンツが外された可能性があります）');
+    }
     const quest = config.quest || null;
     const rules = (quest && quest.rules) || {};
 
