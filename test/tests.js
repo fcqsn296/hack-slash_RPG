@@ -4479,11 +4479,17 @@
         'elementAdapt', 'firstRoundPower', 'reviveHp',
       ];
 
+      // **setEffects は最後の砦にしない。**
+      // ここを覗くと、どこにも配線されていないキーでも「値がある」ことに
+      // なってしまう。実際 debuffAmp はそれで長く素通りしていた。
+      // setEffects を読んでよいのは、battle.js が本当にそこから読むキーだけ。
       /** @param {any} x @param {string} k */
       const read = (x, k) => {
         if (x.passives && x.passives[k] != null) return x.passives[k];
         if (x.situational && x.situational[k] != null) return x.situational[k];
-        if (x.setEffects && x.setEffects[k] != null) return x.setEffects[k];
+        if (READ_FROM_SET.includes(k) && x.setEffects && x.setEffects[k] != null) {
+          return x.setEffects[k];
+        }
         if (x[k] != null) return x[k];
         return 0;
       };
@@ -5718,6 +5724,133 @@
           /fl_この場所は無い/.test(msg), msg || '例外が出なかった');
       } finally {
         delete RPG.data.fields.fl_t_gone;
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // ユニーク効果キーの一覧に抜けがないこと (§7.8 / §18)
+    //
+    // この一覧は拡張コンテンツの検査に使われる。抜けがあると
+    // **正しいキーを書いた拡張が弾かれる**（逆向きの事故）。
+    //
+    // 実際に3つ抜けていた（wrathRatio / elementAdapt / comboLock）。
+    // コアのユニークが使っていて、実装も読んでいるのに、一覧だけが古かった。
+    // コアが実際に使っているキーは、必ず一覧に載っていること。
+    // ---------------------------------------------------------------
+    {
+      const known = RPG.units.UNIQUE_EFFECT_KEYS;
+      const used = new Set();
+      for (const id of Object.keys(RPG.data.uniqueEquips)) {
+        for (const k of Object.keys(RPG.data.uniqueEquips[id].effects || {})) used.add(k);
+      }
+      // 装備セット (§7.7) も同じ読み口を通るので、そちらも見る
+      for (const id of Object.keys(RPG.data.equipSets || {})) {
+        for (const tier of RPG.data.equipSets[id].tiers || []) {
+          for (const k of Object.keys(tier.effects || {})) used.add(k);
+        }
+      }
+      const missing = [...used].filter((k) => known.indexOf(k) < 0);
+      assertTrue('ユニーク効果: コアが使っているキーは全て一覧にある',
+        missing.length === 0, missing.join(', '));
+    }
+
+    // ---------------------------------------------------------------
+    // ユニークの効果キーが、本当に届いているか (§7.8)
+    //
+    // 一覧に載せるだけでは足りない。値の置き場所が3つに分かれていて、
+    // 間違えると **一覧にはあるのに効かない** という、一番たちの悪い状態になる。
+    //
+    //   passives    battle.js が unit.passives.x を読むもの
+    //   situational damage.js が attacker.x を読むもの（toAttacker が situational から拾う）
+    //   素の値      critDamage / execute など、ユニットに直接持たせるもの
+    //
+    // 実際に debuffAmp と critPierce を passives に置いて、効かないまま通した。
+    // ここでは「装備すると値が動く」ことを1キーずつ確かめる。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const s = RPG.state.get();
+        s.named = true;
+        const c = s.characters.ch_hero;
+        c.level = 100;
+
+        /** 効果だけを持つ架空のユニークを着けて、値の変化を見る */
+        const withEffect = (/** @type {any} */ effects) => {
+          c.equipped = { weapon: [], armor: [], accessory: [] };
+          s.inventory = [];
+          const base = RPG.data.equipBases.eq_amulet;
+          const item = {
+            uid: 970001, base: 'eq_amulet', name: '検査用', slot: base.slot,
+            tag: base.tag, rarity: 'LEGEND', stats: {}, tagBonuses: [],
+            critRate: 0, capBreak: 0, reduction: 0, affixLines: [],
+            boxId: 'box_astral', setId: null, uniqueId: 'uq_test',
+            uniqueEffects: effects, locked: true,
+          };
+          s.inventory.push(item);
+          c.equipped[base.slot] = [item.uid];
+          const unit = RPG.units.buildCharacterUnit(c, s.inventory);
+          return { unit, attacker: RPG.units.toAttacker(unit) };
+        };
+
+        // キーごとに「どこを見れば効いたと分かるか」を書いておく。
+        // 読み取り方まで書いてあるので、置き場所を変えたらここも直すことになる。
+        const PROBES = {
+          critDamage: (/** @type {any} */ r) => r.attacker.critDamage,
+          critPierce: (r) => r.attacker.critPierce,
+          execute: (r) => r.attacker.execute,
+          bossSlayer: (r) => r.attacker.bossSlayer,
+          debuffAmp: (r) => r.attacker.debuffAmp,
+          extraActionRate: (r) => r.unit.passives.extraActionRate,
+          ambush: (r) => r.unit.passives.ambush,
+          healPower: (r) => r.unit.passives.healPower,
+          overhealShield: (r) => r.unit.passives.overhealShield,
+          shieldRegen: (r) => r.unit.passives.shieldRegen,
+          healOnKill: (r) => r.unit.passives.healOnKill,
+          debuffSpread: (r) => r.unit.passives.debuffSpread,
+          chain: (r) => r.unit.passives.chain,
+          chainPower: (r) => r.unit.passives.chainPower,
+          statusPower: (r) => r.unit.passives.statusPower,
+          doubleHits: (r) => r.unit.passives.doubleHits,
+          hpToDef: (r) => r.unit.stats.def,
+          guardAlly: (r) => r.unit.passives.guardAlly,
+          reflect: (r) => r.unit.passives.reflect,
+          counterRate: (r) => r.unit.passives.counterRate,
+          comboGain: (r) => r.unit.passives.comboGain,
+          comboPower: (r) => r.unit.passives.comboPower,
+          loneFoePower: (r) => r.unit.passives.loneFoePower,
+          soloPower: (r) => r.unit.passives.soloPower,
+          midPowerStatus: (r) => r.unit.passives.midPowerStatus,
+          midPowerCombo: (r) => r.unit.passives.midPowerCombo,
+          debuffDuration: (r) => r.unit.passives.debuffDuration,
+          capBreak: (r) => r.attacker.capBreak,
+        };
+
+        const dead = [];
+        for (const key of Object.keys(PROBES)) {
+          const before = PROBES[key](withEffect({}));
+          const after = PROBES[key](withEffect({ [key]: 0.25 }));
+          if (!(after > before)) dead.push(`${key}（${before} → ${after}）`);
+        }
+
+        assertTrue('ユニーク効果: 一覧のキーが実際に値を動かす',
+          dead.length === 0, dead.join(' / '));
+
+        // 検査できていないキーがどれかを見えるようにしておく。
+        // 全部を機械的に確かめられるわけではない（battle.js が戦闘中に
+        // setEffects から直接読むものは、ここでは届かない）。
+        const unprobed = RPG.units.UNIQUE_EFFECT_KEYS
+          .filter((k) => !(k in PROBES));
+        assertTrue('ユニーク効果: 未検査のキーは battle.js 直読みのものだけ',
+          unprobed.every((k) => RPG.units.BATTLE_KEYS.indexOf(k) >= 0
+            || k === 'elementAdapt' || k === 'reviveHp'
+            || k === 'firstRoundPower' || k === 'highPowerBoost' || k === 'critRate'),
+          unprobed.join(', '));
+      } finally {
         if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
         else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
         RPG.state.load();

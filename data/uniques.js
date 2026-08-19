@@ -78,6 +78,63 @@ RPG.data.uniqueEquips = {
     note: '最大HPの10%をDEFへ／味方をかばう +20%',
   },
 
+  // ── 空いていた軸を埋める5種 (§7.8) ──
+  //
+  // 既存の14種を並べたところ、ユニーク装備が1つも無い軸が4つあった。
+  //   会心・追加行動・支援（回復と障壁）・弱体の広がり
+  // 会心には専用ビルドまであるのに、着ける装備が無い状態だった。
+  // 以下はその穴を埋めるもので、既存と役割が重ならないよう選んである。
+
+  uq_piercing_gaze: {
+    name: '見透かしの眼', base: 'eq_amulet', color: '#ffd76a',
+    desc: '急所だけが見える。狙って当てるのではなく、当たる場所が分かる。',
+    stats: { magi_power: 150, atk: 150 },
+    // 会心の軸。率ではなく「刺さり方」を強くするので、
+    // 率を稼ぐツリーと足し算ではなく掛け算になる。
+    effects: { critDamage: 0.5, critPierce: 0.35 },
+    note: '会心倍率 +0.5 ／ 会心時に防御を35%無視',
+  },
+
+  uq_stolen_moment: {
+    name: '盗まれた刻', base: 'eq_relic_core', color: '#9be8d8',
+    desc: '一拍だけ、世界が待ってくれる。返す当てはない。',
+    stats: { atk: 120, magi_power: 120 },
+    // 手番の軸。行動回数はそのまま総火力なので、率は低めに置いてある。
+    // ambush は1ラウンド目だけなので、確率を高くしても壊れない。
+    effects: { extraActionRate: 0.12, ambush: 0.4 },
+    note: '再行動 12% ／ 1ラウンド目の奇襲 40%',
+  },
+
+  uq_mending_vow: {
+    name: '癒しの誓約', base: 'eq_relic_seal', color: '#8ce8b4',
+    desc: '治すのではなく、壊れる先に置いておく。',
+    stats: { hp: 1200, def: 90 },
+    // 支援の軸。回復を強くするだけだと満タンの相手に無駄になるので、
+    // あふれを障壁に変える枝とセットにして、撃ち先を選ばなくてよくする。
+    effects: { healPower: 0.4, overhealShield: 0.6 },
+    note: '回復量 +40% ／ あふれた回復の60%を障壁に',
+  },
+
+  uq_creeping_bloom: {
+    name: '這い寄る花', base: 'eq_relic_claw', color: '#c58cff',
+    desc: '一輪から始まる。気づいたときには畑になっている。',
+    stats: { magi_power: 180 },
+    // 弱体を「広げて活かす」軸。撒く強さ（statusPower）は既存が持っているので、
+    // こちらは伝染と、弱体中の相手への上乗せに寄せてある。
+    effects: { debuffSpread: 0.35, debuffAmp: 0.25 },
+    note: '弱体が隣へ伝染 35% ／ 弱体中の相手への火力 +25%',
+  },
+
+  uq_giantslayer: {
+    name: '巨躯断ち', base: 'eq_greataxe', color: '#ff8a5c',
+    desc: '大きいものほど、断つ場所が分かりやすい。',
+    stats: { atk: 200 },
+    // 状況の軸。ボス戦だけで効くぶん、数字は大きめに置ける。
+    // execute は相手が削れているほど伸びるので、長期戦のボスと噛み合う。
+    effects: { bossSlayer: 0.35, execute: 0.5 },
+    note: 'ボスへの火力 +35% ／ 相手が削れているほど火力が伸びる',
+  },
+
   uq_myriad_edge: {
     name: '万手の刃', base: 'eq_relic_claw', color: '#8fd8ff',
     desc: '威力の低い技ほど鋭くなる。小技を並べた構成でしか本領を出さない。',

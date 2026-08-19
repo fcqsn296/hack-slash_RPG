@@ -98,15 +98,31 @@
     'comboGain', 'comboPower',           // 弱点コンボを繋ぐ構成 (§10.6)
     'loneFoePower', 'soloPower',         // 単騎・1体相手に寄せる構成
     'reflect', 'counterRate',            // 殴られる前提の構成
+    'extraActionRate', 'ambush',         // 手番を増やす構成 (§5.6)
+    'healPower', 'healOnKill',           // 支える構成 (§5.7)
+    'overhealShield', 'shieldRegen',     // 障壁で耐える構成 (§5.6/§5.8)
+    'debuffSpread',                      // 弱体を広げる構成 (§5.7)
+    'chain', 'chainPower',               // 連鎖で削る構成 (§5.7)
   ];
 
   /** 組み立て時に別枠で処理するキー (§7.8)。passives には流さない。 */
-  const BUILD_KEYS = ['capBreak', 'highPowerBoost', 'firstRoundPower', 'reviveHp'];
+  const BUILD_KEYS = [
+    'capBreak', 'highPowerBoost', 'firstRoundPower', 'reviveHp',
+    // 組み立て時に elementMods へ流す (§5.4)
+    'elementAdapt',
+    // 会心・処刑・ボス特効は passives ではなくユニットの素の値として持つ (§3.2)。
+    // damage.js が attacker.critDamage のように直接読むため、
+    // passives へ流しても効かない。下の「別枠で処理する」ブロックで足している。
+    'critRate', 'critDamage', 'critPierce', 'execute', 'bossSlayer',
+    // debuffAmp も situational 側。passives へ流しても damage.js には届かない。
+    'debuffAmp',
+  ];
 
   /** battle.js が戦闘中に直接読むキー (§7.8)。ここで足すと二重になる。 */
   const BATTLE_KEYS = [
     'lowPowerBoost', 'lowPowerSpread', 'lowPowerRepeat', 'autoLowSkill',
-    'selfPower', 'fallenPower', 'decayPerRound', 'decayFloor', 'wrathRelease',
+    'selfPower', 'fallenPower', 'decayPerRound', 'decayFloor',
+    'wrathRatio', 'wrathRelease', 'comboLock',
   ];
 
   /**
@@ -198,6 +214,24 @@
     }
     // 上限突破は passives ではなく素の値として持っている (§3.2 ステップ8)
     if (setFx.capBreak) capBreak += setFx.capBreak;
+
+    // 会心・処刑・ボス特効も同じで、ユニットの素の値として持つ (§3.2)。
+    // damage.js が attacker.critDamage / attacker.execute を直接読むので、
+    // passives へ流しても届かない。ここで足しておく。
+    if (setFx.critRate) critRate += setFx.critRate;
+    if (setFx.critDamage) tree.critDamage = (tree.critDamage || 0) + setFx.critDamage;
+    // critPierce と debuffAmp は situational 側にある
+    // （toAttacker が unit.situational から読む）
+    if (setFx.critPierce) {
+      situational.critPierce = (situational.critPierce || 0) + setFx.critPierce;
+    }
+    if (setFx.debuffAmp) {
+      situational.debuffAmp = (situational.debuffAmp || 0) + setFx.debuffAmp;
+    }
+    if (setFx.execute) tree.execute = (tree.execute || 0) + setFx.execute;
+    if (setFx.bossSlayer) {
+      situational.bossSlayer = (situational.bossSlayer || 0) + setFx.bossSlayer;
+    }
     if (setFx.highPowerBoost) {
       situational.highPowerBoost = (situational.highPowerBoost || 0) + setFx.highPowerBoost;
     }
