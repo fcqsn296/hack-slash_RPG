@@ -1042,7 +1042,9 @@
         'crit_stack', 'crit_spread', 'crit_execute',
         'counter_power', 'counter_all', 'chain_power',
         'boss_guard', 'full_hp_foe_power', 'wave_power',
-        'damage_share', 'wave_revive'];
+        'damage_share', 'wave_revive',
+        // 新しい軸 (§9.1): 自傷を糧にする / 殴った回数で進む刻印
+        'self_curse_power', 'sigil_burst'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -5812,6 +5814,8 @@
           shieldRegen: (r) => r.unit.passives.shieldRegen,
           healOnKill: (r) => r.unit.passives.healOnKill,
           debuffSpread: (r) => r.unit.passives.debuffSpread,
+          selfCursePower: (r) => r.unit.passives.selfCursePower,
+          sigilBurst: (r) => r.unit.passives.sigilBurst,
           chain: (r) => r.unit.passives.chain,
           chainPower: (r) => r.unit.passives.chainPower,
           statusPower: (r) => r.unit.passives.statusPower,
@@ -5851,6 +5855,200 @@
             || k === 'firstRoundPower' || k === 'highPowerBoost' || k === 'critRate'),
           unprobed.join(', '));
       } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 新しい効果の軸 (§9.1)
+    //
+    // どれも「既存キーの数値違い」ではなく、戦闘の構造として空いていた場所。
+    // 読み口が1本しかないので、配線を間違えると静かに何も起きない。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const st = RPG.state.get();
+        st.named = true;
+        const c = st.characters.ch_hero;
+        c.level = 60;
+
+        const startB = () => RPG.battle.start({
+          fieldId: 'fl_nest', waves: 1, bossFinale: false,
+          party: [RPG.units.buildCharacterUnit(c, [])],
+        });
+        /** 同じ乱数の並びで1発殴り、ダメージだけ取る */
+        const hit = (/** @type {any} */ b, /** @type {any} */ atk, /** @type {any} */ foe, seed) => {
+          RPG.rng.seed(seed);
+          const d = RPG.battle.applyDamage(b, atk, foe, RPG.data.skills.sk_slash,
+            { silent: true }).damage;
+          RPG.rng.seed(null);
+          return d;
+        };
+
+        // --- 標的指定（マーク）---
+        // 他の火力補正と違い、効果は **殴られる側** に乗っている。
+        {
+          const b = startB();
+          const foe = b.enemies[0];
+          const atk = b.party[0];
+          const before = hit(b, atk, foe, 11);
+
+          foe.marked = { side: 'party', value: 0.35, turns: 3, label: '照準' };
+          const after = hit(b, atk, foe, 11);
+          assertNear('マーク: 印を付けた陣営の火力が上がる', after / before, 1.35, 0.02);
+
+          // 敵が付けた印でこちらが得をしてはいけない。
+          // side を見ずに読むと、敵の照準がそのまま自軍の火力になる。
+          foe.marked = { side: 'enemy', value: 0.35, turns: 3, label: '照準' };
+          assertTrue('マーク: 相手陣営の印は自分に乗らない',
+            hit(b, atk, foe, 11) === before, `${before} のまま`);
+
+          // 期限切れの印が残っていても効かないこと
+          foe.marked = { side: 'party', value: 0.35, turns: 0, label: '照準' };
+          assertTrue('マーク: 持続が尽きた印は効かない',
+            hit(b, atk, foe, 11) === before, `${before} のまま`);
+        }
+
+        // --- 刻印 ---
+        // 毒や残響と違い、**時間ではなく回数で進む**。
+        // そして進捗は殴った側に溜まる（敵に積むと戦闘が短すぎて溜まらない）。
+        {
+          const b = startB();
+          const foe = b.enemies[0];
+          const atk = b.party[0];
+          foe.hp = foe.maxHp = 1000000;
+          const step = Math.floor(1000000 * 0.06);
+
+          /** @type {number[]} */
+          const drops = [];
+          for (let i = 0; i < RPG.battle.SIGIL_THRESHOLD * 2; i++) {
+            const hp = foe.hp;
+            RPG.battle.addSigil(b, foe, atk, 0.06);
+            drops.push(hp - foe.hp);
+          }
+          const fired = drops.map((d, i) => (d > 0 ? i + 1 : 0)).filter((n) => n > 0);
+          assertTrue('刻印: 閾値ちょうどで弾ける',
+            fired.join(',') === `${RPG.battle.SIGIL_THRESHOLD},${RPG.battle.SIGIL_THRESHOLD * 2}`,
+            `${fired.join(',') || 'なし'} 発目`);
+          assertNear('刻印: 炸裂は相手の最大HPの割合ぶん',
+            drops[RPG.battle.SIGIL_THRESHOLD - 1], step, step * 0.01);
+
+          // 一度に積みすぎたぶんは切り捨てず、まとめて弾いて余りを残す。
+          // ここを取りこぼすと、多段技で積むほど損をする。
+          foe.hp = foe.maxHp;
+          const before = foe.hp;
+          RPG.battle.addSigil(b, foe, atk, 0.06, RPG.battle.SIGIL_THRESHOLD * 2 + 2);
+          assertNear('刻印: まとめて積んだら2回ぶん弾ける',
+            before - foe.hp, step * 2, step * 0.02);
+          assertTrue('刻印: 余りは次へ持ち越す', atk.sigils === 2, `${atk.sigils} 個`);
+
+          // ここが敵に積む設計との分かれ目。
+          // 相手が入れ替わっても進捗が消えないので、戦闘が短くても溜まりきる。
+          // 直前の相手で2つまで進んでいる。別の相手を殴って残り1つを埋めれば、
+          // その場で弾けるはず。敵に積む設計だと、ここで最初からやり直しになる。
+          const other = b.enemies[1] || b.enemies[0];
+          other.hp = other.maxHp = 1000000;
+          const kept = atk.sigils;
+          const otherBefore = other.hp;
+          RPG.battle.addSigil(b, other, atk, 0.06);
+          assertTrue('刻印: 相手が変わっても進捗を引き継ぐ',
+            kept === RPG.battle.SIGIL_THRESHOLD - 1 && otherBefore - other.hp > 0,
+            `前の相手で${kept}つ → 別の相手への1発で炸裂（${(otherBefore - other.hp).toLocaleString()}）`);
+
+          // 別のキャラの刻印と混ざらないこと。
+          const other2 = b.enemies[0];
+          const stranger = { name: '別人', side: 'party', sigils: 0 };
+          RPG.battle.addSigil(b, other2, stranger, 0.06);
+          assertTrue('刻印: 攻撃者ごとに別々に溜まる', stranger.sigils === 1,
+            `${stranger.sigils} 個`);
+        }
+
+        // --- 手番の前借り ---
+        {
+          const b = startB();
+          const a0 = b.party[0];
+          // 敵は落ちない・こちらも落ちないようにして、手番の動きだけを見る。
+          // ラウンド番号で判定すると、敵フェーズでこちらが倒れたときに
+          // 「手番を失った」のか「戦闘が終わった」のか区別できなくなる。
+          b.enemies.forEach((/** @type {any} */ e) => { e.hp = e.maxHp = 100000000; });
+          a0.hp = a0.maxHp = 100000000;
+
+          RPG.battle.commandSkill(b, 'sk_stolen_tempo', [b.enemies[0]], { auto: true });
+          assertTrue('前借り: 撃った直後に同じキャラの手番が戻る',
+            b.phase === 'command' && b.actorIndex === 0 && b.round === 1,
+            `R${b.round} phase=${b.phase} 手番=${b.actorIndex}`);
+          assertTrue('前借り: 借金が記録される', a0.stunnedRounds === 1,
+            `${a0.stunnedRounds} ラウンド`);
+
+          // 前借りぶんを使う。ここから先、借金を返し終えるまで手番は来ない。
+          const roundAfter = b.round;
+          RPG.battle.commandSkill(b, 'sk_slash', [b.enemies[0]], { auto: true });
+          assertTrue('前借り: 借りたぶんのラウンドは手番が来ない',
+            a0.stunnedRounds === 0 && b.round > roundAfter && !b.finished,
+            `R${roundAfter} → R${b.round} stunned=${a0.stunnedRounds}`);
+          // 借金を返し終えたら、また普通に動ける。
+          assertTrue('前借り: 返し終われば手番が戻る',
+            b.phase === 'command' && b.actorIndex === 0,
+            `phase=${b.phase} 手番=${b.actorIndex}`);
+        }
+
+        // 連打で手番が無限に増えないこと。
+        // grantedExtra は再行動の上限を通らないので、素通しにすると
+        // 「前借り → 追加行動 → また前借り」が終わらなくなる。
+        {
+          const b = startB();
+          const a0 = b.party[0];
+          b.enemies.forEach((/** @type {any} */ e) => { e.hp = e.maxHp = 100000000; });
+          let acts = 0;
+          while (b.phase === 'command' && acts < 30) {
+            RPG.battle.commandSkill(b, 'sk_stolen_tempo', [b.enemies[0]], { auto: true });
+            acts++;
+            if (b.round > 1) break;
+          }
+          assertTrue('前借り: 連打しても手番は無限に増えない', acts <= 4,
+            `1ラウンドで ${acts} 回行動した`);
+        }
+
+        // --- 自傷を糧にする ---
+        {
+          const b = startB();
+          const foe = b.enemies[0];
+          const atk = b.party[0];
+          atk.passives = Object.assign({}, atk.passives, { selfCursePower: 0.10 });
+
+          const clean = hit(b, atk, foe, 22);
+          atk.statusEffects.push({ kind: 'poison', label: '毒', turns: 3, ratio: 0.05 });
+          atk.statusEffects.push({ kind: 'curse', label: '呪詛', turns: 3, ratio: 0.05 });
+          assertNear('自傷を糧: 自分の弱体の数だけ火力が上がる',
+            hit(b, atk, foe, 22) / clean, 1.20, 0.02);
+
+          // def_buff は statusEffects に載るが弱体ではない。
+          // ここを数えると、自分を固めるだけで火力が上がってしまう。
+          const cursed = hit(b, atk, foe, 22);
+          atk.statusEffects.push({ kind: 'def_buff', label: '防御', turns: 3, value: 0.5 });
+          assertTrue('自傷を糧: 防御上昇は糧にならない',
+            hit(b, atk, foe, 22) === cursed, `${cursed} のまま`);
+        }
+
+        // --- 進んで受けた弱体は、耐性ではねのけない ---
+        // ここを addStatus 経由にすると、精神耐性を積んだ瞬間に
+        // 自傷構成が燃料を受け取れなくなる。
+        {
+          const b = startB();
+          const atk = b.party[0];
+          atk.passives = Object.assign({}, atk.passives, { debuffResist: 1 });
+          atk.statusEffects = [];
+          RPG.battle.commandSkill(b, 'sk_embrace_the_rot', [b.enemies[0]], { auto: true });
+          assertTrue('自傷を糧: 耐性があっても自分の弱体は入る',
+            RPG.battle.debuffsOn(atk).length === 2,
+            `${RPG.battle.debuffsOn(atk).length} 個`);
+        }
+      } finally {
+        RPG.rng.seed(null);
         if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
         else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
         RPG.state.load();

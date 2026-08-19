@@ -203,6 +203,33 @@ RPG.data.skillTree = [
     effects: [{ kind: 'grant_skill', skill: 'sk_tree_triple', value: 1 }],
     desc: 'アクティブ技「三連の型」を習得（威力65%×3回）',
   },
+  /* 新しい軸の技を配る枝 (§9.1)。
+     効果そのものは戦闘エンジン側にあるので、ここは入口を開けるだけ。 */
+  {
+    id: 'tr_grant_mark', tier: 'mid', name: '狙いの型', cost: 3, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_focus_fire', value: 1 }],
+    desc: 'アクティブ技「狙い撃ちの号」を習得（味方全員のその敵への火力 +35%）',
+  },
+  {
+    id: 'tr_grant_mark_all', tier: 'high', name: '狩りの采配', cost: 5, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_hunters_call', value: 1 }],
+    desc: 'アクティブ技「狩りの合図」を習得（敵全体に照準 +18%）',
+  },
+  {
+    id: 'tr_grant_sigil', tier: 'mid', name: '刻印の型', cost: 3, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_sigil_edge', value: 1 }],
+    desc: 'アクティブ技「刻印刃」を習得（刻印を2つ刻む）',
+  },
+  {
+    id: 'tr_grant_tempo', tier: 'high', name: '前借りの型', cost: 4, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_stolen_tempo', value: 1 }],
+    desc: 'アクティブ技「刻の前借り」を習得（もう一度動く代わりに次を失う）',
+  },
+  {
+    id: 'tr_grant_rot', tier: 'high', name: '腐蝕の型', cost: 4, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_embrace_the_rot', value: 1 }],
+    desc: 'アクティブ技「腐蝕の受容」を習得（自分に毒と呪詛を受け入れて殴る）',
+  },
   {
     id: 'tr_grant_drain', tier: 'mid', name: '奪命の術', cost: 3, maxLevel: 1,
     effects: [{ kind: 'grant_skill', skill: 'sk_tree_drain', value: 1 }],
@@ -310,6 +337,19 @@ RPG.data.skillTree = [
     id: 'tr_status_power', tier: 'basic', name: '毒の心得', cost: 2, maxLevel: 5,
     effects: [{ kind: 'status_power', value: 0.2 }],
     desc: '自分が与える継続ダメージの割合 +20%',
+  },
+  /* 自分にかかる弱体の符号を反転させる枝。
+     ここまで自傷は損でしかなかったので、耐性を積む道とは正面から反対を向く。 */
+  {
+    id: 'tr_self_curse', tier: 'mid', name: '業を背負う', cost: 4, maxLevel: 4,
+    effects: [{ kind: 'self_curse_power', value: 0.10 }],
+    desc: '自分にかかっている弱体1つにつき火力 +10%',
+  },
+  /* 殴った回数で進む遅延ダメージ。毒（時間で進む）とは溜まり方が違う。 */
+  {
+    id: 'tr_sigil', tier: 'mid', name: '刻印を刻む', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'sigil_burst', value: 0.025 }],
+    desc: '攻撃するたび刻印が1つ積み、3つで弾けて相手の最大HPの2.5%が入る',
   },
   {
     id: 'tr_debuff_len', tier: 'basic', name: '呪詛の心得', cost: 3, maxLevel: 2,

@@ -692,6 +692,58 @@ RPG.data.skills = {
     desc: '敵全体に威力180%。技を撃ち分けるほど伸びるので、他の技と交互に使う。',
   },
 
+  /* -------- 新しい効果の軸 (§9.1) --------
+     どれも「既存キーの数値違い」ではなく、戦闘の構造として空いていた場所。
+     新しいキャラクターに役割を持たせるための土台として置いてある。 */
+
+  // 【標的指定】一人の1手が、他の味方の手を良くする
+  sk_focus_fire: {
+    name: '狙い撃ちの号', kind: 'active', plugin: 'mark',
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
+    power: 40, crit_rate: 0.05,
+    params: { value: 0.35, turns: 3, label: '照準' },
+    desc: '威力40%。3ターンの間、その敵に味方全員の火力が35%上がる。' +
+      '自分では削らず、味方に削らせる技。',
+  },
+  sk_hunters_call: {
+    name: '狩りの合図', kind: 'active', plugin: 'mark',
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
+    power: 0, crit_rate: 0,
+    params: { value: 0.18, turns: 2, label: '照準', all: true },
+    desc: '敵全体に2ターンの照準。味方全員の火力が18%上がる。' +
+      '数が多いほど価値が出るので、単体戦では狙い撃ちの号に劣る。',
+  },
+
+  // 【刻印】時間ではなく殴った回数で進む遅延ダメージ
+  sk_sigil_edge: {
+    name: '刻印刃', kind: 'active', plugin: 'sigil_strike',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 85, crit_rate: 0.08,
+    params: { ratio: 0.06, count: 2 },
+    desc: '威力85%。刻印を2つ刻む。3つ溜まると弾けて相手の最大HPの6%が入る。' +
+      '刻印は殴った側に溜まるので、相手が変わっても進み続ける。',
+  },
+
+  // 【手番の前借り】確定でもう一度動く代わりに、次のラウンドを失う
+  sk_stolen_tempo: {
+    name: '刻の前借り', kind: 'active', plugin: 'borrow_turn',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 130, crit_rate: 0.10,
+    params: { rounds: 1, powerScale: 1 },
+    desc: '威力130%。直後にもう一度行動できるが、次のラウンドは動けない。' +
+      'このラウンドで倒しきれるなら得、倒しきれないなら損。',
+  },
+
+  // 【自傷を糧に】自分にかかる弱体の符号を反転させる
+  sk_embrace_the_rot: {
+    name: '腐蝕の受容', kind: 'active', plugin: 'self_curse',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 145, crit_rate: 0.08,
+    params: { statuses: ['poison', 'curse'], turns: 3, ratio: 0.05 },
+    desc: '威力145%。自分に毒と呪詛を受け入れる。' +
+      '「業を背負う」を持っていれば、その弱体がそのまま火力に変わる。',
+  },
+
   /* ---------------- 敵専用 ---------------- */
   sk_enemy_bite: {
     name: '噛みつき', kind: 'active', plugin: null,

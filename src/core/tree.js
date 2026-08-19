@@ -263,6 +263,7 @@
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen', 'repeat_power',
     'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage',
     'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
+    'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
     'thorns', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
     'wave_stack', 'weak_guard', 'weak_hunter'
@@ -298,6 +299,8 @@
       counterPower: 0,     // 反撃の威力倍率
       reviveHp: 0,         // 戦闘不能時に復活するHPの割合（1戦闘1回）
       extraActionRate: 0,  // 行動後にもう一度動ける確率
+      selfCursePower: 0,   // 自分にかかっている弱体1つにつき上がる火力
+      sigilBurst: 0,       // 殴るたびに刻印が積み、溜まると弾ける（最大HP割合）
       thorns: 0,           // 被弾時に相手の最大HPの割合で反射
       lastStand: 0,        // 致死ダメージをHP1で耐える確率（1戦闘1回）
       waveHeal: 0,         // ウェーブ開始時に回復する最大HPの割合
@@ -474,6 +477,8 @@
           case 'low_power_repeat': passives.lowPowerRepeat += amount; break;
           // 状態異常・会心・戦況・生存・安定性 (§5.6)
           case 'status_power': passives.statusPower += amount; break;
+          case 'self_curse_power': passives.selfCursePower += amount; break;
+          case 'sigil_burst': passives.sigilBurst += amount; break;
           case 'debuff_duration': passives.debuffDuration += amount; break;
           case 'debuff_resist': passives.debuffResist += amount; break;
           case 'crit_heal': passives.critHeal += amount; break;

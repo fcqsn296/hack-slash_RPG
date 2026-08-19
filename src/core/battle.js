@@ -544,6 +544,18 @@
 
     // --- ここから §5.7 で足した戦況パッシブ ---
 
+    // ── 自傷を糧にする ──
+    // 自分にかかっている弱体1つにつき火力が上がる。
+    //
+    // ここまで、自分にかかる弱体は **例外なく損** でしかなかった。
+    // 符号を反転させると、敵の弱体攻撃がそのまま燃料に変わり、
+    // 「引きが悪い」でしかなかった盤面が有利な盤面になる。
+    // def_buff は弱体ではないので debuffsOn 側で除かれる。
+    if (p.selfCursePower) {
+      const own = debuffsOn(attacker).length;
+      if (own > 0) mult *= 1 + p.selfCursePower * own;
+    }
+
     // 長期戦の理: ラウンドを重ねるほど強い（刹那セットのちょうど裏返し）
     if (p.roundStack) {
       mult *= 1 + p.roundStack * Math.max(0, (battle.round || 1) - 1);
@@ -606,6 +618,17 @@
     for (const kind of Object.keys(vs)) {
       if (vs[kind] > 0 && statusRatio(defender, kind) > 0) mult *= 1 + vs[kind];
     }
+
+    // ── 標的指定（マーク）──
+    // ここだけは **付けた本人ではなく、付けられた側に効果が乗っている**。
+    // 他の火力補正は全部「殴る側が何を持っているか」で決まるので、
+    // 一人の1手が他の味方の手を良くする、という形はこれが初めてになる。
+    //
+    // 印を付けた陣営だけが恩恵を受ける。敵が味方に印を付ければ、
+    // 敵側が同じように束になって殴ってくる。仕組みは左右対称にしてある。
+    const mark = defender.marked;
+    if (mark && mark.turns > 0 && mark.side === attacker.side) mult *= 1 + mark.value;
+
     return mult;
   }
 
@@ -963,6 +986,60 @@
       pushEvent(battle, { type: 'down', key: unit.key, side: unit.side });
     }
     return dealt;
+  }
+
+  /**
+   * 刻印が炸裂するまでに必要な数。技もパッシブもこの数を共有する。
+   *
+   * 5 から始めて 3 まで下げた。理由は下の addSigil に書いてある。
+   */
+  const SIGIL_THRESHOLD = 3;
+
+  /**
+   * 刻印を積み、溜まりきったら炸裂させる。
+   *
+   * ── なぜこれが要るか ──
+   * 遅れて入るダメージは既に2種類あるが、どちらも **時間で進む**。
+   *   毒   … ラウンドが終わるたびに1刻み
+   *   残響 … Nターン後に炸裂
+   * つまり待てば進むので、手数を増やしても早くはならない。
+   * 刻印は **殴った回数で進む**。手数で押す構成が報われる道になる。
+   *
+   * ── 刻印は「殴った側」に溜まる ──
+   * 最初は相手に積んでいた。素直な作りに見えたが、**一度も炸裂しなかった**。
+   *
+   * 味方4人が代わる代わる殴るので、1体の敵に同じキャラが3発当てる前に
+   * その敵が死ぬ。実測すると Lv150 の一撃が約40,000、雑魚のHPはその数倍しかない。
+   * 12戦して炸裂は0回だった。閾値を5から3に下げても足りない。
+   * 敵に積むかぎり、**戦闘が短いこのゲームでは原理的に溜まらない**。
+   *
+   * そこで殴った側に積むことにした。誰を殴ったかに関係なく自分の手数で進むので、
+   * 敵の入れ替わりで進捗が消えない。多段ヒットの技なら1回で複数進む。
+   * 「手数で押すほど早く来る」という当初の狙いは、この形でようやく成立する。
+   *
+   * 炸裂の値を相手の最大HPの割合にしてあるのは毒と同じ理由で、
+   * 相手が固くても大きくても目減りしないようにするため。
+   *
+   * @param {any} battle
+   * @param {any} target 炸裂したときに殴られる相手
+   * @param {any} attacker 刻印を溜めている側
+   * @param {number} ratio 炸裂したとき、相手の最大HPの何割を入れるか
+   * @param {number} [count] 一度に積む数
+   */
+  function addSigil(battle, target, attacker, ratio, count) {
+    if (!target || !target.alive || ratio <= 0) return;
+    attacker.sigils = (attacker.sigils || 0) + (count == null ? 1 : count);
+
+    if (attacker.sigils < SIGIL_THRESHOLD) {
+      pushLog(battle, `${attacker.name} の刻印（${attacker.sigils}/${SIGIL_THRESHOLD}）`, 'sub');
+      return;
+    }
+
+    // 溜まりきったぶんだけ落とす。余りは次へ持ち越す。
+    const bursts = Math.floor(attacker.sigils / SIGIL_THRESHOLD);
+    attacker.sigils -= bursts * SIGIL_THRESHOLD;
+    directDamage(battle, target, target.maxHp * ratio * bursts,
+      `${attacker.name} の刻印が弾けた — {n} のダメージ`);
   }
 
   /** 生存している味方 */
@@ -1387,6 +1464,13 @@
       }
     }
 
+    // --- パッシブ: 刻印（殴るたびに積み、溜まりきると弾ける）---
+    // 判定を applyDamage に置いてあるので、多段ヒットは1撃ずつ数えられる。
+    const sigil = (attacker.passives && attacker.passives.sigilBurst) || 0;
+    if (sigil > 0 && result.damage > 0 && defender.alive) {
+      addSigil(battle, defender, attacker, sigil);
+    }
+
     // --- パッシブ: 吸命（与ダメージの一部をHPへ）---
     const lifesteal = (attacker.passives && attacker.passives.lifesteal) || 0;
     if (lifesteal > 0 && result.damage > 0 && attacker.alive && attacker.hp < attacker.maxHp) {
@@ -1698,6 +1782,75 @@
               `${applied.label} が ${other.name} にも広がった`);
           }
         }
+      },
+
+      /**
+       * 自分から弱体を被る (§9.1)。
+       *
+       * addStatus を通さないのは、あちらが精神耐性で弾いてしまうから。
+       * **進んで受けにいく弱体まではねのけられる**と、
+       * 自傷を糧にする構成が耐性装備と噛み合わなくなり、
+       * 「損を得に変える」という趣旨そのものが成立しなくなる。
+       *
+       * @param {string} kind @param {number} turns @param {number} ratio
+       */
+      selfStatus: (kind, turns, ratio) => {
+        const def = (RPG.data.statuses || {})[kind];
+        if (!def) return;
+        applyStatus(battle, actor,
+          { kind, label: def.label, turns, ratio },
+          `${actor.name} は自ら ${def.label} を受け入れた`);
+      },
+
+      /**
+       * 標的指定。付けた陣営の全員が、この相手に対して強くなる (§9.1)。
+       * @param {any} target @param {number} value @param {number} turns @param {string} label
+       */
+      mark: (target, value, turns, label) => {
+        // 重ねがけは強い方で上書きする。足すと2人で撃つだけで倍になり、
+        // 「一人が印を付け、残りが殴る」という形が崩れる。
+        const now = target.marked;
+        if (now && now.side === actor.side && now.value >= value && now.turns >= turns) {
+          pushLog(battle, `${target.name} の${label}は既に深い`, 'sub');
+          return;
+        }
+        target.marked = {
+          side: actor.side, value, turns: buffTurns(actor, turns), label,
+        };
+        pushLog(battle, `${target.name} に${label}（+${Math.round(value * 100)}%）`, 'debuff');
+        pushEvent(battle, { type: 'debuff', key: target.key, label });
+      },
+
+      /**
+       * 刻印を積む。溜まりきると弾ける (§9.1)。
+       * @param {any} target @param {number} ratio @param {number} [count]
+       */
+      addSigil: (target, ratio, count) => addSigil(battle, target, actor, ratio, count),
+
+      /**
+       * 手番を前借りする。いまもう一度動ける代わりに、次のラウンドは動けない (§9.1)。
+       *
+       * 再行動 (extraActionRate) が **確率で得をする** のに対して、
+       * こちらは **確定だが後で払う**。倒しきれるかどうかの読みを毎回迫る。
+       *
+       * @param {number} [rounds] 動けなくなるラウンド数
+       */
+      borrowTurn: (rounds) => {
+        // ── 連打を止める ──
+        // 権利そのものは「刻の号令」(§12) と同じ grantedExtra に乗せるが、
+        // あちらは1ラウンドに1回配られるだけなのに対し、こちらは
+        // **プレイヤーが好きなだけ撃てる**。素通しにすると、
+        // 前借り → 追加行動 → また前借り、で手番が無限に増える。
+        // 借金だけが増えて手番は増えない、という上限を入れておく。
+        if (actor.extraActions >= MAX_EXTRA_ACTIONS) {
+          pushLog(battle, `${actor.name} はこれ以上前借りできない`, 'sub');
+          return;
+        }
+        actor.extraActions++;
+        actor.grantedExtra = true;
+        actor.stunnedRounds = (actor.stunnedRounds || 0) + (rounds == null ? 1 : rounds);
+        pushLog(battle, `${actor.name} は次の手番を前借りした`, 'buff');
+        pushEvent(battle, { type: 'extra', key: actor.key });
       },
 
       /** 行動者から見た味方 */
@@ -2039,6 +2192,15 @@
         unit.defMultiplier = 1;
       }
       if (unit.defIgnoredTurns > 0) unit.defIgnoredTurns--;
+      // 標的指定も時間で消える。消えたら参照ごと落として、
+      // turns 0 の印が残り続けないようにする。
+      if (unit.marked) {
+        unit.marked.turns--;
+        if (unit.marked.turns <= 0) {
+          pushLog(battle, `${unit.name} の${unit.marked.label}が消えた`, 'sub');
+          unit.marked = null;
+        }
+      }
       // 迎撃の構えも時間で解ける (§9.1)
       if (unit.stance) {
         unit.stance.turns--;
@@ -2176,6 +2338,7 @@
     arenaGate, arenaRoundTick, isArenaBoss,
     currentActor, livingParty, livingEnemies, targetKind,
     detonationValue, isDebuff, debuffsOn,
+    addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

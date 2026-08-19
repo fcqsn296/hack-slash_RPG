@@ -47,6 +47,11 @@ RPG.data.nodeCategories = [
       'status_power', 'status_on_hit', 'status_on_hit_kind', 'status_immune',
       'status_resist_kind', 'vs_status_power', 'debuff_duration', 'debuff_resist',
       'debuff_spread',
+      // 自分にかかった弱体を糧にする枝も、扱う対象は同じ「異常」なのでここ。
+      // 耐性を積む枝とちょうど反対を向くので、並べて見えたほうが選びやすい。
+      'self_curse_power',
+      // 刻印は毒と同じ「遅れて入るダメージ」だが、時間ではなく回数で進む。
+      'sigil_burst',
     ],
   },
   {

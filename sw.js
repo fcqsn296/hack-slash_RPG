@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v46';
+const CACHE_VERSION = 'v48';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -78,6 +78,7 @@ const PRECACHE = [
   './src/core/codex.js',
   './src/plugins/all_enemies.js',
   './src/plugins/barrier.js',
+  './src/plugins/borrow_turn.js',
   './src/plugins/buffs.js',
   './src/plugins/chain_burst.js',
   './src/plugins/charge_strike.js',
@@ -89,6 +90,7 @@ const PRECACHE = [
   './src/plugins/heal.js',
   './src/plugins/hp_cost.js',
   './src/plugins/lifesteal_hit.js',
+  './src/plugins/mark.js',
   './src/plugins/mass_extra.js',
   './src/plugins/mass_revive.js',
   './src/plugins/multi_debuff.js',
@@ -96,6 +98,8 @@ const PRECACHE = [
   './src/plugins/pandemic.js',
   './src/plugins/poison.js',
   './src/plugins/reduction_buff.js',
+  './src/plugins/self_curse.js',
+  './src/plugins/sigil_strike.js',
   './src/plugins/status.js',
   './src/plugins/vengeance.js',
   './src/core/battle.js',

@@ -103,6 +103,8 @@
     'overhealShield', 'shieldRegen',     // 障壁で耐える構成 (§5.6/§5.8)
     'debuffSpread',                      // 弱体を広げる構成 (§5.7)
     'chain', 'chainPower',               // 連鎖で削る構成 (§5.7)
+    'selfCursePower',                    // 自傷を糧にする構成 (§9.1)
+    'sigilBurst',                        // 刻印を積んで弾く構成 (§9.1)
   ];
 
   /** 組み立て時に別枠で処理するキー (§7.8)。passives には流さない。 */
