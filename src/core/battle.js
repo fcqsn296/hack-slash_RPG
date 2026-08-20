@@ -736,6 +736,20 @@
         + '（拡張コンテンツが外された可能性があります）');
     }
     const quest = config.quest || null;
+
+    // ── id は自分で取りに行く ──
+    // カタログの生データに id は無く、RPG.quest.def() が付けている。
+    // 素の定義をそのまま渡されると questId が undefined のまま通る。
+    // 呼び出し側の作法に頼らず、ここで引き当てておく。
+    //
+    // 引き当てられないこともある（テストが作る合成クエストなど）。
+    // それは異常ではないので止めない。**種類の判定は questId ではなく
+    // quest そのものの有無で行う**ので、id が無くても取り違えは起きない。
+    let questId = quest ? quest.id : null;
+    if (quest && !questId) {
+      questId = Object.keys(RPG.data.quests || {})
+        .find((/** @type {string} */ k) => RPG.data.quests[k] === quest) || null;
+    }
     const rules = (quest && quest.rules) || {};
 
     /** @type {any} */
@@ -762,7 +776,7 @@
       inputs: { manual: 0, auto: 0 },
       // クエスト戦のときだけ入る。敵の強化と失敗条件をここから読む。
       quest: quest,
-      questId: quest ? quest.id : null,
+      questId,
       rules,
       // 敵レベルと強化倍率。クエストが指定していなければフィールドの既定値。
       enemyLv: quest && quest.enemyLv ? quest.enemyLv : scaledEnemyLv(field, config.party),
@@ -1040,6 +1054,33 @@
     attacker.sigils -= bursts * SIGIL_THRESHOLD;
     directDamage(battle, target, target.maxHp * ratio * bursts,
       `${attacker.name} の刻印が弾けた — {n} のダメージ`);
+  }
+
+  /**
+   * この戦闘が何なのかを1か所で決める。
+   *
+   * ── なぜ関数にするか ──
+   * 決着後の分岐が、UI（もう一度の行き先）と main.js（戻り先のタブ）に
+   * 別々に書かれていた。どちらも tower と quest だけを並べていたので、
+   * **闘技場が両方から漏れた**。
+   * 闘技場は場所を持たず、器として先頭のフィールドを借りているだけなので、
+   * 漏れると「通常の出撃」と見分けが付かず、
+   * 再戦で始まりの草原が始まってしまう。
+   *
+   * 種類が増えるたびに2か所へ書き足す形をやめて、ここだけを直せば
+   * 両方が追随するようにする。
+   *
+   * @param {any} battle
+   * @returns {'tower'|'arena'|'quest'|'field'}
+   */
+  function kindOf(battle) {
+    if (!battle) return 'field';
+    if (battle.tower) return 'tower';
+    if (battle.arena) return 'arena';
+    // questId ではなく quest を見る。カタログ外の合成クエストには id が無く、
+    // id で判定すると通常の出撃に化けるため。
+    if (battle.quest) return 'quest';
+    return 'field';
   }
 
   /** 生存している味方 */
@@ -2337,7 +2378,7 @@
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss,
     currentActor, livingParty, livingEnemies, targetKind,
-    detonationValue, isDebuff, debuffsOn,
+    detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage,
   };

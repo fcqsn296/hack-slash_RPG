@@ -511,6 +511,34 @@
     );
   }
 
+  /**
+   * 闘技場の決着画面 (§17)。
+   *
+   * ── なぜ専用の分岐が要るか ──
+   * 闘技場は場所を持たないが、戦闘の器がフィールドを要求するので
+   * 先頭のフィールド（始まりの草原）を借りている。
+   * そのため通常出撃の枝に落とすと、「もう一度」が
+   * **借り物のフィールドへ出撃してしまう**。実際そうなっていた。
+   */
+  function arenaActions() {
+    const def = battle.arena.def;
+    const hard = battle.arena.hard;
+    const label = def.name + (hard ? '（ハード）' : '');
+
+    // 挑めるかどうかを **報酬を受け取る前に** 確かめる。
+    // 先に finishBattle を呼んでから弾かれると、報酬だけ入って
+    // 決着画面に留まり、もう一度押せば二重に受け取れてしまう。
+    const gate = RPG.arena.canChallenge();
+    const hardGate = hard ? RPG.arena.canChallengeHard(def.id) : { ok: true };
+    if (!gate.ok || !hardGate.ok) return null;
+
+    // 「拠点へ戻る」は呼び出し側が必ず1つ置く。ここでも足すと2つ並ぶ。
+    return W.button('もう一度挑む', () => {
+      RPG.app.finishBattle(battle, { silent: true });
+      RPG.app.startArena(def.id, { hard });
+    }, { variant: 'primary', sub: label });
+  }
+
   function renderCommands() {
     if (battle.finished) {
       stopAuto();
@@ -543,9 +571,11 @@
           })
         ),
         h('div.result-actions',
-          battle.tower
+          RPG.battle.kindOf(battle) === 'tower'
             ? towerActions()
-            : battle.questId
+            : RPG.battle.kindOf(battle) === 'arena'
+            ? arenaActions()
+            : RPG.battle.kindOf(battle) === 'quest'
             ? W.button('もう一度挑む', () => {
                 const questId = battle.questId;
                 RPG.app.finishBattle(battle, { silent: true });

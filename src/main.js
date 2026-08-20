@@ -526,9 +526,11 @@
     refreshTopbar();
     if (opts.silent) return;   // 「もう一度」からは呼び出し側が次の戦闘を始める
 
-    // タワーはタワータブへ、クエストはクエスト一覧へ、宝箱があれば鑑定タブへ誘導する
-    if (battle.tower) RPG.ui.base.activeTab = 'tower';
-    else if (battle.questId) RPG.ui.base.activeTab = 'quest';
+    // 来た場所へ戻す。種類の判定は RPG.battle.kindOf に一本化してある
+    // （UI 側の「もう一度」と食い違わないようにするため）。
+    const TAB_FOR = { tower: 'tower', arena: 'arena', quest: 'quest' };
+    const back = TAB_FOR[RPG.battle.kindOf(battle)];
+    if (back) RPG.ui.base.activeTab = back;
     else if (boxCount > 0) RPG.ui.base.activeTab = 'identify';
     showBase();
   }

@@ -3872,6 +3872,74 @@
           || d.gimmicks.hitAbsorb < save.party.length),
         `パーティ ${save.party.length} 人`);
 
+      // --- 闘技場だと後から見分けが付くか ---
+      //
+      // 闘技場は場所を持たないが、戦闘の器がフィールドを要求するので
+      // **先頭のフィールド（始まりの草原）を借りている**。
+      // 決着後の処理がこれを本物の出撃先だと思い込むと、
+      // 「もう一度」で始まりの草原へ出撃してしまう。実際そうなっていた。
+      //
+      // 借りていること自体は変えられないので、代わりに
+      // 「battle.arena を見れば必ず見分けられる」ことを保証しておく。
+      {
+        const b = RPG.arena.start('ar_null_sovereign');
+        assertTrue('闘技場: フィールドは借り物なので出撃先として使えない',
+          b.fieldId === Object.keys(RPG.data.fields)[0] && !!b.arena,
+          `fieldId=${b.fieldId}（借り物）／ battle.arena で判別する`);
+
+        // 再挑戦に必要なものが battle.arena に揃っていること。
+        // ここが欠けると、決着画面から同じ相手に挑み直せない。
+        assertTrue('闘技場: 再挑戦に必要な情報が残る',
+          !!b.arena.id && !!b.arena.def && typeof b.arena.hard === 'boolean'
+          && !!RPG.arena.boss(b.arena.id),
+          `id=${b.arena.id} hard=${b.arena.hard}`);
+
+        const hard = RPG.arena.start('ar_null_sovereign', { hard: true });
+        assertTrue('闘技場: ハードかどうかも残る', hard.arena.hard === true, '');
+
+        // 決着後の分岐は kindOf に一本化してある。
+        // ここが 'field' に落ちると、通常出撃として扱われて
+        // 借り物のフィールドへ「もう一度」出撃してしまう。
+        assertTrue('闘技場: 戦闘の種類が闘技場だと判定される',
+          RPG.battle.kindOf(b) === 'arena' && RPG.battle.kindOf(hard) === 'arena',
+          `${RPG.battle.kindOf(b)} / ${RPG.battle.kindOf(hard)}`);
+      }
+
+      // 種類の判定が、どの戦闘でも取り違えないこと。
+      // 決着後の「もう一度」と「戻り先のタブ」が、両方ともこれを見ている。
+      {
+        const party = RPG.state.partyUnits();
+        const field = RPG.battle.start({
+          fieldId: Object.keys(RPG.data.fields)[0], waves: 1, party, bossFinale: false,
+        });
+        assertTrue('戦闘の種類: 通常の出撃は field', RPG.battle.kindOf(field) === 'field',
+          RPG.battle.kindOf(field));
+
+        // id はカタログではなく RPG.quest.def() が付ける。
+        const quest = RPG.quest.def(Object.keys(RPG.data.quests)[0]);
+        const qb = RPG.battle.start({
+          fieldId: quest.fieldId, waves: quest.waves, party,
+          bossFinale: quest.bossFinale !== false, quest,
+        });
+        assertTrue('戦闘の種類: クエストは quest', RPG.battle.kindOf(qb) === 'quest',
+          RPG.battle.kindOf(qb));
+
+        // 素のカタログ定義には id が無い。呼び出し側の作法に頼ると、
+        // questId が undefined のまま通って通常の出撃として扱われる。
+        // battle.start が自分で引き当てるので、どちらの渡し方でも同じになる。
+        const raw = RPG.data.quests[Object.keys(RPG.data.quests)[0]];
+        const rawBattle = RPG.battle.start({
+          fieldId: raw.fieldId, waves: raw.waves, party, bossFinale: false, quest: raw,
+        });
+        assertTrue('戦闘の種類: id の無いクエスト定義でも取り違えない',
+          RPG.battle.kindOf(rawBattle) === 'quest'
+          && rawBattle.questId === Object.keys(RPG.data.quests)[0],
+          `${RPG.battle.kindOf(rawBattle)} / questId=${rawBattle.questId}`);
+
+        assertTrue('戦闘の種類: 空を渡しても落ちない',
+          RPG.battle.kindOf(null) === 'field', '');
+      }
+
       // --- 仕掛けが実際に効いているか ---
       {
         const b = RPG.arena.start('ar_null_sovereign');
