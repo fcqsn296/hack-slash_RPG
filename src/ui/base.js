@@ -27,6 +27,8 @@
   let lastAutoSold = null;
   /** @type {string|null} */
   let selectedField = null;
+  /** 演出が終わって結果をめくってよいか (§6.7) */
+  let pullRevealed = true;
   /** @type {any[]} 直近のガチャ結果 */
   let lastPulls = [];
   /** @type {any} 直近の派遣の受け取り結果 */
@@ -1715,7 +1717,17 @@
           W.button(`${cfg.multiCount}連引く`, () => doPull(root, cfg.multiCount), {
             variant: 'primary', sub: `${(cfg.cost * cfg.multiCount).toLocaleString()} G`,
             disabled: save.gold < cfg.cost * cfg.multiCount,
-          })
+          }),
+          // 演出の入切 (§6.7)。何十回も回す人のための逃げ道。
+          // 演出そのものは触れば飛ばせるが、毎回触るのも手間なので
+          // 丸ごと切れる場所を作る。
+          h('button.toggle' + ((save.settings || {}).gachaFx === false ? '' : '.is-on'), {
+            'aria-pressed': (save.settings || {}).gachaFx === false ? 'false' : 'true',
+            onClick: () => {
+              RPG.state.updateSettings({ gachaFx: (save.settings || {}).gachaFx === false });
+              render(root);
+            },
+          }, h('span.toggle-dot'), h('span', { text: '演出' }))
         ),
         pityPanel(root),
         h('div.gacha-odds',
@@ -1738,18 +1750,31 @@
           })
         )
       ),
-      lastPulls.length
+      lastPulls.length && pullRevealed
         ? h('div.pull-result',
             h('h3', { text: `結果（${lastPulls.length}回）` }),
-            h('div.pull-grid', lastPulls.map((p) => pullCard(p)))
+            // 1枚ずつ順にめくる。同時に全部出すと、どれが当たりか探すことになる。
+            // 強いものを後ろに回して、最後まで見る理由を残す。
+            h('div.pull-grid', orderForReveal(lastPulls).map((p, i) => pullCard(p, i)))
           )
         : null,
       h('p.hint', { text: `所持ゴールド ${save.gold.toLocaleString()} G ／ 累計 ${save.stats.pulls} 回` })
     );
   }
 
-  /** @param {any} p */
-  function pullCard(p) {
+  /**
+   * めくる順に並べ替える (§6.7)。
+   * 強いものほど後ろへ回す。先頭でレジェンドが出ると、
+   * 残り9枚をめくる理由が無くなる。
+   * @param {any[]} list
+   */
+  function orderForReveal(list) {
+    const rank = (/** @type {string} */ r) => RARITY_ORDER.indexOf(r);
+    return list.slice().sort((a, b) => rank(a.rarity) - rank(b.rarity));
+  }
+
+  /** @param {any} p @param {number} [index] めくる順 */
+  function pullCard(p, index) {
     const def = RPG.data.characters[p.id];
     const r = RPG.data.rarities[p.rarity];
     const badge =
@@ -1757,7 +1782,12 @@
       : p.kind === 'limit_break' ? { text: `+${p.limitBreak} 凸`, cls: 'is-lb' }
       : { text: `+${p.gold} G`, cls: 'is-refund' };
 
-    return h('div.pull-card.' + badge.cls, { style: { borderColor: r.color + '66' } },
+    return h('div.pull-card.' + badge.cls
+      + (p.rarity === 'LEGEND' ? '.is-legend' : '')
+      + (p.rarity === 'SUPER_RARE' ? '.is-sr' : ''), {
+      style: `border-color: ${r.color}66; --rare: ${r.color};`
+        + ` --flip-delay: ${(index || 0) * 0.09}s`,
+    },
       W.portrait(def, 'md'),
       h('div.pull-info',
         h('span.name', { style: { color: r.color }, text: RPG.state.charName(p.id) }),
@@ -1780,6 +1810,9 @@
       return;
     }
     lastPulls = outcome.results;
+    // 結果はもう確定しているが、演出が終わるまで画面には出さない (§6.7)。
+    // 先に出すと、演出の後ろに答えが見えている状態になる。
+    pullRevealed = false;
 
     const save = RPG.state.get();
     save.stats.pulls += outcome.results.length;
@@ -1799,10 +1832,17 @@
     if (lbs) parts.push(`限界突破 ${lbs}回`);
     if (refund) parts.push(`還元 ${refund.toLocaleString()} G`);
     if (joined.length) parts.push(`${joined.join('、')} が加入`);
-    RPG.app.toast(parts.join(' ／ ') || '結果なし');
 
     RPG.app.refreshTopbar();
     render(root);
+
+    // 光が育ち、色が決まり、弾けてから結果をめくる (§6.7)。
+    // トーストは演出の邪魔になるので、終わってから出す。
+    RPG.ui.gachafx.play(outcome.results, () => {
+      pullRevealed = true;
+      RPG.app.toast(parts.join(' ／ ') || '結果なし');
+      render(root);
+    });
   }
 
   /* ============================ 鑑定 ============================ */

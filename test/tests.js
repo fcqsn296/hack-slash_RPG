@@ -7140,6 +7140,67 @@
         halfGated.join(', ') || `${cls.length} 技`);
     }
 
+    // ---------------------------------------------------------------
+    // ガチャの演出 (§6.7)
+    //
+    // 演出は「決まるまでの間」を作るためのもの。
+    // ただし **結果を変えてはいけない**。見せ方の都合で中身が動くと、
+    // 表示している排出率が嘘になる。
+    // ---------------------------------------------------------------
+    {
+      // 光の色は、その引きのいちばん強いレアリティを映す。
+      const top = RPG.ui && RPG.ui.gachafx ? RPG.ui.gachafx.topRarity : null;
+      if (top) {
+        assertTrue('ガチャ演出: 最高レアリティを拾う',
+          top([{ rarity: 'COMMON' }, { rarity: 'LEGEND' }, { rarity: 'RARE' }]) === 'LEGEND',
+          top([{ rarity: 'COMMON' }, { rarity: 'LEGEND' }, { rarity: 'RARE' }]));
+
+        assertTrue('ガチャ演出: 1件でも成立する',
+          top([{ rarity: 'SUPER_RARE' }]) === 'SUPER_RARE', '');
+
+        // 空でも落ちないこと。ゴールド不足で結果0件のときに通る。
+        assertTrue('ガチャ演出: 空の結果でも落ちない',
+          top([]) === 'COMMON', String(top([])));
+      }
+
+      // 演出の有無で結果が変わらないこと。
+      // 見せ方の都合で中身が動くと、表示している排出率が嘘になる。
+      {
+        const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+        try {
+          const draw = (/** @type {boolean} */ fx) => {
+            RPG.state.reset();
+            RPG.state.updateSettings({ gachaFx: fx });
+            RPG.state.addGold(200000);
+            RPG.rng.seed(2468);
+            const r = RPG.gacha.pull(10);
+            RPG.rng.seed(null);
+            return r.results.map((/** @type {any} */ p) => `${p.id}:${p.rarity}:${p.kind}`).join(',');
+          };
+          assertTrue('ガチャ演出: 演出の入切で結果が変わらない',
+            draw(true) === draw(false), '');
+        } finally {
+          if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+          else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+          RPG.state.load();
+        }
+      }
+
+      // レアリティの並び順が、演出とめくり順の両方で同じものを使っていること。
+      // ここがずれると「弱い色で光ったのに強いのが出る」ことになる。
+      const order = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGEND'];
+      assertTrue('ガチャ演出: レアリティの並びがデータと一致する',
+        order.every((/** @type {string} */ k) => !!RPG.data.rarities[k])
+        && Object.keys(RPG.data.rarities).length === order.length,
+        Object.keys(RPG.data.rarities).join(', '));
+
+      // 演出は色を使うので、全レアリティに色が要る。
+      const noColor = Object.keys(RPG.data.rarities)
+        .filter((/** @type {string} */ k) => !RPG.data.rarities[k].color);
+      assertTrue('ガチャ演出: 全レアリティに色がある', noColor.length === 0,
+        noColor.join(', '));
+    }
+
     return results;
   }
 

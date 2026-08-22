@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v61';
+const CACHE_VERSION = 'v62';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -121,6 +121,7 @@ const PRECACHE = [
   './src/ui/base.js',
   './src/ui/battle.js',
   './src/ui/worldmap.js',
+  './src/ui/gachafx.js',
   './src/main.js',
   './styles.css',
   './assets/ui/coin.svg',
