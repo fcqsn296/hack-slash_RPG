@@ -7070,6 +7070,50 @@
       assertTrue('装備の並べ替え: 一覧のどれを選んでも成立する', dead.length === 0,
         dead.map((/** @type {any} */ d) => d.label).join('、'));
 
+      // ── セットで絞る (§7.7) ──
+      //
+      // セットは同じものを2個・4個と揃えて初めて効く。
+      // 「あと1個足りない」を探すのが主な用途なので、ここが要る。
+      {
+        const setIds = Object.keys(RPG.data.equipSets || {});
+        assertTrue('装備の絞り込み: セットが定義されている', setIds.length > 0,
+          `${setIds.length} 種`);
+
+        for (const id of setIds) {
+          const only = RPG.gear.arrange(inv, { sort: 'power', set: id });
+          const wrong = only.filter((/** @type {any} */ it) => it.setId !== id);
+          assertTrue(`装備の絞り込み: ${RPG.data.equipSets[id].name}で絞れる`,
+            wrong.length === 0, `${only.length}件中 ${wrong.length}件が別のセット`);
+        }
+
+        // 「セット無し」も選べること。売る候補を探すときに要る。
+        const none = RPG.gear.arrange(inv, { sort: 'power', set: 'none' });
+        assertTrue('装備の絞り込み: セット無しで絞れる',
+          none.every((/** @type {any} */ it) => !it.setId),
+          `${none.length}件`);
+
+        // 全部の合計が元の数と合うこと。どこかが漏れていないか見る。
+        const sum = setIds
+          .reduce((/** @type {number} */ a, /** @type {string} */ id) =>
+            a + RPG.gear.arrange(inv, { sort: 'power', set: id }).length, 0) + none.length;
+        assertTrue('装備の絞り込み: セット別の合計が所持数と一致する',
+          sum === inv.length, `${sum} / ${inv.length}`);
+
+        // 並べ替えと併用しても崩れないこと。
+        const mixed = RPG.gear.arrange(inv, { sort: 'stat:def', set: setIds[0] });
+        assertTrue('装備の絞り込み: セットで絞っても並べ替えが効く',
+          mixed.every((/** @type {any} */ it) => it.setId === setIds[0])
+          && mixed.every((/** @type {any} */ it, i) => i === 0
+            || RPG.gear.sortValue(mixed[i - 1], 'stat:def') >= RPG.gear.sortValue(it, 'stat:def')),
+          `${mixed.length}件`);
+
+        // 実在しないセットを指定しても落ちないこと。
+        // 拡張コンテンツが外れると、保存された絞り込みが宙に浮く。
+        const ghost = RPG.gear.arrange(inv, { sort: 'power', set: 'set_does_not_exist' });
+        assertTrue('装備の絞り込み: 実在しないセットでも落ちない',
+          Array.isArray(ghost) && ghost.length === 0, `${ghost.length}件`);
+      }
+
       // 絞り込みと組み合わせても壊れないこと。
       {
         const only = RPG.gear.arrange(inv, { sort: 'stat:def', slot: 'armor' });

@@ -309,7 +309,8 @@
    *
    * @param {any[]} inventory
    * @param {{sort: string, slot?: string|null, tag?: string|null,
-   *          rarity?: string|null, onlyUnequipped?: boolean}} view
+   *          rarity?: string|null, set?: string|null,
+   *          onlyUnequipped?: boolean}} view
    * @param {Record<number, string>} [owner] 装備している人 { uid: 名前 }
    */
   function arrange(inventory, view, owner) {
@@ -319,6 +320,17 @@
     if (view.slot) list = list.filter((it) => it.slot === view.slot);
     if (view.tag) list = list.filter((it) => it.tag === view.tag);
     if (view.rarity) list = list.filter((it) => it.rarity === view.rarity);
+
+    // セットで絞る (§7.7)。
+    //
+    // ── なぜ「セット無し」も選べるようにするか ──
+    // セットは同じものを2個・4個と揃えて初めて効く。
+    // 「あと1個足りない」を探すのが主な用途なので、揃えたいセットを
+    // 選べる必要がある。逆に、売る候補を探すときは
+    // **セットに属していないもの** を見たい。どちらも要る。
+    if (view.set === 'none') list = list.filter((it) => !it.setId);
+    else if (view.set) list = list.filter((it) => it.setId === view.set);
+
     if (view.onlyUnequipped) list = list.filter((it) => !own[it.uid]);
 
     const byScore = (/** @type {any} */ a, /** @type {any} */ b) => score(b) - score(a);

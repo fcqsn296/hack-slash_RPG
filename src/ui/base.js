@@ -51,6 +51,8 @@
     slot: /** @type {string|null} */ (null),
     tag: /** @type {string|null} */ (null),
     rarity: /** @type {string|null} */ (null),
+    // 装備セット (§7.7)。'none' は「セットに属していないもの」
+    set: /** @type {string|null} */ (null),
     onlyUnequipped: false,
   };
 
@@ -2310,6 +2312,40 @@
         ...RPG.damage.TAGS.map((tag) =>
           pill('[' + RPG.damage.TAG_LABEL[tag] + ']', gearView.tag === tag,
             () => { gearView.tag = gearView.tag === tag ? null : tag; rerender(); }))
+      ),
+      // ── セットで絞る (§7.7) ──
+      //
+      // セットは同じものを2個・4個と揃えて初めて効く。
+      // 「あと1個足りない」を探すのが主な用途なので、ここで絞れる必要がある。
+      // 逆に売る候補を探すときは、セットに属していないものを見たい。
+      // どちらも要るので「セット無し」も選べるようにしてある。
+      //
+      // 何個持っているかを添える。数が見えないと、揃うのかどうかが
+      // 一覧を開くまで分からない。
+      // 押しボタンで並べると、セット6種＋「すべて」＋「セット無し」で
+      // 8個になり、狭い画面で3段に折り返した（実測でツールバーが475px）。
+      // 並べ替えと同じく選択式にする。
+      h('div.toolbar-row',
+        h('span.toolbar-label', { text: 'セット' }),
+        h('select.gear-sort', {
+          'aria-label': '装備セットで絞り込む',
+          onChange: (/** @type {any} */ e) => {
+            const v = e.currentTarget.value;
+            gearView.set = v === '' ? null : v;
+            rerender();
+          },
+        },
+          h('option', { value: '', selected: !gearView.set ? 'selected' : null },
+            h('span', { text: 'すべて' })),
+          ...Object.keys(RPG.data.equipSets || {}).map((id) => {
+            const set = RPG.data.equipSets[id];
+            const n = all.filter((/** @type {any} */ it) => it.setId === id).length;
+            return h('option', { value: id, selected: gearView.set === id ? 'selected' : null },
+              h('span', { text: `${set.name}（${n}個）` }));
+          }),
+          h('option', { value: 'none', selected: gearView.set === 'none' ? 'selected' : null },
+            h('span', { text: 'セット無し' }))
+        )
       ),
       h('div.toolbar-row',
         h('span.toolbar-label', { text: 'レア度' }),
