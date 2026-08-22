@@ -6665,6 +6665,130 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // モードごとのデータ分離 (§20)
+    //
+    // ストーリーを「育てながら遊べる別のRPG」にするための土台。
+    // ハクスラ側の Lv255 を持ち込めると第1章が演出だけになり、
+    // 貸し出しの固定編成にすると育てる楽しみが消える。
+    // 同じ仕組みのまま **データの束だけ差し替える** ことで両方を避ける。
+    //
+    // ここが漏れると、片方で拾った装備がもう片方に現れる。
+    // 気付きにくいうえ、気付いたときには両方のセーブが混ざっている。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+
+        // --- 既定はハクスラ側。何もしなければ今までどおり ---
+        assertTrue('モード: 既定はハクスラ側', RPG.state.mode() === 'hack',
+          RPG.state.mode());
+
+        // ハクスラ側を育てる
+        RPG.state.setMode('hack');
+        const h0 = RPG.state.get();
+        h0.characters.ch_hero.level = 200;
+        RPG.state.addGold(50000);
+        RPG.state.addBox('box_astral', 7);
+        const hackBoxes = JSON.stringify(h0.boxes);
+
+        // --- ストーリー側は真っさらから始まる ---
+        RPG.state.setMode('story');
+        const st = RPG.state.get();
+        assertTrue('モード: ストーリー側は1から始まる',
+          st.characters.ch_hero.level === 1 && st.gold === 0
+          && !st.boxes.box_astral,
+          `Lv${st.characters.ch_hero.level} ${st.gold}G`);
+
+        // 数値の書き戻しが効くこと。
+        // 読みだけ差し替えると、増えたゴールドが次に読んだ瞬間に消える。
+        RPG.state.addGold(300);
+        st.gold += 55;
+        assertTrue('モード: ストーリー側の数値が書き戻る', RPG.state.get().gold === 355,
+          `${RPG.state.get().gold}G`);
+
+        st.characters.ch_hero.level = 12;
+        RPG.state.addBox('box_bronze', 41);
+        st.items.it_star_shard = 9;
+        st.inventory.push({ uid: 90001, name: '検査用' });
+
+        // --- 片方の変更がもう片方へ漏れないこと ---
+        RPG.state.setMode('hack');
+        const h1 = RPG.state.get();
+        assertTrue('モード: ストーリー側の育成がハクスラ側へ漏れない',
+          h1.characters.ch_hero.level === 200 && h1.gold === 60000
+          && JSON.stringify(h1.boxes) === hackBoxes
+          && !h1.items.it_star_shard && h1.inventory.length === 0,
+          `Lv${h1.characters.ch_hero.level} ${h1.gold}G 装備${h1.inventory.length}個`);
+
+        h1.inventory.push({ uid: 90002, name: 'ハクスラ側' });
+        RPG.state.addBox('box_dragon', 5);
+
+        RPG.state.setMode('story');
+        const s1 = RPG.state.get();
+        assertTrue('モード: ハクスラ側の変更がストーリー側へ漏れない',
+          s1.inventory.length === 1 && !s1.boxes.box_dragon
+          && s1.characters.ch_hero.level === 12,
+          `装備${s1.inventory.length}個 竜${s1.boxes.box_dragon || 0}`);
+
+        // --- 共有すべきものは共有すること ---
+        // 設定や主人公の名前まで分かれると、切り替えるたびに操作感が変わる。
+        RPG.state.updateSettings({ fast: true });
+        RPG.state.setMode('hack');
+        assertTrue('モード: 設定は両方で共有する',
+          RPG.state.get().settings.fast === true, '');
+
+        // --- 保存して読み直しても両方残ること ---
+        RPG.state.setMode('story');
+        RPG.state.persist();
+        RPG.state.load();
+        assertTrue('モード: 読み直してもストーリー側が残る',
+          RPG.state.mode() === 'story'
+          && RPG.state.get().characters.ch_hero.level === 12,
+          `mode=${RPG.state.mode()} Lv${RPG.state.get().characters.ch_hero.level}`);
+        RPG.state.setMode('hack');
+        assertTrue('モード: 読み直してもハクスラ側が残る',
+          RPG.state.get().characters.ch_hero.level === 200,
+          `Lv${RPG.state.get().characters.ch_hero.level}`);
+
+        // --- 旧セーブが壊れないこと ---
+        // 遊んでいる人のセーブには mode も story も入っていない。
+        {
+          RPG.state.persist();
+          const raw = JSON.parse(localStorage.getItem(RPG.state.STORAGE_KEY));
+          delete raw.mode;
+          delete raw.story;
+          localStorage.setItem(RPG.state.STORAGE_KEY, JSON.stringify(raw));
+          RPG.state.load();
+          assertTrue('モード: 旧セーブはハクスラ側として読める',
+            RPG.state.mode() === 'hack'
+            && RPG.state.get().characters.ch_hero.level === 200,
+            `mode=${RPG.state.mode()}`);
+          assertTrue('モード: 遊んでいない人のセーブを太らせない',
+            RPG.state.get().story === null, JSON.stringify(RPG.state.get().story));
+        }
+
+        // --- モードだけ story で中身が無いセーブ ---
+        // ここを直さないと、起動直後に読めずに落ちる。
+        {
+          const broken = JSON.parse(localStorage.getItem(RPG.state.STORAGE_KEY));
+          broken.mode = 'story';
+          broken.story = null;
+          localStorage.setItem(RPG.state.STORAGE_KEY, JSON.stringify(broken));
+          RPG.state.load();
+          assertTrue('モード: 中身の無いストーリーはハクスラ側へ戻す',
+            RPG.state.mode() === 'hack'
+            && RPG.state.get().characters.ch_hero.level === 200,
+            `mode=${RPG.state.mode()}`);
+        }
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
     return results;
   }
 

@@ -17,6 +17,111 @@
   let save = null;
 
   /**
+   * モードごとに中身を分ける項目 (§20)。
+   *
+   * ── なぜ分けるのか ──
+   * ストーリーを「育てながら遊べる別のRPG」にしたい。
+   * ハクスラ側で育てきった Lv255 の編成をそのまま持ち込むと、
+   * 第1章から演出以外に何も起きなくなる。
+   * かといって貸し出しの固定編成にすると、育てる楽しみが消える。
+   *
+   * そこで **同じ仕組みのまま、データだけ別の束を読む** 形にした。
+   * ストーリー側は第1章から自分で育て、拾って、着ける。
+   *
+   * ここに並べた項目だけがモードごとに分かれ、
+   * 設定・主人公の名前・図鑑といった「プレイヤー本人のもの」は共有する。
+   */
+  const PROFILE_KEYS = [
+    'characters', 'inventory', 'party', 'gold', 'boxes', 'items',
+    'uidCounter', 'levelCapBonus', 'lastSortie', 'autoLimit',
+  ];
+
+  /**
+   * ストーリー側だけが持つもの。ハクスラ側には無い。
+   * 進行状況はここにしか置かない。
+   */
+  function createStoryProfile() {
+    const p = {
+      characters: {},
+      inventory: [],
+      party: [],
+      gold: 0,
+      boxes: {},
+      items: {},
+      uidCounter: 1,
+      levelCapBonus: 0,
+      lastSortie: null,
+      autoLimit: RPG.autolimit ? RPG.autolimit.defaults() : null,
+      // 進行状況 (§20)。どの章のどこまで見たか、と立った旗。
+      progress: { chapter: null, scene: 0, cleared: {}, flags: {} },
+      // まだ一度も始めていない
+      started: false,
+    };
+    p.characters.ch_hero = createCharacter('ch_hero');
+    p.party = ['ch_hero'];
+    return p;
+  }
+
+  /** 表示用の器。毎回作り直さずに使い回す */
+  let storyView = null;
+
+  /**
+   * ストーリー側のデータを、ハクスラ側と同じ顔で見せる器 (§20)。
+   *
+   * 呼び出し側は 113 か所すべてが `RPG.state.get()` の戻りを触っている。
+   * ここで差し替えれば、**UI もロジックも1行も変えずに別データで動く**。
+   *
+   * Proxy にしてあるのは数値のため。`s.gold += 100` のような書き込みが
+   * 素のコピーだと元へ戻らない。読みだけ差し替えると、
+   * 増えたはずのゴールドが次に読んだ瞬間に消える。
+   */
+  function makeStoryView() {
+    return new Proxy({}, {
+      get(_t, k) {
+        if (k === 'story') return save.story;
+        return PROFILE_KEYS.indexOf(String(k)) >= 0 ? save.story[k] : save[k];
+      },
+      set(_t, k, v) {
+        if (PROFILE_KEYS.indexOf(String(k)) >= 0) save.story[k] = v;
+        else save[k] = v;
+        return true;
+      },
+      has(_t, k) { return k in save || k in save.story; },
+      ownKeys() { return Object.keys(save); },
+      getOwnPropertyDescriptor(_t, k) {
+        return { enumerable: true, configurable: true,
+          value: PROFILE_KEYS.indexOf(String(k)) >= 0 ? save.story[k] : save[k] };
+      },
+    });
+  }
+
+  /** いま遊んでいるモード。'hack' か 'story' */
+  function mode() {
+    return (save && save.mode) || 'hack';
+  }
+
+  /**
+   * モードを切り替える。
+   * どちらのデータも消さないので、行き来しても進行は残る。
+   * @param {'hack'|'story'} next
+   */
+  function setMode(next) {
+    if (!save) load();
+    if (next !== 'hack' && next !== 'story') return { ok: false, reason: '不明なモード' };
+    if (next === 'story' && !save.story) save.story = createStoryProfile();
+    save.mode = next;
+    persist();
+    return { ok: true, mode: next };
+  }
+
+  /** ストーリー側の生データ。モードに関係なく引ける */
+  function storyProfile() {
+    if (!save) load();
+    if (!save.story) save.story = createStoryProfile();
+    return save.story;
+  }
+
+  /**
    * キャラクターリストの表示設定の初期値。
    * 既定で編成中を先頭に固める（一番よく探すのが「今使っている4人」のため）。
    */
@@ -73,6 +178,10 @@
       gachaPoints: 0,
       // 直前の出撃内容。ワンクリックで同じ場所へ再出撃するために覚えておく
       lastSortie: null,
+      // いま遊んでいるモード (§20)。'hack' が従来の周回、'story' が物語。
+      mode: 'hack',
+      // ストーリー側のデータ。始めるまでは null のまま置いておく。
+      story: null,
     };
     // §8.1 主人公のみ最初から所持し、パーティ先頭に固定される。
     // 仲間はガチャで獲得する。初期ゴールドは10連ぶん。
@@ -188,6 +297,15 @@
     if (s.lastSortie === undefined) s.lastSortie = null;
     // 旧セーブには charView が無い。欠けているキーだけ既定値で補う。
     s.charView = Object.assign(defaultCharView(), s.charView || {});
+    // モードとストーリー枠 (§20)。旧セーブには無いので補う。
+    // story を作るのは実際に始めたときで、ここでは null のままにしておく。
+    // 空の器を先に置くと、遊んでいない人のセーブまで太る。
+    if (s.mode !== 'story' && s.mode !== 'hack') s.mode = 'hack';
+    if (s.story === undefined) s.story = null;
+    // 途中で壊れたセーブから戻ってきたとき、モードだけ story で中身が無いと
+    // 起動直後に読めなくなる。整合させておく。
+    if (s.mode === 'story' && !s.story) s.mode = 'hack';
+
     if (!s.quests) s.quests = {};
     if (!s.codex) s.codex = { enemies: {}, fields: {} };
     if (!s.codex.enemies) s.codex.enemies = {};
@@ -269,7 +387,10 @@
   /** @returns {any} */
   function get() {
     if (!save) load();
-    return save;
+    if (save.mode !== 'story') return save;
+    if (!save.story) save.story = createStoryProfile();
+    if (!storyView) storyView = makeStoryView();
+    return storyView;
   }
 
   /** 名前の最大文字数 */
@@ -1094,6 +1215,7 @@
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
     addExp, levelCap, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    mode, setMode, storyProfile, PROFILE_KEYS,
     investNode, refundNode, resetTree, tryJoinParty,
     setClass, investClassNode, refundClassNode, resetClassTree,
     charName, setCharName, NAME_MAX,
