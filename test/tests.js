@@ -7203,6 +7203,28 @@
           noTitle.join(', ') || `${legends.length} 体`);
       }
 
+      // ── 溜め (§6.7) ──
+      //
+      // レアリティが上がるほど段が増え、弾けるまで長く焦らされる。
+      // ここが平らだと、何が出ても同じ時間で終わってしまい、
+      // 「上がるかもしれない」という時間が生まれない。
+      if (RPG.ui && RPG.ui.gachafx && RPG.ui.gachafx.burstDelay) {
+        const d = RPG.ui.gachafx.burstDelay;
+        const t = {
+          COMMON: d('COMMON'), RARE: d('RARE'),
+          SUPER_RARE: d('SUPER_RARE'), LEGEND: d('LEGEND'),
+        };
+        assertTrue('ガチャ演出: 上位ほど長く焦らす',
+          t.COMMON < t.RARE && t.RARE < t.SUPER_RARE && t.SUPER_RARE < t.LEGEND,
+          `${t.COMMON} < ${t.RARE} < ${t.SUPER_RARE} < ${t.LEGEND} ms`);
+
+        // ノーマルだけの引きが長いと、周回のたびに待たされる。
+        assertTrue('ガチャ演出: ノーマルは短く済む', t.COMMON <= 2000, `${t.COMMON}ms`);
+
+        // レジェンドは、待った甲斐があるだけの間を取る。
+        assertTrue('ガチャ演出: レジェンドは十分に溜める', t.LEGEND >= 3500, `${t.LEGEND}ms`);
+      }
+
       // 演出の有無で結果が変わらないこと。
       // 見せ方の都合で中身が動くと、表示している排出率が嘘になる。
       {

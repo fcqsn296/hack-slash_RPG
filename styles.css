@@ -3495,3 +3495,61 @@ body.has-backdrop { background: transparent; }
   .update-bar { border-radius: 12px; font-size: 12px; gap: 6px; padding: 8px 10px; }
   .update-bar > span { white-space: normal; }
 }
+
+/* ===== 溜め (§6.7) =====
+   一段ずつ色を上げて、そのたびに止める。
+   止まっている時間そのものが溜めになる。 */
+
+/* 息を止めている状態。光がわずかに脈打つだけにする */
+.gfx.is-hold .gfx-core { animation: gfx-hold .9s ease-in-out infinite; }
+@keyframes gfx-hold {
+  0%, 100% { transform: scale(1.1); filter: brightness(1); }
+  50%      { transform: scale(1.22); filter: brightness(1.35); }
+}
+/* 上がる直前に絞る。落ちたと思わせてから跳ね上げる */
+.gfx.is-dim .gfx-core { opacity: .35; filter: brightness(.5); transition: all .22s ease; }
+.gfx.is-dim .gfx-ring { opacity: .12; }
+
+/* 飛ばせることの案内。名乗りに入ったら消える */
+.gfx-hint {
+  position: absolute; bottom: 12vh;
+  font: 600 12px/1 inherit; letter-spacing: .18em;
+  color: rgba(255, 255, 255, .5);
+  animation: gfx-hint-in .5s ease both;
+}
+@keyframes gfx-hint-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ===== 名乗りの段取り =====
+   影から始めて、光が走ってから顔が見える。
+   いきなり全部見えると、立ち絵が一覧の1枚と変わらなくなる。 */
+.gfx-standee { filter: brightness(.06) drop-shadow(0 0 26px var(--gfx-color, #fff)); }
+.gfx.is-debut-lit .gfx-standee {
+  filter: brightness(1) drop-shadow(0 0 26px var(--gfx-color, #fff));
+  transition: filter 1.1s cubic-bezier(.3, .8, .3, 1);
+}
+
+/* 影を照らす光の帯 */
+.gfx-sweep {
+  position: absolute; top: 0; bottom: 0; width: 45vmin;
+  background: linear-gradient(100deg,
+    transparent 0%, rgba(255, 255, 255, .1) 35%,
+    var(--gfx-color, #fff) 50%, rgba(255, 255, 255, .1) 65%, transparent 100%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.gfx.is-debut-lit .gfx-sweep { animation: gfx-sweep 1.2s cubic-bezier(.4, 0, .3, 1) both; }
+@keyframes gfx-sweep {
+  0%   { opacity: 0; transform: translateX(-90vw); }
+  25%  { opacity: .9; }
+  100% { opacity: 0; transform: translateX(90vw); }
+}
+
+/* 名前は光が当たり切ってから出す */
+.gfx-debut-text { animation-delay: 1.5s !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gfx.is-hold .gfx-core { animation: none; }
+  .gfx-sweep { animation-duration: .01ms !important; }
+  .gfx-standee { filter: brightness(1); }
+}

@@ -50,7 +50,7 @@
     if (st.gachaFx === false || !results.length) { onDone(); return; }
 
     const top = topRarity(results);
-    const color = RPG.data.rarities[top].color;
+    const debut = debutOf(results);
     const fast = !!st.fast;
 
     const layer = h('div.gfx');
@@ -58,14 +58,17 @@
     const rays = h('div.gfx-rays');
     const ring = h('div.gfx-ring');
     const label = h('div.gfx-label');
-    layer.append(rays, ring, core, label);
-    // 触ったら飛ばす。押しどころを探させない。
-    layer.addEventListener('pointerdown', () => finish());
+    const hint = h('div.gfx-hint');
+    layer.append(rays, ring, core, label, hint);
     document.body.appendChild(layer);
 
     /** @type {number[]} */
     const timers = [];
     let done = false;
+    // 名乗りに入ったら飛ばさない (§6.7)。
+    // 初めての1体が出た瞬間は、この演出そのものが見せ場なので、
+    // 指が当たっただけで消えてしまうと取り返しがつかない。
+    let skippable = true;
 
     const finish = () => {
       if (done) return;
@@ -75,60 +78,126 @@
       running = null;
       onDone();
     };
-    running = finish;
 
-    const at = (ms, fn) => timers.push(setTimeout(fn, fast ? Math.round(ms * 0.45) : ms));
+    /** 名乗りへ飛ぶ。予約してある続きは全部捨てる */
+    let jumpToDebut = null;
 
-    // ── 1. 光が育つ ──
-    // 最初は白。まだ何色になるか分からない、という時間を作る。
+    /**
+     * 触られたときの振る舞い。
+     *
+     * 名乗りが控えているときは **結果へは飛ばさず、名乗りへ飛ぶ**。
+     * ここを素通しにすると、焦らしている最中に指が当たっただけで
+     * 初めての1体の披露ごと消える。飛ばしたいのは溜めであって、
+     * 見せ場ではない。
+     */
+    const onTap = () => {
+      if (done) return;
+      if (jumpToDebut) { jumpToDebut(); return; }
+      if (skippable) finish();
+    };
+    running = onTap;
+    layer.addEventListener('pointerdown', onTap);
+
+    const at = (ms, fn) => timers.push(setTimeout(fn, fast ? Math.round(ms * 0.5) : ms));
+
+    const tint = (rarity) => {
+      layer.style.setProperty('--gfx-color', RPG.data.rarities[rarity].color);
+    };
+
+    // ── 色の階段を上る (§6.7) ──
+    //
+    // 一段ずつ上げて、そのたびに **止める**。
+    // 止まっている時間そのものが溜めになる。動き続けていると、
+    // どこが山なのか分からないまま終わる。
+    //
+    // 上がる段数はその引きの最高レアリティで決まるので、
+    // ノーマルだけの引きは短く済み、上位ほど長く焦らされる。
     layer.style.setProperty('--gfx-color', '#ffffff');
     layer.classList.add('is-charging');
 
-    // ── 2. 色が決まる ──
-    // 一段下の色を先に見せてから上げると、上がった瞬間に跳ねる。
-    // 最高が COMMON のときは昇格しない（嘘にならないように）。
-    const teaseAt = rank(top) > 0 ? ORDER[rank(top) - 1] : top;
-    at(520, () => {
-      layer.style.setProperty('--gfx-color', RPG.data.rarities[teaseAt].color);
-      layer.classList.add('is-tinted');
+    const steps = ORDER.slice(0, rank(top) + 1);
+    let t = 700;                       // 生まれた光が育つ時間
+    steps.forEach((rarity, i) => {
+      const last = i === steps.length - 1;
+      // 溜め。ここでは何も起こさず、ただ息を止める。
+      // 上の段ほど長くする。届きそうで届かない時間を伸ばすため。
+      const hold = i === 0 ? 260 : 300 + i * 190;
+      t += hold;
+      at(t, () => {
+        layer.classList.add('is-hold');
+        // 一段上がる直前だけ、光を絞る。
+        // 落ちたと思わせてから跳ね上げると、上がり幅が大きく感じる。
+        if (!last) layer.classList.add('is-dim');
+      });
+
+      t += last ? 420 : 260;
+      at(t, () => {
+        layer.classList.remove('is-hold', 'is-dim');
+        tint(rarity);
+        layer.classList.add('is-tinted');
+        if (i > 0) {
+          // 段が上がった手応え。CSSアニメを掛け直すため一度外す。
+          layer.classList.remove('is-promoted');
+          void layer.offsetWidth;
+          layer.classList.add('is-promoted');
+          if (!last) spawnSparks(layer, 6);
+        }
+      });
     });
 
-    at(1000, () => {
-      layer.style.setProperty('--gfx-color', color);
-      if (teaseAt !== top) layer.classList.add('is-promoted');
-      layer.classList.add('is-locked');
-      label.textContent = RPG.data.rarities[top].label;
-    });
-
-    // ── 3. 弾ける ──
-    // レジェンドだけは長く、強く。ここを他と同じにすると、
-    // 出たときの手応えが消える。
+    // ── 弾ける ──
     const isTop = top === 'LEGEND';
-    at(1240, () => {
-      layer.classList.add('is-burst');
+    t += isTop ? 520 : 300;
+    at(t, () => {
+      layer.classList.add('is-locked', 'is-burst');
+      label.textContent = RPG.data.rarities[top].label;
       if (isTop) layer.classList.add('is-legend');
       if (isTop) spawnSparks(layer, 26);
       else if (top === 'SUPER_RARE') spawnSparks(layer, 12);
     });
 
-    // ── 4. 初めて手にしたレジェンドだけ、名乗らせる ──
-    //
-    // 被りは限界突破になるだけで、盤面に新しい顔は増えない。
-    // **初めての1体だけ**が「仲間が増えた」瞬間なので、そこを分ける。
-    // 何度も出る演出にすると、この重みが薄まる。
-    const debut = debutOf(results);
-
     if (!debut) {
-      at(isTop ? 2200 : 1750, finish);
+      // 飛ばせることを一度だけ伝える。押しどころを探させない。
+      at(t + 250, () => { hint.textContent = 'タップで結果へ'; });
+      at(t + (isTop ? 1200 : 650), finish);
       return;
     }
 
-    at(1900, () => {
-      layer.classList.add('is-debut');
-      layer.appendChild(buildDebut(debut));
-    });
-    // 立ち絵は読むものなので、弾ける演出より長く置く。
-    at(5200, finish);
+    // 名乗りが控えているときは、何が起きるかを先に言っておく。
+    // 「飛ばせない」と後から知るより、飛ばす先が名乗りだと分かるほうがよい。
+    at(600, () => { hint.textContent = 'タップで先へ'; });
+
+    // ── 名乗り (§6.7) ──
+    // ここから先は飛ばせない。
+    const startDebut = () => {
+      if (done || !jumpToDebut) return;
+      jumpToDebut = null;
+      // 予約してある途中経過を捨てる。飛んできた場合に
+      // 後から「弾ける」が走ると、名乗りの上に重なる。
+      for (const id of timers) clearTimeout(id);
+      timers.length = 0;
+
+      skippable = false;
+      hint.textContent = '';
+      // 飛んできた場合でも、色と弾けだけは見せてから名乗りへ移る。
+      tint(top);
+      layer.classList.remove('is-hold', 'is-dim');
+      layer.classList.add('is-locked', 'is-burst', 'is-legend');
+      label.textContent = RPG.data.rarities[top].label;
+
+      timers.push(setTimeout(() => {
+        layer.classList.add('is-debut');
+        layer.appendChild(buildDebut(debut));
+      }, fast ? 260 : 520));
+      // 影から始めて、光が当たってから顔が見える。
+      timers.push(setTimeout(() => {
+        layer.classList.add('is-debut-lit');
+      }, fast ? 760 : 1520));
+      timers.push(setTimeout(finish, fast ? 3600 : 6200));
+    };
+    jumpToDebut = startDebut;
+
+    at(t + 500, startDebut);
   }
 
   /**
@@ -147,9 +216,14 @@
     box.appendChild(h('div.gfx-cutin'));
     box.appendChild(h('div.gfx-cutin.is-second'));
 
+    // 影から始める。誰なのかを一拍おいて見せたい。
+    // いきなり全部見えると、立ち絵が一覧の1枚と変わらなくなる。
     const art = h('div.gfx-standee');
     art.appendChild(RPG.widgets.standee(def));
     box.appendChild(art);
+
+    // 光が横に走って、影を照らす
+    box.appendChild(h('div.gfx-sweep'));
 
     box.appendChild(h('div.gfx-debut-text',
       h('span.gfx-debut-rare', { text: RPG.data.rarities[p.rarity].label }),
@@ -192,5 +266,25 @@
       p.kind === 'new' && p.rarity === 'LEGEND') || null;
   }
 
-  RPG.ui.gachafx = { play, skip, topRarity, debutOf };
+  /**
+   * 弾けるまでにかける時間 (§6.7)。
+   *
+   * レアリティが上がるほど段が増え、そのぶん焦らされる。
+   * 画面を動かさずに確かめられるよう、計算だけを切り出してある。
+   *
+   * @param {string} top その引きの最高レアリティ
+   * @returns {number} ミリ秒
+   */
+  function burstDelay(top) {
+    const steps = ORDER.slice(0, rank(top) + 1);
+    let t = 700;
+    steps.forEach((_, i) => {
+      const last = i === steps.length - 1;
+      t += i === 0 ? 260 : 300 + i * 190;   // 溜め
+      t += last ? 420 : 260;                // 色が乗る
+    });
+    return t + (top === 'LEGEND' ? 520 : 300);
+  }
+
+  RPG.ui.gachafx = { play, skip, topRarity, debutOf, burstDelay };
 })(window.RPG || (window.RPG = { data: {}, plugins: {}, ui: {} }));
