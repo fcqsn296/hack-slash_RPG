@@ -2542,6 +2542,14 @@
    * 戦闘中ではなくビルド画面に置いてある。戦闘は手を止めたくない場面で、
    * 並べ替えのような落ち着いた操作を混ぜる場所ではない。
    *
+   * ── ここで技の中身も読める ──
+   * 技の説明は戦闘中のボタンにしか出ていなかった。つまり
+   * **編成や振り分けを考えている最中に、手持ちの技を確認できない**。
+   * 戦う前に「この技は何をするのか」を読める場所が要る。
+   *
+   * 出す内容は戦闘画面のボタンと揃えてある。同じ技が場所によって
+   * 違う顔で出てくると、照合するのに読み直すことになる。
+   *
    * @param {HTMLElement} root @param {any} charSave @param {any} unit
    */
   function skillOrderPanel(root, charSave, unit) {
@@ -2554,9 +2562,9 @@
         'aria-expanded': skillOrderOpen ? 'true' : 'false',
       },
         h('span.cat-mark', { text: skillOrderOpen ? '▼' : '▶' }),
-        h('span.cat-label', { text: 'コマンドの並び' }),
+        h('span.cat-label', { text: '技と並び順' }),
         h('span.cat-count', { text: `${list.length} 技` }),
-        h('span.cat-desc', { text: '戦闘で上から並ぶ順。よく使う技を前に出せる。' })
+        h('span.cat-desc', { text: '覚えている技の効果を読める。戦闘で上から並ぶ順もここで変えられる。' })
       ),
       skillOrderOpen
         ? h('ol.skill-order-list', list.map((/** @type {string} */ id, /** @type {number} */ i) => {
@@ -2567,20 +2575,36 @@
               if (!res.ok) { RPG.app.toast(res.reason || '動かせません'); return; }
               render(root);
             };
-            return h('li.skill-order-item',
+            return h('li.skill-order-item' + (sk.cls ? '.is-class' : ''),
               h('span.skill-order-no', { text: String(i + 1) }),
-              h('span.skill-order-name', { text: sk.name }),
-              h('span.skill-order-meta', {
-                text: sk.power > 0 ? `威力${sk.power}%` : '補助',
-              }),
-              h('button.skill-order-btn', {
-                text: '↑', title: '前へ', disabled: i === 0,
-                onclick: () => move(-1),
-              }),
-              h('button.skill-order-btn', {
-                text: '↓', title: '後ろへ', disabled: i === list.length - 1,
-                onclick: () => move(1),
-              })
+              h('div.skill-order-body',
+                h('div.skill-order-title',
+                  h('b.skill-order-name', { text: sk.name }),
+                  sk.cls ? h('span.chip.chip-class', { text: 'クラス' }) : null
+                ),
+                // 戦闘画面のボタンと同じ並び。属性・系統・威力・待ち時間。
+                h('div.skill-order-chips',
+                  W.elementChip(sk.element),
+                  W.tagChip(sk.damage_type),
+                  sk.power > 0
+                    ? h('span.chip', { text: '威力' + sk.power + '%' })
+                    : h('span.chip', { text: '補助' }),
+                  sk.crit_rate ? h('span.chip', { text: '会心' + Math.round(sk.crit_rate * 100) + '%' }) : null,
+                  sk.readyRound ? h('span.chip', { text: sk.readyRound + 'R目〜' }) : null,
+                  sk.cooldown ? h('span.chip', { text: 'CT' + sk.cooldown }) : null
+                ),
+                h('p.skill-order-desc', { text: sk.desc || '' })
+              ),
+              h('div.skill-order-moves',
+                h('button.skill-order-btn', {
+                  text: '↑', title: '前へ', disabled: i === 0,
+                  onclick: () => move(-1),
+                }),
+                h('button.skill-order-btn', {
+                  text: '↓', title: '後ろへ', disabled: i === list.length - 1,
+                  onclick: () => move(1),
+                })
+              )
             );
           }))
         : null

@@ -2842,9 +2842,21 @@ body.has-backdrop { background: transparent; }
   font-size: 11px; font-weight: 800; color: var(--ember-hot);
   font-variant-numeric: tabular-nums;
 }
-.skill-order-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 700;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.skill-order-meta { flex: 0 0 auto; font-size: 10px; color: var(--text-dim); }
+/* 技の中身を読めるようにしたので、1行では収まらなくなった (§4)。
+   名前だけを省略していた頃の指定を、説明が入る形に置き換える。 */
+.skill-order-item { align-items: flex-start; }
+.skill-order-no { padding-top: 2px; }
+.skill-order-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.skill-order-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.skill-order-name { font-size: 13px; font-weight: 700; min-width: 0; }
+.skill-order-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.skill-order-desc {
+  margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-dim);
+}
+/* クラス技は色で見分ける。解禁ラウンドとクールタイムがあり、
+   ほかの技と同じ感覚では撃てないため。 */
+.skill-order-item.is-class { border-color: var(--ember); }
+.skill-order-moves { flex: 0 0 auto; display: flex; gap: 4px; }
 .skill-order-btn {
   appearance: none; cursor: pointer; flex: 0 0 auto;
   width: 34px; height: 34px; border: 1px solid var(--line);

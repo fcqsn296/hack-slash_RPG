@@ -7098,6 +7098,48 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // 技の説明 (§4)
+    //
+    // ビルド画面でも技の中身を読めるようにした。
+    // 説明が空の技があると、そこだけ何も書かれていない欄になる。
+    // 戦闘中のボタンでも同じ desc を使っているので、抜けは両方に出る。
+    // ---------------------------------------------------------------
+    {
+      const ids = Object.keys(RPG.data.skills);
+
+      // 敵専用の技はプレイヤーに見えないので説明を持たない。
+      const shown = ids.filter((/** @type {string} */ id) => id.indexOf('sk_enemy_') !== 0);
+
+      const noDesc = shown.filter((/** @type {string} */ id) => {
+        const d = RPG.data.skills[id].desc;
+        return typeof d !== 'string' || d.trim() === '';
+      });
+      assertTrue('技の説明: 味方が使う技には必ず説明がある', noDesc.length === 0,
+        noDesc.join(', ') || `${shown.length} 技を確認`);
+
+      // 画面が読む項目が欠けていないこと。
+      // element と damage_type はそのままチップにするので、
+      // 未知の値だと空のチップが出る。
+      const badElement = shown.filter((/** @type {string} */ id) =>
+        !RPG.damage.ELEMENT_LABEL[RPG.data.skills[id].element]);
+      assertTrue('技の説明: 属性が実在する', badElement.length === 0, badElement.join(', '));
+
+      const badTag = shown.filter((/** @type {string} */ id) =>
+        !RPG.damage.TAG_LABEL[RPG.data.skills[id].damage_type]);
+      assertTrue('技の説明: 系統タグが実在する', badTag.length === 0, badTag.join(', '));
+
+      // クラス技は解禁ラウンドとクールタイムを両方持つこと (§12)。
+      // 片方だけだと「いつ撃てるのか」が読めない。
+      const cls = shown.filter((/** @type {string} */ id) => RPG.data.skills[id].cls);
+      const halfGated = cls.filter((/** @type {string} */ id) => {
+        const sk = RPG.data.skills[id];
+        return !sk.readyRound || !sk.cooldown;
+      });
+      assertTrue('技の説明: クラス技は解禁とCTを両方持つ', halfGated.length === 0,
+        halfGated.join(', ') || `${cls.length} 技`);
+    }
+
     return results;
   }
 
