@@ -428,6 +428,26 @@
     /** @type {Record<string, number>} タグごとに合算してから1本にまとめる */
     const tagSums = { phys: 0, magi: 0, reli: 0 };
 
+    /**
+     * 「高いほうを採る」種別の畳み込み (§5.8)。
+     *
+     * ── なぜ Math.max なのか ──
+     * 復活・致死耐えは **1戦闘に1回** しか起きない。足し算にすると
+     * 低位ノードを重ねるだけで確率が1を超え、段階を作った意味が消える。
+     * 同じ効果の上位ノードを取ったら、下位を「置き換える」のが正しい。
+     *
+     * ── ただし e.value ではなく amount を渡すこと ──
+     * e.value を渡していたせいで、**同じノードを重ねても伸びなかった**。
+     * 2段目以降のSPは払えるのに何も起きない状態が、
+     * 不撓(6SP) 不屈の魂(8SP) 輪廻(6SP) 不撓の祈り(2CP) の4つに残っていた。
+     * amount は value×レベルなので、これで段数が効くようになる。
+     *
+     * 確率とHP割合なので1で頭打ちにする。
+     *
+     * @param {number} cur @param {number} next
+     */
+    const capped = (cur, next) => Math.min(1, Math.max(cur, next));
+
     for (const n of defs) {
       const level = levels[n.id];
       if (!level) continue;
@@ -451,11 +471,11 @@
             passives.counterRate += amount;
             passives.counterPower = Math.max(passives.counterPower, e.power || 0.6);
             break;
-          case 'revive': passives.reviveHp = Math.max(passives.reviveHp, e.value); break;
+          case 'revive': passives.reviveHp = capped(passives.reviveHp, amount); break;
           case 'extra_action': passives.extraActionRate += amount; break;
           case 'thorns': passives.thorns += amount; break;
           case 'double_hits': passives.doubleHits += amount; break;
-          case 'last_stand': passives.lastStand = Math.max(passives.lastStand, e.value); break;
+          case 'last_stand': passives.lastStand = capped(passives.lastStand, amount); break;
           case 'wave_heal': passives.waveHeal += amount; break;
           case 'chain': passives.chain += amount; break;
           case 'guard_break': passives.guardBreak += amount; break;
@@ -568,7 +588,7 @@
           case 'high_power_boost': situational.highPowerBoost += amount; break;
           // --- 生存・戦況 (§5.8) ---
           case 'damage_share': passives.damageShare += amount; break;
-          case 'wave_revive': passives.waveRevive = Math.max(passives.waveRevive, e.value); break;
+          case 'wave_revive': passives.waveRevive = capped(passives.waveRevive, amount); break;
           case 'wave_power': passives.wavePower += amount; break;
           case 'full_hp_foe_power': situational.fullHpFoePower += amount; break;
           case 'boss_guard': situational.bossGuard += amount; break;

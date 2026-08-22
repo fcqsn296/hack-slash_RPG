@@ -6337,6 +6337,132 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // 効果種別の登録簿 (data/effectkinds.js)
+    //
+    // 効果の情報は長いあいだ3か所に手書きで散っていて、2回ずれた。
+    // いまは登録簿が唯一の出どころで、units.js の配列はそこから組み立てる。
+    // ここでは「登録簿が実装とずれていないか」だけを見張る。
+    // ---------------------------------------------------------------
+    {
+      const reg = RPG.data.effectKinds;
+      const kinds = Object.keys(reg);
+
+      // 実装と一対一であること。片方にしか無い種別は、どちらかが古い。
+      const impl = RPG.tree.KNOWN_EFFECT_KINDS;
+      const missing = impl.filter((/** @type {string} */ k) => kinds.indexOf(k) < 0);
+      const extra = kinds.filter((/** @type {string} */ k) => impl.indexOf(k) < 0);
+      assertTrue('登録簿: tree.js の効果種別を漏れなく載せている',
+        missing.length === 0, missing.join(', '));
+      assertTrue('登録簿: 実装に無い効果種別を載せていない',
+        extra.length === 0, extra.join(', '));
+
+      // 行き先と形が、決めた値のどれかであること。
+      const TO = ['passives', 'situational', 'build'];
+      const SHAPE = ['add', 'max', 'levels', 'keyed', 'special'];
+      const badTo = kinds.filter((/** @type {string} */ k) => TO.indexOf(reg[k].to) < 0);
+      const badShape = kinds.filter((/** @type {string} */ k) => SHAPE.indexOf(reg[k].shape) < 0);
+      assertTrue('登録簿: 行き先が決めた値のどれか', badTo.length === 0, badTo.join(', '));
+      assertTrue('登録簿: 形が決めた値のどれか', badShape.length === 0, badShape.join(', '));
+
+      // 装備から持てるキーは、行き先が必ず書いてあること。
+      // ここが空だと units.js が流し先を決められず、静かに捨てる。
+      const noRoute = kinds.filter((/** @type {string} */ k) => reg[k].uniq && !reg[k].route);
+      assertTrue('登録簿: 装備から持てるキーには行き先がある',
+        noRoute.length === 0, noRoute.join(', '));
+
+      // units.js の配列が登録簿から組み立てられていること。
+      const routes = RPG.data.effectRoutes;
+      assertTrue('登録簿: units.js のキー一覧と一致する',
+        RPG.units.UNIQUE_EFFECT_KEYS.length === Object.keys(routes).length
+        && RPG.units.UNIQUE_EFFECT_KEYS.every((/** @type {string} */ k) => !!routes[k]),
+        `${RPG.units.UNIQUE_EFFECT_KEYS.length} / ${Object.keys(routes).length}`);
+    }
+
+    // ---------------------------------------------------------------
+    // 効果キーが登録簿どおりの場所に届くか (§7.8)
+    //
+    // 行き先を間違えても **エラーも警告も出ない**。値は保存され、画面にも
+    // 出るのに、読む側が別の場所を見ているので何も起きない。
+    // critPierce と debuffAmp が実際に長いあいだ死んでいた。
+    //
+    // 46キーを1つずつ装備させて、宣言どおりの場所に入ったかを実測する。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const st = RPG.state.get();
+        st.named = true;
+        const c = st.characters.ch_hero;
+        c.level = 200;
+
+        const routes = RPG.data.effectRoutes;
+        const wrong = [];
+        let uid = 971000;
+
+        for (const key of Object.keys(routes)) {
+          const base = RPG.data.equipBases.eq_amulet;
+          const item = {
+            uid: uid++, base: 'eq_amulet', name: '検査用', slot: base.slot, tag: base.tag,
+            rarity: 'LEGEND', stats: {}, tagBonuses: [], critRate: 0, capBreak: 0,
+            reduction: 0, affixLines: [], boxId: 'box_astral', setId: null,
+            uniqueId: 'uq_probe', uniqueEffects: { [key]: 0.25 }, locked: true,
+          };
+          c.equipped = { weapon: [], armor: [], accessory: [] };
+          c.equipped[base.slot] = [item.uid];
+          const u = RPG.units.buildCharacterUnit(c, [item]);
+
+          const want = routes[key];
+          const at =
+            (u.passives && u.passives[key]) ? 'passives'
+            : (u.situational && u.situational[key]) ? 'situational'
+            : (u.setEffects && u.setEffects[key]) ? 'setEffects' : null;
+
+          if (want === 'unit' || want === 'build') {
+            // 素の値は置き場所が個別なので、ユニットのどこかに現れていればよい。
+            if (JSON.stringify(u).indexOf('0.25') < 0) wrong.push(`${key}: 届いていない`);
+          } else if (at !== want) {
+            wrong.push(`${key}: ${want} のはずが ${at || '見つからない'}`);
+          }
+        }
+        c.equipped = { weapon: [], armor: [], accessory: [] };
+
+        assertTrue('効果キー: 登録簿どおりの場所に届く', wrong.length === 0,
+          wrong.length ? wrong.join(' / ') : `${Object.keys(routes).length} キーを確認`);
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 「高いほうを採る」種別は、レベルぶん伸びること (§5.8)
+    //
+    // e.value をそのまま渡していたせいで、同じノードを重ねても伸びなかった。
+    // 2段目以降のSPは払えるのに何も起きない状態が
+    // 不撓(6SP) 不屈の魂(8SP) 輪廻(6SP) 不撓の祈り(2CP) に残っていた。
+    // ---------------------------------------------------------------
+    {
+      const reg = RPG.data.effectKinds;
+      const maxKinds = Object.keys(reg)
+        .filter((/** @type {string} */ k) => reg[k].shape === 'max');
+
+      const dead = [];
+      for (const node of RPG.data.skillTree) {
+        if ((node.maxLevel || 1) <= 1) continue;
+        if (!(node.effects || []).some((/** @type {any} */ e) => maxKinds.indexOf(e.kind) >= 0)) continue;
+        const one = RPG.tree.effects({ [node.id]: 1 });
+        const full = RPG.tree.effects({ [node.id]: node.maxLevel });
+        if (JSON.stringify(one) === JSON.stringify(full)) {
+          dead.push(`${node.name}（${node.cost}×${node.maxLevel}）`);
+        }
+      }
+      assertTrue('効果種別: 重ねても伸びないノードが無い', dead.length === 0,
+        dead.length ? dead.join(' / ') : `最大値方式 ${maxKinds.join('、')} を確認`);
+    }
+
     return results;
   }
 
@@ -6430,6 +6556,37 @@
       .catch((e) => {
         check('手順書: docs/拡張コンテンツの作り方.md が読める', false, String(e && e.message));
       })
+      // ── 効果を足すときの手引き ──
+      // ctx でできることの一覧はここにしか無い。ずれると、
+      // プラグインを書く人が存在しない機能を呼ぶか、使える機能に気付かない。
+      .then(() => fetch('../docs/効果を追加するときの手引き.md')
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
+        .then((doc) => {
+          /** @param {string} name */
+          const inDoc = (name) => doc.indexOf('`' + name + '`') >= 0
+            || doc.indexOf('`' + name + '(') >= 0;
+
+          const CTX = ['params', 'skill', 'actor', 'targets', 'battle', 'allies', 'foes',
+            'damage', 'damageWith', 'heal', 'log', 'addStatus', 'selfStatus',
+            'setDefIgnore', 'detonate', 'addSigil', 'mark', 'borrowTurn',
+            'addUniqueBuff', 'addTagBuff', 'addDefBuff', 'addReductionBuff'];
+          const missed = CTX.filter((k) => !inDoc(k));
+          check('手引き: ctx の機能が全て載っている', missed.length === 0, missed.join(', '));
+
+          // 値の行き先3つ。ここが要点なので落とせない。
+          const noTo = ['passives', 'situational', 'build'].filter((k) => !inDoc(k));
+          check('手引き: 値の行き先3つを説明している', noTo.length === 0, noTo.join(', '));
+
+          // 最大値方式の種別を名指ししていること。
+          const maxKinds = Object.keys(RPG.data.effectKinds)
+            .filter((/** @type {string} */ k) => RPG.data.effectKinds[k].shape === 'max');
+          const noMax = maxKinds.filter((k) => !inDoc(k));
+          check('手引き: 最大値方式の種別を名指ししている', noMax.length === 0, noMax.join(', '));
+        })
+        .catch((e) => {
+          check('手引き: docs/効果を追加するときの手引き.md が読める', false,
+            String(e && e.message));
+        }))
       .then(() => onDone(results));
   }
 

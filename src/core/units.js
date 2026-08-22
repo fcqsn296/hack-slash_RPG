@@ -90,48 +90,39 @@
    * ここに載せてはいけない。二重に効いてしまう。それらは
    * BATTLE_KEYS のほうに並べてある。
    */
-  const PASSIVE_KEYS = [
-    'midPowerStatus', 'midPowerCombo',   // 中技の役割 (§5.8)
-    'hpToDef', 'guardAlly',              // 防御で耐える道 (§5.8)
-    'statusPower', 'debuffDuration',     // 状態異常で押す構成 (§5.6)
-    'doubleHits',                        // 手数で押す構成
-    'comboGain', 'comboPower',           // 弱点コンボを繋ぐ構成 (§10.6)
-    'loneFoePower', 'soloPower',         // 単騎・1体相手に寄せる構成
-    'reflect', 'counterRate',            // 殴られる前提の構成
-    'extraActionRate', 'ambush',         // 手番を増やす構成 (§5.6)
-    'healPower', 'healOnKill',           // 支える構成 (§5.7)
-    'overhealShield', 'shieldRegen',     // 障壁で耐える構成 (§5.6/§5.8)
-    'debuffSpread',                      // 弱体を広げる構成 (§5.7)
-    'chain', 'chainPower',               // 連鎖で削る構成 (§5.7)
-    'selfCursePower',                    // 自傷を糧にする構成 (§9.1)
-    'sigilBurst',                        // 刻印を積んで弾く構成 (§9.1)
-  ];
+  /**
+   * ユニーク装備・装備セットの effects を、ユニットのどこへ流すか。
+   *
+   * ── 手書きをやめた理由 ──
+   * ここは長いあいだ手書きの配列だった。行き先が passives / situational /
+   * 素の値 の3つに分かれていて、**間違えても何も起きない**。
+   * エラーも警告も出ないので、書いた側は効いているつもりで先へ進む。
+   * 実際 critPierce と debuffAmp を passives に置いて、長く死んでいた。
+   * 一覧そのものも古くなり、wrathRatio など3つが漏れていたことがある。
+   *
+   * いまは data/effectkinds.js が唯一の出どころで、ここは読むだけ。
+   * 新しい効果を足すときも、触るのはあちら1か所でよい。
+   */
+  const ROUTES = () => (RPG.data.effectRoutes || {});
 
-  /** 組み立て時に別枠で処理するキー (§7.8)。passives には流さない。 */
-  const BUILD_KEYS = [
-    'capBreak', 'highPowerBoost', 'firstRoundPower', 'reviveHp',
-    // 組み立て時に elementMods へ流す (§5.4)
-    'elementAdapt',
-    // 会心・処刑・ボス特効は passives ではなくユニットの素の値として持つ (§3.2)。
-    // damage.js が attacker.critDamage のように直接読むため、
-    // passives へ流しても効かない。下の「別枠で処理する」ブロックで足している。
-    'critRate', 'critDamage', 'critPierce', 'execute', 'bossSlayer',
-    // debuffAmp も situational 側。passives へ流しても damage.js には届かない。
-    'debuffAmp',
-  ];
+  /** @param {string} want */
+  const keysFor = (want) => Object.keys(ROUTES())
+    .filter((/** @type {string} */ k) => ROUTES()[k] === want);
 
-  /** battle.js が戦闘中に直接読むキー (§7.8)。ここで足すと二重になる。 */
-  const BATTLE_KEYS = [
-    'lowPowerBoost', 'lowPowerSpread', 'lowPowerRepeat', 'autoLowSkill',
-    'selfPower', 'fallenPower', 'decayPerRound', 'decayFloor',
-    'wrathRatio', 'wrathRelease', 'comboLock',
-  ];
+  /** passives へそのまま加算するキー */
+  const PASSIVE_KEYS = keysFor('passives');
+  /** situational へ加算するキー。passives へ入れても damage.js には届かない */
+  const SITUATIONAL_KEYS = keysFor('situational');
+  /** 組み立て時に個別処理するキー（素の値・elementMods など） */
+  const BUILD_KEYS = keysFor('unit').concat(keysFor('build'));
+  /** battle.js が戦闘中に p.x + fx.x で読むキー。ここで足すと二重になる */
+  const BATTLE_KEYS = keysFor('setEffects');
 
   /**
    * ユニーク装備の effects に書けるキーの全体。
    * 拡張コンテンツ (§18) の検査がここを見る。
    */
-  const UNIQUE_EFFECT_KEYS = PASSIVE_KEYS.concat(BUILD_KEYS, BATTLE_KEYS);
+  const UNIQUE_EFFECT_KEYS = Object.keys(ROUTES());
 
   function buildCharacterUnit(charSave, inventory) {
     const def = RPG.data.characters[charSave.id];
@@ -222,24 +213,14 @@
     // passives へ流しても届かない。ここで足しておく。
     if (setFx.critRate) critRate += setFx.critRate;
     if (setFx.critDamage) tree.critDamage = (tree.critDamage || 0) + setFx.critDamage;
-    // critPierce と debuffAmp は situational 側にある
-    // （toAttacker が unit.situational から読む）
-    if (setFx.critPierce) {
-      situational.critPierce = (situational.critPierce || 0) + setFx.critPierce;
-    }
-    if (setFx.debuffAmp) {
-      situational.debuffAmp = (situational.debuffAmp || 0) + setFx.debuffAmp;
+    // situational 側のキーはまとめて流す (§7.8)。
+    // toAttacker が unit.situational から読むので、passives へ入れると届かない。
+    for (const key of SITUATIONAL_KEYS) {
+      if (setFx[key]) situational[key] = (situational[key] || 0) + setFx[key];
     }
     if (setFx.execute) tree.execute = (tree.execute || 0) + setFx.execute;
-    if (setFx.bossSlayer) {
-      situational.bossSlayer = (situational.bossSlayer || 0) + setFx.bossSlayer;
-    }
-    if (setFx.highPowerBoost) {
-      situational.highPowerBoost = (situational.highPowerBoost || 0) + setFx.highPowerBoost;
-    }
-    if (setFx.firstRoundPower) {
-      situational.firstRoundPower = (situational.firstRoundPower || 0) + setFx.firstRoundPower;
-    }
+    // highPowerBoost / firstRoundPower / bossSlayer / critPierce / debuffAmp は
+    // 上の SITUATIONAL_KEYS のループが流している。ここで個別に足すと二重になる。
 
     // 「攻撃力が半分になる代わりに常に二回攻撃」のような代償はここで効かせる
     if (passives.atkScale !== 1) stats.atk = Math.max(1, Math.floor(stats.atk * passives.atkScale));

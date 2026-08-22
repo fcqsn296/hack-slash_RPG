@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v51';
+const CACHE_VERSION = 'v52';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -54,6 +54,7 @@ const PRECACHE = [
   './data/uniques.js',
   './data/fields.js',
   './data/gacha.js',
+  './data/effectkinds.js',
   './data/skilltree.js',
   './data/statuses.js',
   './data/nodecategories.js',
