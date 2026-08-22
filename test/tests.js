@@ -1260,6 +1260,31 @@
       assertNear('先制: 1ラウンド目に+30%', dmg({ firstRoundPower: 0.3 }, {}, { firstRound: true }), 1300, 0);
       assertNear('先制: 2ラウンド目以降は効果なし', dmg({ firstRoundPower: 0.3 }, {}, { firstRound: false }), 1000, 0);
 
+      // 格上補正 (§3.2 ステップ7.5)。推奨レベルを実際の関門にするための補正。
+      // 攻撃側は Lv60。20 までは適正に遊んでいるときの差なので無傷にしてある。
+      assertNear('格上: 同レベルなら効果なし', dmg({}, { level: 60 }), 1000, 0);
+      assertNear('格上: 20レベル上までは無傷', dmg({}, { level: 80 }), 1000, 0);
+      assertNear('格上: 30レベル上で 1/(1+10×0.08)', dmg({}, { level: 90 }), 555, 0);
+      assertNear('格上: 140レベル上（Lv60でLv200へ挑む）', dmg({}, { level: 200 }), 94, 0);
+      assertNear('格下には何も起きない', dmg({}, { level: 5 }), 1000, 0);
+      assertTrue('格上補正は単調に厳しくなる',
+        [80, 100, 150, 200, 255].every((lv, i, a) =>
+          i === 0 || RPG.damage.levelGapRate(60, lv) < RPG.damage.levelGapRate(60, a[i - 1])),
+        [80, 100, 150, 200, 255].map((lv) =>
+          `Lv${lv}:${(RPG.damage.levelGapRate(60, lv) * 100).toFixed(1)}%`).join(' / '));
+      assertTrue('格上補正は0にはならない',
+        RPG.damage.levelGapRate(1, 255) > 0,
+        `Lv1がLv255へ ${(RPG.damage.levelGapRate(1, 255) * 100).toFixed(2)}%`);
+
+      // 各フィールドの敵レベルは推奨レベルの +20 以内に収まっている。
+      // ここが崩れると、適正に遊んでいる人にまで格上補正が乗る。
+      for (const [id, f] of Object.entries(RPG.data.fields)) {
+        const enemyLv = f.scaling ? Math.max(f.scaling.floor, f.rec_level + f.scaling.above) : f.enemy_lv;
+        assertTrue(`格上: 「${f.name}」は適正レベルなら補正を受けない`,
+          RPG.damage.levelGapRate(f.rec_level, enemyLv) === 1,
+          `推奨Lv${f.rec_level} / 敵Lv${enemyLv}（差 ${enemyLv - f.rec_level}）` + (id ? '' : ''));
+      }
+
       // 属性貫通: 不利0.5倍を等倍側へ寄せる
       /** @param {number} pierce */
       const pierced = (pierce) => RPG.damage.calc({

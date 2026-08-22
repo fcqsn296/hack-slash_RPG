@@ -430,6 +430,30 @@
     return 'Lv' + lv + '（追随）';
   }
 
+  /**
+   * 格上補正の見え方 (§3.2 ステップ7.5)。
+   *
+   * 補正そのものは damage.js が持っているが、**戦ってみるまで分からない**のでは
+   * 「急に数字が出なくなった」としか映らない。推奨レベルを関門にした以上、
+   * 入る前に読めないと理不尽になるので、出撃先の一覧に出す。
+   *
+   * 基準はパーティで**一番高い**レベル。最初は一番低い子で測っていたが、
+   * それだと余裕で抜けられる場所にも「与ダメージ53%」と出て、
+   * 警告のほうが実態から外れていた。推奨レベルも追随も
+   * パーティの水準＝上の子を見て決まっているので、読み方をそこへ揃える。
+   * @param {any} f
+   * @returns {{ rate: number, text: string } | null}
+   */
+  function gapWarn(f) {
+    const party = RPG.state.partyUnits();
+    if (!party.length) return null;
+    const enemyLv = f.scaling ? RPG.battle.scaledEnemyLv(f, party) : f.enemy_lv;
+    const top = Math.max.apply(null, party.map((/** @type {any} */ u) => u.level));
+    const rate = RPG.damage.levelGapRate(top, enemyLv);
+    if (rate >= 1) return null;
+    return { rate, text: `格上 与ダメージ ${Math.round(rate * 100)}%` };
+  }
+
   /** @param {HTMLElement} root */
   /**
    * 行き先の一覧 (§1.4)。
@@ -550,6 +574,7 @@
                   h('span', { text: '推奨 ' }, h('b', { text: 'Lv' + here.rec_level })),
                   h('span', { text: '敵 ' }, h('b', { text: enemyLvLabel(here) })),
                   h('span', { text: save.lastSortie.waves + '戦' }),
+                  (() => { const g = gapWarn(here); return g ? h('span.is-gap', { text: g.text }) : null; })(),
                 ]
               : [h('span', { text: 'まだ出撃していない。下から場所を選ぶ。' })]
           )
@@ -606,6 +631,7 @@
             h('span.field-name', { text: f.name }),
             h('span.field-lv', { text: '推奨 Lv' + f.rec_level })
           ),
+          (() => { const g = gapWarn(f); return g ? h('div.field-gap', { text: g.text }) : null; })(),
           h('p.field-desc', { text: f.desc }),
           h('div.field-foot',
             h('span', { text: '敵 ' + enemyLvLabel(f) }),

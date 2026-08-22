@@ -37,6 +37,40 @@
   const BASE_DAMAGE_CAP = 500000;
   const CAP_OVERFLOW_RATE = 0.1;
 
+  /**
+   * 格上補正 — 相手のレベルが自分より大きく上のとき、与ダメージが落ちる (§3.2 ステップ7.5)。
+   *
+   * ── なぜ必要か ──
+   * 「推奨レベル」が案内でしかなく、関門として一切機能していなかった。
+   * Lv59〜66 のパーティが推奨150の創世の残響も推奨200の終わりなき回廊も
+   * 勝率100%・平均1.0ラウンドで抜けてしまう。
+   * 実測すると敵は8戦822発のあいだ **一度も行動できていない**。
+   * 味方のHPは2,859〜9,603しかないので、敵が1回でも殴れば壊滅する。
+   * つまり耐久で守られていたのではなく、初回ラウンドで全部倒しきっていた。
+   *
+   * ── なぜ倍率の側ではなくレベル差で止めるのか ──
+   * 内訳を割ると、1発の伸びは 系統タグ×3.3 × 属性×2.4 × 状況×10.4 で
+   * 基礎の約120倍まで来ていた。状況倍率は独立した項の積で上限が無く、
+   * 中でも「初回ラウンドの火力」が×2.8 と最大項になっている。
+   * これらは装備セットもユニークも減衰付きで設計されているのに、
+   * **1ラウンドで終わる戦闘では減衰が一度も回らない**。
+   * ただ、この積み上げ自体はハクスラの気持ちよさそのものなので、
+   * 個々の倍率を削ると全レベル帯の手応えが巻き添えで変わる。
+   * レベル差で止めれば、適正な相手には今までどおりの数字が出たまま、
+   * 「格上を先取りして周回する」ところだけが閉じる。
+   *
+   * ── なぜ20から効かせるのか ──
+   * 各フィールドの enemy_lv は rec_level の +0〜+20 に収まっており、
+   * 終わりなき回廊の追随も above:15 で同じ範囲にある。
+   * つまり20までは**適正に遊んでいるときの差**なので、ここは無傷にする。
+   *
+   * ── 効き方 ──
+   * 1 / (1 + (差 - 20) × 0.08)。差が開くほど効くが0にはならない。
+   * 逆に格下を殴るときは負の差になるので、何も起きない。
+   */
+  const LEVEL_GAP_FREE = 20;
+  const LEVEL_GAP_RATE = 0.08;
+
   /** クリティカル倍率 (§3.2 ステップ6) */
   const CRIT_MULTIPLIER = 1.5;
 
@@ -420,9 +454,14 @@
     const reduction = Math.max(0, Math.min(1, defender.reduction || 0));
     const taken = 1 - reduction;
 
+    // --- 追加ステップC: 格上補正 ---
+    // 推奨レベルを実際の関門にするための唯一の梃子。
+    // 攻撃側のレベルが分からない相手（レベルを持たない存在）には効かせない。
+    const levelGap = levelGapRate(attacker.level, defender.level);
+
     // --- 統合 ---
     const raw = base * tag.multiplier * unique * defense * element * critical * random
-      * execute * situational * taken;
+      * execute * situational * taken * levelGap;
 
     // --- ステップ8: ダメージ上限（減衰処理） ---
     // 破壊者の「終焉の一撃」だけは上限の外に出る (§12)。
@@ -441,13 +480,26 @@
       crit,
       breakdown: {
         base, tag: tag.multiplier, tagSums: tag.sums, unique,
-        defense, element, critical, random, execute, situational, taken, reduction,
+        defense, element, critical, random, execute, situational, taken, reduction, levelGap,
         capped: capped < raw,
       },
     };
   }
 
+  /**
+   * 格上補正の倍率。攻撃側か相手のレベルが分からないときは 1（何も起きない）。
+   * UIから同じ数字を出せるように外へ公開してある。
+   * @param {number} [attackerLv]
+   * @param {number} [defenderLv]
+   */
+  function levelGapRate(attackerLv, defenderLv) {
+    if (!attackerLv || !defenderLv) return 1;
+    const gap = defenderLv - attackerLv - LEVEL_GAP_FREE;
+    return gap > 0 ? 1 / (1 + gap * LEVEL_GAP_RATE) : 1;
+  }
+
   RPG.damage = {
+    LEVEL_GAP_FREE, levelGapRate,
     calc,
     elementMultiplier,
     tagMultiplier,

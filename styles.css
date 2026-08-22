@@ -3569,3 +3569,18 @@ body.has-backdrop { background: transparent; }
   .gfx-sweep { animation-duration: .01ms !important; }
   .gfx-standee { filter: brightness(1); }
 }
+
+/* 格上補正の警告 (§3.2 ステップ7.5)。
+   推奨レベルを関門にしたので、入る前に「ここは早い」と読めるようにする。 */
+.field-gap {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 2px 8px;
+  border: 1px solid rgba(226, 122, 96, 0.55);
+  border-radius: 999px;
+  background: rgba(226, 122, 96, 0.12);
+  color: #e8a48f;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.stage-meta .is-gap { color: #e8a48f; }
