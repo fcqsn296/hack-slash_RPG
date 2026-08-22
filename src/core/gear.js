@@ -321,15 +321,26 @@
     if (view.tag) list = list.filter((it) => it.tag === view.tag);
     if (view.rarity) list = list.filter((it) => it.rarity === view.rarity);
 
-    // セットで絞る (§7.7)。
+    // セット・ユニークで絞る (§7.7 / §7.8)。
     //
     // ── なぜ「セット無し」も選べるようにするか ──
     // セットは同じものを2個・4個と揃えて初めて効く。
     // 「あと1個足りない」を探すのが主な用途なので、揃えたいセットを
     // 選べる必要がある。逆に、売る候補を探すときは
     // **セットに属していないもの** を見たい。どちらも要る。
-    if (view.set === 'none') list = list.filter((it) => !it.setId);
-    else if (view.set) list = list.filter((it) => it.setId === view.set);
+    //
+    // ── ユニークをここに含める理由 ──
+    // ユニークはセットを持たないので、そのままだと「セット無し」に
+    // 埋もれて取り出せない。しかも系統タグも会心も持たないぶん
+    // 素の点数が低く、**強い順で上位120個に1つも入らなかった**（実測 0/40）。
+    // 絞り込めなければ、持っているのに一生見つけられない。
+    // 名指しで選べるようにもする。「巨躯断ちを探す」が主な用途なので。
+    if (view.set === 'none') list = list.filter((it) => !it.setId && !it.uniqueId);
+    else if (view.set === 'unique') list = list.filter((it) => !!it.uniqueId);
+    else if (view.set && view.set.indexOf('uq:') === 0) {
+      const want = view.set.slice(3);
+      list = list.filter((it) => it.uniqueId === want);
+    } else if (view.set) list = list.filter((it) => it.setId === view.set);
 
     if (view.onlyUnequipped) list = list.filter((it) => !own[it.uid]);
 

@@ -7021,9 +7021,14 @@
       for (let i = 0; i < 400; i++) {
         inv.push(RPG.gear.identify(i % 3 ? 'box_dragon' : 'box_astral', i + 1));
       }
+      // ユニークも混ぜる。セットを持たないので、絞り込みから
+      // 漏れやすい。実際「セット無し」に埋もれて取り出せなかった。
+      for (let i = 0; i < 40; i++) {
+        inv.push(RPG.gear.rollUnique(1000 + i, 'box_astral'));
+      }
       RPG.rng.seed(null);
 
-      assertTrue('装備の並べ替え: 検査用の装備が揃っている', inv.length === 400,
+      assertTrue('装備の並べ替え: 検査用の装備が揃っている', inv.length === 440,
         `${inv.length} 個`);
 
       const KEYS = ['stat:hp', 'stat:atk', 'stat:def', 'stat:magi_power',
@@ -7086,17 +7091,60 @@
             wrong.length === 0, `${only.length}件中 ${wrong.length}件が別のセット`);
         }
 
-        // 「セット無し」も選べること。売る候補を探すときに要る。
+        // 「どちらでもない」も選べること。売る候補を探すときに要る。
+        // ユニークは混ぜないこと。売るために見ている一覧に、
+        // 売れない（ロック済みの）ユニークが混ざると邪魔にしかならない。
         const none = RPG.gear.arrange(inv, { sort: 'power', set: 'none' });
-        assertTrue('装備の絞り込み: セット無しで絞れる',
-          none.every((/** @type {any} */ it) => !it.setId),
+        assertTrue('装備の絞り込み: セットもユニークも無いもので絞れる',
+          none.every((/** @type {any} */ it) => !it.setId && !it.uniqueId),
           `${none.length}件`);
+
+        // ── ユニーク (§7.8) ──
+        //
+        // ユニークはセットを持たないので、そのままだと「セット無し」に
+        // 埋もれる。しかも系統タグも会心も持たないぶん素の点数が低く、
+        // 強い順では上位120個（画面の表示上限）に1つも入らなかった。
+        // 絞り込めなければ、持っているのに一生見つけられない。
+        {
+          const uq = RPG.gear.arrange(inv, { sort: 'power', set: 'unique' });
+          const owned = inv.filter((/** @type {any} */ it) => it.uniqueId);
+          assertTrue('装備の絞り込み: ユニークだけを取り出せる',
+            uq.length === owned.length
+            && uq.every((/** @type {any} */ it) => !!it.uniqueId),
+            `${uq.length} / ${owned.length}`);
+
+          // 種類ごとに名指しでも選べること。「巨躯断ちを探す」が主な用途。
+          const kinds = [...new Set(owned.map((/** @type {any} */ it) => it.uniqueId))];
+          assertTrue('装備の絞り込み: 検査に使うユニークが複数ある', kinds.length >= 2,
+            `${kinds.length} 種`);
+          for (const id of kinds) {
+            const only = RPG.gear.arrange(inv, { sort: 'power', set: 'uq:' + id });
+            const wrong = only.filter((/** @type {any} */ it) => it.uniqueId !== id);
+            assertTrue(`装備の絞り込み: ${RPG.data.uniqueEquips[id].name}を名指しで出せる`,
+              only.length > 0 && wrong.length === 0,
+              `${only.length}件中 ${wrong.length}件が別のユニーク`);
+          }
+
+          // 並べ替えと併用できること。
+          const byAtk = RPG.gear.arrange(inv, { sort: 'stat:atk', set: 'unique' });
+          assertTrue('装備の絞り込み: ユニークに絞っても並べ替えが効く',
+            byAtk.every((/** @type {any} */ it, i) => i === 0
+              || RPG.gear.sortValue(byAtk[i - 1], 'stat:atk') >= RPG.gear.sortValue(it, 'stat:atk')),
+            `${byAtk.length}件`);
+
+          // 持っていないユニークを指定しても落ちないこと。
+          const ghost = RPG.gear.arrange(inv, { sort: 'power', set: 'uq:uq_not_owned' });
+          assertTrue('装備の絞り込み: 持っていないユニークでも落ちない',
+            Array.isArray(ghost) && ghost.length === 0, `${ghost.length}件`);
+        }
 
         // 全部の合計が元の数と合うこと。どこかが漏れていないか見る。
         const sum = setIds
           .reduce((/** @type {number} */ a, /** @type {string} */ id) =>
-            a + RPG.gear.arrange(inv, { sort: 'power', set: id }).length, 0) + none.length;
-        assertTrue('装備の絞り込み: セット別の合計が所持数と一致する',
+            a + RPG.gear.arrange(inv, { sort: 'power', set: id }).length, 0)
+          + none.length
+          + RPG.gear.arrange(inv, { sort: 'power', set: 'unique' }).length;
+        assertTrue('装備の絞り込み: セット・ユニーク・その他の合計が所持数と一致する',
           sum === inv.length, `${sum} / ${inv.length}`);
 
         // 並べ替えと併用しても崩れないこと。

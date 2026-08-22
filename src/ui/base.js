@@ -2325,10 +2325,19 @@
       // 押しボタンで並べると、セット6種＋「すべて」＋「セット無し」で
       // 8個になり、狭い画面で3段に折り返した（実測でツールバーが475px）。
       // 並べ替えと同じく選択式にする。
+      // セットとユニークをひとつの選び口にまとめる (§7.7 / §7.8)。
+      //
+      // ユニークはセットを持たないので、分けずに置くと「セット無し」に
+      // 埋もれて取り出せない。しかも系統タグも会心も持たないぶん素の点数が低く、
+      // 強い順では上位120個に1つも入らなかった（実測 0/40）。
+      // 持っているのに一生見つけられない状態だった。
+      //
+      // 種類ごとに名指しでも選べるようにしてある。
+      // 「巨躯断ちを探す」が主な用途なので。
       h('div.toolbar-row',
-        h('span.toolbar-label', { text: 'セット' }),
+        h('span.toolbar-label', { text: '特殊' }),
         h('select.gear-sort', {
-          'aria-label': '装備セットで絞り込む',
+          'aria-label': 'セットとユニークで絞り込む',
           onChange: (/** @type {any} */ e) => {
             const v = e.currentTarget.value;
             gearView.set = v === '' ? null : v;
@@ -2337,14 +2346,38 @@
         },
           h('option', { value: '', selected: !gearView.set ? 'selected' : null },
             h('span', { text: 'すべて' })),
-          ...Object.keys(RPG.data.equipSets || {}).map((id) => {
-            const set = RPG.data.equipSets[id];
-            const n = all.filter((/** @type {any} */ it) => it.setId === id).length;
-            return h('option', { value: id, selected: gearView.set === id ? 'selected' : null },
-              h('span', { text: `${set.name}（${n}個）` }));
-          }),
           h('option', { value: 'none', selected: gearView.set === 'none' ? 'selected' : null },
-            h('span', { text: 'セット無し' }))
+            h('span', { text: 'どちらでもない' })),
+
+          h('optgroup', { label: 'セット' },
+            ...Object.keys(RPG.data.equipSets || {}).map((id) => {
+              const set = RPG.data.equipSets[id];
+              const n = all.filter((/** @type {any} */ it) => it.setId === id).length;
+              return h('option', { value: id, selected: gearView.set === id ? 'selected' : null },
+                h('span', { text: `${set.name}（${n}個）` }));
+            })),
+
+          h('optgroup', { label: 'ユニーク' },
+            h('option', {
+              value: 'unique',
+              selected: gearView.set === 'unique' ? 'selected' : null,
+            }, h('span', {
+              text: `ユニークすべて（${all.filter((/** @type {any} */ it) => it.uniqueId).length}個）`,
+            })),
+            // 1つも持っていないものは出さない。選んでも空になるだけ。
+            ...Object.keys(RPG.data.uniqueEquips || {})
+              .map((id) => ({
+                id,
+                n: all.filter((/** @type {any} */ it) => it.uniqueId === id).length,
+              }))
+              .filter((u) => u.n > 0)
+              .map((u) => h('option', {
+                value: 'uq:' + u.id,
+                selected: gearView.set === 'uq:' + u.id ? 'selected' : null,
+              }, h('span', {
+                text: `${RPG.data.uniqueEquips[u.id].name}（${u.n}個）`,
+              })))
+          )
         )
       ),
       h('div.toolbar-row',
