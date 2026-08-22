@@ -66,6 +66,46 @@
   }
 
   /**
+   * いま選んでいる派生 (§12)。まだ何も振っていなければ null。
+   *
+   * 「投資済みのノードが属している派生」で決まる。別に選択を保存しない。
+   * 保存すると、振り戻して空にしたのに派生だけ残る状態を作れてしまう。
+   *
+   * @param {any} charSave
+   * @returns {string|null}
+   */
+  function chosenBranch(charSave) {
+    const classId = charSave && charSave.klass;
+    if (!classId || !def(classId)) return null;
+    const invested = charSave.klassTree || {};
+    for (const id of Object.keys(invested)) {
+      if (!invested[id]) continue;
+      const n = node(classId, id);
+      if (n && n.branch) return n.branch;
+    }
+    return null;
+  }
+
+  /**
+   * その派生を選べるか。
+   * @param {any} charSave @param {string} branchId
+   */
+  function branchAvailable(charSave, branchId) {
+    const cur = chosenBranch(charSave);
+    return cur === null || cur === branchId;
+  }
+
+  /**
+   * 派生の一覧。UI が並べるのに使う。
+   * @param {string} classId
+   */
+  function branches(classId) {
+    const d = def(classId);
+    if (!d || !d.branches) return [];
+    return Object.keys(d.branches).map((id) => Object.assign({ id }, d.branches[id]));
+  }
+
+  /**
    * ノードに1レベル投資できるか。できないなら理由を返す。
    * @param {any} charSave
    * @param {string} nodeId
@@ -78,6 +118,15 @@
 
     const current = (charSave.klassTree || {})[nodeId] || 0;
     if (current >= n.maxLevel) return { ok: false, reason: '最大レベル' };
+
+    // 派生は3つのうち1つだけ (§12)。
+    // 先にここで弾く。ポイント不足より優先して伝えたい理由なので、
+    // 「足りない」と言われて貯めてから初めて封じられていると分かる、を避ける。
+    if (n.branch && !branchAvailable(charSave, n.branch)) {
+      const d = def(charSave.klass);
+      const cur = (d.branches || {})[chosenBranch(charSave)];
+      return { ok: false, reason: `既に「${cur ? cur.name : '別の派生'}」を選んでいる` };
+    }
 
     const left = availablePoints(charSave);
     if (left < n.cost) return { ok: false, reason: `クラスポイントが${n.cost - left}足りない` };
@@ -169,5 +218,6 @@
   RPG.klass = {
     def, all, node, totalPoints, spentPoints, availablePoints,
     canInvest, canRefund, refundCost, effects, summary,
+    chosenBranch, branchAvailable, branches,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

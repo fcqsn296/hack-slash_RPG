@@ -755,6 +755,67 @@ RPG.data.skills = {
       '2ラウンド目以降・使用後3ラウンド使えない。',
   },
 
+  /* -------- 派生3本目のクラス技 (§12) --------
+     排他の派生を3本にしたときに、既存の技2本では埋まらない側を担う。 */
+
+  sk_cls_retribution: {
+    name: '報復の構え', kind: 'active', plugin: 'counter_stance', cls: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 0, crit_rate: 0,
+    readyRound: 2, cooldown: 4,
+    params: { turns: 3, reduction: 0.5 },
+    desc: '【クラス】3ラウンドのあいだ構える。被ダメージ半減、' +
+      'そして殴られるたびに必ず反撃する。' +
+      '2ラウンド目以降・使用後4ラウンド使えない。',
+  },
+  sk_cls_crusade: {
+    name: '裁きの祈り', kind: 'active', plugin: 'lifesteal_hit', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
+    power: 260, crit_rate: 0.10,
+    readyRound: 2, cooldown: 3,
+    params: { ratio: 1.0 },
+    desc: '【クラス】威力260%。与えたダメージと同じだけ自分が回復する。' +
+      '癒し手が前に出るための技。2ラウンド目以降・使用後3ラウンド使えない。',
+  },
+  sk_cls_frenzy: {
+    name: '血狂い', kind: 'active', plugin: 'hp_cost', cls: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 180, crit_rate: 0.20,
+    readyRound: 2, cooldown: 3,
+    params: { costRatio: 0.5, perHp: 0.002, maxBonus: 5 },
+    desc: '【クラス】現在HPの半分を支払い、支払った量ぶん威力が跳ね上がる。' +
+      'HPが多いほど重い一撃になる。2ラウンド目以降・使用後3ラウンド使えない。',
+  },
+  sk_cls_sigilstorm: {
+    name: '呪印乱舞', kind: 'active', plugin: 'sigil_strike', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 120, crit_rate: 0.08,
+    readyRound: 2, cooldown: 2,
+    params: { ratio: 0.08, count: 3 },
+    desc: '【クラス】威力120%。刻印を3つまとめて刻むので、その場で必ず1回弾ける。' +
+      '2ラウンド目以降・使用後2ラウンド使えない。',
+  },
+  sk_cls_formation: {
+    name: '陣立て', kind: 'active', plugin: 'unique_buff', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
+    power: 0, crit_rate: 0,
+    readyRound: 2, cooldown: 4,
+    params: { value: 0.6, turns: 3, label: '陣', party: true },
+    desc: '【クラス】味方全員に3ターンの固有バフ +60%（別枠乗算）。' +
+      '号令が手番を配るのに対し、こちらは1手ずつを重くする。' +
+      '2ラウンド目以降・使用後4ラウンド使えない。',
+  },
+  sk_cls_hunt: {
+    name: '仕留めの一矢', kind: 'active', plugin: 'def_ignore', cls: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 300, crit_rate: 0.35,
+    readyRound: 2, cooldown: 3,
+    params: { turns: 3 },
+    desc: '【クラス】威力300%・防御無視。さらに3ターンその相手の防御を0にする。' +
+      '首刈りが落とせないボスに対して、味方全員の手を通しやすくする。' +
+      '2ラウンド目以降・使用後3ラウンド使えない。',
+  },
+
   /* -------- 新しい効果の軸 (§9.1) --------
      どれも「既存キーの数値違い」ではなく、戦闘の構造として空いていた場所。
      新しいキャラクターに役割を持たせるための土台として置いてある。 */

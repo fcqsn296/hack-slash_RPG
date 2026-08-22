@@ -2532,7 +2532,15 @@
       ),
       h('p.class-flavor', { text: cur.flavor }),
 
-      h('div.class-nodes', cur.nodes.map((n) => classNodeCard(root, charSave, n, cur))),
+      // 共通枝。どの派生を選んでも取れる。
+      h('div.class-nodes',
+        cur.nodes.filter((/** @type {any} */ n) => !n.branch)
+          .map((n) => classNodeCard(root, charSave, n, cur))),
+
+      // 派生 (§12)。3つのうち1つしか選べないので、
+      // **選ぶ前に3つとも中身が見える** ようにしてある。
+      // 見えないまま1つ振ったら他が消えた、という驚き方をさせないため。
+      classBranches(root, charSave, cur),
 
       h('div.class-actions',
         W.button('クラスポイントを振り直す', () => {
@@ -2633,6 +2641,46 @@
    * @param {any} n
    * @param {any} cls
    */
+  /**
+   * クラスの派生を3つ並べる (§12)。
+   *
+   * 排他なので、1つ選ぶと残りは封じられる。封じられた側も**隠さずに出す**。
+   * 何を諦めたのかが見えないと、選び直す判断ができない。
+   *
+   * @param {any} root @param {any} charSave @param {any} cur クラス定義
+   */
+  function classBranches(root, charSave, cur) {
+    const list = RPG.klass.branches(charSave.klass);
+    if (!list.length) return null;
+    const chosen = RPG.klass.chosenBranch(charSave);
+
+    return h('div.class-branches',
+      h('p.hint.hint-sm', {
+        text: chosen
+          ? '派生は1つだけ。他へ移るには、振ったぶんを戻すか転職すること。'
+          : '派生は3つのうち1つだけ選べる。1点でも振ると、残りは選べなくなる。',
+      }),
+      ...list.map((/** @type {any} */ b) => {
+        const locked = chosen !== null && chosen !== b.id;
+        const nodes = cur.nodes.filter((/** @type {any} */ n) => n.branch === b.id);
+        const need = nodes.reduce(
+          (/** @type {number} */ a, /** @type {any} */ n) => a + n.cost * n.maxLevel, 0);
+        return h('div.class-branch' + (locked ? '.is-locked' : '')
+          + (chosen === b.id ? '.is-chosen' : ''),
+          h('div.class-branch-head',
+            h('b', { text: b.name }),
+            h('span.hint.hint-sm', {
+              text: chosen === b.id ? '選択中'
+                : locked ? '選べない' : `全${need}CP`,
+            })
+          ),
+          h('p.hint.hint-sm', { text: b.desc }),
+          h('div.class-nodes', nodes.map((n) => classNodeCard(root, charSave, n, cur)))
+        );
+      })
+    );
+  }
+
   function classNodeCard(root, charSave, n, cls) {
     const level = (charSave.klassTree || {})[n.id] || 0;
     const maxed = level >= n.maxLevel;

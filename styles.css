@@ -1630,6 +1630,24 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
   gap: 10px;
 }
+/* 派生 (§12)。3つのうち1つだけ選べる。
+   封じられた側も隠さずに残す（何を諦めたのかが見えないと選び直せない）。 */
+.class-branches { display: grid; gap: 12px; margin-top: 14px; }
+.class-branch {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  display: grid; gap: 8px;
+  min-width: 0;
+}
+.class-branch-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.class-branch-head b { font-size: 1.05em; }
+.class-branch.is-chosen { border-color: var(--accent, #e8c06a); }
+/* 選べなくなった派生は沈める。押せないことが色で分かるようにする。 */
+.class-branch.is-locked { opacity: 0.45; }
+
 .class-node {
   display: grid; gap: 7px;
   padding: 11px 13px;

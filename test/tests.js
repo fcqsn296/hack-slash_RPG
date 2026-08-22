@@ -4730,22 +4730,73 @@
           need > cpAtCap, `必要 ${need} / Lv${capLv} で ${cpAtCap} 点`);
       }
 
-      // ── 育てきった地点で、7割前後に収まっていること ──
+      // ── 育てきった地点で、6割前後に収まっていること ──
+      //
+      // 派生は排他なので、**取り得る上限は「共通枝 + 派生1本」**。
+      // 全ノードの合計で測ると3本ぶん数えることになり、意味のない数字になる。
       //
       // ここが緩むと2方向に壊れる。
-      //   多すぎる … 全部取れてクラスの個性が消える（実際そうなっていた。
-      //              Lv255 で51点配られるのに、全部で34〜45点しか要らなかった）
-      //   少なすぎる … 取れる範囲が狭くなり、何を選んでも同じ形になる
-      //
-      // 7割なら「主要な枝は取れるが、極点や技のどれかは諦める」位置になる。
+      //   多すぎる … 全部取れて派生を選ぶ意味が消える
+      //   少なすぎる … 派生の中身にすら届かず、どれを選んでも同じ形になる
       const topLv = RPG.data.maxLevelCap;
       const cpAtTop = Math.floor(topLv / cpPer);
+
+      /** 共通枝 + いちばん高い派生 = そのクラスで使い得る上限 */
+      const reachable = (/** @type {any} */ def) => {
+        const cost = (/** @type {any} */ n) => (n.cost || 1) * (n.maxLevel || 1);
+        const nodes = def.nodes || [];
+        const trunk = nodes.filter((/** @type {any} */ n) => !n.branch)
+          .reduce((/** @type {number} */ a, /** @type {any} */ n) => a + cost(n), 0);
+        const per = {};
+        for (const n of nodes) {
+          if (!n.branch) continue;
+          per[n.branch] = (per[n.branch] || 0) + cost(n);
+        }
+        const sizes = Object.keys(per).map((k) => per[k]);
+        return trunk + (sizes.length ? Math.max.apply(null, sizes) : 0);
+      };
+
       for (const { def } of classes) {
-        const need = (def.nodes || [])
-          .reduce((/** @type {number} */ a, /** @type {any} */ n) => a + (n.cost || 1) * (n.maxLevel || 1), 0);
+        const need = reachable(def);
         const pct = Math.round(cpAtTop / need * 100);
-        assertTrue(`クラス: ${def.name} は育てきっても7割前後`,
-          pct >= 63 && pct <= 77, `Lv${topLv} で ${cpAtTop}点 / 全${need}点 = ${pct}%`);
+        assertTrue(`クラス: ${def.name} は育てきっても6割前後`,
+          pct >= 54 && pct <= 66, `Lv${topLv} で ${cpAtTop}点 / 到達可能 ${need}点 = ${pct}%`);
+      }
+
+      // ── 派生 (§12) ──
+      for (const { def } of classes) {
+        const ids = Object.keys(def.branches || {});
+        assertTrue(`クラス: ${def.name} に派生が3つある`, ids.length === 3,
+          ids.join('、') || '無い');
+
+        // 定義に無い派生を指すノードがあると、その枝は永久に選べない。
+        const ghost = (def.nodes || [])
+          .filter((/** @type {any} */ n) => n.branch && ids.indexOf(n.branch) < 0);
+        assertTrue(`クラス: ${def.name} のノードは実在する派生を指す`, ghost.length === 0,
+          ghost.map((/** @type {any} */ n) => `${n.name}→${n.branch}`).join('、'));
+
+        // 空の派生があると、選択肢として並ぶのに中身が無い。
+        const empty = ids.filter((/** @type {string} */ b) =>
+          !(def.nodes || []).some((/** @type {any} */ n) => n.branch === b));
+        assertTrue(`クラス: ${def.name} の派生はどれも中身がある`, empty.length === 0,
+          empty.join('、'));
+
+        // 派生ごとの重さが揃っていること。片方だけ極端に安いと、
+        // 「とりあえず安いほう」で選ぶ理由が生まれてしまう。
+        const cost = (/** @type {any} */ n) => (n.cost || 1) * (n.maxLevel || 1);
+        const sizes = ids.map((/** @type {string} */ b) => (def.nodes || [])
+          .filter((/** @type {any} */ n) => n.branch === b)
+          .reduce((/** @type {number} */ a, /** @type {any} */ n) => a + cost(n), 0));
+        const lo = Math.min.apply(null, sizes);
+        const hi = Math.max.apply(null, sizes);
+        assertTrue(`クラス: ${def.name} の派生3つは重さが揃っている`, hi - lo <= 6,
+          sizes.join(' / '));
+
+        // 派生には技か極点が要る。素のパッシブだけでは「上級職」にならない。
+        const noPeak = ids.filter((/** @type {string} */ b) => !(def.nodes || [])
+          .some((/** @type {any} */ n) => n.branch === b && /^【/.test(n.name)));
+        assertTrue(`クラス: ${def.name} の派生はどれも技か極点を持つ`, noPeak.length === 0,
+          noPeak.join('、'));
       }
 
       // 極点は1つでは足りない。**別々の方向へ伸びる選択肢**が要る。
@@ -4753,7 +4804,7 @@
       for (const { def } of classes) {
         const peaks = (def.nodes || [])
           .filter((/** @type {any} */ n) => n.name.indexOf('【極】') === 0);
-        assertTrue(`クラス: ${def.name} に極点が2つ以上ある`, peaks.length >= 2,
+        assertTrue(`クラス: ${def.name} に極点が3つ以上ある`, peaks.length >= 3,
           peaks.map((/** @type {any} */ n) => n.name).join('、') || '無い');
       }
 
@@ -4765,6 +4816,88 @@
             .some((/** @type {any} */ e) => e.value < 0));
         assertTrue(`クラス: ${def.name} の極点はすべて代償を持つ`, noCost.length === 0,
           noCost.map((/** @type {any} */ n) => n.name).join('、') || '全部に代償あり');
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 派生の排他 (§12)
+    //
+    // 3つのうち1つしか選べない。ここが緩むと「全部取れる上級職」になり、
+    // 選ばせる意味がまるごと消える。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const st = RPG.state.get();
+        const c = st.characters.ch_hero;
+        c.level = RPG.data.maxLevelCap;
+
+        for (const classId of Object.keys(RPG.data.classes)) {
+          const def = RPG.data.classes[classId];
+          const ids = Object.keys(def.branches || {});
+          c.klass = classId;
+          c.klassTree = {};
+
+          /** その派生の最初のノード */
+          const head = (/** @type {string} */ b) =>
+            def.nodes.find((/** @type {any} */ n) => n.branch === b);
+
+          // 何も振っていなければ、どれでも選べる。
+          const allOpen = ids.every((/** @type {string} */ b) =>
+            RPG.klass.canInvest(c, head(b).id).ok);
+          assertTrue(`派生: ${def.name} は最初どれでも選べる`, allOpen, ids.join('、'));
+
+          // 1つ振ると、残りは封じられる。
+          const first = ids[0];
+          c.klassTree[head(first).id] = 1;
+          const blocked = ids.slice(1).filter((/** @type {string} */ b) =>
+            !RPG.klass.canInvest(c, head(b).id).ok);
+          assertTrue(`派生: ${def.name} は1つ選ぶと他が封じられる`,
+            blocked.length === ids.length - 1,
+            `封じられた ${blocked.length} / ${ids.length - 1}`);
+
+          assertTrue(`派生: ${def.name} の選択中が正しく引ける`,
+            RPG.klass.chosenBranch(c) === first,
+            `${RPG.klass.chosenBranch(c)}`);
+
+          // 共通枝は派生に関係なく振れる。ここを巻き込むと土台まで凍る。
+          const trunk = def.nodes.find((/** @type {any} */ n) => !n.branch);
+          assertTrue(`派生: ${def.name} の共通枝は封じられない`,
+            !trunk || RPG.klass.canInvest(c, trunk.id).ok,
+            trunk ? trunk.name : '共通枝が無い');
+
+          // 振り戻せば選び直せる。戻せないと、間違えた時点で詰む。
+          c.klassTree = {};
+          assertTrue(`派生: ${def.name} は振り戻すと選び直せる`,
+            RPG.klass.chosenBranch(c) === null
+            && ids.every((/** @type {string} */ b) => RPG.klass.canInvest(c, head(b).id).ok),
+            `${RPG.klass.chosenBranch(c)}`);
+        }
+        c.klass = null;
+        c.klassTree = {};
+
+        // 封じられた理由が「ポイント不足」に化けないこと。
+        // 貯めてから初めて選べないと分かる、という順序は避けたい。
+        {
+          const classId = Object.keys(RPG.data.classes)[0];
+          const def = RPG.data.classes[classId];
+          const ids = Object.keys(def.branches);
+          c.klass = classId;
+          const head = (/** @type {string} */ b) =>
+            def.nodes.find((/** @type {any} */ n) => n.branch === b);
+          c.klassTree = { [head(ids[0]).id]: 1 };
+          c.level = 5;   // ポイントをほぼ空にする
+          const r = RPG.klass.canInvest(c, head(ids[1]).id);
+          assertTrue('派生: 封じられた理由がポイント不足に化けない',
+            !r.ok && /派生|選んでいる/.test(r.reason || ''), r.reason || '');
+          c.klass = null;
+          c.klassTree = {};
+        }
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
       }
     }
 
