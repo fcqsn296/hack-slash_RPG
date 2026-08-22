@@ -7163,6 +7163,46 @@
           top([]) === 'COMMON', String(top([])));
       }
 
+      // ── 初獲得レジェンドの名乗り (§6.7) ──
+      //
+      // 被りは限界突破になるだけで、盤面に新しい顔は増えない。
+      // 初めての1体だけが「仲間が増えた」瞬間なので、そこを分ける。
+      // 何度も出る演出にすると、この重みが薄まる。
+      if (RPG.ui && RPG.ui.gachafx && RPG.ui.gachafx.debutOf) {
+        const debutOf = RPG.ui.gachafx.debutOf;
+
+        assertTrue('ガチャ演出: 初獲得レジェンドで名乗る',
+          !!debutOf([{ id: 'x', rarity: 'LEGEND', kind: 'new' }]), '');
+
+        assertTrue('ガチャ演出: 被りレジェンドでは名乗らない',
+          debutOf([{ id: 'x', rarity: 'LEGEND', kind: 'limit_break' }]) === null, '');
+
+        assertTrue('ガチャ演出: 完凸後の還元でも名乗らない',
+          debutOf([{ id: 'x', rarity: 'LEGEND', kind: 'refund', gold: 1000 }]) === null, '');
+
+        assertTrue('ガチャ演出: 初獲得でもレジェンド以外は名乗らない',
+          debutOf([{ id: 'x', rarity: 'SUPER_RARE', kind: 'new' }]) === null, '');
+
+        // 10連の中に混ざっていても拾えること。
+        assertTrue('ガチャ演出: 10連の中の1体を拾う',
+          (debutOf([
+            { id: 'a', rarity: 'COMMON', kind: 'new' },
+            { id: 'b', rarity: 'LEGEND', kind: 'limit_break' },
+            { id: 'c', rarity: 'LEGEND', kind: 'new' },
+          ]) || {}).id === 'c', '');
+
+        assertTrue('ガチャ演出: 空でも落ちない', debutOf([]) === null, '');
+
+        // 名乗りに使う項目が全レジェンドに揃っていること。
+        // title が無いと二つ名の行が空になる。
+        const legends = Object.keys(RPG.data.characters)
+          .filter((/** @type {string} */ id) => RPG.data.characters[id].rarity === 'LEGEND');
+        const noTitle = legends
+          .filter((/** @type {string} */ id) => !RPG.data.characters[id].title);
+        assertTrue('ガチャ演出: レジェンドには二つ名がある', noTitle.length === 0,
+          noTitle.join(', ') || `${legends.length} 体`);
+      }
+
       // 演出の有無で結果が変わらないこと。
       // 見せ方の都合で中身が動くと、表示している排出率が嘘になる。
       {

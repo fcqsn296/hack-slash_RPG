@@ -111,7 +111,53 @@
       else if (top === 'SUPER_RARE') spawnSparks(layer, 12);
     });
 
-    at(isTop ? 2200 : 1750, finish);
+    // ── 4. 初めて手にしたレジェンドだけ、名乗らせる ──
+    //
+    // 被りは限界突破になるだけで、盤面に新しい顔は増えない。
+    // **初めての1体だけ**が「仲間が増えた」瞬間なので、そこを分ける。
+    // 何度も出る演出にすると、この重みが薄まる。
+    const debut = debutOf(results);
+
+    if (!debut) {
+      at(isTop ? 2200 : 1750, finish);
+      return;
+    }
+
+    at(1900, () => {
+      layer.classList.add('is-debut');
+      layer.appendChild(buildDebut(debut));
+    });
+    // 立ち絵は読むものなので、弾ける演出より長く置く。
+    at(5200, finish);
+  }
+
+  /**
+   * 初獲得レジェンドの名乗り (§6.7)。
+   *
+   * 立ち絵を横から差し込み、名前と二つ名を重ねる。
+   * 顔と名前が結び付いていないと、一覧に増えた1行でしかない。
+   *
+   * @param {any} p 引いた結果
+   */
+  function buildDebut(p) {
+    const def = RPG.data.characters[p.id];
+    const box = h('div.gfx-debut');
+
+    // 斜めの帯。立ち絵の後ろを走らせて、視線を中央へ寄せる。
+    box.appendChild(h('div.gfx-cutin'));
+    box.appendChild(h('div.gfx-cutin.is-second'));
+
+    const art = h('div.gfx-standee');
+    art.appendChild(RPG.widgets.standee(def));
+    box.appendChild(art);
+
+    box.appendChild(h('div.gfx-debut-text',
+      h('span.gfx-debut-rare', { text: RPG.data.rarities[p.rarity].label }),
+      h('b.gfx-debut-name', { text: RPG.state.charName(p.id) }),
+      h('span.gfx-debut-title', { text: def.title || '' }),
+      h('span.gfx-debut-new', { text: 'NEW' })
+    ));
+    return box;
   }
 
   /**
@@ -136,5 +182,15 @@
   // RPG.ui は base.js が用意するが、こちらが先に読まれることがある
   // （テストページは base.js を読み込まない）。無ければ自分で作る。
   RPG.ui = RPG.ui || {};
-  RPG.ui.gachafx = { play, skip, topRarity };
+  /**
+   * 名乗りを出すべき結果を返す。無ければ null。
+   * 判定そのものをテストから確かめられるように切り出してある。
+   * @param {any[]} results
+   */
+  function debutOf(results) {
+    return (results || []).find((/** @type {any} */ p) =>
+      p.kind === 'new' && p.rarity === 'LEGEND') || null;
+  }
+
+  RPG.ui.gachafx = { play, skip, topRarity, debutOf };
 })(window.RPG || (window.RPG = { data: {}, plugins: {}, ui: {} }));
