@@ -16,6 +16,33 @@
   let pendingSkill = null;
   /** ログを何行までDOMに描いたか */
   let renderedLogs = 0;
+  /**
+   * ログの箱そのもの (§4)。
+   *
+   * ── なぜ使い回すのか ──
+   * 画面は行動のたびに丸ごと描き直される。ログも作り直していたので、
+   * **上へ遡って読んでいる最中に毎回いちばん下へ飛ばされていた**。
+   *
+   * scroll の通知から「利用者が動かしたのか、こちらが動かしたのか」を
+   * 見分けようとしたが、旗でも値でも操作の種類でも当たらなかった。
+   * 通知は遅れて届き、そのあいだに行が増えて位置の意味が変わる。
+   *
+   * 見分けるのをやめて、**箱を作り直さない**ことにした。
+   * 同じ要素を挿し直すだけなら、何行目まで描いたかも位置も自分で分かる。
+   * ついでに、毎回すべての行を作り直す無駄も無くなった。
+   */
+  /** @type {HTMLElement|null} */
+  let logEl = null;
+  /**
+   * 描き直しの前に、ログが最新を追いかけていたか。
+   *
+   * 箱は使い回すが、いったん親から外れるので **scrollTop は 0 に戻る**。
+   * 外れたあとに聞いても「いちばん上に居た」としか答えない。
+   * 外れる前に控えておくしかない。
+   */
+  let logWasFollowing = true;
+  /** 同じく、外れる前に見ていた位置 */
+  let logKeepTop = 0;
   /** 演出を何件まで再生したか */
   let playedEvents = 0;
   /** 直前のHP。ゴーストバーの起点に使う @type {Record<string, number>} */
@@ -40,6 +67,10 @@
     root = container;
     battle = b;
     pendingSkill = null;
+    // 新しい戦闘では作り直す。前の戦闘のログを引き継がない。
+    logEl = null;
+    logWasFollowing = true;
+    logKeepTop = 0;
     renderedLogs = 0;
     playedEvents = 0;
     prevHp = {};
@@ -208,6 +239,14 @@
     const rules = battle.rules || {};
     applyBattleBackdrop();
 
+    // 描き直すと箱が親から外れて位置が失われる。先に控えておく (§4)。
+    if (logEl && logEl.isConnected) {
+      const max = Math.max(0, logEl.scrollHeight - logEl.clientHeight);
+      logWasFollowing = logEl.scrollTop >= max - 12;
+      logKeepTop = logEl.scrollTop;
+    }
+
+
     replace(root,
       h('div.battle', { style: { background: fieldWash(f, 0.34) } },
         h('div.battle-top',
@@ -257,26 +296,41 @@
           : null,
         comboMeter(),
         h('div.enemy-row', battle.enemies.map((/** @type {any} */ e) => enemyCard(e))),
-        h('div.battle-log', { id: 'battle-log' }),
+        // 作り直さず、同じ要素を挿し直す。中身も位置もそのまま残る。
+        (logEl = logEl || h('div.battle-log', { id: 'battle-log' })),
         h('div.party-row.battle-party', battle.party.map((/** @type {any} */ u) => partyCard(u))),
         h('div.command-panel', renderCommands())
       )
     );
 
-    renderedLogs = 0;
     flushLog();
   }
 
-  /** ログの未描画分だけを追記する（毎回作り直さない） */
+  /**
+   * ログの未描画分だけを追記する。
+   *
+   * 箱を使い回しているので、描いた行数も見ている位置もそのまま残る。
+   * 追いかけるのは **もともと下に張り付いていたとき** だけにして、
+   * 遡って読んでいる人の邪魔をしない。
+   */
   function flushLog() {
-    const box = document.getElementById('battle-log');
-    if (!box || !battle) return;
+    if (!logEl || !battle) return;
+
     for (let i = renderedLogs; i < battle.log.length; i++) {
       const entry = battle.log[i];
-      box.appendChild(h('div.log-line.log-' + entry.kind, { text: entry.text }));
+      logEl.appendChild(h('div.log-line.log-' + entry.kind, { text: entry.text }));
     }
     renderedLogs = battle.log.length;
-    box.scrollTop = box.scrollHeight;
+
+    // 挿し直しで位置が落ちることがあるので、毎回入れ直す。
+    const apply = () => {
+      if (!logEl) return;
+      const m = Math.max(0, logEl.scrollHeight - logEl.clientHeight);
+      logEl.scrollTop = logWasFollowing ? m : Math.min(logKeepTop, m);
+    };
+    apply();
+    // 行が増えて高さが確定するのは次のフレームなので、そこでも入れ直す。
+    requestAnimationFrame(apply);
   }
 
   /**

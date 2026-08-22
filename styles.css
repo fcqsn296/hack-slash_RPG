@@ -2029,7 +2029,13 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   border-radius: 10px;
   background: rgba(6, 8, 12, 0.75);
   font-size: 13px;
-  scroll-behavior: smooth;
+  /* scroll-behavior: smooth は付けない。
+     ログは行が増えるたびに末尾へ追いかけるので、滑らかにすると
+     **行動のたびにスクロールが再生される**。
+     箱を作り直していた頃は先頭から末尾まで440ms かけて滑っていて、
+     「毎回スクロールする」という形で表に出ていた。
+     指やホイールでの操作は scroll-behavior の影響を受けないので、
+     外しても手で送る感触は変わらない。 */
 }
 .log-line { animation: log-in 0.2s ease; padding: 1px 0; }
 @keyframes log-in {
@@ -3102,3 +3108,47 @@ body.has-backdrop { background: transparent; }
 }
 .auto-panel-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .auto-panel-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ===== 行き先の一覧 (§1.4) =====
+   下のタブは4つに絞ってあるので、残りの画面は引き出しの中に隠れる。
+   初めての人には見えないので、出撃画面に正面の入口を置く。 */
+.dest-panel {
+  padding: 10px 13px; margin-bottom: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(255, 255, 255, .03);
+}
+.dest-head {
+  display: flex; align-items: baseline; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 8px;
+}
+.dest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.dest-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'icon label' 'icon desc';
+  gap: 0 8px;
+  align-items: center;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .02);
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+.dest-item > :first-child { grid-area: icon; }
+.dest-label { grid-area: label; font-weight: 600; }
+.dest-desc { grid-area: desc; font-size: 12px; opacity: .7; }
+.dest-item:hover { border-color: var(--accent, #e8c06a); }
+
+/* いま用があるところに印を付ける。名前を並べただけでは、
+   どこから手を付ければよいのかが分からない。 */
+.dest-item.is-spot {
+  border-color: var(--accent, #e8c06a);
+  background: rgba(232, 192, 106, .10);
+}

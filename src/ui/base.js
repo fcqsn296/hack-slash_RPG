@@ -154,7 +154,7 @@
             'aria-expanded': drawerOpen ? 'true' : 'false',
           },
             W.icon('tab-party', { size: '19px' }),
-            h('span', { text: inDrawer ? (TABS.find((t) => t.id === activeTab) || {}).label : 'その他' })
+            h('span', { text: inDrawer ? (TABS.find((t) => t.id === activeTab) || {}).label : 'メニュー' })
           ),
         ])
       )
@@ -432,6 +432,54 @@
 
   /** @param {HTMLElement} root */
   /**
+   * 行き先の一覧 (§1.4)。
+   *
+   * 下のタブに入りきらない画面への入口。何ができる場所なのかを
+   * 一行添える。名前だけでは、初めての人には「鍛冶」が何なのか分からない。
+   *
+   * @param {any} root
+   */
+  function destinations(root) {
+    const save = RPG.state.get();
+    const boxCount = Object.keys(save.boxes || {})
+      .reduce((/** @type {number} */ a, /** @type {string} */ k) => a + save.boxes[k], 0);
+
+    /** 目立たせる条件。今やるべきことに印を付ける。 */
+    const spot = {
+      gacha: save.party.length < 4 && save.gold >= RPG.data.gacha.cost,
+      party: Object.keys(save.characters).length > save.party.length,
+      identify: boxCount > 0,
+    };
+
+    const items = [
+      { id: 'gacha', label: 'ガチャ', desc: '仲間を増やす' },
+      { id: 'party', label: '編成', desc: '連れていく4人を選ぶ' },
+      { id: 'quest', label: 'クエスト', desc: '縛りに挑んで専用報酬' },
+      { id: 'forge', label: '鍛冶', desc: '装備を強化する' },
+      { id: 'tower', label: '塔', desc: 'どこまで登れるか挑む' },
+      { id: 'arena', label: '闘技場', desc: 'レベル上限を伸ばす' },
+      { id: 'codex', label: '図鑑', desc: '出会った敵を見返す' },
+    ];
+
+    return h('div.dest-panel',
+      h('div.dest-head',
+        h('b', { text: 'ほかの場所へ' }),
+        h('span.hint.hint-sm', { text: '下の「メニュー」からも開けます。' })
+      ),
+      h('div.dest-grid', items.map((it) => {
+        const tab = TABS.find((t) => t.id === it.id);
+        return h('button.dest-item' + (spot[it.id] ? '.is-spot' : ''), {
+          onClick: () => { activeTab = it.id; render(root); },
+        },
+          W.icon(tab ? tab.icon : 'tab-party', { size: '18px' }),
+          h('span.dest-label', { text: it.label }),
+          h('span.dest-desc', { text: it.desc })
+        );
+      }))
+    );
+  }
+
+  /**
    * オートの入切 (§10.5)。
    * 出撃前に決められるようにする。残り回数もここで見せる。
    * @param {any} root
@@ -513,6 +561,15 @@
             }, { variant: 'primary' })
           : null
       ),
+      // ── 行き先の一覧 (§1.4) ──
+      //
+      // 下のタブは4つに絞ってある（11個並べると狭い画面で3段に折り返す）。
+      // そのぶん残りは引き出しの中で、**初めての人にはガチャも編成も見えない**。
+      //
+      // 出撃画面は最初に開く場所なので、ここに行き先を全部並べておく。
+      // 引き出しは「慣れた人の近道」に格下げして、こちらを正面の入口にする。
+      destinations(root),
+
       // ── オートの切替 (§10.5) ──
       //
       // ここに置いてある理由がある。オートの切替は戦闘画面にしか無く、
