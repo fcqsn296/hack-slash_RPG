@@ -351,6 +351,42 @@ RPG.data.skillTree = [
     effects: [{ kind: 'sigil_burst', value: 0.025 }],
     desc: '攻撃するたび刻印が1つ積み、3つで弾けて相手の最大HPの2.5%が入る',
   },
+  /* ── 新しい5軸 (§5.9) ──
+     どれも「読む口が無かった場所」に作ったもの。
+     既存の枝の数値違いにならないよう、効き方が裏返るものを選んである。 */
+  {
+    // 軽減が割合で減らすのに対し、これは丸ごと通さない。
+    // 1発が重い相手ほど効き、手数で押す相手には薄い。
+    id: 'tr_evade', tier: 'mid', name: '見切り', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'evade', value: 0.05 }],
+    desc: '攻撃を5%の確率で丸ごと回避する',
+  },
+  {
+    // 「同じ技」でも「違う技」でもなく **同じ相手** を見る。
+    // 的を替えないことに価値が付くので、全体攻撃とは反対を向く。
+    id: 'tr_focus', tier: 'mid', name: '執着', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'focus_power', value: 0.08 }],
+    desc: '同じ相手を続けて狙うほど火力が上がる（1回続けるごとに +8%）',
+  },
+  {
+    // 他の味方が何をしたかを見る、初めての効果。
+    // 編成と行動順そのものが火力になる。
+    id: 'tr_relay', tier: 'mid', name: '継ぎ手', cost: 3, maxLevel: 3,
+    effects: [{ kind: 'relay_power', value: 0.10 }],
+    desc: '直前に動いた味方と違う系統で攻めると火力 +10%',
+  },
+  {
+    // 回復が「穴埋め」から「攻めの下ごしらえ」に変わる。
+    id: 'tr_mend_power', tier: 'mid', name: '恩返し', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'mend_power', value: 0.06 }],
+    desc: '回復を受けた回数だけ火力が上がる（1回につき +6%）',
+  },
+  {
+    // クラス技は CT で撃てる回数が決まる。1縮むと1戦の手が1つ増える。
+    id: 'tr_cooldown', tier: 'high', name: '巡りを早める', cost: 5, maxLevel: 2,
+    effects: [{ kind: 'cooldown_cut', value: 1 }],
+    desc: 'クラス技のクールタイムが1ラウンド短くなる',
+  },
   {
     id: 'tr_debuff_len', tier: 'basic', name: '呪詛の心得', cost: 3, maxLevel: 2,
     effects: [{ kind: 'debuff_duration', value: 1 }],

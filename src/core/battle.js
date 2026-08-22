@@ -222,7 +222,12 @@
     if (!actor.cooldowns) actor.cooldowns = {};
     // 「次に使えるラウンド」を持つ。残り回数を毎ラウンド減らす方式より、
     // ウェーブをまたいでラウンドが1に戻ったときの扱いが素直になる。
-    actor.cooldowns[skillId] = battle.round + skill.cooldown;
+    // 「短縮」(§5.9)。クラス技は CT で撃つ回数が決まるので、
+    // 1ラウンド縮むだけで「1戦闘にもう1回撃てるか」が変わる。
+    // 1未満にはしない。0にすると毎ラウンド撃ててクラス技の重みが消える。
+    const cut = (actor.passives && actor.passives.cooldownCut) || 0;
+    const wait = Math.max(1, Math.round(skill.cooldown - cut));
+    actor.cooldowns[skillId] = battle.round + wait;
   }
 
   /* ======================== 状態異常 (§5.8) ======================== */
@@ -560,6 +565,28 @@
     if (p.roundStack) {
       mult *= 1 + p.roundStack * Math.max(0, (battle.round || 1) - 1);
     }
+    // ── 執着: 同じ相手を続けて殴るほど重くなる (§5.9) ──
+    // repeat_power が「同じ技」、variety_power が「違う技」を見るのに対し、
+    // こちらは **同じ相手** を見る。的を替えないことに価値を付けるので、
+    // 全体攻撃や連鎖とはちょうど反対を向く。
+    if (p.focusPower) {
+      mult *= 1 + p.focusPower * Math.max(0, (attacker.focusCount || 1) - 1);
+    }
+
+    // ── 連携: 直前に動いた味方と違う系統で攻めると乗る (§5.9) ──
+    // ここまで「他の味方が何をしたか」を見る効果は1つも無かった。
+    // 編成と行動順そのものが火力になる、初めての軸。
+    if (p.relayPower && battle.lastPartyTag && attacker.side === 'party') {
+      if (battle.lastPartyTag !== battle.pendingTag) mult *= 1 + p.relayPower;
+    }
+
+    // ── 恩返し: 回復を受けた回数だけ積み上がる (§5.9) ──
+    // 回復が「減ったぶんの穴埋め」から「攻めの下ごしらえ」に変わる。
+    // 癒し手と火力役が噛み合う道を、支援側ではなく受け手側に作る。
+    if (p.mendPower) {
+      mult *= 1 + p.mendPower * (attacker.mendCount || 0);
+    }
+
     // 痛みの記憶: 被弾した回数だけ積み上がる。殴られ役の火力源。
     if (p.hitStack) {
       mult *= 1 + p.hitStack * (attacker.hitsTaken || 0);
@@ -1160,6 +1187,20 @@
       pushLog(battle, `${attacker.name} の溜めが解き放たれた`, 'buff');
     }
 
+    // ── 回避 (§5.9) ──
+    // 軽減が「割合で減らす」のに対し、こちらは **丸ごと通さない**。
+    // 多段技には何度も判定が走るので、1発が重い相手ほど効き、
+    // 手数で押す相手には薄い。軽減とは効き方が裏返る。
+    //
+    // 反撃や追撃 (isCounter) にも同じように働かせる。片方だけ避けられると
+    // 「どの経路で来たか」で結果が変わり、盤面から読めなくなる。
+    const evade = (defender.passives && defender.passives.evade) || 0;
+    if (evade > 0 && RPG.rng.chance(Math.min(0.75, evade))) {
+      if (!opts.silent) pushLog(battle, `${defender.name} は攻撃をかわした`, 'sub');
+      pushEvent(battle, { type: 'blocked', key: defender.key, label: '回避' });
+      return { damage: 0, crit: false, evaded: true, breakdown: {} };
+    }
+
     // 受ける側の状況で決まる軽減 (§5.7)。装備の恒常軽減とは別枠で足す。
     const attackerDefender = RPG.units.toDefender(defender);
     attackerDefender.reduction = Math.min(1,
@@ -1694,6 +1735,11 @@
           }
         }
 
+        // 「恩返し」の材料 (§5.9)。受け取った回数だけ数える。
+        // 量ではなく回数にしてあるのは、大回復1発と小回復の連打を
+        // 同じ重みにして、回復役の撃ち方を縛らないため。
+        if (healed > 0) target.mendCount = (target.mendCount || 0) + 1;
+
         pushLog(battle, `${target.name} のHPが ${healed.toLocaleString()} 回復した`, 'heal');
         pushEvent(battle, { type: 'heal', key: target.key, amount: healed });
         return healed;
@@ -1911,6 +1957,17 @@
   function executeSkill(battle, actor, skillId, targets) {
     const skill = RPG.data.skills[skillId];
 
+    // 「執着」の材料 (§5.9)。狙った相手が前回と同じなら数える。
+    // 追撃や余波は executeSkill を通らないので、ここで数えれば
+    // **プレイヤーが狙いを定めた回数** だけが積み上がる。
+    const aim = targets && targets.length === 1 ? targets[0] : null;
+    if (aim && actor.lastAimKey === aim.key) {
+      actor.focusCount = (actor.focusCount || 1) + 1;
+    } else {
+      actor.focusCount = 1;
+    }
+    actor.lastAimKey = aim ? aim.key : null;
+
     // 「一意専心」「変幻自在」の材料 (§5.8)。
     // 追撃や余波は executeSkill を通らないので、ここで数えれば
     // 「プレイヤーが選んだ手」だけが積み上がる。
@@ -1922,6 +1979,11 @@
       actor.switchedSkill = actor.lastSkillId != null;
     }
     actor.lastSkillId = skillId;
+
+    // 「連携」の材料 (§5.9)。
+    // setPower は攻撃の途中で呼ばれるので、**いま撃とうとしている系統** を
+    // 先に置いておく必要がある。撃ち終えてから記録すると自分自身と比べてしまう。
+    if (actor.side === 'party') battle.pendingTag = skill.damage_type;
 
     pushLog(battle, `${actor.name} の ${skill.name}！`, 'action');
     pushEvent(battle, { type: 'action', key: actor.key, side: actor.side, skill: skill.name });
@@ -1958,6 +2020,11 @@
     };
 
     runOnce();
+
+    // 撃ち終えたので、次に動く味方が見る「直前の系統」を更新する (§5.9)
+    if (actor.side === 'party' && isAttackSkill(skill)) {
+      battle.lastPartyTag = skill.damage_type;
+    }
 
     // --- 小技の多重発動 (§4.3) ---
     // 小技だけが余分に撃てる。1発が軽いぶん、回数で寄せるビルドになる。

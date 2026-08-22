@@ -1172,9 +1172,12 @@ RPG.data.classes = {
       },
       {
         branch: 'br_as_shadow',
-        id: 'as_s_stack', name: '刻むほど冴える', cost: 2, maxLevel: 3,
-        effects: [{ kind: 'hit_stack', value: 0.04 }],
-        desc: '攻撃を当てるたび、その戦闘中の火力 +4%',
+        // hit_stack は「殴った回数」ではなく **被弾した回数** で積む。
+        // 説明を取り違えて「攻撃を当てるたび」と書いていた。
+        // 影は手数の枝なので、殴られ役の効果と噛み合わない。差し替える。
+        id: 'as_s_stack', name: '影の残滓', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'repeat_power', value: 0.06 }],
+        desc: '同じ技を続けて使うほど火力が上がる（1回重ねるごとに +6%）',
       },
       {
         branch: 'br_as_shadow',

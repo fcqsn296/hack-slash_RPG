@@ -1044,7 +1044,9 @@
         'boss_guard', 'full_hp_foe_power', 'wave_power',
         'damage_share', 'wave_revive',
         // 新しい軸 (§9.1): 自傷を糧にする / 殴った回数で進む刻印
-        'self_curse_power', 'sigil_burst'];
+        'self_curse_power', 'sigil_burst',
+        // 新しい軸 (§5.9): 回避 / 執着 / 連携 / 恩返し / CT短縮
+        'evade', 'focus_power', 'relay_power', 'mend_power', 'cooldown_cut'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -6097,6 +6099,11 @@
           healOnKill: (r) => r.unit.passives.healOnKill,
           debuffSpread: (r) => r.unit.passives.debuffSpread,
           selfCursePower: (r) => r.unit.passives.selfCursePower,
+          evade: (r) => r.unit.passives.evade,
+          focusPower: (r) => r.unit.passives.focusPower,
+          relayPower: (r) => r.unit.passives.relayPower,
+          mendPower: (r) => r.unit.passives.mendPower,
+          cooldownCut: (r) => r.unit.passives.cooldownCut,
           sigilBurst: (r) => r.unit.passives.sigilBurst,
           chain: (r) => r.unit.passives.chain,
           chainPower: (r) => r.unit.passives.chainPower,
@@ -6461,6 +6468,154 @@
       }
       assertTrue('効果種別: 重ねても伸びないノードが無い', dead.length === 0,
         dead.length ? dead.join(' / ') : `最大値方式 ${maxKinds.join('、')} を確認`);
+    }
+
+    // ---------------------------------------------------------------
+    // 新しい5軸 (§5.9)
+    //
+    // どれも「読む口が無かった場所」に作ったもの。
+    // 倍率は setPower を直に呼んで確かめる。戦闘を回して測ると
+    // 敵フェーズが乱数を食うので、同じ種でも値が揃わない。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const st = RPG.state.get();
+        st.named = true;
+        const c = st.characters.ch_hero;
+        c.level = 100;
+
+        /** その効果だけを持たせた戦闘を1つ作る */
+        const arena = (/** @type {any} */ p) => {
+          const u = RPG.units.buildCharacterUnit(c, []);
+          u.passives = Object.assign({}, u.passives, p);
+          const b = RPG.battle.start({
+            fieldId: 'fl_nest', waves: 1, bossFinale: true, party: [u],
+          });
+          b.enemies.forEach((/** @type {any} */ e) => { e.hp = e.maxHp = 9e7; });
+          b.party[0].hp = b.party[0].maxHp = 9e7;
+          return b;
+        };
+
+        // --- 回避: 割合で減らすのではなく丸ごと通さない ---
+        {
+          const b = arena({ evade: 0.5 });
+          let dodged = 0;
+          RPG.rng.seed(7);
+          for (let i = 0; i < 400; i++) {
+            const r = RPG.battle.applyDamage(b, b.enemies[0], b.party[0],
+              RPG.data.skills.sk_enemy_bite, { silent: true });
+            if (r.evaded) dodged++;
+          }
+          RPG.rng.seed(null);
+          assertTrue('回避: 確率どおりに避ける', dodged > 160 && dodged < 240,
+            `400回中 ${dodged}回（期待200前後）`);
+
+          // 上限を超えて積んでも避けきりにはならない。
+          // 完全回避を許すと、そのキャラだけ戦闘から降りてしまう。
+          const wall = arena({ evade: 5 });
+          let through = 0;
+          RPG.rng.seed(11);
+          for (let i = 0; i < 200; i++) {
+            const r = RPG.battle.applyDamage(wall, wall.enemies[0], wall.party[0],
+              RPG.data.skills.sk_enemy_bite, { silent: true });
+            if (!r.evaded) through++;
+          }
+          RPG.rng.seed(null);
+          assertTrue('回避: どれだけ積んでも通る攻撃が残る', through > 0,
+            `200回中 ${through}回は通った`);
+        }
+
+        // --- 執着: 同じ相手を続けて狙うほど重くなる ---
+        {
+          const b = arena({ focusPower: 0.08 });
+          const a = b.party[0];
+          a.focusCount = 1;
+          const one = RPG.battle.setPower(b, a);
+          a.focusCount = 4;
+          assertNear('執着: 4回続けて狙うと1.24倍',
+            RPG.battle.setPower(b, a) / one, 1.24, 0.01);
+
+          // 的を替えたら1に戻ること。戻らないと「執着」でなくなる。
+          //
+          // ボス戦は敵が1体しかいないので、ここでは雑魚戦を作る。
+          // 1体しかいない盤面で測ると、条件を素通りして通ってしまう。
+          const u2 = RPG.units.buildCharacterUnit(c, []);
+          u2.passives = Object.assign({}, u2.passives, { focusPower: 0.08 });
+          const mob = RPG.battle.start({
+            fieldId: 'fl_nest', waves: 1, bossFinale: false, party: [u2],
+          });
+          mob.enemies.forEach((/** @type {any} */ e) => { e.hp = e.maxHp = 9e7; });
+          mob.party[0].hp = mob.party[0].maxHp = 9e7;
+          const foes = RPG.battle.livingEnemies(mob);
+          const m = mob.party[0];
+
+          assertTrue('執着: 検査に使う盤面に敵が複数いる', foes.length >= 2,
+            `${foes.length} 体`);
+
+          RPG.battle.commandSkill(mob, 'sk_slash', [foes[0]], { auto: true });
+          const first = m.focusCount;
+          RPG.battle.commandSkill(mob, 'sk_slash', [foes[0]], { auto: true });
+          const same = m.focusCount;
+          RPG.battle.commandSkill(mob, 'sk_slash', [foes[1]], { auto: true });
+          assertTrue('執着: 的を替えると積み直しになる',
+            same > first && m.focusCount === 1,
+            `${first} → ${same} → ${m.focusCount}`);
+        }
+
+        // --- 連携: 直前に動いた味方と違う系統で攻めたときだけ乗る ---
+        {
+          const b = arena({ relayPower: 0.5 });
+          const a = b.party[0];
+          b.lastPartyTag = 'magi'; b.pendingTag = 'phys';
+          const diff = RPG.battle.setPower(b, a);
+          b.lastPartyTag = 'phys'; b.pendingTag = 'phys';
+          const same = RPG.battle.setPower(b, a);
+          b.lastPartyTag = null;
+          const none = RPG.battle.setPower(b, a);
+          assertNear('連携: 違う系統で継ぐと1.5倍', diff / same, 1.5, 0.01);
+          assertTrue('連携: 初手には乗らない', none === same, `${none} / ${same}`);
+        }
+
+        // --- 恩返し: 回復を受けた回数だけ積む ---
+        {
+          const b = arena({ mendPower: 0.06 });
+          const a = b.party[0];
+          a.mendCount = 0;
+          const zero = RPG.battle.setPower(b, a);
+          a.mendCount = 5;
+          assertNear('恩返し: 5回受けると1.3倍',
+            RPG.battle.setPower(b, a) / zero, 1.30, 0.01);
+        }
+
+        // --- CT短縮: クラス技を撃てる回数が変わる ---
+        {
+          RPG.data.skills.__probe = { name: '検査用', kind: 'active', cooldown: 5 };
+          const plain = arena({});
+          const cut = arena({ cooldownCut: 1 });
+          plain.round = 1; cut.round = 1;
+          RPG.battle.startCooldown(plain, plain.party[0], '__probe');
+          RPG.battle.startCooldown(cut, cut.party[0], '__probe');
+          assertTrue('短縮: クールタイムが1ラウンド縮む',
+            plain.party[0].cooldowns.__probe - cut.party[0].cooldowns.__probe === 1,
+            `${plain.party[0].cooldowns.__probe} → ${cut.party[0].cooldowns.__probe}`);
+
+          // 0にはしない。毎ラウンド撃てるとクラス技の重みが消える。
+          const huge = arena({ cooldownCut: 99 });
+          huge.round = 1;
+          RPG.battle.startCooldown(huge, huge.party[0], '__probe');
+          assertTrue('短縮: 積んでも待ち時間は消えない',
+            huge.party[0].cooldowns.__probe > huge.round,
+            `R${huge.round} → ${huge.party[0].cooldowns.__probe}`);
+          delete RPG.data.skills.__probe;
+        }
+      } finally {
+        RPG.rng.seed(null);
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
     }
 
     return results;

@@ -72,6 +72,13 @@ RPG.data.effectKinds = {
   element_pierce: { to: 'build', shape: 'add', uniq: null },
   element_power: { to: 'build', shape: 'keyed', needs: ["element"], uniq: null },
   element_resist: { to: 'build', shape: 'keyed', needs: ["element"], uniq: null },
+  // ── 新しい5軸 (§5.9) ──
+  // どれも既存キーの数値違いではなく、いま読む口が無い場所。
+  evade:          { to: 'passives', shape: 'add', uniq: 'evade', route: 'passives' },
+  focus_power:    { to: 'passives', shape: 'add', uniq: 'focusPower', route: 'passives' },
+  relay_power:    { to: 'passives', shape: 'add', uniq: 'relayPower', route: 'passives' },
+  mend_power:     { to: 'passives', shape: 'add', uniq: 'mendPower', route: 'passives' },
+  cooldown_cut:   { to: 'passives', shape: 'add', uniq: 'cooldownCut', route: 'passives' },
   execute: { to: 'build', shape: 'add', uniq: 'execute', route: 'unit' },
   extra_action: { to: 'passives', shape: 'add', uniq: 'extraActionRate', route: 'passives' },
   first_hit_crit: { to: 'passives', shape: 'levels', uniq: null },

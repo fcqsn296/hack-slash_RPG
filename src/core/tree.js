@@ -247,20 +247,24 @@
   const KNOWN_EFFECT_KINDS = [
     'all_spread', 'ambush', 'atk_to_def', 'auto_low_skill', 'back_guard', 'boss_guard',
     'boss_slayer', 'buff_duration', 'buff_on_kill', 'cap_break', 'chain', 'chain_power',
-    'chaos', 'combo_gain', 'combo_keep', 'combo_power', 'counter', 'counter_all',
+    'chaos', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
+    'counter', 'counter_all',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
     'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
     'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
     'dual_element', 'element_adapt', 'element_convert', 'element_crit', 'element_mastery',
-    'element_pierce', 'element_power', 'element_resist', 'execute', 'extra_action',
-    'first_hit_crit', 'first_round_power', 'foe_count_power', 'front_power',
+    'element_pierce', 'element_power', 'element_resist', 'evade', 'execute', 'extra_action',
+    'first_hit_crit', 'first_round_power', 'foe_count_power', 'focus_power',
+    'front_power',
     'full_hp_foe_power', 'grant_skill', 'guard_ally', 'guard_break', 'heal_on_kill',
     'heal_power', 'high_hp_power', 'high_power_boost', 'hit_stack', 'hp_to_atk',
     'hp_to_def', 'kill_extra_action', 'last_stand', 'lifesteal', 'lone_foe_power',
     'low_hp_guard', 'low_hp_power', 'low_power_boost', 'low_power_repeat',
-    'low_power_spread', 'mid_power_combo', 'mid_power_status', 'mono_element_power',
+    'low_power_spread', 'mend_power', 'mid_power_combo', 'mid_power_status',
+    'mono_element_power',
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
-    'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen', 'repeat_power',
+    'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
+    'relay_power', 'repeat_power',
     'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage',
     'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
@@ -299,6 +303,11 @@
       counterPower: 0,     // 反撃の威力倍率
       reviveHp: 0,         // 戦闘不能時に復活するHPの割合（1戦闘1回）
       extraActionRate: 0,  // 行動後にもう一度動ける確率
+      evade: 0,            // 攻撃を丸ごと避ける確率
+      focusPower: 0,       // 同じ相手を続けて殴るほど上がる火力
+      relayPower: 0,       // 直前に動いた味方と違う系統で攻めたときの火力
+      mendPower: 0,        // 回復を受けた回数だけ上がる火力
+      cooldownCut: 0,      // クラス技のクールタイム短縮（ラウンド）
       selfCursePower: 0,   // 自分にかかっている弱体1つにつき上がる火力
       sigilBurst: 0,       // 殴るたびに刻印が積み、溜まると弾ける（最大HP割合）
       thorns: 0,           // 被弾時に相手の最大HPの割合で反射
@@ -498,6 +507,11 @@
           // 状態異常・会心・戦況・生存・安定性 (§5.6)
           case 'status_power': passives.statusPower += amount; break;
           case 'self_curse_power': passives.selfCursePower += amount; break;
+          case 'evade': passives.evade += amount; break;
+          case 'focus_power': passives.focusPower += amount; break;
+          case 'relay_power': passives.relayPower += amount; break;
+          case 'mend_power': passives.mendPower += amount; break;
+          case 'cooldown_cut': passives.cooldownCut += amount; break;
           case 'sigil_burst': passives.sigilBurst += amount; break;
           case 'debuff_duration': passives.debuffDuration += amount; break;
           case 'debuff_resist': passives.debuffResist += amount; break;

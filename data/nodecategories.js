@@ -62,6 +62,9 @@ RPG.data.nodeCategories = [
       'guard_ally', 'overheal_shield', 'start_shield', 'shield_regen',
       'low_hp_guard', 'damage_share', 'wave_revive', 'back_guard',
       'boss_guard', 'reflect', 'heal_power', 'heal_on_kill', 'lifesteal',
+      // 回避は軽減と並べる。同じ「受けない」ための枝だが、
+      // 割合で減らすのではなく丸ごと通さないので効き方が裏返る。
+      'evade',
     ],
   },
   {
@@ -92,12 +95,17 @@ RPG.data.nodeCategories = [
       'hit_stack', 'party_size_power', 'solo_power', 'mono_element_power',
       'rainbow_power', 'front_power', 'wave_power', 'full_hp_foe_power',
       'debuff_amp',
+      // 執着は「同じ相手を狙い続けたか」、連携は「直前に動いた味方」、
+      // 恩返しは「回復を受けた回数」を火力に変える。どれも盤面を見る枝。
+      'focus_power', 'relay_power', 'mend_power',
     ],
   },
   {
     id: 'convert', label: '変換・特殊', icon: 'convert',
     desc: 'ステータスを別の役へ回したり、ルールそのものを緩めたりする枝。',
     kinds: [
+      // クラス技の待ち時間を縮める。ルールを緩める側なのでここ。
+      'cooldown_cut',
       'hp_to_atk', 'def_to_atk', 'atk_to_def', 'hp_to_def', 'stable_damage', 'cap_break',
       'slot', 'opening_buff', 'buff_duration', 'buff_on_kill',
     ],
