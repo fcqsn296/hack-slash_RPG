@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v63';
+const CACHE_VERSION = 'v64';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -266,6 +266,25 @@ self.addEventListener('activate', (event) => {
       ))
       .then(() => self.clients.claim())
   );
+});
+
+/**
+ * ページから「今すぐ入れ替えてよい」と言われたときだけ待機を解く。
+ *
+ * ── skipWaiting を自動で呼ばない理由は変えていない ──
+ * 開いているページの途中で差し替わると、読み込み済みの古いJSと
+ * 新しいJSが混ざる。だから **勝手には** 切り替えない。
+ *
+ * ただし切り替える手段が無いのは別の問題だった。
+ * 待機中の版は、そのサイトのタブを全部閉じるまで動き出さない。
+ * タブを開いたまま使い続ける人や、セッションを復元する設定の人には
+ * **いつまでも古い版が配られ続ける**（実際に Firefox で起きた）。
+ *
+ * ページ側は、この合図を送った直後に自分を再読み込みする。
+ * 混ざる余地が無いので、当初の心配は残らない。
+ */
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {

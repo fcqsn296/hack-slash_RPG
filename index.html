@@ -166,8 +166,84 @@
     }).catch(function () {});
     return;
   }
+  // ── 更新の届け方 (§15) ──
+  //
+  // 新しい版は「待機中」になり、そのサイトのタブを全部閉じるまで動き出さない。
+  // タブを開いたまま使い続ける人や、セッションを復元する設定の人には
+  // **いつまでも古い版が配られ続ける**（実際に Firefox で起きた）。
+  //
+  // 勝手に差し替えるのは今も避ける（古いJSと新しいJSが混ざるため）。
+  // 代わりに、待機中の版があることを知らせて、押されたら
+  // 入れ替えと同時に読み込み直す。混ざる余地を作らない。
+  var reloading = false;
+
+  function showUpdateBar(reg) {
+    if (document.getElementById('update-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'update-bar';
+    bar.className = 'update-bar';
+    var msg = document.createElement('span');
+    msg.textContent = '新しい版があります。';
+    var apply = document.createElement('button');
+    apply.textContent = '更新する';
+    apply.className = 'update-bar-apply';
+    apply.onclick = function () {
+      apply.disabled = true;
+      apply.textContent = '更新中…';
+      var w = reg.waiting || reg.installing;
+      if (w) w.postMessage({ type: 'SKIP_WAITING' });
+      // 合図が届かない場合の逃げ道。数秒待って動かなければ自力で読み直す。
+      setTimeout(function () { if (!reloading) { reloading = true; location.reload(); } }, 2500);
+    };
+    var later = document.createElement('button');
+    later.textContent = 'あとで';
+    later.className = 'update-bar-later';
+    later.onclick = function () { bar.remove(); };
+    bar.appendChild(msg);
+    bar.appendChild(apply);
+    bar.appendChild(later);
+    document.body.appendChild(bar);
+  }
+
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js').catch(function () { /* 使えなくても支障はない */ });
+    // updateViaCache:'none' で sw.js 自体をHTTPキャッシュから読ませない。
+    // ここが古いままだと、そもそも新しい版に気付けない。
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(function (reg) {
+        // すでに待機している版があるなら、その場で知らせる
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBar(reg);
+
+        reg.addEventListener('updatefound', function () {
+          var sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', function () {
+            // controller が居るときだけ「更新」。初回登録は更新ではない。
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateBar(reg);
+            }
+          });
+        });
+
+        // 明示的に確認しにいく。ブラウザ任せだと、開きっぱなしの
+        // ページでは何日も確認が走らないことがある。
+        var check = function () { reg.update().catch(function () {}); };
+        check();
+        // 画面に戻ってきたときにも見る。閉じずに使う人向け。
+        document.addEventListener('visibilitychange', function () {
+          if (!document.hidden) check();
+        });
+        setInterval(check, 30 * 60 * 1000);
+
+        // 手で確かめたい人のために外へ出しておく
+        window.__checkUpdate = function () { check(); return reg; };
+      })
+      .catch(function () { /* 使えなくても支障はない */ });
   });
 })();
 </script>

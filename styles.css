@@ -3450,3 +3450,48 @@ body.has-backdrop { background: transparent; }
   .gfx-cutin, .gfx-standee, .gfx-debut-text { animation-duration: .01ms !important; }
   .gfx-cutin { opacity: 0; }
 }
+
+/* ===== 更新の知らせ (§15) =====
+   新しい版は「待機中」になり、タブを全部閉じるまで動き出さない。
+   開いたまま使う人にはいつまでも古い版が配られるので、
+   押せば入れ替えられる場所を出す。 */
+.update-bar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  z-index: 120;
+  display: flex; align-items: center; gap: 10px;
+  /* 幅を指定しないと、文言のほうが縮んで縦に折り返し、
+     細い帯のはずが3段の塊になる（実測 212x188）。
+     文字は折らず、狭い画面では帯のほうを幅いっぱいにする。 */
+  width: max-content;
+  max-width: calc(100vw - 20px);
+  padding: 10px 14px;
+  border: 1px solid var(--ember, #e8c06a);
+  border-radius: 999px;
+  background: rgba(18, 14, 8, .96);
+  box-shadow: 0 10px 30px -12px #000;
+  font-size: 13px;
+  animation: update-bar-in .25s ease both;
+}
+@keyframes update-bar-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.update-bar > span { white-space: nowrap; }
+.update-bar button {
+  appearance: none; cursor: pointer; white-space: nowrap; flex: 0 0 auto;
+  padding: 6px 12px; border-radius: 999px;
+  font: 700 13px/1 inherit;
+}
+.update-bar-apply {
+  border: 0; background: var(--ember, #e8c06a); color: #1a1206;
+}
+.update-bar-apply:disabled { opacity: .6; cursor: default; }
+.update-bar-later {
+  border: 1px solid var(--line); background: none; color: inherit;
+}
+/* 文字がどうしても収まらない幅では、帯の形をやめて素直に並べる */
+@media (max-width: 360px) {
+  .update-bar { border-radius: 12px; font-size: 12px; gap: 6px; padding: 8px 10px; }
+  .update-bar > span { white-space: normal; }
+}

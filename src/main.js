@@ -338,6 +338,54 @@
               ))
         ),
 
+        // ── 更新 (§15) ──
+        // 新しい版は「待機中」になり、タブを全部閉じるまで動き出さない。
+        // 知らせのバーを閉じてしまった人や、そもそも出ていない人が
+        // 自分で確かめられる場所を用意しておく。
+        h('div.data-section',
+          h('h3', { text: '更新' }),
+          h('p.hint.hint-sm', {
+            text: '新しい版が出ているか確かめます。'
+              + '見つかれば画面の下に知らせが出るので、そこから適用してください。',
+          }),
+          W.button('更新を確認', () => {
+            if (!('serviceWorker' in navigator)) { say('この環境では確認できません', true); return; }
+            say('確認しています…');
+            navigator.serviceWorker.getRegistration()
+              .then((reg) => {
+                if (!reg) { say('まだ登録されていません。少し待ってから試してください', true); return; }
+                // 待機中の版が既にあるなら、その場で入れ替える。
+                if (reg.waiting) {
+                  say('新しい版があります。入れ替えます…');
+                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                  setTimeout(() => location.reload(), 1200);
+                  return;
+                }
+                return reg.update().then(() => {
+                  say(reg.waiting || reg.installing
+                    ? '新しい版が見つかりました。下の知らせから適用できます'
+                    : 'すでに最新です');
+                });
+              })
+              .catch(() => say('確認できませんでした', true));
+          }, { variant: 'ghost' }),
+          // どうしても直らないときの最終手段。
+          // セーブは localStorage にあるので、これで消えることはない。
+          W.button('保存された古い版を消して読み直す', () => {
+            if (!confirm('端末に残っている古い版を消して読み込み直します。セーブデータは消えません。')) return;
+            const done = () => location.reload();
+            const jobs = [];
+            if ('serviceWorker' in navigator) {
+              jobs.push(navigator.serviceWorker.getRegistrations()
+                .then((rs) => Promise.all(rs.map((r) => r.unregister()))));
+            }
+            if (window.caches) {
+              jobs.push(caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))));
+            }
+            Promise.all(jobs).then(done, done);
+          }, { variant: 'ghost' })
+        ),
+
         h('div.data-section.is-danger',
           h('h3', { text: '初期化' }),
           h('p.hint.hint-sm', { text: '最初からやり直します。直前の状態は控えに残るので、間違えても戻せます。' }),
