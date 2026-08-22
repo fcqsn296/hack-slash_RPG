@@ -52,12 +52,8 @@
     onlyUnequipped: false,
   };
 
-  const SORTS = [
-    { id: 'power', label: '強い順' },
-    { id: 'new', label: '新着順' },
-    { id: 'rarity', label: 'レアリティ順' },
-    { id: 'slot', label: '部位順' },
-  ];
+  /** 装備の並べ替え。中身は src/core/gear.js が持つ (§7.4) */
+  const SORTS = RPG.gear.SORTS;
 
   /** キャラクターリストの並べ替え。装備タブとビルドタブで共用する。 */
   const CHAR_SORTS = [
@@ -2103,10 +2099,13 @@
         // 一覧にも上限を設ける (§7.9)。
         // 周回を続けると所持数は数百に達し、全部並べるとスマホが固まる。
         // 絞り込みと並べ替えがあるので、見たいものは上位に持ってこられる。
+        // 何順の上位なのかを書く。並べ替えを増やしたので、
+        // 「上位120個」だけでは何の上位なのか分からない。
         inventory.length > INVENTORY_SHOW_MAX
           ? h('p.hint.hint-sm', {
-              text: `上位 ${INVENTORY_SHOW_MAX} 個を表示しています` +
-                `（該当 ${inventory.length} 個）。絞り込みと並べ替えで目的の装備を絞ってください。`,
+              text: `${(SORTS.find((x) => x.id === gearView.sort) || {}).label || ''}`
+                + `の上位 ${INVENTORY_SHOW_MAX} 個を表示しています`
+                + `（該当 ${inventory.length} 個）。並べ替えと絞り込みで目的の装備を先頭へ持ってこられます。`,
             })
           : null,
         gearToolbar(root, save.inventory),
@@ -2152,30 +2151,9 @@
    * @param {Record<number, string>} owner
    */
   function applyGearView(inventory, owner) {
-    let list = inventory.slice();
-
-    if (gearView.slot) list = list.filter((it) => it.slot === gearView.slot);
-    if (gearView.tag) list = list.filter((it) => it.tag === gearView.tag);
-    if (gearView.rarity) list = list.filter((it) => it.rarity === gearView.rarity);
-    if (gearView.onlyUnequipped) list = list.filter((it) => !owner[it.uid]);
-
-    const byScore = (/** @type {any} */ a, /** @type {any} */ b) => RPG.gear.score(b) - RPG.gear.score(a);
-    switch (gearView.sort) {
-      case 'new':
-        list.sort((a, b) => b.uid - a.uid);
-        break;
-      case 'rarity':
-        list.sort((a, b) =>
-          RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || byScore(a, b));
-        break;
-      case 'slot':
-        list.sort((a, b) =>
-          SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) || byScore(a, b));
-        break;
-      default:
-        list.sort(byScore);
-    }
-    return list;
+    // 絞り込みと並べ替えの中身は gear.js が持つ (§7.4)。
+    // 画面に置いておくと、表示上限で切られた後しか検査できない。
+    return RPG.gear.arrange(inventory, gearView, owner);
   }
 
   /**
@@ -2261,9 +2239,23 @@
     const rerender = () => render(root);
 
     return h('div.gear-toolbar',
+      // 並べ替えは選択式にする (§7.4)。
+      //
+      // 項目ごとの並べ替えを足したら12個になり、狭い画面で4段に折り返した。
+      // ツールバーだけで画面の6割を占めてしまい、肝心の装備が見えない。
+      // 押しボタンで並べるのは、数が少ないうちだけ成り立つ形だった。
       h('div.toolbar-row',
         h('span.toolbar-label', { text: '並べ替え' }),
-        ...SORTS.map((s) => pill(s.label, gearView.sort === s.id, () => { gearView.sort = s.id; rerender(); }))
+        h('select.gear-sort', {
+          'aria-label': '装備の並べ替え',
+          onChange: (/** @type {any} */ e) => {
+            gearView.sort = e.currentTarget.value;
+            rerender();
+          },
+        }, ...SORTS.map((s) => h('option', {
+          value: s.id,
+          selected: gearView.sort === s.id ? 'selected' : null,
+        }, h('span', { text: s.label }))))
       ),
       h('div.toolbar-row',
         h('span.toolbar-label', { text: '部位' }),
@@ -3154,5 +3146,12 @@
   }
 
   RPG.ui = RPG.ui || {};
-  RPG.ui.base = { render, get activeTab() { return activeTab; }, set activeTab(v) { activeTab = v; } };
+  RPG.ui.base = {
+    render,
+    get activeTab() { return activeTab; },
+    set activeTab(v) { activeTab = v; },
+    // 並べ替えはテストから直接動かせるようにしておく (§7.4)。
+    // 画面越しに確かめようとすると、表示上限で切られた後しか見られない。
+    SORTS, gearView, applyGearView,
+  };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

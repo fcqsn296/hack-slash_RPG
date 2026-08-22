@@ -7003,6 +7003,101 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // 装備の並べ替え (§7.4)
+    //
+    // 「強い順」は全部を1つの点数に潰すので、特定の数値だけを探せない。
+    // 所持数は周回で数千に達するので、「DEFがいちばん高いもの」を
+    // 目で探すのは現実的でない。項目ごとに並べられる必要がある。
+    //
+    // 画面ではなく gear.js を直に叩く。画面越しだと表示上限(120個)で
+    // 切られた後しか見られず、並び全体を確かめられない。
+    // ---------------------------------------------------------------
+    {
+      // 検査用に、まとまった数の装備を作る
+      RPG.rng.seed(4321);
+      /** @type {any[]} */
+      const inv = [];
+      for (let i = 0; i < 400; i++) {
+        inv.push(RPG.gear.identify(i % 3 ? 'box_dragon' : 'box_astral', i + 1));
+      }
+      RPG.rng.seed(null);
+
+      assertTrue('装備の並べ替え: 検査用の装備が揃っている', inv.length === 400,
+        `${inv.length} 個`);
+
+      const KEYS = ['stat:hp', 'stat:atk', 'stat:def', 'stat:magi_power',
+        'crit', 'capBreak', 'reduction', 'tag'];
+
+      for (const key of KEYS) {
+        const label = (RPG.gear.SORTS.find((/** @type {any} */ x) => x.id === key) || {}).label || key;
+        const list = RPG.gear.arrange(inv, { sort: key });
+
+        // 1つも欠けないこと。絞り込みを指定していないので数は変わらない。
+        assertTrue(`装備の並べ替え: ${label}で数が変わらない`, list.length === inv.length,
+          `${list.length} / ${inv.length}`);
+
+        // 降順に並んでいること。
+        let broken = -1;
+        for (let i = 1; i < list.length; i++) {
+          if (RPG.gear.sortValue(list[i - 1], key) < RPG.gear.sortValue(list[i], key)) {
+            broken = i;
+            break;
+          }
+        }
+        assertTrue(`装備の並べ替え: ${label}が降順`, broken < 0,
+          broken < 0
+            ? `先頭 ${RPG.gear.sortValue(list[0], key)}`
+            : `${broken} 番目で崩れた`);
+
+        // その項目を持たない装備が先頭に来ないこと。
+        // 0 のものが混ざると、探しているのに見つからない。
+        const top = RPG.gear.sortValue(list[0], key);
+        const owners = inv.filter((/** @type {any} */ it) => RPG.gear.sortValue(it, key) > 0);
+        assertTrue(`装備の並べ替え: ${label}の先頭が最大値`,
+          owners.length === 0 || top === Math.max.apply(null,
+            owners.map((/** @type {any} */ it) => RPG.gear.sortValue(it, key))),
+          `先頭 ${top}`);
+      }
+
+      // 並べ替えの一覧が、実際に動く id だけで出来ていること。
+      // 画面はこの一覧をそのままボタンにするので、動かない id が混ざると
+      // 押しても何も起きないボタンが並ぶ。
+      const dead = RPG.gear.SORTS.filter((/** @type {any} */ d) => {
+        const a = RPG.gear.arrange(inv, { sort: d.id });
+        return a.length !== inv.length;
+      });
+      assertTrue('装備の並べ替え: 一覧のどれを選んでも成立する', dead.length === 0,
+        dead.map((/** @type {any} */ d) => d.label).join('、'));
+
+      // 絞り込みと組み合わせても壊れないこと。
+      {
+        const only = RPG.gear.arrange(inv, { sort: 'stat:def', slot: 'armor' });
+        assertTrue('装備の並べ替え: 部位で絞っても降順のまま',
+          only.every((/** @type {any} */ it) => it.slot === 'armor')
+          && only.every((/** @type {any} */ it, i) => i === 0
+            || RPG.gear.sortValue(only[i - 1], 'stat:def') >= RPG.gear.sortValue(it, 'stat:def')),
+          `${only.length} 個`);
+
+        const owner = {};
+        owner[inv[0].uid] = 'だれか';
+        const free = RPG.gear.arrange(inv, { sort: 'power', onlyUnequipped: true }, owner);
+        assertTrue('装備の並べ替え: 装備中を除ける',
+          free.length === inv.length - 1
+          && !free.some((/** @type {any} */ it) => it.uid === inv[0].uid),
+          `${free.length} / ${inv.length}`);
+      }
+
+      // 元の配列を壊さないこと。並べ替えるたびに所持品の順が変わると、
+      // 「新着順」が意味を失う。
+      {
+        const before = inv.map((/** @type {any} */ it) => it.uid).join(',');
+        RPG.gear.arrange(inv, { sort: 'stat:def' });
+        assertTrue('装備の並べ替え: 元の所持品を並べ替えない',
+          inv.map((/** @type {any} */ it) => it.uid).join(',') === before, '');
+      }
+    }
+
     return results;
   }
 

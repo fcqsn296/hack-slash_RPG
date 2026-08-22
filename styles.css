@@ -3152,3 +3152,17 @@ body.has-backdrop { background: transparent; }
   border-color: var(--accent, #e8c06a);
   background: rgba(232, 192, 106, .10);
 }
+
+/* 装備の並べ替え (§7.4)。
+   項目別の並べ替えを足して12個になったので、押しボタンだと
+   狭い画面で4段に折り返し、ツールバーだけで画面の6割を占めていた。 */
+.gear-sort {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .04);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  max-width: 100%;
+}

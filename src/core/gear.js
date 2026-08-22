@@ -253,5 +253,94 @@
     return parts.join(' / ');
   }
 
-  RPG.gear = { identify, forge, rollUnique, score, summary };
+  /** レアリティの強い順。並べ替えで使う */
+  const RARITY_ORDER = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGEND'];
+  /** 部位の並び */
+  const SLOT_ORDER = ['weapon', 'armor', 'accessory'];
+
+  /**
+   * 装備の並べ替え (§7.4)。
+   *
+   * ── なぜ項目ごとに並べられる必要があるのか ──
+   * 「強い順」は全部を1つの点数に潰すので、**特定の数値だけを探せない**。
+   * 所持数は周回で数千に達するので、「DEFがいちばん高いものを1つ」を
+   * 目で探すのは現実的でない。
+   *
+   * 画面ではなくここに置いてあるのは、表示上限で切られる前の
+   * 並びそのものを検査できるようにするため。
+   */
+  const SORTS = [
+    { id: 'power', label: '強い順' },
+    { id: 'new', label: '新着順' },
+    { id: 'rarity', label: 'レアリティ順' },
+    { id: 'slot', label: '部位順' },
+    { id: 'stat:hp', label: 'HP順' },
+    { id: 'stat:atk', label: 'ATK順' },
+    { id: 'stat:def', label: 'DEF順' },
+    { id: 'stat:magi_power', label: '魔力順' },
+    { id: 'crit', label: '会心率順' },
+    { id: 'capBreak', label: '上限突破順' },
+    { id: 'reduction', label: '被ダメ軽減順' },
+    { id: 'tag', label: '系統倍率順' },
+  ];
+
+  /**
+   * 装備1つから、並べ替えに使う数値を取り出す。
+   * 持っていない項目は 0。持たない装備を弾かずに後ろへ回すため。
+   * @param {any} item @param {string} key
+   */
+  function sortValue(item, key) {
+    if (!item) return 0;
+    if (key.indexOf('stat:') === 0) return (item.stats || {})[key.slice(5)] || 0;
+    if (key === 'crit') return item.critRate || 0;
+    if (key === 'capBreak') return item.capBreak || 0;
+    if (key === 'reduction') return item.reduction || 0;
+    // 系統倍率は複数行を持つので合計で見る。
+    // 最大値だと「小さいのを2つ」が沈み、合計のほうが実感に近い。
+    if (key === 'tag') {
+      return (item.tagBonuses || [])
+        .reduce((/** @type {number} */ a, /** @type {any} */ b) => a + (b.value || 0), 0);
+    }
+    return 0;
+  }
+
+  /**
+   * 絞り込んでから並べ替える。
+   *
+   * @param {any[]} inventory
+   * @param {{sort: string, slot?: string|null, tag?: string|null,
+   *          rarity?: string|null, onlyUnequipped?: boolean}} view
+   * @param {Record<number, string>} [owner] 装備している人 { uid: 名前 }
+   */
+  function arrange(inventory, view, owner) {
+    let list = (inventory || []).slice();
+    const own = owner || {};
+
+    if (view.slot) list = list.filter((it) => it.slot === view.slot);
+    if (view.tag) list = list.filter((it) => it.tag === view.tag);
+    if (view.rarity) list = list.filter((it) => it.rarity === view.rarity);
+    if (view.onlyUnequipped) list = list.filter((it) => !own[it.uid]);
+
+    const byScore = (/** @type {any} */ a, /** @type {any} */ b) => score(b) - score(a);
+
+    if (view.sort === 'new') {
+      list.sort((a, b) => b.uid - a.uid);
+    } else if (view.sort === 'rarity') {
+      list.sort((a, b) =>
+        RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || byScore(a, b));
+    } else if (view.sort === 'slot') {
+      list.sort((a, b) =>
+        SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) || byScore(a, b));
+    } else if (view.sort && view.sort !== 'power') {
+      // 同じ値なら総合点で決める。並びが毎回変わると探しにくい。
+      list.sort((a, b) =>
+        sortValue(b, view.sort) - sortValue(a, view.sort) || byScore(a, b));
+    } else {
+      list.sort(byScore);
+    }
+    return list;
+  }
+
+  RPG.gear = {
+    SORTS, sortValue, arrange, identify, forge, rollUnique, score, summary };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
