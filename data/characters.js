@@ -859,9 +859,13 @@ RPG.data.maxLevel = 150;
 RPG.data.maxLevelCap = 255;
 
 /** レアリティ表示定義（色・ラベル・ガチャ還元額など） */
+// label は一覧や絞り込みで使う短い表記。
+// en はガチャ演出で大きく出すときの表記 (§6.7)。
+// 演出で「レジェンド」とカタカナを大書きすると野暮ったくなるので、
+// そこだけ筆記体の英語にする。一覧では日本語のほうが探しやすい。
 RPG.data.rarities = {
-  COMMON:      { label: 'ノーマル',   color: '#9aa3ad', refund: 250 },
-  RARE:        { label: 'レア',       color: '#5fa8ff', refund: 500 },
-  SUPER_RARE:  { label: 'Sレア',      color: '#c07bff', refund: 750 },
-  LEGEND:      { label: 'レジェンド', color: '#ffc75f', refund: 1000 },
+  COMMON:      { label: 'ノーマル',   en: 'Common',    color: '#9aa3ad', refund: 250 },
+  RARE:        { label: 'レア',       en: 'Rare',      color: '#5fa8ff', refund: 500 },
+  SUPER_RARE:  { label: 'Sレア',      en: 'Super Rare', color: '#c07bff', refund: 750 },
+  LEGEND:      { label: 'レジェンド', en: 'Legend',    color: '#ffc75f', refund: 1000 },
 };

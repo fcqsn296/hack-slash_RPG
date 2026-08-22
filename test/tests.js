@@ -7214,15 +7214,21 @@
           COMMON: d('COMMON'), RARE: d('RARE'),
           SUPER_RARE: d('SUPER_RARE'), LEGEND: d('LEGEND'),
         };
-        assertTrue('ガチャ演出: 上位ほど長く焦らす',
-          t.COMMON < t.RARE && t.RARE < t.SUPER_RARE && t.SUPER_RARE < t.LEGEND,
-          `${t.COMMON} < ${t.RARE} < ${t.SUPER_RARE} < ${t.LEGEND} ms`);
+        // 溜めるのはレジェンドのときだけ (§6.7)。
+        //
+        // 最初はレアリティに応じて段を増やしていたが、ノーマルでも
+        // 1.7秒待たされることになった。周回のたびにそれでは邪魔にしかならない。
+        // 焦らす価値があるのは、上がるかもしれない相手だけ。
+        assertTrue('ガチャ演出: レジェンド以外は溜めない',
+          t.COMMON === t.RARE && t.RARE === t.SUPER_RARE,
+          `${t.COMMON} / ${t.RARE} / ${t.SUPER_RARE} ms`);
 
-        // ノーマルだけの引きが長いと、周回のたびに待たされる。
-        assertTrue('ガチャ演出: ノーマルは短く済む', t.COMMON <= 2000, `${t.COMMON}ms`);
+        assertTrue('ガチャ演出: 周回の邪魔にならない長さ', t.COMMON <= 1200, `${t.COMMON}ms`);
 
         // レジェンドは、待った甲斐があるだけの間を取る。
-        assertTrue('ガチャ演出: レジェンドは十分に溜める', t.LEGEND >= 3500, `${t.LEGEND}ms`);
+        assertTrue('ガチャ演出: レジェンドだけ十分に溜める',
+          t.LEGEND >= 3500 && t.LEGEND > t.SUPER_RARE * 3,
+          `${t.LEGEND}ms（他は ${t.SUPER_RARE}ms）`);
       }
 
       // 演出の有無で結果が変わらないこと。
@@ -7325,6 +7331,23 @@
           else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
           RPG.state.load();
         }
+      }
+
+      // 演出で大きく出す英語表記があること (§6.7)。
+      // カタカナを大書きすると野暮ったいので、そこだけ英語にしている。
+      // 欠けると、その1つだけ日本語が混ざる。
+      {
+        const noEn = Object.keys(RPG.data.rarities)
+          .filter((/** @type {string} */ k) => !RPG.data.rarities[k].en);
+        assertTrue('ガチャ演出: 全レアリティに英語表記がある', noEn.length === 0,
+          noEn.join(', ') || Object.keys(RPG.data.rarities)
+            .map((/** @type {string} */ k) => RPG.data.rarities[k].en).join(' / '));
+
+        // 日本語の label は消さないこと。一覧や絞り込みはこちらを使う。
+        const noLabel = Object.keys(RPG.data.rarities)
+          .filter((/** @type {string} */ k) => !RPG.data.rarities[k].label);
+        assertTrue('ガチャ演出: 一覧用の日本語表記も残っている', noLabel.length === 0,
+          noLabel.join(', '));
       }
 
       // 表示名が重複していないこと。同じ言葉が2つ並ぶと、

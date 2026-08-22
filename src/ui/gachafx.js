@@ -104,53 +104,60 @@
       layer.style.setProperty('--gfx-color', RPG.data.rarities[rarity].color);
     };
 
-    // ── 色の階段を上る (§6.7) ──
+    // ── 色が決まるまで ──
     //
-    // 一段ずつ上げて、そのたびに **止める**。
-    // 止まっている時間そのものが溜めになる。動き続けていると、
-    // どこが山なのか分からないまま終わる。
-    //
-    // 上がる段数はその引きの最高レアリティで決まるので、
-    // ノーマルだけの引きは短く済み、上位ほど長く焦らされる。
+    // ── 溜めるのはレジェンドのときだけ ──
+    // 最初はレアリティに応じて段を増やしていたが、ノーマルでも
+    // 1.7秒待たされることになった。周回のたびにそれでは邪魔にしかならない。
+    // **焦らす価値があるのは、上がるかもしれない相手だけ**なので、
+    // 溜めはレジェンドに限る。それ以外は素直に色を出して弾けさせる。
     layer.style.setProperty('--gfx-color', '#ffffff');
     layer.classList.add('is-charging');
 
-    const steps = ORDER.slice(0, rank(top) + 1);
-    let t = 700;                       // 生まれた光が育つ時間
-    steps.forEach((rarity, i) => {
-      const last = i === steps.length - 1;
-      // 溜め。ここでは何も起こさず、ただ息を止める。
-      // 上の段ほど長くする。届きそうで届かない時間を伸ばすため。
-      const hold = i === 0 ? 260 : 300 + i * 190;
-      t += hold;
-      at(t, () => {
-        layer.classList.add('is-hold');
-        // 一段上がる直前だけ、光を絞る。
-        // 落ちたと思わせてから跳ね上げると、上がり幅が大きく感じる。
-        if (!last) layer.classList.add('is-dim');
-      });
+    const isTop = top === 'LEGEND';
+    let t = isTop ? 700 : 420;
 
-      t += last ? 420 : 260;
+    if (!isTop) {
+      // 上位でないときは一息で決める。
       at(t, () => {
-        layer.classList.remove('is-hold', 'is-dim');
-        tint(rarity);
+        tint(top);
         layer.classList.add('is-tinted');
-        if (i > 0) {
-          // 段が上がった手応え。CSSアニメを掛け直すため一度外す。
-          layer.classList.remove('is-promoted');
-          void layer.offsetWidth;
-          layer.classList.add('is-promoted');
-          if (!last) spawnSparks(layer, 6);
-        }
       });
-    });
+      t += 260;
+    } else {
+      // レジェンドだけ、下の色から順に上がる。
+      // 一段ごとに止めて、上がる直前に光を絞る。
+      // 落ちたと思わせてから跳ね上げると、上がり幅が大きく感じる。
+      ORDER.forEach((rarity, i) => {
+        const last = i === ORDER.length - 1;
+        const hold = i === 0 ? 260 : 300 + i * 190;
+        t += hold;
+        at(t, () => {
+          layer.classList.add('is-hold');
+          if (!last) layer.classList.add('is-dim');
+        });
+
+        t += last ? 420 : 260;
+        at(t, () => {
+          layer.classList.remove('is-hold', 'is-dim');
+          tint(rarity);
+          layer.classList.add('is-tinted');
+          if (i > 0) {
+            // 段が上がった手応え。CSSアニメを掛け直すため一度外す。
+            layer.classList.remove('is-promoted');
+            void layer.offsetWidth;
+            layer.classList.add('is-promoted');
+            if (!last) spawnSparks(layer, 6);
+          }
+        });
+      });
+    }
 
     // ── 弾ける ──
-    const isTop = top === 'LEGEND';
-    t += isTop ? 520 : 300;
+    t += isTop ? 520 : 240;
     at(t, () => {
       layer.classList.add('is-locked', 'is-burst');
-      label.textContent = RPG.data.rarities[top].label;
+      label.textContent = RPG.data.rarities[top].en || RPG.data.rarities[top].label;
       if (isTop) layer.classList.add('is-legend');
       if (isTop) spawnSparks(layer, 26);
       else if (top === 'SUPER_RARE') spawnSparks(layer, 12);
@@ -183,7 +190,7 @@
       tint(top);
       layer.classList.remove('is-hold', 'is-dim');
       layer.classList.add('is-locked', 'is-burst', 'is-legend');
-      label.textContent = RPG.data.rarities[top].label;
+      label.textContent = RPG.data.rarities[top].en || RPG.data.rarities[top].label;
 
       timers.push(setTimeout(() => {
         layer.classList.add('is-debut');
@@ -226,7 +233,7 @@
     box.appendChild(h('div.gfx-sweep'));
 
     box.appendChild(h('div.gfx-debut-text',
-      h('span.gfx-debut-rare', { text: RPG.data.rarities[p.rarity].label }),
+      h('span.gfx-debut-rare', { text: RPG.data.rarities[p.rarity].en || RPG.data.rarities[p.rarity].label }),
       h('b.gfx-debut-name', { text: RPG.state.charName(p.id) }),
       h('span.gfx-debut-title', { text: def.title || '' }),
       h('span.gfx-debut-new', { text: 'NEW' })
@@ -276,14 +283,14 @@
    * @returns {number} ミリ秒
    */
   function burstDelay(top) {
-    const steps = ORDER.slice(0, rank(top) + 1);
+    if (top !== 'LEGEND') return 420 + 260 + 240;
     let t = 700;
-    steps.forEach((_, i) => {
-      const last = i === steps.length - 1;
+    ORDER.forEach((_, i) => {
+      const last = i === ORDER.length - 1;
       t += i === 0 ? 260 : 300 + i * 190;   // 溜め
       t += last ? 420 : 260;                // 色が乗る
     });
-    return t + (top === 'LEGEND' ? 520 : 300);
+    return t + 520;
   }
 
   RPG.ui.gachafx = { play, skip, topRarity, debutOf, burstDelay };
