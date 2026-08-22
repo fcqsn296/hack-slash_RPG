@@ -6789,6 +6789,145 @@
       }
     }
 
+    // ---------------------------------------------------------------
+    // マップ探索 (§20)
+    //
+    // 歩くのは主人公だけ。パーティは主人公が先頭に固定なので (§8.1)、
+    // 代表として1人だけ歩かせる。見下ろしの絵が1人ぶんで済む。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        RPG.state.setMode('story');
+        const W = RPG.worldmap;
+
+        // --- データの形 ---
+        for (const id of Object.keys(RPG.data.maps)) {
+          const m = RPG.data.maps[id];
+          const widths = new Set(m.tiles.map((/** @type {string} */ r) => r.length));
+          assertTrue(`マップ: ${m.name} は行の長さが揃っている`, widths.size === 1,
+            [...widths].join(', '));
+
+          // legend に無い文字は壁として扱われる。地図を書き間違えると、
+          // 通れるはずの道が黙って塞がる。
+          const unknown = new Set();
+          for (const row of m.tiles) {
+            for (const ch of row) if (!m.legend[ch]) unknown.add(ch);
+          }
+          assertTrue(`マップ: ${m.name} は legend に無い文字を使っていない`,
+            unknown.size === 0, [...unknown].join(' '));
+
+          // legend が指すタイル種別が実在すること。
+          const badKind = Object.keys(m.legend)
+            .filter((/** @type {string} */ c) => !RPG.data.tileKinds[m.legend[c]]);
+          assertTrue(`マップ: ${m.name} の legend は実在するタイルを指す`,
+            badKind.length === 0, badKind.join(' '));
+
+          // 開始位置が歩けること。歩けない場所に置くと動けなくなる。
+          assertTrue(`マップ: ${m.name} の開始位置は歩ける`,
+            W.tileAt(m, m.start.x, m.start.y).walk,
+            `(${m.start.x},${m.start.y})`);
+
+          // イベントも歩けるマスにあること。壁の中の宝箱は永久に取れない。
+          const stuck = (m.events || []).filter((/** @type {any} */ e) => !W.tileAt(m, e.x, e.y).walk);
+          assertTrue(`マップ: ${m.name} のイベントは歩けるマスにある`, stuck.length === 0,
+            stuck.map((/** @type {any} */ e) => `${e.kind}(${e.x},${e.y})`).join(' '));
+
+          // 出口の行き先が実在すること。
+          const badExit = (m.events || [])
+            .filter((/** @type {any} */ e) => e.kind === 'exit' && !RPG.data.maps[e.to]);
+          assertTrue(`マップ: ${m.name} の出口は実在するマップを指す`, badExit.length === 0,
+            badExit.map((/** @type {any} */ e) => e.to).join(' '));
+        }
+
+        // --- 当たり判定 ---
+        {
+          W.enter('mp_forge');
+          const m = W.def('mp_forge');
+          // 壁に囲まれた位置を探して、四方すべてで止まることを見る
+          let blocked = 0;
+          W.enter('mp_forge', { x: 1, y: 1 });
+          for (const [dx, dy] of [[-1, 0], [0, -1]]) {
+            if (!W.move(dx, dy).ok) blocked++;
+          }
+          assertTrue('マップ: 壁は通り抜けられない', blocked === 2, `${blocked}/2`);
+
+          // 範囲外も壁として扱うこと。地図の端から落ちない。
+          assertTrue('マップ: 範囲外は壁として扱う',
+            !W.tileAt(m, -1, 0).walk && !W.tileAt(m, 999, 0).walk, '');
+        }
+
+        // --- 宝箱は一度きり ---
+        {
+          W.enter('mp_forge', { x: 11, y: 3 });
+          const hit = W.move(0, -1);
+          assertTrue('マップ: 宝箱のマスでイベントが返る',
+            !!hit.event && hit.event.kind === 'chest', JSON.stringify(hit.event));
+          const before = RPG.state.get().gold;
+          const got = W.resolve(hit.event);
+          assertTrue('マップ: 宝箱を開けると受け取れる',
+            got.ok && RPG.state.get().gold > before,
+            `${before}G → ${RPG.state.get().gold}G`);
+          assertTrue('マップ: 同じ宝箱は二度開かない', W.resolve(hit.event).ok === false, '');
+        }
+
+        // --- 出口で移れる ---
+        {
+          W.enter('mp_forge', { x: 12, y: 8 });
+          const ex = W.move(1, 0);
+          W.resolve(ex.event);
+          assertTrue('マップ: 出口から別のマップへ移る',
+            W.current().id === 'mp_ashfield', W.current().id);
+        }
+
+        // --- エンカウント ---
+        {
+          // 安全な場所では出ないこと。最初の場所で殴られると説明が入らない。
+          W.enter('mp_forge', { x: 2, y: 2 });
+          let enc = 0;
+          for (let i = 0; i < 200; i++) { if (W.move(i % 2 ? -1 : 1, 0).encounter) enc++; }
+          assertTrue('マップ: 敵の出ないマップでは遭遇しない', enc === 0, `${enc}回`);
+
+          // 草の上では設定どおりの確率で出ること。
+          W.enter('mp_ashfield', { x: 5, y: 1 });
+          RPG.rng.seed(42);
+          let steps = 0, hits = 0;
+          for (let i = 0; i < 400; i++) {
+            const r = W.move(i % 2 ? -1 : 1, 0);
+            if (r.ok) { steps++; if (r.encounter) hits++; }
+          }
+          RPG.rng.seed(null);
+          const rate = hits / steps;
+          const want = RPG.data.maps.mp_ashfield.encounter.rate;
+          assertTrue('マップ: 遭遇率が設定どおり',
+            Math.abs(rate - want) < 0.05,
+            `実測 ${(rate * 100).toFixed(1)}% / 設定 ${(want * 100).toFixed(0)}%`);
+
+          // 遭遇の中身がそのまま battle.start に渡せること。
+          const enc2 = RPG.data.maps.mp_ashfield.encounter;
+          assertTrue('マップ: 遭遇の行き先が実在するフィールド',
+            !!RPG.data.fields[enc2.fieldId], enc2.fieldId);
+        }
+
+        // --- 現在地はストーリー側にしか残らない ---
+        {
+          W.enter('mp_forge');
+          RPG.state.setMode('hack');
+          assertTrue('マップ: ハクスラ側に現在地が漏れない',
+            !RPG.state.get().progress, JSON.stringify(RPG.state.get().progress));
+          RPG.state.setMode('story');
+          assertTrue('マップ: ストーリー側には残る',
+            W.current() && W.current().id === 'mp_forge', JSON.stringify(W.current()));
+        }
+      } finally {
+        RPG.rng.seed(null);
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
+    }
+
     return results;
   }
 

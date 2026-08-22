@@ -3021,3 +3021,72 @@ body.has-backdrop { background: transparent; }
   .dmg-table th { width: 5.5em; font-size: 11px; }
   .dmg-note { display: none; }
 }
+
+/* ===== マップ探索 (§20) =====
+   タイルは色で塗り分けているだけ。本物のタイル画像を用意したら
+   .wm-cell に background-image を足すだけで済む。
+   マップの形式も worldmap.js も変えなくてよい。 */
+.wm-head { display: grid; gap: 4px; margin-bottom: 10px; }
+.wm-head h2 { margin: 0; }
+
+/* 横幅が足りないときは横スクロールさせる。
+   本文まで横に流れると読めなくなるので、地図だけを流す。 */
+.wm-viewport {
+  overflow-x: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0d0f14;
+}
+.wm-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell, 28px));
+  grid-template-rows: repeat(var(--rows), var(--cell, 28px));
+  gap: 1px;
+  width: max-content;
+  margin: 0 auto;
+}
+.wm-cell { background: var(--tile); border-radius: 2px; }
+
+/* 用のあるマスだけ光らせる。済ませたものは印を消すので、
+   光っていれば必ず何かある、という約束にする。 */
+.wm-cell.is-event { box-shadow: inset 0 0 0 2px #e8c06a; }
+.wm-cell.ev-chest { box-shadow: inset 0 0 0 2px #ffd76a; }
+.wm-cell.ev-exit  { box-shadow: inset 0 0 0 2px #7fb3ff; }
+.wm-cell.ev-talk  { box-shadow: inset 0 0 0 2px #8ce8b4; }
+
+/* 駒はマスの上に重ねる。移動のたびに1要素だけ動かす。 */
+.wm-hero {
+  position: absolute;
+  width: var(--cell, 28px);
+  height: var(--cell, 28px);
+  left: calc(var(--x) * (var(--cell, 28px) + 1px));
+  top: calc(var(--y) * (var(--cell, 28px) + 1px));
+  transition: left .12s linear, top .12s linear;
+  pointer-events: none;
+}
+.wm-hero .portrait { width: 100%; height: 100%; min-width: 0; }
+
+.wm-message {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 10px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(255, 255, 255, .04);
+}
+.wm-message p { margin: 0; flex: 1; min-width: 0; }
+
+/* 十字ボタン。スマホでは指で押すのが主になる。 */
+.wm-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 320px;
+  margin: 12px auto 0;
+}
+.wm-actions { display: flex; justify-content: center; margin-top: 10px; }
+
+@media (max-width: 480px) {
+  .wm-grid { --cell: 22px; }
+  .wm-hero { --cell: 22px; }
+}

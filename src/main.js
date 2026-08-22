@@ -428,6 +428,46 @@
   }
 
   /**
+   * マップ探索を開く (§20)。
+   * ストーリー側のプロファイルでしか成立しないので、モードを揃えてから入る。
+   * @param {string} [mapId] 省略すると続きから
+   * @param {{x: number, y: number}} [at]
+   */
+  function showMap(mapId, at) {
+    RPG.state.setMode('story');
+    if (mapId) RPG.worldmap.enter(mapId, at);
+    else if (!RPG.worldmap.current()) RPG.worldmap.enter('mp_forge');
+
+    $('#screen-base').classList.add('hidden');
+    $('#screen-battle').classList.add('hidden');
+    $('#screen-map').classList.remove('hidden');
+    refreshTopbar();
+    RPG.ui.worldmap.mount($('#screen-map'));
+  }
+
+  /**
+   * マップ上の遭遇から戦闘へ入る (§20)。
+   * 勝っても負けてもマップへ戻る。拠点へ吐き出すと探索が途切れる。
+   * @param {any} enc
+   */
+  function startStoryBattle(enc) {
+    RPG.ui.worldmap.unmount();
+    const party = RPG.state.partyUnits();
+    currentBattle = RPG.battle.start({
+      fieldId: enc.fieldId, waves: enc.waves || 1, party,
+      bossFinale: enc.bossFinale === true,
+    });
+    currentBattle.fromMap = true;
+    RPG.state.get().stats.battles++;
+    RPG.state.persist();
+
+    $('#screen-base').classList.add('hidden');
+    $('#screen-map').classList.add('hidden');
+    $('#screen-battle').classList.remove('hidden');
+    RPG.ui.battle.mount($('#screen-battle'), currentBattle);
+  }
+
+  /**
    * 闘技場の挑戦を始める (§17)。
    * 1戦で完結する。報酬はレベル上限を伸ばす道具だけ。
    * @param {string} bossId
@@ -522,9 +562,14 @@
       toast(`${tower.floor}階 到達報酬: ` + tower.rewards.join(' ／ '));
     }
 
+    const backToMap = battle.fromMap;
     currentBattle = null;
     refreshTopbar();
     if (opts.silent) return;   // 「もう一度」からは呼び出し側が次の戦闘を始める
+
+    // マップから入った戦闘はマップへ返す (§20)。
+    // 拠点へ吐き出すと、歩いていた場所へ戻る手間が毎回かかる。
+    if (backToMap) { showMap(); return; }
 
     // 来た場所へ戻す。種類の判定は RPG.battle.kindOf に一本化してある
     // （UI 側の「もう一度」と食い違わないようにするため）。
@@ -547,6 +592,7 @@
 
   RPG.app = {
     boot, showBase, startBattle, startQuest, startTowerFloor, startArena, finishBattle,
+    showMap, startStoryBattle,
     toast, refreshTopbar, showNameDialog, showDataDialog,
   };
 

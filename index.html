@@ -33,6 +33,7 @@
   <main>
     <section id="screen-base" class="screen"></section>
     <section id="screen-battle" class="screen hidden"></section>
+    <section id="screen-map" class="screen hidden"></section>
   </main>
 </div>
 
@@ -57,6 +58,7 @@
 <script src="data/gacha.js"></script>
 <!-- 効果種別の登録簿。units.js が読むので、それより前に置くこと -->
 <script src="data/effectkinds.js"></script>
+<script src="data/maps.js"></script>
 <script src="data/skilltree.js"></script>
 <script src="data/statuses.js"></script>
 <script src="data/nodecategories.js"></script>
@@ -117,6 +119,7 @@
 
 <!-- 戦闘エンジン（プラグインを呼ぶ側なので後に読む） -->
 <script src="src/core/battle.js"></script>
+<script src="src/core/worldmap.js"></script>
 <script src="src/core/autoplay.js"></script>
 <script src="src/core/autoequip.js"></script>
 <script src="src/core/dispatch.js"></script>
@@ -136,6 +139,7 @@
 <script src="src/ui/widgets.js"></script>
 <script src="src/ui/base.js"></script>
 <script src="src/ui/battle.js"></script>
+<script src="src/ui/worldmap.js"></script>
 <script src="src/main.js"></script>
 
 <script>

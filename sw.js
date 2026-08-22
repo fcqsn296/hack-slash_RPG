@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v55';
+const CACHE_VERSION = 'v56';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -55,6 +55,7 @@ const PRECACHE = [
   './data/fields.js',
   './data/gacha.js',
   './data/effectkinds.js',
+  './data/maps.js',
   './data/skilltree.js',
   './data/statuses.js',
   './data/nodecategories.js',
@@ -104,6 +105,7 @@ const PRECACHE = [
   './src/plugins/status.js',
   './src/plugins/vengeance.js',
   './src/core/battle.js',
+  './src/core/worldmap.js',
   './src/core/autoplay.js',
   './src/core/autoequip.js',
   './src/core/dispatch.js',
@@ -118,6 +120,7 @@ const PRECACHE = [
   './src/ui/widgets.js',
   './src/ui/base.js',
   './src/ui/battle.js',
+  './src/ui/worldmap.js',
   './src/main.js',
   './styles.css',
   './assets/ui/coin.svg',
