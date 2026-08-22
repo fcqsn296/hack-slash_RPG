@@ -378,8 +378,8 @@ RPG.data.skillTree = [
   {
     // 回復が「穴埋め」から「攻めの下ごしらえ」に変わる。
     id: 'tr_mend_power', tier: 'mid', name: '恩返し', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'mend_power', value: 0.06 }],
-    desc: '回復を受けた回数だけ火力が上がる（1回につき +6%）',
+    effects: [{ kind: 'mend_power', value: 0.15 }],
+    desc: '受けた回復の量だけ火力が上がる（最大HPと同じだけ受けて +15%）',
   },
   {
     // クラス技は CT で撃てる回数が決まる。1縮むと1戦の手が1つ増える。

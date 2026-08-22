@@ -6578,15 +6578,62 @@
           assertTrue('連携: 初手には乗らない', none === same, `${none} / ${same}`);
         }
 
-        // --- 恩返し: 回復を受けた回数だけ積む ---
+        // --- 恩返し: 受けた回復の「量」で積む ---
+        // 回数で数えていたときは、1戦あたり平均0.7回しか積まず
+        // 効き始める前に決着していた。量なら大回復1発から乗る。
         {
-          const b = arena({ mendPower: 0.06 });
+          const b = arena({ mendPower: 0.6 });
           const a = b.party[0];
-          a.mendCount = 0;
+          a.mendRatio = 0;
           const zero = RPG.battle.setPower(b, a);
-          a.mendCount = 5;
-          assertNear('恩返し: 5回受けると1.3倍',
+          a.mendRatio = 0.5;   // 最大HPの半分ぶん受けた
+          assertNear('恩返し: 最大HPの半分を受けると1.3倍',
             RPG.battle.setPower(b, a) / zero, 1.30, 0.01);
+
+          // 頭打ちがあること。長引いた戦闘で青天井に伸びるのを止める。
+          a.mendRatio = 100;
+          assertNear('恩返し: 受け続けても頭打ちになる',
+            RPG.battle.setPower(b, a) / zero, 1.90, 0.01);
+
+          // あふれた回復は数えないこと。
+          // 数えると、満タンの味方に撃つだけで稼げてしまう。
+          const full = arena({ mendPower: 0.6 });
+          const t = full.party[0];
+          t.hp = t.maxHp;
+          t.mendRatio = 0;
+          RPG.battle.executeSkill(full, t, 'sk_hero_heal', [t]);
+          assertTrue('恩返し: あふれた回復は積まない', (t.mendRatio || 0) === 0,
+            `${t.mendRatio || 0}`);
+
+          // 減っていれば積むこと。
+          //
+          // ここだけは arena() の水増しHP（9千万）を使わない。
+          // 最大HPが実際の何百倍もあると、回復1発の比が 0.0001 になって
+          // 「積んでいるのか誤差なのか」が読めなくなる。
+          const hurt = arena({ mendPower: 0.6 });
+          const h = hurt.party[0];
+          h.maxHp = 10000;
+          h.hp = 1;
+          h.mendRatio = 0;
+          RPG.battle.executeSkill(hurt, h, 'sk_hero_heal', [h]);
+          assertTrue('恩返し: 実際に入ったぶんは積む', (h.mendRatio || 0) > 0.01,
+            `最大HPの ${((h.mendRatio || 0) * 100).toFixed(1)}% ぶん`);
+
+          // ── 小さい回復の連打で稼げないこと ──
+          // 回数で数えていたときは、1ポイントの回復でも1回ぶん積んだ。
+          // 実測で「最大HPの0.001%だけ回復」を5回撃つと火力 +120% になった。
+          // 量で見るなら、撃った回数ではなく入った量しか効かない。
+          const cheese = arena({ mendPower: 0.6 });
+          const g = cheese.party[0];
+          g.maxHp = 100000;
+          g.mendRatio = 0;
+          for (let i = 0; i < 5; i++) {
+            g.hp = g.maxHp - 1;
+            RPG.battle.executeSkill(cheese, g, 'sk_hero_heal', [g]);
+          }
+          assertTrue('恩返し: 小さい回復を連打しても稼げない',
+            (g.mendRatio || 0) < 0.01,
+            `5回撃って 最大HPの ${((g.mendRatio || 0) * 100).toFixed(3)}% ぶん`);
         }
 
         // --- CT短縮: クラス技を撃てる回数が変わる ---

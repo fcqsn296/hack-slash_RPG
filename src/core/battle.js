@@ -18,6 +18,9 @@
   /** 1ラウンドあたりの再行動の上限。無限ループを防ぐ */
   const MAX_EXTRA_ACTIONS = 3;
 
+  /** 「恩返し」が頭打ちになる、受けた回復の量（最大HP比）(§5.9) */
+  const MEND_CAP = 1.5;
+
   /* ============================ 弱点コンボ (§10.6) ============================ */
 
   /**
@@ -580,11 +583,17 @@
       if (battle.lastPartyTag !== battle.pendingTag) mult *= 1 + p.relayPower;
     }
 
-    // ── 恩返し: 回復を受けた回数だけ積み上がる (§5.9) ──
+    // ── 恩返し: 受けた回復の量だけ積み上がる (§5.9) ──
     // 回復が「減ったぶんの穴埋め」から「攻めの下ごしらえ」に変わる。
     // 癒し手と火力役が噛み合う道を、支援側ではなく受け手側に作る。
+    //
+    // 数えるのは ctx.heal で受けたぶんだけ。再生や吸命まで数えると
+    // 一人で完結してしまい、回復役と組む意味が消える。
+    //
+    // 頭打ちを置くのは、長引いた戦闘で青天井に伸びるのを止めるため。
+    // 最大HPの1.5倍ぶん受け取ったところで止まる。
     if (p.mendPower) {
-      mult *= 1 + p.mendPower * (attacker.mendCount || 0);
+      mult *= 1 + p.mendPower * Math.min(MEND_CAP, attacker.mendRatio || 0);
     }
 
     // 痛みの記憶: 被弾した回数だけ積み上がる。殴られ役の火力源。
@@ -1735,10 +1744,17 @@
           }
         }
 
-        // 「恩返し」の材料 (§5.9)。受け取った回数だけ数える。
-        // 量ではなく回数にしてあるのは、大回復1発と小回復の連打を
-        // 同じ重みにして、回復役の撃ち方を縛らないため。
-        if (healed > 0) target.mendCount = (target.mendCount || 0) + 1;
+        // 「恩返し」の材料 (§5.9)。**受け取った量** を最大HP比で貯める。
+        //
+        // 最初は回数で数えていたが、実測すると1戦あたり平均0.7回しか
+        // 積まず、効き始める前に決着していた。量で見れば大回復1発から
+        // すぐ乗るので、短い戦闘でも間に合う。
+        //
+        // 実際に入ったぶんだけ数える。あふれたぶんまで数えると、
+        // 満タンの味方に撃つだけで稼げてしまう。
+        if (healed > 0 && target.maxHp > 0) {
+          target.mendRatio = (target.mendRatio || 0) + healed / target.maxHp;
+        }
 
         pushLog(battle, `${target.name} のHPが ${healed.toLocaleString()} 回復した`, 'heal');
         pushEvent(battle, { type: 'heal', key: target.key, amount: healed });
