@@ -85,6 +85,51 @@ RPG.data.classes = {
         ],
         desc: '味方の被害を追加で35%肩代わりし DEF +60%。ただし ATK -50%',
       },
+      /* ── ここから先は、上限を伸ばしてから触る帯 (§12) ──
+         Lv255 で配られるのは51点。全部で73点かかるので、
+         **7割しか取れない**。何を諦めるかを選ぶ場所にしてある。 */
+      {
+        id: 'gd_thorns', name: '棘の鎧', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'thorns', value: 0.02 }],
+        desc: '被弾するたび、相手の最大HPの2%を削り返す',
+      },
+      {
+        id: 'gd_brink', name: '死線の踏ん張り', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'low_hp_guard', value: 0.10 }],
+        desc: 'HPが減っているほど硬くなる（瀕死で被ダメージ -10%）',
+      },
+      {
+        id: 'gd_ready', name: '開戦の備え', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'start_shield', value: 0.08 }],
+        desc: '戦闘開始時、最大HPの8%ぶんの障壁を張った状態で始まる',
+      },
+      {
+        // 鉄血の構え（DEF→火力）とは別の変換路。両方は取り切れないので、
+        // 「硬さで殴る」か「重さで殴る」かを選ぶことになる。
+        id: 'gd_bulk', name: '巨躯の膂力', cost: 3, maxLevel: 3,
+        effects: [{ kind: 'hp_to_atk', value: 0.04 }],
+        desc: '最大HPの4%をATKと魔力に上乗せ',
+      },
+      {
+        id: 'gd_oath', name: '【技】大盾の宣誓', cost: 5, maxLevel: 1,
+        effects: [{ kind: 'grant_skill', skill: 'sk_cls_bulwark', value: 1 }],
+        desc: 'クラス技「大盾の宣誓」を習得。味方全員にDEF依存の障壁を張る（2R目以降・CT4）',
+      },
+      {
+        id: 'gd_undying', name: '【極】不倒', cost: 7, maxLevel: 1,
+        effects: [
+          { kind: 'last_stand', value: 0.6 },
+          { kind: 'revive', value: 0.5 },
+          { kind: 'reduction', value: 0.15 },
+          // 代償は必ず「そのクラスが痛い所」に置く。
+          // 魔力だけを削っても守護者はほとんど困らないので、
+          // 鉄血の構え（DEF→ATKと魔力）で作った火力ごと落とす。
+          { kind: 'stat_pct', stat: 'atk', value: -0.45 },
+          { kind: 'stat_pct', stat: 'magi_power', value: -0.45 },
+        ],
+        desc: '致死を60%で耐え、倒れてもHP50%で1度だけ復帰、被ダメージ -15%。' +
+          'ただし ATK と魔力 -45%',
+      },
     ],
   },
 
@@ -144,6 +189,44 @@ RPG.data.classes = {
         ],
         desc: '毎ラウンド最大HPの8%回復、回復量 +50%。ただし ATK -40%',
       },
+      /* ── 上限を伸ばしてから触る帯 (§12)。全部で73点かかる ── */
+      {
+        id: 'md_crit_heal', name: '慈悲の冴え', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'crit_heal', value: 0.12 }],
+        desc: '回復が12%の確率で会心し、量が跳ね上がる',
+      },
+      {
+        id: 'md_wave_heal', name: '幕間の癒し', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'wave_heal', value: 0.12 }],
+        desc: 'ウェーブが変わるとき、味方全員が最大HPの12%回復する',
+      },
+      {
+        id: 'md_reap', name: '弔いの恵み', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'heal_on_kill', value: 0.05 }],
+        desc: '敵を倒すたび、味方全員が最大HPの5%回復する',
+      },
+      {
+        id: 'md_clarity', name: '澄んだ心', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'debuff_resist', value: 0.15 }],
+        desc: '自分が受ける弱体の持続を15%短くする',
+      },
+      {
+        id: 'md_downpour', name: '【技】星霜の慈雨', cost: 5, maxLevel: 1,
+        effects: [{ kind: 'grant_skill', skill: 'sk_cls_downpour', value: 1 }],
+        desc: 'クラス技「星霜の慈雨」を習得。味方全員を大きく回復する（2R目以降・CT3）',
+      },
+      {
+        // 絶えぬ灯が「自分が立ち続ける」道なら、こちらは「代わりに背負う」道。
+        // どちらも取ると火力が消えるので、片方を選ぶことになる。
+        id: 'md_martyr', name: '【極】身代わりの誓い', cost: 8, maxLevel: 1,
+        effects: [
+          { kind: 'guard_ally', value: 0.4 },
+          { kind: 'overheal_shield', value: 0.6 },
+          { kind: 'stat_pct', stat: 'hp', value: 0.5 },
+          { kind: 'stat_pct', stat: 'def', value: -0.5 },
+        ],
+        desc: '味方の被害を40%肩代わり、超過回復の60%が障壁に、最大HP +50%。ただし DEF -50%',
+      },
     ],
   },
 
@@ -201,6 +284,37 @@ RPG.data.classes = {
           { kind: 'stat_pct', stat: 'hp', value: -0.5 },
         ],
         desc: '大技の火力 +80%、上限突破 +60%。ただし最大HP -50%',
+      },
+      /* ── 上限を伸ばしてから触る帯 (§12)。全部で73点かかる ── */
+      {
+        id: 'bk_stable', name: '揺るがぬ刃', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'stable_damage', value: 0.15 }],
+        desc: 'ダメージの振れ幅が15%小さくなる（大技の下振れを潰す）',
+      },
+      {
+        id: 'bk_boss', name: '巨敵狩り', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'boss_slayer', value: 0.10 }],
+        desc: 'ボスへの火力 +10%',
+      },
+      {
+        id: 'bk_first', name: '先手必倒', cost: 2, maxLevel: 2,
+        effects: [{ kind: 'first_round_power', value: 0.15 }],
+        desc: '1ラウンド目の火力 +15%',
+      },
+      {
+        id: 'bk_quake', name: '【技】天壌崩し', cost: 5, maxLevel: 1,
+        effects: [{ kind: 'grant_skill', skill: 'sk_cls_cataclysm', value: 1 }],
+        desc: 'クラス技「天壌崩し」を習得。敵全体に威力340%（3R目以降・CT4）',
+      },
+      {
+        // 一撃必倒が単体へ寄せる道なら、こちらは数へ寄せる道。
+        id: 'bk_swarm', name: '【極】皆殺しの理', cost: 7, maxLevel: 1,
+        effects: [
+          { kind: 'foe_count_power', value: 0.18 },
+          { kind: 'overkill_carry', value: 0.5 },
+          { kind: 'stat_pct', stat: 'def', value: -0.5 },
+        ],
+        desc: '敵1体につき火力 +18%、倒したときの超過ダメージを50%持ち越す。ただし DEF -50%',
       },
     ],
   },
@@ -261,6 +375,46 @@ RPG.data.classes = {
         ],
         desc: '継続ダメージ +120%、弱体中の敵への火力 +25%。ただし ATK -35%',
       },
+      /* ── 上限を伸ばしてから触る帯 (§12)。全部で74点かかる ── */
+      {
+        id: 'hx_amp', name: '病巣を抉る', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'debuff_amp', value: 0.10 }],
+        desc: '弱体がかかっている相手への火力 +10%',
+      },
+      {
+        // 刻印は「殴った回数」で進む (§9.1)。時間で進む毒とは別の時計なので、
+        // 撒いて待つ構成に、殴って進む軸が1本増える。
+        id: 'hx_sigil', name: '呪印を刻む', cost: 2, maxLevel: 4,
+        effects: [{ kind: 'sigil_burst', value: 0.02 }],
+        desc: '攻撃するたび刻印が1つ積み、3つで弾けて相手の最大HPの2%が入る',
+      },
+      {
+        // 自分にかかった弱体を糧にする (§9.1)。
+        // 呪術師は弱体を撒く側だが、被る側に回ると火力に変わる。
+        id: 'hx_selfcurse', name: '我が身も贄に', cost: 3, maxLevel: 2,
+        effects: [{ kind: 'self_curse_power', value: 0.12 }],
+        desc: '自分にかかっている弱体1つにつき火力 +12%',
+      },
+      {
+        id: 'hx_chain', name: '伝う呪い', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'chain', value: 0.12 }],
+        desc: '攻撃が12%の確率で別の敵へ連鎖する',
+      },
+      {
+        id: 'hx_feast', name: '【技】腐爛の宴', cost: 5, maxLevel: 1,
+        effects: [{ kind: 'grant_skill', skill: 'sk_cls_blight', value: 1 }],
+        desc: 'クラス技「腐爛の宴」を習得。敵全体の毒と火傷をまとめて叩き出す（2R目以降・CT3）',
+      },
+      {
+        // 万疫の主が「撒いたものを重くする」道なら、こちらは「自分ごと沈める」道。
+        id: 'hx_martyr', name: '【極】自壊の術式', cost: 7, maxLevel: 1,
+        effects: [
+          { kind: 'self_curse_power', value: 0.3 },
+          { kind: 'debuff_amp', value: 0.4 },
+          { kind: 'stat_pct', stat: 'hp', value: -0.45 },
+        ],
+        desc: '自分の弱体1つにつき火力 +30%、弱体中の敵への火力 +40%。ただし最大HP -45%',
+      },
     ],
   },
 
@@ -320,6 +474,43 @@ RPG.data.classes = {
         ],
         desc: '35%で再行動、味方バフの持続 +2ターン。ただし ATK -45%',
       },
+      /* ── 上限を伸ばしてから触る帯 (§12)。全部で73点かかる ── */
+      {
+        id: 'tc_ambush', name: '先制の呼吸', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'ambush', value: 0.12 }],
+        desc: '1ラウンド目に12%の確率でもう一度動ける',
+      },
+      {
+        id: 'tc_round', name: '長期戦の読み', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'round_stack', value: 0.05 }],
+        desc: 'ラウンドを重ねるごとに火力 +5%',
+      },
+      {
+        id: 'tc_party', name: '連携の妙', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'party_size_power', value: 0.05 }],
+        desc: '生きている味方1人につき火力 +5%',
+      },
+      {
+        id: 'tc_variety', name: '変幻の指揮', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'variety_power', value: 0.08 }],
+        desc: '前と違う技を使うと火力 +8%（同じ技を振り続けると乗らない）',
+      },
+      {
+        id: 'tc_deadeye', name: '【技】総員狙撃', cost: 5, maxLevel: 1,
+        effects: [{ kind: 'grant_skill', skill: 'sk_cls_deadeye', value: 1 }],
+        desc: 'クラス技「総員狙撃」を習得。敵全体に照準を付け、味方全員の火力を上げる（2R目以降・CT4）',
+      },
+      {
+        // 刻の支配が「手番を増やす」道なら、こちらは「1手を重くする」道。
+        id: 'tc_oracle', name: '【極】戦機を読む', cost: 8, maxLevel: 1,
+        effects: [
+          { kind: 'first_hit_crit', value: 2 },
+          { kind: 'wave_power', value: 0.5 },
+          { kind: 'round_stack', value: 0.12 },
+          { kind: 'stat_pct', stat: 'hp', value: -0.4 },
+        ],
+        desc: 'ウェーブごとに確定会心2回、ボス戦の火力 +50%、ラウンドごとに +12%。ただし最大HP -40%',
+      },
     ],
   },
 
@@ -373,6 +564,43 @@ RPG.data.classes = {
           { kind: 'stat_pct', stat: 'def', value: -0.6 },
         ],
         desc: 'クリティカル率 +50%、倍率 +1.2。ただし DEF -60%',
+      },
+      /* ── 上限を伸ばしてから触る帯 (§12)。全部で73点かかる ── */
+      {
+        id: 'as_combo', name: '連刃', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'crit_combo', value: 1 }],
+        desc: '会心するたびにコンボが1段多く積む',
+      },
+      {
+        id: 'as_double', name: '双撃', cost: 3, maxLevel: 3,
+        effects: [{ kind: 'double_hits', value: 0.10 }],
+        desc: '10%の確率で同じ技がもう一度出る',
+      },
+      {
+        id: 'as_lone', name: '一対一', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'lone_foe_power', value: 0.12 }],
+        desc: '敵が1体だけのときの火力 +12%',
+      },
+      {
+        id: 'as_crit_exec', name: '断頭の理', cost: 2, maxLevel: 3,
+        effects: [{ kind: 'crit_execute', value: 0.15 }],
+        desc: '相手のHPが減っているほど会心しやすくなる（瀕死で +15%）',
+      },
+      {
+        id: 'as_step', name: '【技】影渡り', cost: 5, maxLevel: 1,
+        effects: [{ kind: 'grant_skill', skill: 'sk_cls_shadowstep', value: 1 }],
+        desc: 'クラス技「影渡り」を習得。もう一度動ける代わりに次のラウンドを失う（2R目以降・CT3）',
+      },
+      {
+        // 必殺の理が「1発を重くする」道なら、こちらは「手数で機会を増やす」道。
+        id: 'as_shadow', name: '【極】影法師', cost: 7, maxLevel: 1,
+        effects: [
+          { kind: 'double_hits', value: 0.35 },
+          { kind: 'ambush', value: 0.4 },
+          { kind: 'crit_spread', value: 0.2 },
+          { kind: 'stat_pct', stat: 'hp', value: -0.45 },
+        ],
+        desc: '35%で技がもう一度出る、1R目に40%で再行動、会心が20%こぼれる。ただし最大HP -45%',
       },
     ],
   },

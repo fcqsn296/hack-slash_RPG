@@ -692,6 +692,69 @@ RPG.data.skills = {
     desc: '敵全体に威力180%。技を撃ち分けるほど伸びるので、他の技と交互に使う。',
   },
 
+  /* -------- クラス技の2本目 (§12) --------
+     レベル上限を伸ばすとクラスポイントが余る。1本目とは別の方向へ伸ばす
+     選択肢を置いて、余りの行き先を「選ぶ場所」に変えるためのもの。 */
+
+  sk_cls_bulwark: {
+    name: '大盾の宣誓', kind: 'active', plugin: 'barrier', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'earth',
+    power: 0, crit_rate: 0,
+    readyRound: 2, cooldown: 4,
+    params: { ratio: 2.5, scaling: 'def', party: true },
+    desc: '【クラス】味方全員に、自分のDEFを元にした障壁を張る。' +
+      'HPの外側に積むので回復と違って上限を超えて備えられる。' +
+      '2ラウンド目以降・使用後4ラウンド使えない。',
+  },
+  sk_cls_downpour: {
+    name: '星霜の慈雨', kind: 'active', plugin: 'heal', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'water',
+    power: 320, crit_rate: 0,
+    readyRound: 2, cooldown: 3,
+    params: { party: true },
+    desc: '【クラス】味方全員を大きく回復する。' +
+      '再臨の光が「倒れてから」の手なのに対し、こちらは倒れる前に使う。' +
+      '2ラウンド目以降・使用後3ラウンド使えない。',
+  },
+  sk_cls_cataclysm: {
+    name: '天壌崩し', kind: 'active', plugin: 'all_enemies', cls: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    power: 340, crit_rate: 0.15,
+    readyRound: 3, cooldown: 4,
+    desc: '【クラス】敵全体に威力340%。終焉の一撃が単体を貫くのに対し、' +
+      'こちらは数を薙ぐ。3ラウンド目以降・使用後4ラウンド使えない。',
+  },
+  sk_cls_blight: {
+    name: '腐爛の宴', kind: 'active', plugin: 'detonate', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 0, crit_rate: 0,
+    readyRound: 2, cooldown: 3,
+    params: { all: true },
+    desc: '【クラス】敵全体にかかった毒と火傷を、残りターンぶんまとめて叩き出す。' +
+      '坩堝が「消えなくする」のに対し、こちらは「一度に受け取る」。' +
+      '2ラウンド目以降・使用後3ラウンド使えない。',
+  },
+  sk_cls_deadeye: {
+    name: '総員狙撃', kind: 'active', plugin: 'mark', cls: true,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
+    power: 0, crit_rate: 0,
+    readyRound: 2, cooldown: 4,
+    params: { value: 0.45, turns: 3, label: '照準', all: true },
+    desc: '【クラス】敵全体に3ターンの照準。味方全員のその相手への火力が45%上がる。' +
+      '号令が手番を増やすのに対し、こちらは1手の重さを増やす。' +
+      '2ラウンド目以降・使用後4ラウンド使えない。',
+  },
+  sk_cls_shadowstep: {
+    name: '影渡り', kind: 'active', plugin: 'borrow_turn', cls: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 260, crit_rate: 0.5,
+    readyRound: 2, cooldown: 3,
+    params: { rounds: 1, powerScale: 1 },
+    desc: '【クラス】威力260%・会心率50%。直後にもう一度動けるが、次のラウンドは動けない。' +
+      '首刈りが「削れた相手を落とす」手なら、こちらは「削りきるための1手」。' +
+      '2ラウンド目以降・使用後3ラウンド使えない。',
+  },
+
   /* -------- 新しい効果の軸 (§9.1) --------
      どれも「既存キーの数値違い」ではなく、戦闘の構造として空いていた場所。
      新しいキャラクターに役割を持たせるための土台として置いてある。 */

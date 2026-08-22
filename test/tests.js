@@ -4729,6 +4729,87 @@
         assertTrue(`クラス: ${def.name} は初期上限で取り切れない`,
           need > cpAtCap, `必要 ${need} / Lv${capLv} で ${cpAtCap} 点`);
       }
+
+      // ── 育てきった地点で、7割前後に収まっていること ──
+      //
+      // ここが緩むと2方向に壊れる。
+      //   多すぎる … 全部取れてクラスの個性が消える（実際そうなっていた。
+      //              Lv255 で51点配られるのに、全部で34〜45点しか要らなかった）
+      //   少なすぎる … 取れる範囲が狭くなり、何を選んでも同じ形になる
+      //
+      // 7割なら「主要な枝は取れるが、極点や技のどれかは諦める」位置になる。
+      const topLv = RPG.data.maxLevelCap;
+      const cpAtTop = Math.floor(topLv / cpPer);
+      for (const { def } of classes) {
+        const need = (def.nodes || [])
+          .reduce((/** @type {number} */ a, /** @type {any} */ n) => a + (n.cost || 1) * (n.maxLevel || 1), 0);
+        const pct = Math.round(cpAtTop / need * 100);
+        assertTrue(`クラス: ${def.name} は育てきっても7割前後`,
+          pct >= 63 && pct <= 77, `Lv${topLv} で ${cpAtTop}点 / 全${need}点 = ${pct}%`);
+      }
+
+      // 極点は1つでは足りない。**別々の方向へ伸びる選択肢**が要る。
+      // 1つしか無いと、余った点の行き先が一本道になって選ぶ意味が生まれない。
+      for (const { def } of classes) {
+        const peaks = (def.nodes || [])
+          .filter((/** @type {any} */ n) => n.name.indexOf('【極】') === 0);
+        assertTrue(`クラス: ${def.name} に極点が2つ以上ある`, peaks.length >= 2,
+          peaks.map((/** @type {any} */ n) => n.name).join('、') || '無い');
+      }
+
+      // 追加した極点にも代償があること（上の検査は1つ目しか見ていない）。
+      for (const { def } of classes) {
+        const noCost = (def.nodes || [])
+          .filter((/** @type {any} */ n) => n.name.indexOf('【極】') === 0)
+          .filter((/** @type {any} */ n) => !(n.effects || [])
+            .some((/** @type {any} */ e) => e.value < 0));
+        assertTrue(`クラス: ${def.name} の極点はすべて代償を持つ`, noCost.length === 0,
+          noCost.map((/** @type {any} */ n) => n.name).join('、') || '全部に代償あり');
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // レベル上限の天井 (§6.5)
+    //
+    // 150 は外せる線、255 は外せない線。
+    // 天井が無いと欠片を使うほど上限が伸び続け、
+    // クラスポイントが際限なく余る（7割の前提が崩れる）。
+    // ---------------------------------------------------------------
+    {
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      try {
+        RPG.state.reset();
+        const s = RPG.state.get();
+
+        assertTrue('レベル上限: 天井は初期上限より高い',
+          RPG.data.maxLevelCap > RPG.data.maxLevel,
+          `${RPG.data.maxLevel} → ${RPG.data.maxLevelCap}`);
+
+        // 欠片をいくら積んでも天井を超えないこと。
+        s.levelCapBonus = 100000;
+        assertTrue('レベル上限: いくら伸ばしても天井で止まる',
+          RPG.state.levelCap() === RPG.data.maxLevelCap,
+          `${RPG.state.levelCap()}`);
+
+        // 天井に着いたら欠片を飲ませないこと。
+        // 消費してから効かないのは、取り返しのつかない無駄になる。
+        RPG.state.addItem('it_star_shard', 3);
+        const before = RPG.state.itemCount('it_star_shard');
+        const r = RPG.state.useItem('it_star_shard', 1);
+        assertTrue('レベル上限: 天井では欠片を消費しない',
+          !r.ok && RPG.state.itemCount('it_star_shard') === before,
+          `${r.reason || '使えてしまった'} / 残り ${RPG.state.itemCount('it_star_shard')}`);
+
+        // 天井の手前ではちゃんと使えること（塞ぎすぎていないか）。
+        s.levelCapBonus = 0;
+        const ok = RPG.state.useItem('it_star_shard', 1);
+        assertTrue('レベル上限: 天井の手前では使える', !!ok.ok,
+          ok.reason || `Lv${RPG.state.levelCap()}`);
+      } finally {
+        if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+        RPG.state.load();
+      }
     }
 
     // ---------------------------------------------------------------

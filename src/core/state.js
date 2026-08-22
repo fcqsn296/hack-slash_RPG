@@ -701,7 +701,9 @@
    * 「既に稼いだ上限」として levelCapBonus に移し替えている。
    */
   function levelCap() {
-    return RPG.data.maxLevel + (get().levelCapBonus || 0);
+    const raw = RPG.data.maxLevel + (get().levelCapBonus || 0);
+    // 255 で必ず止まる。外せない線なので、貯めた欠片の数に関わらず超えない。
+    return Math.min(RPG.data.maxLevelCap || Infinity, raw);
   }
 
   /**
@@ -767,6 +769,11 @@
     if (have < n) return { ok: false, reason: '足りない' };
 
     const s = get();
+    // 天井に着いていたら、飲ませずに断る。
+    // 消費してから効かないと、取り返しのつかない無駄になる。
+    if (def.levelCap && levelCap() >= (RPG.data.maxLevelCap || Infinity)) {
+      return { ok: false, reason: `レベル上限は Lv${RPG.data.maxLevelCap} が限界`, levelCap: levelCap() };
+    }
     if (def.levelCap) s.levelCapBonus = (s.levelCapBonus || 0) + def.levelCap * n;
     s.items[itemId] = have - n;
     persist();
