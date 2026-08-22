@@ -3029,6 +3029,60 @@
    * ツリーの投資結果を要約して見せる。ビルドの効き目を数値で確認できるようにする。
    * @param {any} unit
    */
+  /**
+   * ユニットに効いているパッシブを、言葉の一覧にする (§5.9)。
+   *
+   * data/effectkinds.js が「どのキーが、どこに、どんな名前で入るか」を
+   * 持っているので、それを読んで並べるだけにしてある。
+   * 手で並べると、効果を足すたびに書き忘れが出る（実際に出た）。
+   *
+   * @param {any} unit
+   */
+  function collectPassiveNotes(unit) {
+    const reg = RPG.data.effectKinds || {};
+    const notes = [];
+
+    // 素の値として持つもの。passives にも situational にも入らない。
+    if (unit.baseReduction > 0) {
+      notes.push(`被ダメージ軽減 ${Math.round(unit.baseReduction * 100)}%`
+        + (unit.baseReduction >= 1 ? '（無敵）' : ''));
+    }
+    if (unit.critDamage > 0) notes.push(`クリティカル倍率 ${(1.5 + unit.critDamage).toFixed(2)}倍`);
+    if (unit.execute > 0) notes.push(`追い打ち 瀕死時 最大+${Math.round(unit.execute * 100)}%`);
+
+    /** @param {number} v @param {string} fmt */
+    const show = (v, fmt) => {
+      if (fmt === 'turn') return `+${v}ターン`;
+      if (fmt === 'num') return `+${v}`;
+      if (fmt === 'lvl') return `${v}回`;
+      if (fmt === 'flag') return '';
+      return `${Math.round(v * 1000) / 10}%`;
+    };
+
+    for (const kind of Object.keys(reg)) {
+      const d = reg[kind];
+      if (!d.key || !d.label) continue;
+      const src = d.to === 'situational' ? unit.situational : unit.passives;
+      const v = src ? src[d.key] : 0;
+      if (!v) continue;
+
+      // 「種類ごとの表」は中身を開いて出す。まとめると何に効くのか読めない。
+      if (d.fmt === 'keyed') {
+        if (typeof v !== 'object') continue;
+        for (const k of Object.keys(v)) {
+          if (!v[k]) continue;
+          const name = (RPG.data.statuses && RPG.data.statuses[k])
+            ? RPG.data.statuses[k].label : (k === 'all' ? '全種' : k);
+          notes.push(`${d.label}（${name}） ${show(v[k], 'pct')}`);
+        }
+        continue;
+      }
+      if (typeof v === 'object') continue;
+      notes.push(d.fmt === 'flag' ? d.label : `${d.label} ${show(v, d.fmt)}`);
+    }
+    return notes;
+  }
+
   function buildSummary(unit) {
     const always = unit.baseTagBonuses.filter((/** @type {any} */ b) => !b.matchType);
     const info = RPG.damage.tagMultiplier(always, 'phys');
@@ -3043,21 +3097,41 @@
         notes.push(`${RPG.damage.ELEMENT_LABEL[el]}の極意: 有利時 ${mods.mastery[el].toFixed(1)}倍`);
       }
     }
-
-    // 戦闘中に効くパッシブを言葉にする
-    const p = unit.passives || {};
-    const passiveNotes = [];
-    if (unit.baseReduction > 0) {
-      passiveNotes.push(`被ダメージ軽減 ${Math.round(unit.baseReduction * 100)}%` +
-        (unit.baseReduction >= 1 ? '（無敵）' : ''));
+    // 属性の受け側・攻め側 (§5.4)。ここも長らく出ていなかった。
+    if (mods.convert) {
+      notes.push(`属性変換: 全攻撃が${RPG.damage.ELEMENT_LABEL[mods.convert]}`);
     }
-    if (unit.critDamage > 0) passiveNotes.push(`クリティカル倍率 ${(1.5 + unit.critDamage).toFixed(2)}倍`);
-    if (unit.execute > 0) passiveNotes.push(`追い打ち 瀕死時 最大+${Math.round(unit.execute * 100)}%`);
-    if (p.lifesteal > 0) passiveNotes.push(`吸命 ${Math.round(p.lifesteal * 100)}%`);
-    if (p.regen > 0) passiveNotes.push(`再生 毎ラウンド ${(p.regen * 100).toFixed(1)}%`);
-    if (p.counterRate > 0) passiveNotes.push(`反撃 ${Math.round(p.counterRate * 100)}%`);
-    if (p.extraActionRate > 0) passiveNotes.push(`再行動 ${Math.round(p.extraActionRate * 100)}%`);
-    if (p.reviveHp > 0) passiveNotes.push(`復活 HP${Math.round(p.reviveHp * 100)}%`);
+    if (mods.dual) {
+      notes.push(`二重属性: ${RPG.damage.ELEMENT_LABEL[mods.dual]}でも判定`);
+    }
+    if (mods.pierce) notes.push(`属性貫通 ${Math.round(mods.pierce * 100)}%`);
+    if (mods.resist) {
+      for (const el of Object.keys(mods.resist)) {
+        if (!mods.resist[el]) continue;
+        notes.push(`${RPG.damage.ELEMENT_LABEL[el]}耐性 ${Math.round(mods.resist[el] * 100)}%`);
+      }
+    }
+    if (mods.power) {
+      for (const el of Object.keys(mods.power)) {
+        if (!mods.power[el]) continue;
+        notes.push(`${RPG.damage.ELEMENT_LABEL[el]}攻撃 +${Math.round(mods.power[el] * 100)}%`);
+      }
+    }
+    if (mods.crit) {
+      for (const el of Object.keys(mods.crit)) {
+        if (!mods.crit[el]) continue;
+        notes.push(`${RPG.damage.ELEMENT_LABEL[el]}の会心 +${Math.round(mods.crit[el] * 100)}%`);
+      }
+    }
+
+    // ── 効いているパッシブを全部言葉にする (§5.9) ──
+    //
+    // ここは長いあいだ手書きの8行だった。93あるキーのうち8つしか出ておらず、
+    // **属性耐性もボスからの被ダメ軽減も、振ったのに画面に出なかった**。
+    // 一覧を手で持つ限り、効果を足すたびに同じ漏れが起きる。
+    //
+    // いまは data/effectkinds.js が唯一の出どころで、ここは読むだけ。
+    const passiveNotes = collectPassiveNotes(unit);
 
     // ツリーで習得したアクティブ技
     const granted = (unit.skills || []).filter((/** @type {string} */ id) => RPG.data.skills[id].tree);

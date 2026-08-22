@@ -7241,6 +7241,89 @@
         noColor.join(', '));
     }
 
+    // ---------------------------------------------------------------
+    // ビルド画面の要約に、効いているものが全部出るか (§5.9)
+    //
+    // ここは長いあいだ手書きの8行だった。93あるキーのうち8つしか出ておらず、
+    // 属性耐性もボスからの被ダメ軽減も **振ったのに画面に出なかった**。
+    // 一覧を手で持つ限り、効果を足すたびに同じ漏れが起きる。
+    // ---------------------------------------------------------------
+    {
+      const reg = RPG.data.effectKinds;
+
+      // ユニットに値を書き込む種別には、必ず表示名が要る。
+      // 無いと要約に載らず、振ったのに見えない。
+      const writes = Object.keys(reg).filter((/** @type {string} */ k) =>
+        reg[k].to === 'passives' || reg[k].to === 'situational');
+      const noLabel = writes.filter((/** @type {string} */ k) => !reg[k].label);
+      assertTrue('要約: ユニットに入る種別には表示名がある', noLabel.length === 0,
+        noLabel.join(', ') || `${writes.length} 種`);
+
+      const noKey = writes.filter((/** @type {string} */ k) => !reg[k].key);
+      assertTrue('要約: ユニットに入る種別には書き込み先がある', noKey.length === 0,
+        noKey.join(', '));
+
+      // 宣言した書き込み先が、実際に tree.js の書き込む名前と一致すること。
+      // ここがずれると、値はあるのに要約が別の場所を見て空を返す。
+      {
+        const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+        try {
+          RPG.state.reset();
+          const c = RPG.state.get().characters.ch_hero;
+          c.level = RPG.data.maxLevelCap;
+
+          const wrong = [];
+          for (const kind of writes) {
+            const node = RPG.data.skillTree
+              .find((/** @type {any} */ n) => (n.effects || [])
+                .some((/** @type {any} */ e) => e.kind === kind));
+            if (!node) continue;   // ツリーから取れない種別はここでは見ない
+            c.tree = { [node.id]: node.maxLevel };
+            const u = RPG.units.buildCharacterUnit(c, []);
+            const src = reg[kind].to === 'situational' ? u.situational : u.passives;
+            const v = src ? src[reg[kind].key] : undefined;
+            // 数値でも「種類→値」の表でも、何かが入っていればよい
+            const has = typeof v === 'object' ? Object.keys(v || {}).length > 0 : !!v;
+            if (!has) wrong.push(`${kind}→${reg[kind].to}.${reg[kind].key}`);
+          }
+          c.tree = {};
+          assertTrue('要約: 宣言した書き込み先に実際に値が入る', wrong.length === 0,
+            wrong.join(' / '));
+
+          // ご指摘の2つは名指しで見張る。
+          // 「属性への耐性」と「ボスからの被ダメ」が出ていなかった。
+          for (const [kind, label] of [['boss_guard', 'ボス'], ['element_resist', '属性耐性']]) {
+            const node = RPG.data.skillTree
+              .find((/** @type {any} */ n) => (n.effects || [])
+                .some((/** @type {any} */ e) => e.kind === kind));
+            assertTrue(`要約: ${label}のノードが存在する`, !!node, kind);
+          }
+        } finally {
+          if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+          else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+          RPG.state.load();
+        }
+      }
+
+      // 表示名が重複していないこと。同じ言葉が2つ並ぶと、
+      // どちらが何なのか読み手に区別できない。
+      const seen = {};
+      const dup = [];
+      for (const k of writes) {
+        const l = reg[k].label;
+        if (!l) continue;
+        if (seen[l]) dup.push(`${seen[l]} と ${k}: 「${l}」`);
+        seen[l] = k;
+      }
+      assertTrue('要約: 表示名が重複していない', dup.length === 0, dup.join(' / '));
+
+      // 書式は決めた値のどれかであること。
+      const FMT = ['pct', 'turn', 'num', 'lvl', 'keyed', 'flag'];
+      const badFmt = writes.filter((/** @type {string} */ k) =>
+        reg[k].fmt && FMT.indexOf(reg[k].fmt) < 0);
+      assertTrue('要約: 書式が決めた値のどれか', badFmt.length === 0, badFmt.join(', '));
+    }
+
     return results;
   }
 
