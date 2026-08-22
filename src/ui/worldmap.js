@@ -66,7 +66,7 @@
     if (r.event) {
       // 乗った瞬間に起きるもの（宝箱・出口）はその場で解決する。
       // 会話だけは「調べる」で読む形にして、通りすがりに流れないようにする。
-      if (r.event.kind !== 'talk') fire(r.event);
+      if (r.event.kind !== 'talk' && r.event.kind !== 'join') fire(r.event);
     }
     render();
   }
@@ -93,6 +93,12 @@
       RPG.app.refreshTopbar();
     } else if (res.kind === 'talk') {
       message = { text: res.text, who: res.who };
+    } else if (res.kind === 'join') {
+      const name = RPG.state.charName(res.who);
+      message = { text: `${res.text}
+
+── ${name} が仲間になった。`, who: res.who };
+      RPG.app.refreshTopbar();
     }
     // exit は enter() が現在地を変えているので、描き直すだけでよい
   }

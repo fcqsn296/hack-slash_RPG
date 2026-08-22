@@ -161,6 +161,26 @@
       return { ok: true, kind: 'exit', to: ev.to };
     }
 
+    if (ev.kind === 'join') {
+      // 仲間が加わる (§20)。
+      //
+      // ストーリー側の仲間は **筋書きで加わる**。ガチャは引かせない。
+      // 物語の途中で「引けなかったので出てこない」が起きると、
+      // 話が成立しなくなる。
+      const p = RPG.state.get();
+      if (!p.characters[ev.who]) {
+        p.characters[ev.who] = RPG.state.createCharacter(ev.who);
+        // 主人公に置いていかれないよう、いまの先頭に合わせて出す。
+        // Lv1 で加わると、そこから育て直しになって話に付いてこられない。
+        const lead = p.characters.ch_hero;
+        if (lead && lead.level > 1) p.characters[ev.who].level = lead.level;
+      }
+      if (p.party.indexOf(ev.who) < 0 && p.party.length < 4) p.party.push(ev.who);
+      if (ev.flag) setFlag(ev.flag);
+      RPG.state.persist();
+      return { ok: true, kind: 'join', who: ev.who, text: ev.text };
+    }
+
     if (ev.kind === 'talk') {
       // 会話は繰り返し読めるようにする。flag を持たせたときだけ一度きり。
       if (ev.flag) setFlag(ev.flag);

@@ -6910,6 +6910,81 @@
             !!RPG.data.fields[enc2.fieldId], enc2.fieldId);
         }
 
+        // --- 仲間の加入 (§20) ---
+        //
+        // 主人公ひとりでは最初の遭遇に勝てない（実測で勝率20%）。
+        // 第1章で1人加えることで通るようにしてある。
+        // ここが崩れると、序盤が「周回しないと進めない」形になる。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const join = RPG.data.maps.mp_forge.events
+            .find((/** @type {any} */ e) => e.kind === 'join');
+          assertTrue('マップ: 第1章に加入イベントがある', !!join,
+            join ? join.who : '無い');
+
+          assertTrue('マップ: 加入する相手が実在する',
+            !!join && !!RPG.data.characters[join.who], join && join.who);
+
+          // 加入前はひとり
+          assertTrue('マップ: 始まりは主人公ひとり',
+            RPG.state.get().party.length === 1, `${RPG.state.get().party.length}人`);
+
+          W.enter('mp_forge', { x: join.x, y: join.y - 1 });
+          W.move(0, 1);      // 下を向く（乗ってしまってもよい）
+          const r = W.resolve(join);
+          assertTrue('マップ: 仲間が加わる',
+            r.ok && RPG.state.get().party.indexOf(join.who) >= 0,
+            RPG.state.get().party.join(' / '));
+
+          assertTrue('マップ: 加入は一度きり', W.resolve(join).ok === false, '');
+
+          // 主人公に置いていかれないこと。Lv1 で加わると育て直しになる。
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          RPG.state.get().characters.ch_hero.level = 20;
+          W.enter('mp_forge');
+          W.resolve(join);
+          assertTrue('マップ: 仲間は主人公のレベルに合わせて加わる',
+            RPG.state.get().characters[join.who].level === 20,
+            `Lv${RPG.state.get().characters[join.who].level}`);
+
+          // --- 加入すれば最初の遭遇に勝てること ---
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          W.enter('mp_forge');
+          W.resolve(join);
+          const enc = RPG.data.maps.mp_ashfield.encounter;
+          /** @param {number} n */
+          const winRate = (n) => {
+            let win = 0;
+            for (let i = 0; i < n; i++) {
+              const b = RPG.battle.start({
+                fieldId: enc.fieldId, waves: enc.waves,
+                bossFinale: enc.bossFinale, party: RPG.state.partyUnits(),
+              });
+              let g = 0;
+              while (!b.finished && g++ < 600) {
+                if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+                const a = RPG.autoplay.chooseAction(b); if (!a) break;
+                RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+              }
+              if (b.victory) win++;
+            }
+            return win / n;
+          };
+          const two = winRate(12);
+          assertTrue('マップ: 仲間が居れば最初の遭遇に勝てる', two >= 0.75,
+            `勝率 ${Math.round(two * 100)}%`);
+
+          // ひとりだと勝てないこと。ここが勝ててしまうと、
+          // 仲間を加える意味も、加入イベントを置いた理由も無くなる。
+          RPG.state.setParty(['ch_hero']);
+          const solo = winRate(12);
+          assertTrue('マップ: ひとりでは押し切れない', solo < two,
+            `ひとり ${Math.round(solo * 100)}% / ふたり ${Math.round(two * 100)}%`);
+        }
+
         // --- 現在地はストーリー側にしか残らない ---
         {
           W.enter('mp_forge');
