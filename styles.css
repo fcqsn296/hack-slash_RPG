@@ -3090,3 +3090,15 @@ body.has-backdrop { background: transparent; }
   .wm-grid { --cell: 22px; }
   .wm-hero { --cell: 22px; }
 }
+
+/* ===== 出撃前のオート切替 (§10.5) =====
+   戦闘画面にしか無かったので、一度入れると入り直しても入ったままだった。
+   出撃する前に決められる場所を作る。 */
+.auto-panel {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 13px; margin-bottom: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(255, 255, 255, .03);
+}
+.auto-panel-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.auto-panel-toggles { display: flex; gap: 8px; flex-wrap: wrap; }

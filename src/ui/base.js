@@ -431,6 +431,49 @@
   }
 
   /** @param {HTMLElement} root */
+  /**
+   * オートの入切 (§10.5)。
+   * 出撃前に決められるようにする。残り回数もここで見せる。
+   * @param {any} root
+   */
+  function autoPanel(root) {
+    const st = RPG.state.get().settings || {};
+    const left = RPG.autolimit ? RPG.autolimit.charges() : null;
+    const canAuto = RPG.autolimit ? RPG.autolimit.canAuto() : true;
+
+    return h('div.auto-panel',
+      h('div.auto-panel-text',
+        h('b', { text: st.auto ? 'オート出撃' : '手動で戦う' }),
+        h('span.hint.hint-sm', {
+          text: st.auto
+            ? '出撃するとそのまま自動で進む。手動ボーナスは付かない。'
+            : '自分で技を選ぶ。報酬に手動ボーナスが付く。',
+        })
+      ),
+      h('div.auto-panel-toggles',
+        h('button.toggle' + (st.auto ? '.is-on' : ''), {
+          'aria-pressed': st.auto ? 'true' : 'false',
+          onClick: () => {
+            // 回数が尽きているのに入れさせると、出撃した先で
+            // 勝手に手動へ戻されて驚くことになる。ここで止める。
+            if (!st.auto && !canAuto) {
+              RPG.app.toast('オート回数がありません');
+              return;
+            }
+            RPG.state.updateSettings({ auto: !st.auto });
+            render(root);
+          },
+        }, h('span.toggle-dot'), h('span', {
+          text: left == null ? 'オート' : `オート（残り ${left}）`,
+        })),
+        h('button.toggle' + (st.fast ? '.is-on' : ''), {
+          'aria-pressed': st.fast ? 'true' : 'false',
+          onClick: () => { RPG.state.updateSettings({ fast: !st.fast }); render(root); },
+        }, h('span.toggle-dot'), h('span', { text: '高速' }))
+      )
+    );
+  }
+
   function renderSortie(root) {
     const save = RPG.state.get();
     const party = RPG.state.partyUnits();
@@ -470,6 +513,16 @@
             }, { variant: 'primary' })
           : null
       ),
+      // ── オートの切替 (§10.5) ──
+      //
+      // ここに置いてある理由がある。オートの切替は戦闘画面にしか無く、
+      // 一度入れると **入り直しても入ったまま** だった。
+      // 出撃した瞬間に勝手に進み始め、止めようとしても
+      // 「手動に戻す」は自分の手番の一瞬しか出ないので押せない。
+      //
+      // 出撃する前に決められる場所を作れば、この行き違いは起きない。
+      autoPanel(root),
+
       // 派遣中なら、まずその状況を見せる
       dispatchPanel(root),
 

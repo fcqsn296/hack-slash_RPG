@@ -7127,6 +7127,46 @@
           check('手引き: docs/効果を追加するときの手引き.md が読める', false,
             String(e && e.message));
         }))
+      // ── 画面が呼んでいる関数が実在するか ──
+      //
+      // 画面のコードはテストから動かしていないので、関数名を打ち間違えても
+      // その画面を開くまで分からない。実際 RPG.autolimit.remaining() という
+      // 存在しない関数を呼んで、出撃画面が描けない状態を作った。
+      //
+      // 名前の一覧を手で持つと必ず古くなるので、**ソースを読んで突き合わせる**。
+      .then(() => Promise.all(
+        ['../src/ui/base.js', '../src/ui/battle.js', '../src/ui/worldmap.js',
+          '../src/ui/widgets.js', '../src/main.js']
+          .map((f) => fetch(f)
+            .then((r) => (r.ok ? r.text() : Promise.reject(new Error(f + ' HTTP ' + r.status))))
+            .then((text) => ({ f, text })))
+      ).then((files) => {
+        // テストページに読み込まれている中核モジュールだけを見る。
+        // RPG.ui / RPG.app はここには無いので対象外。
+        const MODULES = ['state', 'battle', 'units', 'damage', 'tree', 'klass',
+          'gacha', 'quest', 'economy', 'autolimit', 'autosell', 'autoequip',
+          'dispatch', 'tower', 'arena', 'enhance', 'worldmap', 'rng', 'codex',
+          'savefile', 'gear', 'equipset', 'autoplay'];
+
+        const missing = [];
+        for (const item of files) {
+          const re = /RPG\.(\w+)\.(\w+)\s*\(/g;
+          let m;
+          while ((m = re.exec(item.text))) {
+            const mod = m[1];
+            const fn = m[2];
+            if (MODULES.indexOf(mod) < 0) continue;
+            if (!RPG[mod]) continue;
+            if (typeof RPG[mod][fn] === 'function') continue;
+            const label = item.f.split('/').pop() + ': RPG.' + mod + '.' + fn + '()';
+            if (missing.indexOf(label) < 0) missing.push(label);
+          }
+        }
+        check('画面: 呼んでいる関数が全て実在する', missing.length === 0,
+          missing.join(' / ') || (files.length + ' ファイルを確認'));
+      }).catch((e) => {
+        check('画面: ソースを読めた', false, String(e && e.message));
+      }))
       .then(() => onDone(results));
   }
 
