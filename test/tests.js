@@ -7486,6 +7486,89 @@
       assertTrue('要約: 書式が決めた値のどれか', badFmt.length === 0, badFmt.join(', '));
     }
 
+    /* ===== §13.2 用語集 ===== */
+    {
+      const gl = RPG.data.glossary || {};
+      const ids = Object.keys(gl);
+      const groupIds = (RPG.data.glossaryGroups || []).map((/** @type {any} */ g) => g.id);
+
+      assertTrue('用語: 項目がある', ids.length > 0, `${ids.length}件`);
+
+      // 形が揃っていること。1つでも欠けると画面がその項目だけ壊れる。
+      const badShape = ids.filter((id) => {
+        const d = gl[id];
+        return !d.term || !d.short || !Array.isArray(d.body) || d.body.length === 0
+          || groupIds.indexOf(d.group) < 0;
+      });
+      assertTrue('用語: すべての項目が揃っている', badShape.length === 0, badShape.join(', '));
+
+      // 関連語の飛び先が実在すること。押しても何も起きないボタンになるのを防ぐ。
+      const badSee = [];
+      for (const id of ids) {
+        for (const sid of gl[id].see || []) {
+          if (!gl[sid]) badSee.push(`${id} → ${sid}`);
+          if (sid === id) badSee.push(`${id} が自分を指している`);
+        }
+      }
+      assertTrue('用語: 関連語の飛び先が実在する', badSee.length === 0, badSee.join(' / '));
+
+      // 空の区分が残っていないこと。見出しだけが出てしまう。
+      const emptyGroup = groupIds.filter((/** @type {string} */ gid) =>
+        !ids.some((id) => gl[id].group === gid));
+      assertTrue('用語: 空の区分がない', emptyGroup.length === 0, emptyGroup.join(', '));
+
+      // 用語は集めるものではないので、収集率に数えていないこと。
+      const sysSection = RPG.codex.SECTIONS.filter((/** @type {any} */ x) => x.id === 'system')[0];
+      assertTrue('用語: 収集率に数えていない', !!sysSection && sysSection.collect === false,
+        sysSection ? `collect=${sysSection.collect}` : '区分が無い');
+
+      /**
+       * 本文に書いた数値が実装の定数と合っているか。
+       *
+       * ── なぜこの形で確かめるのか ──
+       * 説明が実装とずれているのは、説明が無いことより性質が悪い。
+       * 読んだ人がその数字を前提に組んでしまう。
+       * かといって本文から数値を追い出すと、肝心の「どのくらい効くのか」が
+       * 分からない文章になる。
+       * そこで本文には数値を直接書いたうえで、**その文字列が実際に本文へ
+       * 含まれているか**をここで突き合わせる。定数を動かすとこのテストが落ちるので、
+       * 本文の直し忘れに気付ける。
+       */
+      const C = RPG.damage.constants;
+      /** @param {string} id @param {string} needle @param {string} why */
+      const mentions = (id, needle, why) => {
+        const body = gl[id] ? gl[id].body.join(' ') : '';
+        assertTrue(`用語「${gl[id] ? gl[id].term : id}」: ${why}`,
+          body.indexOf(needle) >= 0, `本文に「${needle}」が無い`);
+      };
+
+      mentions('gl_cap', C.BASE_DAMAGE_CAP.toLocaleString(), 'ダメージ上限の値が実装と一致');
+      mentions('gl_cap', `${Math.round(C.CAP_OVERFLOW_RATE * 100)}%`, '超過分の残存率が実装と一致');
+      mentions('gl_crit', String(C.CRIT_MULTIPLIER), '会心倍率が実装と一致');
+      mentions('gl_defense', `× ${C.DEF_CONST_PER_LEVEL} + ${C.DEF_CONST_BASE}`, '防御定数が実装と一致');
+      mentions('gl_level_gap', String(RPG.damage.LEVEL_GAP_FREE), '格上補正の無傷幅が実装と一致');
+      mentions('gl_combo', String(RPG.battle.COMBO_MAX), 'コンボ最大段数が実装と一致');
+      mentions('gl_combo', `${Math.round(RPG.battle.COMBO_STEP * 100)}%`, 'コンボ1段の伸びが実装と一致');
+      mentions('gl_sigil', String(RPG.battle.SIGIL_THRESHOLD), '刻印の炸裂数が実装と一致');
+      mentions('gl_power_tier', String(RPG.battle.LOW_POWER), '小技のしきい値が実装と一致');
+      mentions('gl_power_tier', String(RPG.battle.HIGH_POWER), '大技のしきい値が実装と一致');
+      mentions('gl_wave', String(RPG.data.bossStatMultiplier), 'ボス補正が実装と一致');
+
+      // 属性倍率は定数として公開していないので、実際に計算させて突き合わせる。
+      const adv = RPG.damage.elementMultiplier('fire', 'wind');
+      const dis = RPG.damage.elementMultiplier('fire', 'water');
+      mentions('gl_element', String(adv), '有利倍率が実装と一致');
+      mentions('gl_element', String(dis), '不利倍率が実装と一致');
+
+      // 格上補正の説明どおりに計算が動くこと（本文の式そのものの検証）。
+      const free = RPG.damage.LEVEL_GAP_FREE;
+      assertNear('用語「格上補正」: 無傷の境界ちょうどでは効かない',
+        RPG.damage.levelGapRate(100, 100 + free), 1, 1e-9);
+      assertTrue('用語「格上補正」: 境界を1超えると効き始める',
+        RPG.damage.levelGapRate(100, 100 + free + 1) < 1,
+        `${RPG.damage.levelGapRate(100, 100 + free + 1).toFixed(4)}`);
+    }
+
     return results;
   }
 

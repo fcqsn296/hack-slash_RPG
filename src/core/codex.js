@@ -15,11 +15,18 @@
 (function (RPG) {
   'use strict';
 
-  /** 図鑑の区分。増やすときはここに1行足すだけでよい。 */
+  /**
+   * 図鑑の区分。増やすときはここに1行足すだけでよい。
+   *
+   * `collect: false` の区分は集めるものではないので、収集率に数えない。
+   * 用語集を数に入れると、読んでいなくても最初から埋まっている項目が
+   * 収集率を押し上げてしまい、進み具合の目安として使えなくなる。
+   */
   const SECTIONS = [
-    { id: 'character', label: 'キャラクター' },
-    { id: 'enemy', label: '敵' },
-    { id: 'field', label: 'フィールド' },
+    { id: 'character', label: 'キャラクター', collect: true },
+    { id: 'enemy', label: '敵', collect: true },
+    { id: 'field', label: 'フィールド', collect: true },
+    { id: 'system', label: '用語', collect: false },
   ];
 
   /** セーブ側の記録。 */
@@ -127,11 +134,12 @@
     return { found: 0, total: 0 };
   }
 
-  /** 全区分を合わせた収集率。 */
+  /** 全区分を合わせた収集率。集めるものではない区分は数えない。 */
   function totalProgress() {
     let found = 0;
     let total = 0;
     for (const s of SECTIONS) {
+      if (!s.collect) continue;
       const p = progress(s.id);
       found += p.found;
       total += p.total;
@@ -154,9 +162,24 @@
     return { def, level, unit, habitats };
   }
 
+  /**
+   * 用語を区分ごとにまとめて返す。
+   * 並び順は `glossaryGroups` の宣言順＝読んでほしい順。
+   * @returns {Array<{group: any, entries: Array<{id: string, def: any}>}>}
+   */
+  function glossaryByGroup() {
+    const all = RPG.data.glossary || {};
+    return (RPG.data.glossaryGroups || []).map((group) => ({
+      group,
+      entries: Object.keys(all)
+        .filter((id) => all[id].group === group.id)
+        .map((id) => ({ id, def: all[id] })),
+    })).filter((g) => g.entries.length > 0);
+  }
+
   RPG.codex = {
     SECTIONS,
     record, enemyEntry, enemySeen, characterOwned, fieldEntry, fieldSeen,
-    enemyHabitats, enemyPreview, progress, totalProgress,
+    enemyHabitats, enemyPreview, progress, totalProgress, glossaryByGroup,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

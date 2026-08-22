@@ -43,6 +43,8 @@
     section: 'enemy',
     selected: /** @type {string|null} */ (null),
     showUnknown: true,
+    /** 関連語を押して移動したか。次の描画でその項目まで画面を送る */
+    scrollToTerm: false,
   };
 
   /** インベントリの並べ替えと絞り込み */
@@ -482,7 +484,7 @@
       { id: 'forge', label: '鍛冶', desc: '装備を強化する' },
       { id: 'tower', label: '塔', desc: 'どこまで登れるか挑む' },
       { id: 'arena', label: '闘技場', desc: 'レベル上限を伸ばす' },
-      { id: 'codex', label: '図鑑', desc: '出会った敵を見返す' },
+      { id: 'codex', label: '図鑑', desc: '出会った敵と、用語の説明' },
     ];
 
     return h('div.dest-panel',
@@ -832,7 +834,7 @@
     const total = RPG.codex.totalProgress();
 
     return h('div.pane',
-      W.heading('図鑑', '出会ったキャラクター・敵・フィールドの記録。データを追加すれば自動で並ぶ。'),
+      W.heading('図鑑', '出会ったキャラクター・敵・フィールドの記録と、システム用語の説明。'),
       h('div.codex-progress',
         h('div.codex-bar', h('div.codex-bar-fill', { style: { width: (total.rate * 100).toFixed(1) + '%' } })),
         h('span', { text: `収集率 ${total.found} / ${total.total}（${Math.round(total.rate * 100)}%）` })
@@ -841,18 +843,93 @@
         const p = RPG.codex.progress(s.id);
         return h('button.pill' + (codexView.section === s.id ? '.is-on' : ''), {
           onClick: () => { codexView.section = s.id; codexView.selected = null; render(root); },
-          text: `${s.label} ${p.found}/${p.total}`,
+          // 用語は集めるものではないので「0/0」を出さない
+          text: s.collect ? `${s.label} ${p.found}/${p.total}` : s.label,
         });
       })),
-      h('div.toolbar-row',
+      // 用語には「未発見」が無いので、切り替えごと出さない
+      codexView.section === 'system' ? null : h('div.toolbar-row',
         h('button.pill' + (codexView.showUnknown ? '.is-on' : ''), {
           onClick: () => { codexView.showUnknown = !codexView.showUnknown; render(root); },
           text: '未発見も表示',
         })
       ),
-      codexView.selected ? codexDetail(root) : null,
-      codexGrid(root)
+      codexView.section === 'system' ? codexGlossary(root) : [
+        codexView.selected ? codexDetail(root) : null,
+        codexGrid(root),
+      ]
     );
+  }
+
+  /**
+   * 本文の `**ここ**` を強調にする。
+   *
+   * innerHTML を通さないのは、用語の本文が将来キャラ名などを差し込む形に
+   * なったときに、文章がそのままHTMLとして解釈されるのを防ぐため。
+   * 記法を1つしか持たないので、分割して組み直すだけで足りる。
+   * @param {string} text
+   * @returns {Array<Node|string>}
+   */
+  function emphasize(text) {
+    return String(text).split(/\*\*/).map((part, i) =>
+      (i % 2 === 1 ? h('strong', { text: part }) : part));
+  }
+
+  /**
+   * 用語集 (§13.2)。
+   *
+   * ── なぜ一覧＋詳細ではなく、開閉する一覧なのか ──
+   * キャラや敵と違って、用語は「どれを見たいか」が最初から分かっていない。
+   * 名前だけ並べても、どれが自分の知りたいものなのか判断できない。
+   * そこで見出しの下に一行だけ要約を常に出し、押すと本文が開く形にした。
+   * 一覧をなぞるだけで、読むべき項目が自分で見つかる。
+   * @param {HTMLElement} root
+   */
+  function codexGlossary(root) {
+    const all = RPG.data.glossary || {};
+    if (codexView.scrollToTerm) {
+      codexView.scrollToTerm = false;
+      // 描画が終わってからでないと、まだ画面に無いものを探すことになる
+      requestAnimationFrame(() => {
+        const open = document.querySelector('.glossary-item.is-open');
+        if (open) open.scrollIntoView({ block: 'center' });
+      });
+    }
+    return h('div.glossary', RPG.codex.glossaryByGroup().map((g) => h('section.glossary-group',
+      h('h3.glossary-group-name', { text: g.group.label }),
+      h('p.glossary-group-desc', { text: g.group.desc }),
+      h('div.glossary-list', g.entries.map(({ id, def }) => {
+        const open = codexView.selected === id;
+        return h('div.glossary-item' + (open ? '.is-open' : ''),
+          h('button.glossary-head', {
+            onClick: () => { codexView.selected = open ? null : id; render(root); },
+          },
+            h('span.glossary-term', { text: def.term }),
+            h('span.glossary-short', { text: def.short }),
+            h('span.glossary-mark', { text: open ? '−' : '＋' })
+          ),
+          open ? h('div.glossary-body',
+            def.body.map((/** @type {string} */ para) => h('p', emphasize(para))),
+            // 関連語は、読んだ流れのまま隣へ飛べるようにする。
+            // 用語は単独では分からず、対になっている相手と並べて初めて意味が立つものが多い。
+            (def.see || []).length ? h('div.glossary-see',
+              h('span.glossary-see-label', { text: '関連' }),
+              (def.see || []).filter((/** @type {string} */ sid) => all[sid])
+                .map((/** @type {string} */ sid) => h('button.glossary-link', {
+                  text: all[sid].term,
+                  onClick: () => {
+                    // 飛び先が別の区分にあると、開いても画面の外で何も起きないように見える。
+                    // 押して移動したときだけ送る（自分で開いたときは既に見えている）。
+                    codexView.selected = sid;
+                    codexView.scrollToTerm = true;
+                    render(root);
+                  },
+                }))
+            ) : null
+          ) : null
+        );
+      }))
+    )));
   }
 
   /** 図鑑の一覧。区分ごとに項目の作り方だけを差し替える。 */

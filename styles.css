@@ -3584,3 +3584,63 @@ body.has-backdrop { background: transparent; }
   font-variant-numeric: tabular-nums;
 }
 .stage-meta .is-gap { color: #e8a48f; }
+
+/* ============================ 用語集 (§13.2) ============================
+   キャラや敵と違って、用語は「どれを見たいか」が最初から分かっていない。
+   見出しの下に要約を常に出し、押したものだけ本文が開く形にしてある。 */
+.glossary { display: flex; flex-direction: column; gap: 22px; }
+.glossary-group-name {
+  margin: 0 0 2px; font-size: 15px; color: var(--gold);
+  border-bottom: 1px solid rgba(198, 164, 92, 0.25); padding-bottom: 6px;
+}
+.glossary-group-desc { margin: 0 0 10px; font-size: 12px; color: var(--text-dim); }
+.glossary-list { display: flex; flex-direction: column; gap: 6px; }
+.glossary-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+.glossary-item.is-open { border-color: rgba(198, 164, 92, 0.42); background: rgba(198, 164, 92, 0.06); }
+.glossary-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.glossary-term { grid-area: 1 / 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.glossary-short { grid-area: 2 / 1; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+/* 列も明示しないと、行だけ指定された印が1列目に潜り込んで見出しを押し出す */
+.glossary-mark {
+  grid-area: 1 / 2 / span 2 / 3; align-self: center;
+  font-size: 15px; color: var(--gold); font-variant-numeric: tabular-nums;
+}
+.glossary-body { padding: 0 12px 12px; }
+.glossary-body p {
+  margin: 0 0 9px; font-size: 13px; line-height: 1.75; color: #c9d1dd;
+}
+.glossary-body p:last-child { margin-bottom: 0; }
+.glossary-see {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 10px; padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.glossary-see-label { font-size: 11px; color: var(--text-dim); }
+.glossary-link {
+  padding: 3px 9px;
+  border: 1px solid rgba(198, 164, 92, 0.4);
+  border-radius: 999px;
+  background: none;
+  color: var(--gold);
+  font: inherit; font-size: 11px;
+  cursor: pointer;
+}
+.glossary-link:hover { background: rgba(198, 164, 92, 0.14); }
+.glossary-body strong { color: var(--text); font-weight: 600; }

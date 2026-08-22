@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v70';
+const CACHE_VERSION = 'v71';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -61,6 +61,7 @@ const PRECACHE = [
   './data/nodecategories.js',
   './data/classes.js',
   './data/quests.js',
+  './data/glossary.js',
   './data/tower.js',
   './data/arena.js',
   './data/art.js',
