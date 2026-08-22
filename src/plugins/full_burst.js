@@ -43,11 +43,28 @@
       const target = ctx.targets[0] || ctx.foes()[0];
       if (!target) return;
 
-      ctx.log(`${actor.name} は ${fired.length} つの技を同時に放った！`);
+      // ── なぜ1発ずつ技名を出すのか ──
+      // 通常のターンは直前に「〇〇の△△！」が出るので、続くダメージ行が
+      // どの技のものか分かる。この技だけは1行で何発も撃つため、
+      // 名前の無いダメージ行がずらりと並び、**何がどう効いたのか読めなかった**。
+      // 本数で稼ぐ技なのに、その本数の中身が見えないのでは選ぶ判断ができない。
+      ctx.log(`${actor.name} は ${fired.length} つの技を同時に放った！（各 威力${Math.round(ratio * 100)}%）`);
+      let shot = 0;
       for (const skill of fired) {
         if (!actor.alive) break;
         const aim = target.alive ? target : ctx.foes()[0];
-        if (!aim) break;
+        if (!aim) {
+          // 撃ち切る前に敵が尽きたときは、宣言した本数と合わないので理由を残す。
+          ctx.log(`残り ${fired.length - shot} 発は撃つ相手がいない`, 'sub');
+          break;
+        }
+        shot++;
+        // 撃ち出すのは威力だけで、その技が持っている固有の効果は動かない。
+        // 実測すると、破鎧撃は防御無視が乗らず、毒牙は毒が付かず、
+        // 双連撃は1発しか出ない。撃てる102本のうち59本がこれに当たる。
+        // 名前だけ並べると「効果ごと撃った」と読めてしまうので、そこは明示する。
+        const only = skill.plugin ? '（威力のみ）' : '';
+        ctx.log(`${shot}/${fired.length} ${skill.name}${only} → ${aim.name}`, 'sub');
         // 1発ごとの威力は落とす。本数で稼ぐ技なので、単発の強さでは勝てないようにする。
         ctx.damageWith(aim, skill, { powerScale: ratio });
       }

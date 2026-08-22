@@ -2353,6 +2353,65 @@
           `残り ${hero.stunnedRounds} ラウンド`);
       }
 
+      // --- 全弾解放: 何を撃ったかログに残る ---
+      //
+      // 通常のターンは直前に「〇〇の△△！」が出るので、続くダメージ行が
+      // どの技のものか分かる。この技だけは1行で何発も撃つので、
+      // 撃った技の名前をログへ出さないと、名前の無いダメージ行が並ぶだけになる。
+      {
+        const b = arena();
+        const hero = b.party[0];
+        const before = b.log.length;
+        RPG.battle.executeSkill(b, hero, 'sk_tree_burst', [b.enemies[0]]);
+        const lines = b.log.slice(before).map((/** @type {any} */ l) => l.text);
+        const fired = hero.skills.filter((/** @type {string} */ id) =>
+          id !== 'sk_tree_burst' && RPG.battle.isAttackSkill(RPG.data.skills[id])
+          && RPG.data.skills[id].power > 0);
+
+        const named = fired.filter((/** @type {string} */ id) =>
+          lines.some((/** @type {string} */ t) => t.indexOf(RPG.data.skills[id].name) >= 0));
+        assertTrue('全弾解放: 撃った技の名前が全てログに出る',
+          named.length === fired.length,
+          `${named.length} / ${fired.length} 本`);
+
+        assertTrue('全弾解放: 何発目かが分かる',
+          lines.some((/** @type {string} */ t) => /1\/\d+ /.test(t)),
+          lines.filter((/** @type {string} */ t) => /\d+\/\d+ /.test(t)).slice(0, 2).join(' / '));
+
+        // 固有効果が動かないことは、説明にもログにも出ていないと誤解される。
+        // ここが変わったら（＝プラグインを動かすようにしたら）両方直す必要がある。
+        const withPlugin = fired.filter((/** @type {string} */ id) => RPG.data.skills[id].plugin);
+        if (withPlugin.length > 0) {
+          assertTrue('全弾解放: 固有効果が動かない技には「威力のみ」と出る',
+            lines.some((/** @type {string} */ t) => t.indexOf('（威力のみ）') >= 0),
+            `プラグイン持ち ${withPlugin.length} 本`);
+        }
+        assertTrue('全弾解放: 説明にも固有効果が出ないと書いてある',
+          RPG.data.skills.sk_tree_burst.desc.indexOf('固有効果は発動しない') >= 0,
+          RPG.data.skills.sk_tree_burst.desc.slice(-30));
+      }
+
+      // --- 全弾解放: 撃ち出した技の固有効果は動かない ---
+      //
+      // ctx.damageWith は威力しか通さないので、毒も防御無視も多段も乗らない。
+      // 意図してそうなっているが、黙っていると「効果ごと撃った」と読まれる。
+      {
+        const b = arena();
+        const hero = b.party[0];
+        const foe = b.enemies[0];
+        // 毒を撒く技だけを持たせて撃つ。毒が付けば、この前提が崩れたということ。
+        const poison = Object.keys(RPG.data.skills).filter((id) =>
+          RPG.data.skills[id].plugin === 'poison')[0];
+        if (poison) {
+          hero.skills = [poison, 'sk_tree_burst'];
+          foe.statusEffects = [];
+          RPG.battle.executeSkill(b, hero, 'sk_tree_burst', [foe]);
+          assertTrue('全弾解放: 撃ち出した技の固有効果は動かない',
+            (foe.statusEffects || []).length === 0,
+            `${RPG.data.skills[poison].name} を撃って状態異常 ${(foe.statusEffects || []).length} 件`);
+        }
+      }
+
       // --- 技を多く持つほど全弾解放が強い ---
       {
         const b = arena();

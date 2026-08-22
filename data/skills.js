@@ -364,7 +364,8 @@ RPG.data.skills = {
     power: 0, crit_rate: 0.05,
     params: { ratio: 0.6, maxStun: 4 },
     desc: '【ツリー】持っている攻撃技をすべて威力60%で同時に叩き込み、' +
-      '撃った本数ぶん（最大4）ラウンド行動できなくなる。技を多く抱えるほど強い。',
+      '撃った本数ぶん（最大4）ラウンド行動できなくなる。技を多く抱えるほど強い。' +
+      '撃ち出すのは威力だけで、毒や防御無視などの固有効果は発動しない。',
   },
   sk_tree_hex: {
     name: '万呪', kind: 'active', plugin: 'multi_debuff', tree: true,
