@@ -834,6 +834,10 @@
     // 演出でDOMと対応づけるための識別子。パーティは戦闘中ずっと固定。
     battle.party.forEach((/** @type {any} */ u, /** @type {number} */ i) => { u.key = 'p' + i; });
 
+    // 1ラウンド目の号令 (§5.10)。round++ のときだけにしていたら、
+    // 1ラウンドで終わる戦闘では一度も出なかった。
+    roundStartBuffs(battle);
+
     // --- パッシブ: 開幕バフ（戦闘開始時に固有ユニークバフを得る）---
     for (const u of battle.party) {
       const opening = (u.passives && u.passives.openingBuff) || 0;
@@ -2440,7 +2444,49 @@
    * ラウンド終了処理。継続ダメージの適用とバフ/デバフの経過。
    * @param {any} battle
    */
+  /**
+   * 「絶えぬ号令」— ラウンドの頭に味方全体へバフを撒く (§5.10)。
+   *
+   * 隠れた常時効果（オーラ）にしなかったのは、**見えないと積んだ意味が分からない**から。
+   * 実際のバフとして配れば、ログにも残るし「かける側の効果量」も乗る。
+   * 撒く側が居るあいだだけ続くので、倒れれば止まる。
+   *
+   * 1ラウンド目にも撒く。round++ のときだけにしていたら、
+   * **1ラウンドで終わる戦闘では一度も出なかった**（このゲームでは珍しくない）。
+   * @param {any} battle
+   */
+  function roundStartBuffs(battle) {
+    for (const u of livingParty(battle)) {
+      const rb = (u.passives && u.passives.roundBuff) || 0;
+      if (rb <= 0) continue;
+      const value = buffAmount(u, rb, u.supportCount || 0);
+      for (const ally of livingParty(battle)) {
+        ally.buffUnique.push({ value, turns: buffTurns(ally, 1), label: '号令' });
+        pushEvent(battle, { type: 'buff', key: ally.key, label: '号令' });
+      }
+      pushLog(battle, `${u.name} の号令（固有 +${Math.round(value * 100)}%）`, 'buff');
+    }
+  }
+
   function endOfRound(battle) {
+    // 「危急の手」— ラウンドの終わりに、落ちかけた味方を引き戻す (§5.10)。
+    //
+    // 回復役の手番は1つしかないので、削られる相手が2人以上いると必ず取りこぼす。
+    // 手番を使わない受け皿を1つ置くことで、専任の回復役が「間に合わない」
+    // だけの役から抜けられる。半分を切った相手にしか働かない。
+    for (const healer of livingParty(battle)) {
+      const rate = (healer.passives && healer.passives.lowHpHeal) || 0;
+      if (rate <= 0) continue;
+      for (const ally of livingParty(battle)) {
+        if (ally.hp / ally.maxHp > 0.5) continue;
+        const before = ally.hp;
+        ally.hp = Math.min(ally.maxHp, ally.hp + Math.floor(ally.maxHp * rate));
+        if (ally.hp > before) {
+          pushLog(battle, `${ally.name} は ${(ally.hp - before).toLocaleString()} HP回復した（危急）`, 'buff');
+        }
+      }
+    }
+
     const all = battle.party.concat(battle.enemies);
 
     // 継続ダメージの解決。ラウンド終了時に減るのは毒だけで、
@@ -2536,6 +2582,9 @@
 
     battle.round++;
     battle.totalRounds++;
+
+    roundStartBuffs(battle);
+
     battle.actorIndex = 0;
     battle.phase = 'command';
     skipDeadActors(battle);

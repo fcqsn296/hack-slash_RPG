@@ -258,6 +258,7 @@
     'first_hit_crit', 'first_round_power', 'foe_count_power', 'focus_power',
     'front_power',
     'full_hp_foe_power', 'grant_skill', 'guard_ally', 'guard_break', 'heal_buff', 'heal_on_kill',
+    'low_hp_heal', 'round_buff',
     'heal_spread',
     'heal_power', 'high_hp_power', 'high_power_boost', 'hit_stack', 'hp_to_atk',
     'hp_to_def', 'kill_extra_action', 'last_stand', 'lifesteal', 'lone_foe_power',
@@ -418,6 +419,8 @@
       triage: 0,           // 相手のHPが減っているほど回復量が伸びる
       healSpread: 0,       // 単体回復が他の味方にも及ぶ割合
       healBuff: 0,         // 回復した相手に固有バフ
+      lowHpHeal: 0,        // ラウンド終了時、瀕死の味方を自動で回復
+      roundBuff: 0,        // ラウンド開始時、味方全体へ固有バフ
     };
     /** ダメージ計算に渡す状況依存の補正 */
     const situational = {
@@ -624,6 +627,8 @@
           case 'triage': passives.triage += amount; break;
           case 'heal_spread': passives.healSpread += amount; break;
           case 'heal_buff': passives.healBuff += amount; break;
+          case 'low_hp_heal': passives.lowHpHeal += amount; break;
+          case 'round_buff': passives.roundBuff += amount; break;
           case 'taunt': passives.taunt += amount; break;
           case 'stealth': passives.stealth += amount; break;
           case 'buff_on_kill': passives.buffOnKill += amount; break;

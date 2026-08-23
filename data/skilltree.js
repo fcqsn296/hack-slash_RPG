@@ -583,6 +583,36 @@ RPG.data.skillTree = [
     desc: '狙われやすさ +80%／反撃率 +15%。集めた攻撃を撃ち返す構えの終点',
   },
   {
+    id: 'tr_heal_power_hi', tier: 'high', name: '大慈', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'heal_power', value: 0.18 }],
+    desc: '自分が行う回復量 +18%',
+  },
+  {
+    id: 'tr_regen_hi', tier: 'high', name: '命脈', cost: 4, maxLevel: 4,
+    effects: [{ kind: 'regen', value: 0.03 }],
+    desc: '毎ラウンド、最大HPの 3% 回復する',
+  },
+  {
+    id: 'tr_low_hp_heal_hi', tier: 'high', name: '瀬戸際の腕', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'low_hp_heal', value: 0.06 }],
+    desc: 'ラウンド終了時、HPが半分を切った味方を最大HPの 6% 回復する',
+  },
+  {
+    id: 'tr_round_buff_hi', tier: 'high', name: '不断の号令', cost: 6, maxLevel: 3,
+    effects: [{ kind: 'round_buff', value: 0.09 }],
+    desc: 'ラウンド開始時、味方全体に固有バフ +9%（1ターン）',
+  },
+  {
+    id: 'tr_buff_shield_hi', tier: 'high', name: '不壊の言葉', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'buff_shield', value: 0.08 }],
+    desc: 'バフをかけた相手に、その相手の最大HPの 8% の障壁',
+  },
+  {
+    id: 'tr_buff_heal_hi', tier: 'high', name: '熱を分かつ', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'buff_heal', value: 0.06 }],
+    desc: 'バフをかけた相手を、その相手の最大HPの 6% 回復する',
+  },
+  {
     id: 'tr_triage_hi', tier: 'high', name: '瀬戸際', cost: 5, maxLevel: 3,
     effects: [{ kind: 'triage', value: 0.35 },
               { kind: 'crit_heal', value: 0.08 }],
@@ -849,6 +879,11 @@ RPG.data.skillTree = [
 
   /* ===== 回復と防護 (§5.7) ===== */
   {
+    id: 'tr_support_stack_b', tier: 'basic', name: '重ねる言葉', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'support_stack', value: 0.03 }],
+    desc: 'バフをかけるたび、自分がかけるバフの効果量 +3%（その戦闘のあいだ）',
+  },
+  {
     id: 'tr_triage', tier: 'basic', name: '分別', cost: 2, maxLevel: 5,
     effects: [{ kind: 'triage', value: 0.2 }],
     // 追い打ちのちょうど回復版 (§5.10)。
@@ -1047,6 +1082,32 @@ RPG.data.skillTree = [
     id: 'tr_combo_power_mid', tier: 'mid', name: '連撃の極致', cost: 3, maxLevel: 4,
     effects: [{ kind: 'combo_power', value: 0.025 }],
     desc: 'コンボ1段あたりの倍率 +2.5%',
+  },
+  {
+    id: 'tr_low_hp_heal', tier: 'mid', name: '危急の手', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'low_hp_heal', value: 0.04 }],
+    // 回復役の手番は1つしかないので、削られる相手が2人以上いると必ず取りこぼす。
+    desc: 'ラウンド終了時、HPが半分を切った味方を最大HPの 4% 回復する',
+  },
+  {
+    id: 'tr_round_buff', tier: 'mid', name: '絶えぬ号令', cost: 4, maxLevel: 4,
+    effects: [{ kind: 'round_buff', value: 0.06 }],
+    desc: 'ラウンド開始時、味方全体に固有バフ +6%（1ターン）。かける側の強化も乗る',
+  },
+  {
+    id: 'tr_wave_heal_mid', tier: 'mid', name: '息長', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'wave_heal', value: 0.08 }],
+    desc: 'ウェーブが変わるとき、味方全体が最大HPの 8% 回復する',
+  },
+  {
+    id: 'tr_buff_shield_mid', tier: 'mid', name: '堅き言葉', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'buff_shield', value: 0.06 }],
+    desc: 'バフをかけた相手に、その相手の最大HPの 6% の障壁',
+  },
+  {
+    id: 'tr_buff_len_hi_mid', tier: 'mid', name: '遠鳴り', cost: 4, maxLevel: 3,
+    effects: [{ kind: 'buff_duration', value: 1 }],
+    desc: '自分が受けるバフの持続 +1ターン',
   },
   {
     id: 'tr_cleanse_mid', tier: 'mid', name: '祓いの祈り', cost: 3, maxLevel: 4,

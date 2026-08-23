@@ -1053,7 +1053,7 @@
         'buff_power',
         // 支援役がSPを使い切れるようにするための枝 (§5.10)
         'buff_extend', 'support_stack', 'buff_shield', 'buff_heal',
-        'cleanse', 'triage', 'heal_spread', 'heal_buff'];
+        'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal', 'round_buff'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -1361,9 +1361,9 @@
       {
         const HEAL = ['heal_power', 'crit_heal', 'heal_on_kill', 'regen', 'wave_heal',
           'overheal_shield', 'revive', 'wave_revive', 'last_stand',
-          'cleanse', 'triage', 'heal_spread', 'heal_buff'];
+          'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal'];
         const BUFF = ['buff_power', 'buff_duration', 'buff_on_kill', 'opening_buff',
-          'buff_extend', 'support_stack', 'buff_shield', 'buff_heal'];
+          'buff_extend', 'support_stack', 'buff_shield', 'buff_heal', 'round_buff'];
 
         /** @param {string[]} kinds */
         const budget = (kinds) => RPG.data.skillTree.reduce((/** @type {number} */ sum, /** @type {any} */ n) =>
@@ -1372,7 +1372,11 @@
 
         // 上限まで育てた1人が持つSP。ここを超えていれば、
         // 役の中だけで振り切れる（余ったら攻撃へ、という妥協が要らない）。
-        const sp = (RPG.data.maxLevel - 1) + RPG.data.gacha.maxLimitBreak;
+        //
+        // 見るのは maxLevel(150) ではなく **maxLevelCap(255)**。
+        // 闘技場の報酬で上限は伸びるので、150で足りていても
+        // 伸ばした先で余る。最初は150で測っていて、実際に取りこぼした。
+        const sp = (RPG.data.maxLevelCap - 1) + RPG.data.gacha.maxLimitBreak;
         assertTrue('支援: 回復だけでSPを使い切れる', budget(HEAL) >= sp,
           `回復 ${budget(HEAL)} SP / 手持ち ${sp} SP`);
         assertTrue('支援: バフだけでSPを使い切れる', budget(BUFF) >= sp,
@@ -1473,6 +1477,56 @@
         assertTrue('支援: 長く響く声で持続が延びる',
           cast({ buffExtend: 2 }).turns === plain.turns + 2,
           `${plain.turns} → ${cast({ buffExtend: 2 }).turns}`);
+
+        // 絶えぬ号令: ラウンドの頭に味方全体へ配る。
+        // 隠れた常時効果にしなかったのは、見えないと積んだ意味が分からないから。
+        {
+          const mk2 = (/** @type {string} */ id) => RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          const party = [mk2('ch_hero'), mk2('ch_rizel'), mk2('ch_noa')];
+          party[0].passives.roundBuff = 0.2;
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 5, bossFinale: true, party });
+          const before = b.party.map((/** @type {any} */ u) => (u.buffUnique || []).length);
+          let g = 0;
+          const startRound = b.totalRounds;
+          while (!b.finished && b.totalRounds === startRound && g++ < 30) {
+            if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+            const a = RPG.autoplay.chooseAction(b); if (!a) break;
+            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          }
+          const got = b.party.map((/** @type {any} */ u) =>
+            (u.buffUnique || []).filter((/** @type {any} */ x) => x.label === '号令').length);
+          assertTrue('支援: 絶えぬ号令は味方全体へ配られる',
+            got.every((/** @type {number} */ v) => v > 0), got.join(' / ') + ` (前 ${before.join('/')})`);
+        }
+
+        // 危急の手: ラウンドの終わりに、落ちかけた味方を引き戻す。
+        // 回復役の手番は1つしかないので、削られる相手が2人以上いると取りこぼす。
+        {
+          const mk2 = (/** @type {string} */ id) => RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          /** @param {number} rate */
+          const run = (rate) => {
+            RPG.rng.seed(808);
+            // 回復技を持たない2人。自力で半分を超えないようにする
+            const party = [mk2('ch_rizel'), mk2('ch_shiki')];
+            party[0].passives.lowHpHeal = rate;
+            const b = RPG.battle.start({ fieldId: 'fl_abyss', waves: 1, bossFinale: true, party });
+            for (const u of b.party) u.hp = Math.max(1, Math.floor(u.maxHp * 0.25));
+            const start = b.totalRounds;
+            let g = 0;
+            while (!b.finished && b.totalRounds === start && g++ < 30) {
+              const a = RPG.autoplay.chooseAction(b); if (!a) break;
+              RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            }
+            RPG.rng.seed(null);
+            return b.log.filter((/** @type {any} */ l) => /危急/.test(l.text)).length;
+          };
+          assertTrue('支援: 危急の手は瀕死の味方を引き戻す', run(0.08) > 0, '');
+          assertTrue('支援: 危急の手が無ければ何も起きない', run(0) === 0, '');
+        }
 
         // 重ねる声は「かけた回数」で伸びるので、1回目の詠唱では素と同じ。
         // 全体バフは対象ごとに呼ばれるので、詠唱単位で数えないと
@@ -6602,6 +6656,8 @@
           triage: (r) => r.unit.passives.triage,
           healSpread: (r) => r.unit.passives.healSpread,
           healBuff: (r) => r.unit.passives.healBuff,
+          lowHpHeal: (r) => r.unit.passives.lowHpHeal,
+          roundBuff: (r) => r.unit.passives.roundBuff,
           capBreak: (r) => r.attacker.capBreak,
         };
 

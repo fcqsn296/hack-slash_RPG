@@ -66,7 +66,7 @@ RPG.data.nodeCategories = [
       // 反撃・棘・庇うと組ませて初めて意味が出るので、生存の側に並べる。
       'taunt', 'stealth',
       // 支援の枝 (§5.10)。専任のヒーラーがSPを使い切れるようにするための追加。
-      'cleanse', 'triage', 'heal_spread', 'heal_buff',
+      'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal',
       // 回避は軽減と並べる。同じ「受けない」ための枝だが、
       // 割合で減らすのではなく丸ごと通さないので効き方が裏返る。
       'evade',
@@ -114,7 +114,7 @@ RPG.data.nodeCategories = [
       'hp_to_atk', 'def_to_atk', 'atk_to_def', 'hp_to_def', 'stable_damage', 'cap_break',
       'slot', 'opening_buff', 'buff_duration', 'buff_on_kill',
       // かける側のバフ強化 (§5.9 / §5.10)。受け手の buff_duration と並べる。
-      'buff_power', 'buff_extend', 'support_stack', 'buff_shield', 'buff_heal',
+      'buff_power', 'buff_extend', 'support_stack', 'buff_shield', 'buff_heal', 'round_buff',
     ],
   },
   {
