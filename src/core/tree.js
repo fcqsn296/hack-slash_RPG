@@ -246,8 +246,9 @@
    */
   const KNOWN_EFFECT_KINDS = [
     'all_spread', 'ambush', 'atk_to_def', 'auto_low_skill', 'back_guard', 'boss_guard',
-    'boss_slayer', 'buff_duration', 'buff_on_kill', 'buff_power', 'cap_break', 'chain', 'chain_power',
-    'chaos', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
+    'boss_slayer', 'buff_duration', 'buff_extend', 'buff_heal', 'buff_on_kill', 'buff_power',
+    'buff_shield', 'cap_break', 'chain', 'chain_power',
+    'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
     'counter', 'counter_all',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
     'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
@@ -256,7 +257,8 @@
     'element_pierce', 'element_power', 'element_resist', 'evade', 'execute', 'extra_action',
     'first_hit_crit', 'first_round_power', 'foe_count_power', 'focus_power',
     'front_power',
-    'full_hp_foe_power', 'grant_skill', 'guard_ally', 'guard_break', 'heal_on_kill',
+    'full_hp_foe_power', 'grant_skill', 'guard_ally', 'guard_break', 'heal_buff', 'heal_on_kill',
+    'heal_spread',
     'heal_power', 'high_hp_power', 'high_power_boost', 'hit_stack', 'hp_to_atk',
     'hp_to_def', 'kill_extra_action', 'last_stand', 'lifesteal', 'lone_foe_power',
     'low_hp_guard', 'low_hp_power', 'low_power_boost', 'low_power_repeat',
@@ -265,11 +267,11 @@
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
-    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage', 'stealth',
+    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
-    'taunt', 'thorns', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
+    'taunt', 'thorns', 'triage', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
     'wave_stack', 'weak_guard', 'weak_hunter'
   ];
 
@@ -402,6 +404,20 @@
       stealth: 0,          // 狙われにくさ
       // §5.9 自分がかけるバフの効果量。受け手側の buffDuration とは別枠。
       buffPower: 0,
+      // §5.10 支援役がSPを使い切れるようにするための枝。
+      //
+      // 専任のヒーラーは回復だけ、バッファーはバフだけを伸ばし続けるのが
+      // 普通の遊び方なのに、回復で使えるSPは88、バフに至っては67しか無く、
+      // Lv150の154SPに対して**半分以上が行き場を失っていた**。
+      // 中途半端に攻撃へ振らせないために、役の中で使い切れる量まで足す。
+      buffExtend: 0,       // かけるバフの持続（受け手の buffDuration とは別）
+      supportStack: 0,     // 支援した回数ぶん、自分のバフが強くなる
+      buffShield: 0,       // バフをかけた相手に障壁
+      buffHeal: 0,         // バフをかけた相手を回復
+      cleanse: 0,          // 回復したとき、弱体を1つ解く確率
+      triage: 0,           // 相手のHPが減っているほど回復量が伸びる
+      healSpread: 0,       // 単体回復が他の味方にも及ぶ割合
+      healBuff: 0,         // 回復した相手に固有バフ
     };
     /** ダメージ計算に渡す状況依存の補正 */
     const situational = {
@@ -600,6 +616,14 @@
           // --- バフ・障壁 (§5.8) ---
           case 'buff_duration': passives.buffDuration += amount; break;
           case 'buff_power': passives.buffPower += amount; break;
+          case 'buff_extend': passives.buffExtend += amount; break;
+          case 'support_stack': passives.supportStack += amount; break;
+          case 'buff_shield': passives.buffShield += amount; break;
+          case 'buff_heal': passives.buffHeal += amount; break;
+          case 'cleanse': passives.cleanse += amount; break;
+          case 'triage': passives.triage += amount; break;
+          case 'heal_spread': passives.healSpread += amount; break;
+          case 'heal_buff': passives.healBuff += amount; break;
           case 'taunt': passives.taunt += amount; break;
           case 'stealth': passives.stealth += amount; break;
           case 'buff_on_kill': passives.buffOnKill += amount; break;

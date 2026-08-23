@@ -941,9 +941,45 @@
    * 「かける側」の伸びしろ。受け手の buffDuration とは別の軸。
    * @param {any} caster @param {number} value
    */
-  function buffAmount(caster, value) {
-    const power = (caster && caster.passives && caster.passives.buffPower) || 0;
+  function buffAmount(caster, value, stackCount) {
+    const p = (caster && caster.passives) || {};
+    // 「重ねる声」— 支援した回数ぶん、自分のバフが強くなる (§5.10)。
+    // 戦闘のあいだだけ積み上がるので、長引くほど後半のバフが効く。
+    //
+    // 数える単位は **1回の詠唱**。対象ごとに数えると、全体バフを撒いたときに
+    // 同じ技なのに後の味方ほど強い値が乗る（実際そうなっていた）。
+    // 呼び出し側が詠唱前の値を渡す。
+    const stack = (p.supportStack || 0) * (stackCount || 0);
+    const power = (p.buffPower || 0) + stack;
     return power > 0 ? value * (1 + power) : value;
+  }
+
+  /**
+   * バフをかけたあとの後始末 (§5.10)。
+   *
+   * バフ役が回復役を兼ねずに前へ出られるよう、
+   * **かけること自体に付随する効果**をここへ集める。
+   * 障壁も回復も「かけた相手」に入るので、撒くほど陣形が固くなる。
+   *
+   * @param {any} battle @param {any} caster @param {any} target
+   */
+  function afterBuff(battle, caster, target) {
+    const p = (caster && caster.passives) || {};
+    const shield = p.buffShield || 0;
+    if (shield > 0 && target.alive) {
+      const gain = Math.max(1, Math.floor(target.maxHp * shield));
+      target.shield = (target.shield || 0) + gain;
+      pushLog(battle, `${target.name} に ${gain.toLocaleString()} の障壁`, 'buff');
+    }
+
+    const heal = p.buffHeal || 0;
+    if (heal > 0 && target.alive) {
+      const before = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + Math.floor(target.maxHp * heal));
+      if (target.hp > before) {
+        pushLog(battle, `${target.name} は ${(target.hp - before).toLocaleString()} HP回復した`, 'buff');
+      }
+    }
   }
 
   function pushLog(battle, text, kind) {
@@ -1761,7 +1797,19 @@
    * @param {any[]} targets
    */
   function makeContext(battle, actor, skill, targets) {
-    return {
+    // 「重ねる声」の数え方 (§5.10)。
+    // makeContext は1回の詠唱につき1つ作られるので、ここに置けば自然と詠唱単位になる。
+    // 詠唱前の値を控えておき、この詠唱のあいだは全員に同じ値を配る。
+    const stackAtCast = actor.supportCount || 0;
+    let counted = false;
+    const countSupport = () => {
+      if (counted) return;
+      counted = true;
+      actor.supportCount = stackAtCast + 1;
+    };
+
+    // 自分自身を呼べるように名前を付けてある（回復の波及が api.heal を使う）
+    const api = {
       battle, actor, skill, targets,
       params: skill.params || {},
 
@@ -1783,14 +1831,20 @@
         applyDamage(battle, actor, target, otherSkill, opts),
 
       /** @param {any} target @param {number} amount */
-      heal: (target, amount) => {
+      heal: (target, amount, opts) => {
         if (!target.alive) return 0;
         const before = target.hp;
         // 「癒しの手」— 自分が行う回復すべてを底上げする (§5.7)。
         const power = (actor.passives && actor.passives.healPower) || 0;
+        // 「分別」— 相手が瀕死なほど効く (§5.10)。追い打ちのちょうど回復版。
+        // 満タンの相手を撫でるより、落ちかけを引き戻すほうが価値が高い、
+        // という当たり前を数字にする枝。
+        const triage = (actor.passives && actor.passives.triage) || 0;
+        const need = target.maxHp > 0 ? 1 - (target.hp / target.maxHp) : 0;
+        const urgency = triage > 0 ? 1 + triage * need : 1;
         // 「呪詛」— 受け手にかかっていると、そもそも癒えない (§5.8)。
         const cursed = Math.min(1, statusRatio(target, 'curse'));
-        const want = Math.floor(amount * (1 + power) * (1 - cursed));
+        const want = Math.floor(amount * (1 + power) * urgency * (1 - cursed));
         target.hp = Math.min(target.maxHp, target.hp + want);
         const healed = target.hp - before;
 
@@ -1803,6 +1857,45 @@
           if (gain > 0) {
             target.shield = (target.shield || 0) + gain;
             pushLog(battle, `${target.name} に ${gain.toLocaleString()} の障壁`, 'buff');
+          }
+        }
+
+        // 「浄めの手」— 癒すついでに弱体を1つ解く (§5.10)。
+        //
+        // 味方にかかった弱体を **取り除く手段は今まで1つも無かった**。
+        // 受ける側を短くする「弱体耐性」はあっても、付いたものは消せない。
+        // 呪詛は回復そのものを止めるので、解けないと立て直しが利かない。
+        //
+        // 1回に1つだけ。全部消すと、敵が弱体を撒く意味が消える。
+        const cleanse = (actor.passives && actor.passives.cleanse) || 0;
+        if (cleanse > 0 && healed > 0 && RPG.rng.chance(Math.min(1, cleanse))) {
+          const bad = (target.statusEffects || []).filter((/** @type {any} */ e) => isDebuff(e));
+          if (bad.length > 0) {
+            const gone = bad[0];
+            target.statusEffects = target.statusEffects.filter((/** @type {any} */ e) => e !== gone);
+            pushLog(battle, `${target.name} の${(RPG.data.statuses[gone.kind] || {}).label || '弱体'}が解けた`, 'buff');
+          }
+        }
+
+        // 「癒しの祝福」— 癒した相手が強くなる (§5.10)。
+        // 回復役が殴らずに火力へ寄与する道。撃つ手番を使わずに乗る。
+        const healBuff = (actor.passives && actor.passives.healBuff) || 0;
+        if (healBuff > 0 && healed > 0 && target.alive) {
+          target.buffUnique.push({
+            value: healBuff, turns: buffTurns(target, 2), label: '祝福',
+          });
+          pushEvent(battle, { type: 'buff', key: target.key, label: '祝福' });
+        }
+
+        // 「癒しの波紋」— 単体回復が他の味方にも及ぶ (§5.10)。
+        // 攻撃側の「連鎖」とちょうど同じ形。撒き直す手番が要らなくなる。
+        //
+        // opts.splash で自分自身の呼び出しを止める。付けないと無限に広がる。
+        const spread = (actor.passives && actor.passives.healSpread) || 0;
+        if (spread > 0 && healed > 0 && !(opts && opts.splash)) {
+          for (const ally of livingParty(battle)) {
+            if (ally === target) continue;
+            api.heal(ally, amount * spread, { splash: true });
           }
         }
 
@@ -1831,10 +1924,14 @@
         // 「持続の心得」で受け手側の持続が延びる (§5.8)
         // 効果量のほうは **かけた側** を見る (§5.9)。
         // 弱体には「与える量」の軸があるのに、バフ側は受け手の持続しか無かった。
-        value = buffAmount(actor, value);
-        target.buffUnique.push({ value, turns: buffTurns(target, turns), label });
+        value = buffAmount(actor, value, stackAtCast);
+        // 持続も「かける側」で伸ばせる (§5.10)。受け手の buffDuration とは別枠。
+        const extend = (actor.passives && actor.passives.buffExtend) || 0;
+        target.buffUnique.push({ value, turns: buffTurns(target, turns) + extend, label });
         pushLog(battle, `${target.name} に ${label}（固有 +${Math.round(value * 100)}%）`, 'buff');
         pushEvent(battle, { type: 'buff', key: target.key, label });
+        afterBuff(battle, actor, target);
+        countSupport();
       },
 
       /**
@@ -1842,14 +1939,19 @@
        * @param {any} target @param {string} tag @param {number} value @param {number} turns @param {string} label
        */
       addTagBuff: (target, tag, value, turns, label) => {
-        value = buffAmount(actor, value);
-        target.buffTags.push({ tag, value, turns: buffTurns(target, turns), label, matchType: null });
+        value = buffAmount(actor, value, stackAtCast);
+        const extendTag = (actor.passives && actor.passives.buffExtend) || 0;
+        target.buffTags.push({
+          tag, value, turns: buffTurns(target, turns) + extendTag, label, matchType: null,
+        });
         pushLog(
           battle,
           `${target.name} に ${label}（[${RPG.damage.TAG_LABEL[tag]}] +${Math.round(value * 100)}%）`,
           'buff'
         );
         pushEvent(battle, { type: 'buff', key: target.key, label });
+        afterBuff(battle, actor, target);
+        countSupport();
       },
 
       /**
@@ -2027,6 +2129,7 @@
       /** 行動者から見た敵 */
       foes: () => (actor.side === 'party' ? livingEnemies(battle) : livingParty(battle)),
     };
+    return api;
   }
 
   /**

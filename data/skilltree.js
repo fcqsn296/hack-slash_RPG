@@ -583,6 +583,39 @@ RPG.data.skillTree = [
     desc: '狙われやすさ +80%／反撃率 +15%。集めた攻撃を撃ち返す構えの終点',
   },
   {
+    id: 'tr_triage_hi', tier: 'high', name: '瀬戸際', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'triage', value: 0.35 },
+              { kind: 'crit_heal', value: 0.08 }],
+    desc: '瀕死の相手への回復量 +35%／回復の会心率 +8%',
+  },
+  {
+    id: 'tr_cleanse_hi', tier: 'high', name: '清明', cost: 5, maxLevel: 2,
+    effects: [{ kind: 'cleanse', value: 0.4 },
+              { kind: 'debuff_resist', value: 1 }],
+    desc: '回復したとき 40% で弱体を1つ解く／受ける弱体の持続 -1ターン',
+  },
+  {
+    id: 'tr_heal_buff_hi', tier: 'high', name: '祝祭', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'heal_buff', value: 0.18 }],
+    desc: '回復した相手に固有バフ +18%（2ターン）',
+  },
+  {
+    id: 'tr_support_stack_hi', tier: 'high', name: '万雷の連なり', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'support_stack', value: 0.06 }],
+    desc: 'バフをかけるたび、自分がかけるバフの効果量 +6%（その戦闘のあいだ）',
+  },
+  {
+    id: 'tr_buff_kill_hi', tier: 'high', name: '連戦の勢い', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'buff_on_kill', value: 0.12 }],
+    desc: '敵を倒すたびに固有バフ +12%',
+  },
+  {
+    id: 'tr_buff_extend_hi', tier: 'high', name: '不朽の号令', cost: 6, maxLevel: 2,
+    effects: [{ kind: 'buff_extend', value: 1 },
+              { kind: 'buff_power', value: 0.1 }],
+    desc: '自分がかけるバフの持続 +1ターン／効果量 +10%',
+  },
+  {
     id: 'tr_buff_power_hi', tier: 'high', name: '万雷の号令', cost: 5, maxLevel: 3,
     effects: [{ kind: 'buff_power', value: 0.2 }],
     desc: '自分がかけるバフの効果量 +20%',
@@ -816,6 +849,34 @@ RPG.data.skillTree = [
 
   /* ===== 回復と防護 (§5.7) ===== */
   {
+    id: 'tr_triage', tier: 'basic', name: '分別', cost: 2, maxLevel: 5,
+    effects: [{ kind: 'triage', value: 0.2 }],
+    // 追い打ちのちょうど回復版 (§5.10)。
+    desc: '相手が瀕死なほど回復量が伸びる（最大 +20%／レベル）',
+  },
+  {
+    id: 'tr_cleanse', tier: 'basic', name: '浄めの手', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'cleanse', value: 0.2 }],
+    // 味方の弱体を取り除く手段は今まで1つも無かった。
+    // 呪詛は回復そのものを止めるので、解けないと立て直しが利かない。
+    desc: '回復したとき 20% で相手の弱体を1つ解く。呪詛を自力で外せるようになる',
+  },
+  {
+    id: 'tr_heal_spread', tier: 'basic', name: '癒しの波紋', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'heal_spread', value: 0.15 }],
+    desc: '単体回復が他の味方にも 15% の量で及ぶ（攻撃側の「連鎖」の回復版）',
+  },
+  {
+    id: 'tr_buff_extend', tier: 'basic', name: '長く響く声', cost: 2, maxLevel: 3,
+    effects: [{ kind: 'buff_extend', value: 1 }],
+    desc: '自分がかけるバフの持続 +1ターン（受け手側の「持続の心得」とは別枠）',
+  },
+  {
+    id: 'tr_buff_shield', tier: 'basic', name: '護りの言葉', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'buff_shield', value: 0.05 }],
+    desc: 'バフをかけた相手に、その相手の最大HPの 5% の障壁',
+  },
+  {
     id: 'tr_heal_power', tier: 'basic', name: '癒しの手', cost: 1, maxLevel: 5,
     effects: [{ kind: 'heal_power', value: 0.1 }],
     desc: '自分が行う回復量 +10%',
@@ -986,6 +1047,33 @@ RPG.data.skillTree = [
     id: 'tr_combo_power_mid', tier: 'mid', name: '連撃の極致', cost: 3, maxLevel: 4,
     effects: [{ kind: 'combo_power', value: 0.025 }],
     desc: 'コンボ1段あたりの倍率 +2.5%',
+  },
+  {
+    id: 'tr_cleanse_mid', tier: 'mid', name: '祓いの祈り', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'cleanse', value: 0.25 }],
+    desc: '回復したとき 25% で相手の弱体を1つ解く',
+  },
+  {
+    id: 'tr_heal_buff', tier: 'mid', name: '癒しの祝福', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'heal_buff', value: 0.12 }],
+    // 回復役が殴らずに火力へ寄与する道。撃つ手番を使わずに乗る。
+    desc: '回復した相手に固有バフ +12%（2ターン）',
+  },
+  {
+    id: 'tr_heal_spread_mid', tier: 'mid', name: '広がる波紋', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'heal_spread', value: 0.2 }],
+    desc: '単体回復が他の味方にも 20% の量で及ぶ',
+  },
+  {
+    id: 'tr_support_stack', tier: 'mid', name: '重ねる声', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'support_stack', value: 0.04 }],
+    // 戦闘のあいだだけ積み上がるので、長引くほど後半のバフが効く。
+    desc: 'バフをかけるたび、自分がかけるバフの効果量 +4%（その戦闘のあいだ）',
+  },
+  {
+    id: 'tr_buff_heal', tier: 'mid', name: '励ましの熱', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'buff_heal', value: 0.04 }],
+    desc: 'バフをかけた相手を、その相手の最大HPの 4% 回復する',
   },
   {
     id: 'tr_heal_power_mid', tier: 'mid', name: '大癒', cost: 2, maxLevel: 4,
@@ -1450,6 +1538,11 @@ RPG.data.skillTree = [
     id: 'tr_atk_to_def_mid', tier: 'mid', name: '剛体', cost: 3, maxLevel: 4,
     effects: [{ kind: 'atk_to_def', value: 0.25 }],
     desc: 'ATKの25%をDEFに上乗せ',
+  },
+  {
+    id: 'tr_opening_mid', tier: 'mid', name: '先陣の気勢', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'opening_buff', value: 0.1 }],
+    desc: '戦闘開始時から固有バフ +10% を持って始まる',
   },
   {
     id: 'tr_buff_power_mid', tier: 'mid', name: '鼓舞の才', cost: 3, maxLevel: 4,

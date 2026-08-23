@@ -1050,7 +1050,10 @@
         // 狙い (§5.9)。敵の的付けを傾けて、「殴られてから」の効果を起動する
         'taunt', 'stealth',
         // かける側のバフ強化 (§5.9)。弱体側にしかなかった「与える量」の対
-        'buff_power'];
+        'buff_power',
+        // 支援役がSPを使い切れるようにするための枝 (§5.10)
+        'buff_extend', 'support_stack', 'buff_shield', 'buff_heal',
+        'cleanse', 'triage', 'heal_spread', 'heal_buff'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -1347,6 +1350,156 @@
         assertTrue('バフ強化: 受け手の持続とは別の軸',
           RPG.data.effectKinds.buff_power.key === 'buffPower'
           && RPG.data.effectKinds.buff_duration.key === 'buffDuration', '');
+      }
+
+      /* ===== 支援役がSPを使い切れること (§5.10) ===== */
+      //
+      // 専任のヒーラーは回復だけ、バッファーはバフだけを伸ばし続けるのが
+      // 普通の遊び方。ところが実測すると、回復で使えるSPは88、
+      // バフに至っては67しか無く、Lv150の154SPに対して**半分以上が
+      // 行き場を失っていた**。中途半端に攻撃へ振る以外に道が無い状態。
+      {
+        const HEAL = ['heal_power', 'crit_heal', 'heal_on_kill', 'regen', 'wave_heal',
+          'overheal_shield', 'revive', 'wave_revive', 'last_stand',
+          'cleanse', 'triage', 'heal_spread', 'heal_buff'];
+        const BUFF = ['buff_power', 'buff_duration', 'buff_on_kill', 'opening_buff',
+          'buff_extend', 'support_stack', 'buff_shield', 'buff_heal'];
+
+        /** @param {string[]} kinds */
+        const budget = (kinds) => RPG.data.skillTree.reduce((/** @type {number} */ sum, /** @type {any} */ n) =>
+          sum + ((n.effects || []).some((/** @type {any} */ e) => kinds.indexOf(e.kind) >= 0)
+            ? n.cost * n.maxLevel : 0), 0);
+
+        // 上限まで育てた1人が持つSP。ここを超えていれば、
+        // 役の中だけで振り切れる（余ったら攻撃へ、という妥協が要らない）。
+        const sp = (RPG.data.maxLevel - 1) + RPG.data.gacha.maxLimitBreak;
+        assertTrue('支援: 回復だけでSPを使い切れる', budget(HEAL) >= sp,
+          `回復 ${budget(HEAL)} SP / 手持ち ${sp} SP`);
+        assertTrue('支援: バフだけでSPを使い切れる', budget(BUFF) >= sp,
+          `バフ ${budget(BUFF)} SP / 手持ち ${sp} SP`);
+
+        // どちらの役も、初級だけで終わらないこと。
+        // 上級が無いと、ティアを開ける意味が無いまま頭打ちになる。
+        /** @param {string[]} kinds @param {string} tier */
+        const hasTier = (kinds, tier) => RPG.data.skillTree.some((/** @type {any} */ n) =>
+          n.tier === tier && (n.effects || []).some((/** @type {any} */ e) => kinds.indexOf(e.kind) >= 0));
+        for (const [label, kinds] of [['回復', HEAL], ['バフ', BUFF]]) {
+          assertTrue(`支援: ${label}の枝が上級まで伸びている`,
+            hasTier(kinds, 'basic') && hasTier(kinds, 'mid') && hasTier(kinds, 'high'), '');
+        }
+      }
+
+      /* ===== 支援の枝が実際に効くこと (§5.10) ===== */
+      {
+        RPG.rng.seed(5150);
+        const healId = Object.keys(RPG.data.skills).filter((id) =>
+          RPG.data.skills[id].plugin === 'heal' && !(RPG.data.skills[id].params || {}).party)[0];
+
+        /** @param {any} passives @param {number} hpRatio */
+        const cast = (passives, hpRatio) => {
+          const mk = (/** @type {string} */ id) => RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          const party = [mk('ch_hero'), mk('ch_rizel'), mk('ch_noa')];
+          Object.assign(party[0].passives, passives);
+          party[0].skills = [healId].concat(party[0].skills);
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, bossFinale: false, party });
+          for (const u of b.party) u.hp = Math.max(1, Math.floor(u.maxHp * hpRatio));
+          RPG.battle.inflict(b, b.enemies[0], b.party[1], 'poison', 3, 0.05);
+          const before = b.party.map((/** @type {any} */ u) => u.hp);
+          RPG.battle.executeSkill(b, b.party[0], healId, [b.party[1]]);
+          return {
+            healed: b.party.map((/** @type {any} */ u, /** @type {number} */ i) => u.hp - before[i]),
+            poison: (b.party[1].statusEffects || []).filter((/** @type {any} */ e) => e.kind === 'poison').length,
+            buffs: (b.party[1].buffUnique || []).length,
+          };
+        };
+
+        // 分別: 追い打ちのちょうど回復版。満タン付近では効かない。
+        const low = cast({ triage: 1 }, 0.2).healed[1];
+        const plainLow = cast({}, 0.2).healed[1];
+        assertTrue('支援: 分別は瀕死の相手ほど効く', low > plainLow,
+          `${plainLow} → ${low}`);
+        const highHp = cast({ triage: 1 }, 0.99).healed[1];
+        const plainHigh = cast({}, 0.99).healed[1];
+        assertTrue('支援: 分別は満タン付近ではほとんど効かない',
+          Math.abs(highHp - plainHigh) <= Math.max(2, plainHigh * 0.05),
+          `${plainHigh} → ${highHp}`);
+
+        // 浄め: 味方の弱体を取り除く手段は、これが入るまで1つも無かった。
+        assertTrue('支援: 浄めは弱体を1つ解く', cast({ cleanse: 1 }, 0.4).poison === 0, '');
+        assertTrue('支援: 浄めが無ければ弱体は残る', cast({}, 0.4).poison === 1, '');
+
+        // 波紋: 攻撃側の「連鎖」と同じ形。
+        const spread = cast({ healSpread: 0.5 }, 0.4).healed;
+        assertTrue('支援: 波紋は他の味方にも届く', spread[0] > 0 && spread[2] > 0, spread.join(' / '));
+        assertTrue('支援: 波紋は狙った相手のほうが厚い', spread[1] > spread[2], spread.join(' / '));
+        const noSpread = cast({}, 0.4).healed;
+        assertTrue('支援: 波紋が無ければ狙った相手だけ',
+          noSpread[0] === 0 && noSpread[2] === 0, noSpread.join(' / '));
+
+        // 祝福: 回復役が殴らずに火力へ寄与する道。
+        assertTrue('支援: 祝福は回復した相手にバフを残す',
+          cast({ healBuff: 0.2 }, 0.4).buffs > cast({}, 0.4).buffs, '');
+        RPG.rng.seed(null);
+      }
+
+      /* ===== バフに付随する効果 (§5.10) ===== */
+      {
+        const skillId = Object.keys(RPG.data.skills)
+          .filter((id) => RPG.data.skills[id].plugin === 'tag_buff')[0];
+        /** @param {any} passives */
+        const cast = (passives) => {
+          const mk = (/** @type {string} */ id) => RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          const party = [mk('ch_hero'), mk('ch_rizel')];
+          Object.assign(party[0].passives, passives);
+          party[0].skills = [skillId].concat(party[0].skills);
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, bossFinale: false, party });
+          for (const u of b.party) u.hp = Math.floor(u.maxHp * 0.5);
+          const before = b.party[1].hp;
+          RPG.battle.executeSkill(b, b.party[0], skillId, [b.party[1]]);
+          return {
+            shield: b.party[1].shield || 0,
+            healed: b.party[1].hp - before,
+            turns: (b.party[1].buffTags || [])[0] ? b.party[1].buffTags[0].turns : 0,
+            value: (b.party[1].buffTags || [])[0] ? b.party[1].buffTags[0].value : 0,
+          };
+        };
+        const plain = cast({});
+        assertTrue('支援: 護りの言葉で障壁が付く', cast({ buffShield: 0.1 }).shield > plain.shield, '');
+        assertTrue('支援: 励ましの熱で回復する', cast({ buffHeal: 0.1 }).healed > plain.healed, '');
+        assertTrue('支援: 長く響く声で持続が延びる',
+          cast({ buffExtend: 2 }).turns === plain.turns + 2,
+          `${plain.turns} → ${cast({ buffExtend: 2 }).turns}`);
+
+        // 重ねる声は「かけた回数」で伸びるので、1回目の詠唱では素と同じ。
+        // 全体バフは対象ごとに呼ばれるので、詠唱単位で数えないと
+        // **同じ技なのに後の味方ほど強い値**が乗る（実際そうなっていた）。
+        assertNear('支援: 重ねる声は1回目の詠唱には乗らない',
+          cast({ supportStack: 0.5 }).value, plain.value, 1e-9);
+
+        // 2回目からは乗る。全員に同じ値が配られること。
+        {
+          const mk = (/** @type {string} */ id) => RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          const party = [mk('ch_hero'), mk('ch_rizel'), mk('ch_noa')];
+          party[0].passives.supportStack = 0.5;
+          party[0].skills = [skillId].concat(party[0].skills);
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, bossFinale: false, party });
+          RPG.battle.executeSkill(b, b.party[0], skillId, [b.party[1]]);
+          const first = b.party.map((/** @type {any} */ u) => (u.buffTags || []).slice(-1)[0].value);
+          assertTrue('支援: 1回の詠唱では全員に同じ値が配られる',
+            first.every((/** @type {number} */ v) => Math.abs(v - first[0]) < 1e-9),
+            first.join(' / '));
+
+          RPG.battle.executeSkill(b, b.party[0], skillId, [b.party[1]]);
+          const second = b.party.map((/** @type {any} */ u) => (u.buffTags || []).slice(-1)[0].value);
+          assertTrue('支援: 2回目の詠唱からは効果量が伸びる',
+            second[0] > first[0], `${first[0]} → ${second[0]}`);
+        }
       }
 
       // 格上補正 (§3.2 ステップ7.5)。推奨レベルを実際の関門にするための補正。
@@ -6440,6 +6593,15 @@
           buffPower: (r) => r.unit.passives.buffPower,
           taunt: (r) => r.unit.passives.taunt,
           stealth: (r) => r.unit.passives.stealth,
+          // §5.10 支援の枝。どれも passives に入るので機械的に確かめられる。
+          buffExtend: (r) => r.unit.passives.buffExtend,
+          supportStack: (r) => r.unit.passives.supportStack,
+          buffShield: (r) => r.unit.passives.buffShield,
+          buffHeal: (r) => r.unit.passives.buffHeal,
+          cleanse: (r) => r.unit.passives.cleanse,
+          triage: (r) => r.unit.passives.triage,
+          healSpread: (r) => r.unit.passives.healSpread,
+          healBuff: (r) => r.unit.passives.healBuff,
           capBreak: (r) => r.attacker.capBreak,
         };
 
