@@ -599,8 +599,8 @@ RPG.data.skillTree = [
   },
   {
     id: 'tr_round_buff_hi', tier: 'high', name: '不断の号令', cost: 6, maxLevel: 3,
-    effects: [{ kind: 'round_buff', value: 0.09 }],
-    desc: 'ラウンド開始時、味方全体に固有バフ +9%（1ターン）',
+    effects: [{ kind: 'round_buff', value: 0.05 }],
+    desc: 'ラウンド開始時、味方全体に固有バフ +5%（1ターン）',
   },
   {
     id: 'tr_buff_shield_hi', tier: 'high', name: '不壊の言葉', cost: 5, maxLevel: 3,
@@ -1091,8 +1091,11 @@ RPG.data.skillTree = [
   },
   {
     id: 'tr_round_buff', tier: 'mid', name: '絶えぬ号令', cost: 4, maxLevel: 4,
-    effects: [{ kind: 'round_buff', value: 0.06 }],
-    desc: 'ラウンド開始時、味方全体に固有バフ +6%（1ターン）。かける側の強化も乗る',
+    effects: [{ kind: 'round_buff', value: 0.04 }],
+    // 値を抑えてあるのは「かける側の効果量」が最大+188%まで乗るため (§5.10)。
+    // 素で 0.51 まで積めた版は、掛け合わせて **恒常+147%** になり、
+    // 行動を使わずに全体の火力が2.5倍近くなった（実測でラウンド数が半分）。
+    desc: 'ラウンド開始時、味方全体に固有バフ +4%（1ターン）。かける側の強化も乗る',
   },
   {
     id: 'tr_wave_heal_mid', tier: 'mid', name: '息長', cost: 3, maxLevel: 4,
