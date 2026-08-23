@@ -596,6 +596,15 @@
       mult *= 1 + p.mendPower * Math.min(MEND_CAP, attacker.mendRatio || 0);
     }
 
+    // 「祈りの刃」— 回復量への投資が、そのまま火力にも乗る (§5.11)。
+    //
+    // 神官戦士の土台。癒しの手・大癒に振ったぶんが攻撃にも返るので、
+    // 「回復に振ると殴れなくなる」という二択が消える。
+    // 元が回復量なので、伸ばしすぎないよう割合で受ける。
+    if (p.healToPower && p.healPower) {
+      mult *= 1 + p.healToPower * p.healPower;
+    }
+
     // 痛みの記憶: 被弾した回数だけ積み上がる。殴られ役の火力源。
     if (p.hitStack) {
       mult *= 1 + p.hitStack * (attacker.hitsTaken || 0);
@@ -917,10 +926,8 @@
       for (const u of battle.party) {
         const waveHeal = (u.passives && u.passives.waveHeal) || 0;
         if (!u.alive || waveHeal <= 0 || u.hp >= u.maxHp) continue;
-        const heal = Math.max(1, Math.floor(u.maxHp * waveHeal));
-        const before = u.hp;
-        u.hp = Math.min(u.maxHp, u.hp + heal);
-        pushLog(battle, `${u.name} は ${(u.hp - before).toLocaleString()} HP回復した（ウェーブ間）`, 'heal');
+        const got = gainHp(u, u.maxHp * waveHeal);
+        pushLog(battle, `${u.name} は ${got.toLocaleString()} HP回復した（ウェーブ間）`, 'heal');
       }
     }
 
@@ -940,6 +947,32 @@
    * @param {string} text
    * @param {string} [kind]
    */
+  /**
+   * HPを回復し、**受け取った量を記録する** (§5.11)。
+   *
+   * ── なぜ1か所に集めるのか ──
+   * 「恩返し」（受けた回復量だけ火力）は、回復技を受けたぶんしか数えていなかった。
+   * 再生・吸命・撃破時回復・ウェーブ回復・危急の手は、どれもHPを直接足していて
+   * **記録に載らない**。つまり自己再生で耐えながら殴る組み方をしても、
+   * 恩返しは一切伸びなかった。
+   *
+   * 実際に増えたぶんだけ数える。あふれたぶんまで数えると、
+   * 満タンの相手に回復を撃つだけで積める。
+   *
+   * @param {any} unit @param {number} amount
+   * @returns {number} 実際に増えたHP
+   */
+  function gainHp(unit, amount) {
+    if (!unit || !unit.alive || amount <= 0) return 0;
+    const before = unit.hp;
+    unit.hp = Math.min(unit.maxHp, unit.hp + Math.floor(amount));
+    const healed = unit.hp - before;
+    if (healed > 0 && unit.maxHp > 0) {
+      unit.mendRatio = (unit.mendRatio || 0) + healed / unit.maxHp;
+    }
+    return healed;
+  }
+
   /**
    * かけたバフの効果量 (§5.9)。
    * 「かける側」の伸びしろ。受け手の buffDuration とは別の軸。
@@ -978,10 +1011,9 @@
 
     const heal = p.buffHeal || 0;
     if (heal > 0 && target.alive) {
-      const before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + Math.floor(target.maxHp * heal));
-      if (target.hp > before) {
-        pushLog(battle, `${target.name} は ${(target.hp - before).toLocaleString()} HP回復した`, 'buff');
+      const got = gainHp(target, target.maxHp * heal);
+      if (got > 0) {
+        pushLog(battle, `${target.name} は ${got.toLocaleString()} HP回復した`, 'buff');
       }
     }
   }
@@ -1438,11 +1470,9 @@
       // 血の宴: 会心で与えたぶんの割合を吸う
       const critHeal = (attacker.passives && attacker.passives.critHeal) || 0;
       if (critHeal > 0 && attacker.alive) {
-        const heal = Math.max(1, Math.floor(result.damage * critHeal));
-        const before = attacker.hp;
-        attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
-        if (attacker.hp > before) {
-          pushLog(battle, `${attacker.name} は ${(attacker.hp - before).toLocaleString()} HP吸収した`, 'heal');
+        const got = gainHp(attacker, Math.max(1, result.damage * critHeal));
+        if (got > 0) {
+          pushLog(battle, `${attacker.name} は ${got.toLocaleString()} HP吸収した`, 'heal');
         }
       }
       // 会心連鎖: 会心のたびに弱点コンボが余分に積まれる
@@ -1669,11 +1699,9 @@
     if (lifesteal > 0 && result.damage > 0 && attacker.alive && attacker.hp < attacker.maxHp) {
       // 「呪詛」は吸命も止める (§5.8)。回復手段をまとめて塞ぐのがこの異常の役割。
       const curse = Math.min(1, statusRatio(attacker, 'curse'));
-      const healed = Math.max(1, Math.floor(result.damage * lifesteal * (1 - curse)));
-      const before = attacker.hp;
-      attacker.hp = Math.min(attacker.maxHp, attacker.hp + healed);
-      if (!opts.silent && attacker.hp > before) {
-        pushLog(battle, `${attacker.name} は ${(attacker.hp - before).toLocaleString()} HPを吸収した`, 'heal');
+      const got = gainHp(attacker, Math.max(1, result.damage * lifesteal * (1 - curse)));
+      if (!opts.silent && got > 0) {
+        pushLog(battle, `${attacker.name} は ${got.toLocaleString()} HPを吸収した`, 'heal');
       }
     }
 
@@ -1698,10 +1726,8 @@
         // 「戦場の糧」— 倒すたびに立て直せるので、殴り合いを続けやすくなる。
         const healKill = (attacker.passives && attacker.passives.healOnKill) || 0;
         if (healKill > 0 && attacker.alive && attacker.hp < attacker.maxHp) {
-          const gain = Math.max(1, Math.floor(attacker.maxHp * healKill));
-          const before = attacker.hp;
-          attacker.hp = Math.min(attacker.maxHp, attacker.hp + gain);
-          pushLog(battle, `${attacker.name} は ${(attacker.hp - before).toLocaleString()} HP回復した（撃破）`, 'heal');
+          const got = gainHp(attacker, Math.max(1, attacker.maxHp * healKill));
+          pushLog(battle, `${attacker.name} は ${got.toLocaleString()} HP回復した（撃破）`, 'heal');
         }
         // 「戦果の高揚」— 倒すたびに固有バフが乗る (§5.8)。
         // 開幕バフと同じ枠なので、雑魚を掃除しながらボス戦へ持ち込める。
@@ -1849,8 +1875,7 @@
         // 「呪詛」— 受け手にかかっていると、そもそも癒えない (§5.8)。
         const cursed = Math.min(1, statusRatio(target, 'curse'));
         const want = Math.floor(amount * (1 + power) * urgency * (1 - cursed));
-        target.hp = Math.min(target.maxHp, target.hp + want);
-        const healed = target.hp - before;
+        const healed = gainHp(target, want);
 
         // 「癒しの余剰」— あふれたぶんをバリアに変える (§5.6)。
         // 満タンの相手に回復を撃つことが無駄でなくなる。
@@ -1891,6 +1916,23 @@
           pushEvent(battle, { type: 'buff', key: target.key, label: '祝福' });
         }
 
+        // 「灼ける慈悲」— 癒した量の一部が敵へ飛ぶ (§5.11)。
+        //
+        // 回復役の手番は、敵から見れば何も起きていない手番だった。
+        // 癒しをそのまま攻めに変える道を1本置くと、
+        // **回復し続けること自体が攻撃**になる。
+        //
+        // 波及ぶんでは飛ばさない。1回の回復から何度も撃ててしまう。
+        const smite = (actor.passives && actor.passives.smite) || 0;
+        if (smite > 0 && healed > 0 && !(opts && opts.splash)) {
+          const foes = (battle.enemies || []).filter((/** @type {any} */ e) => e.alive);
+          if (foes.length > 0) {
+            const foe = foes[0];
+            directDamage(battle, foe, healed * smite,
+              `${foe.name} が癒しの光に灼かれた — {n} のダメージ`);
+          }
+        }
+
         // 「癒しの波紋」— 単体回復が他の味方にも及ぶ (§5.10)。
         // 攻撃側の「連鎖」とちょうど同じ形。撒き直す手番が要らなくなる。
         //
@@ -1903,17 +1945,8 @@
           }
         }
 
-        // 「恩返し」の材料 (§5.9)。**受け取った量** を最大HP比で貯める。
-        //
-        // 最初は回数で数えていたが、実測すると1戦あたり平均0.7回しか
-        // 積まず、効き始める前に決着していた。量で見れば大回復1発から
-        // すぐ乗るので、短い戦闘でも間に合う。
-        //
-        // 実際に入ったぶんだけ数える。あふれたぶんまで数えると、
-        // 満タンの味方に撃つだけで稼げてしまう。
-        if (healed > 0 && target.maxHp > 0) {
-          target.mendRatio = (target.mendRatio || 0) + healed / target.maxHp;
-        }
+        // 「恩返し」の材料は gainHp が数える (§5.11)。
+        // ここで数えていたころは、回復技しか載らなかった。
 
         pushLog(battle, `${target.name} のHPが ${healed.toLocaleString()} 回復した`, 'heal');
         pushEvent(battle, { type: 'heal', key: target.key, amount: healed });
@@ -2479,10 +2512,9 @@
       if (rate <= 0) continue;
       for (const ally of livingParty(battle)) {
         if (ally.hp / ally.maxHp > 0.5) continue;
-        const before = ally.hp;
-        ally.hp = Math.min(ally.maxHp, ally.hp + Math.floor(ally.maxHp * rate));
-        if (ally.hp > before) {
-          pushLog(battle, `${ally.name} は ${(ally.hp - before).toLocaleString()} HP回復した（危急）`, 'buff');
+        const got = gainHp(ally, ally.maxHp * rate);
+        if (got > 0) {
+          pushLog(battle, `${ally.name} は ${got.toLocaleString()} HP回復した（危急）`, 'buff');
         }
       }
     }
@@ -2514,10 +2546,8 @@
     for (const unit of all) {
       const regen = (unit.passives && unit.passives.regen) || 0;
       if (!unit.alive || regen <= 0 || unit.hp >= unit.maxHp) continue;
-      const heal = Math.max(1, Math.floor(unit.maxHp * regen));
-      const before = unit.hp;
-      unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-      pushLog(battle, `${unit.name} は ${(unit.hp - before).toLocaleString()} HP回復した（再生）`, 'heal');
+      const got = gainHp(unit, Math.max(1, unit.maxHp * regen));
+      pushLog(battle, `${unit.name} は ${got.toLocaleString()} HP回復した（再生）`, 'heal');
     }
 
     // 持続時間の経過

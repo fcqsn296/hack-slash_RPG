@@ -258,7 +258,7 @@
     'first_hit_crit', 'first_round_power', 'foe_count_power', 'focus_power',
     'front_power',
     'full_hp_foe_power', 'grant_skill', 'guard_ally', 'guard_break', 'heal_buff', 'heal_on_kill',
-    'low_hp_heal', 'round_buff',
+    'heal_to_power', 'low_hp_heal', 'round_buff',
     'heal_spread',
     'heal_power', 'high_hp_power', 'high_power_boost', 'hit_stack', 'hp_to_atk',
     'hp_to_def', 'kill_extra_action', 'last_stand', 'lifesteal', 'lone_foe_power',
@@ -268,7 +268,7 @@
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
-    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage', 'stealth', 'support_stack',
+    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -421,6 +421,9 @@
       healBuff: 0,         // 回復した相手に固有バフ
       lowHpHeal: 0,        // ラウンド終了時、瀕死の味方を自動で回復
       roundBuff: 0,        // ラウンド開始時、味方全体へ固有バフ
+      // §5.11 回復を攻めに向ける枝。
+      smite: 0,            // 回復した量の一部が敵へ飛ぶ
+      healToPower: 0,      // 「与える回復量」の伸びが火力にも乗る
     };
     /** ダメージ計算に渡す状況依存の補正 */
     const situational = {
@@ -629,6 +632,8 @@
           case 'heal_buff': passives.healBuff += amount; break;
           case 'low_hp_heal': passives.lowHpHeal += amount; break;
           case 'round_buff': passives.roundBuff += amount; break;
+          case 'smite': passives.smite += amount; break;
+          case 'heal_to_power': passives.healToPower += amount; break;
           case 'taunt': passives.taunt += amount; break;
           case 'stealth': passives.stealth += amount; break;
           case 'buff_on_kill': passives.buffOnKill += amount; break;

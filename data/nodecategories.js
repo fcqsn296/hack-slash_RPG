@@ -67,6 +67,8 @@ RPG.data.nodeCategories = [
       'taunt', 'stealth',
       // 支援の枝 (§5.10)。専任のヒーラーがSPを使い切れるようにするための追加。
       'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal',
+      // 回復を攻めに向ける枝 (§5.11)。生存の枝から派生するので隣に置く。
+      'smite', 'heal_to_power',
       // 回避は軽減と並べる。同じ「受けない」ための枝だが、
       // 割合で減らすのではなく丸ごと通さないので効き方が裏返る。
       'evade',

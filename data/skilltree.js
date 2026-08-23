@@ -583,6 +583,22 @@ RPG.data.skillTree = [
     desc: '狙われやすさ +80%／反撃率 +15%。集めた攻撃を撃ち返す構えの終点',
   },
   {
+    id: 'tr_smite_hi', tier: 'high', name: '審判', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'smite', value: 0.22 }],
+    desc: '回復したとき、その量の 22% が敵1体へダメージになる',
+  },
+  {
+    id: 'tr_heal_to_power_hi', tier: 'high', name: '神官戦士の理', cost: 6, maxLevel: 3,
+    effects: [{ kind: 'heal_to_power', value: 0.05 },
+              { kind: 'lifesteal', value: 0.03 }],
+    desc: '「与える回復量」の伸びの 5% ぶん火力／吸命 +3%',
+  },
+  {
+    id: 'tr_mend_hi', tier: 'high', name: '報恩', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'mend_power', value: 0.2 }],
+    desc: '受けた回復量による火力 +20%。再生でも吸命でも積める',
+  },
+  {
     id: 'tr_heal_power_hi', tier: 'high', name: '大慈', cost: 5, maxLevel: 3,
     effects: [{ kind: 'heal_power', value: 0.18 }],
     desc: '自分が行う回復量 +18%',
@@ -879,6 +895,22 @@ RPG.data.skillTree = [
 
   /* ===== 回復と防護 (§5.7) ===== */
   {
+    id: 'tr_smite', tier: 'basic', name: '灼ける慈悲', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'smite', value: 0.12 }],
+    // 回復役の手番は、敵から見れば何も起きていない手番だった。
+    desc: '回復したとき、その量の 12% が敵1体へダメージになる',
+  },
+  {
+    id: 'tr_heal_to_power', tier: 'basic', name: '祈りの刃', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'heal_to_power', value: 0.04 }],
+    // 「回復に振ると殴れなくなる」という二択を消すための枝。
+    //
+    // 値が小さいのは、これが **回復量への投資と掛け算になる** ため (§5.11)。
+    // 素で 1.68 まで積めた版は healPower 1.76 と掛かって火力+296%になり、
+    // 支援枠を1つ使ってなお勝率100%（攻撃4人は80%）だった。
+    desc: '「与える回復量」の伸びの 4% ぶん、自分の火力も上がる',
+  },
+  {
     id: 'tr_support_stack_b', tier: 'basic', name: '重ねる言葉', cost: 2, maxLevel: 4,
     effects: [{ kind: 'support_stack', value: 0.03 }],
     desc: 'バフをかけるたび、自分がかけるバフの効果量 +3%（その戦闘のあいだ）',
@@ -1082,6 +1114,23 @@ RPG.data.skillTree = [
     id: 'tr_combo_power_mid', tier: 'mid', name: '連撃の極致', cost: 3, maxLevel: 4,
     effects: [{ kind: 'combo_power', value: 0.025 }],
     desc: 'コンボ1段あたりの倍率 +2.5%',
+  },
+  {
+    id: 'tr_smite_mid', tier: 'mid', name: '裁きの光', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'smite', value: 0.16 }],
+    desc: '回復したとき、その量の 16% が敵1体へダメージになる',
+  },
+  {
+    id: 'tr_heal_to_power_mid', tier: 'mid', name: '聖別', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'heal_to_power', value: 0.05 }],
+    desc: '「与える回復量」の伸びの 5% ぶん、自分の火力も上がる',
+  },
+  {
+    id: 'tr_regen_mid', tier: 'mid', name: '不断の生', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'regen', value: 0.02 },
+              { kind: 'mend_power', value: 0.08 }],
+    // 再生も「恩返し」に載るようになったので、耐えるほど殴れる (§5.11)。
+    desc: '毎ラウンド最大HPの 2% 回復／受けた回復量による火力 +8%',
   },
   {
     id: 'tr_low_hp_heal', tier: 'mid', name: '危急の手', cost: 3, maxLevel: 4,

@@ -51,6 +51,8 @@ RPG.data.effectKinds = {
   heal_spread: { to: 'passives', shape: 'add', uniq: 'healSpread', route: 'passives', key: 'healSpread', label: '回復が他の味方へも及ぶ', fmt: 'pct' },
   heal_buff: { to: 'passives', shape: 'add', uniq: 'healBuff', route: 'passives', key: 'healBuff', label: '回復した相手に固有バフ', fmt: 'pct' },
   low_hp_heal: { to: 'passives', shape: 'add', uniq: 'lowHpHeal', route: 'passives', key: 'lowHpHeal', label: 'ラウンド終了時に瀕死の味方を回復', fmt: 'pct' },
+  smite: { to: 'passives', shape: 'add', uniq: 'smite', route: 'passives', key: 'smite', label: '回復した量の一部が敵へ', fmt: 'pct' },
+  heal_to_power: { to: 'passives', shape: 'add', uniq: 'healToPower', route: 'passives', key: 'healToPower', label: '回復量の伸びが火力にも乗る', fmt: 'pct' },
   round_buff: { to: 'passives', shape: 'add', uniq: 'roundBuff', route: 'passives', key: 'roundBuff', label: 'ラウンド開始時に味方全体へ固有バフ', fmt: 'pct' },
   taunt: { to: 'passives', shape: 'add', uniq: 'taunt', route: 'passives', key: 'taunt', label: '狙われやすさ', fmt: 'pct' },
   stealth: { to: 'passives', shape: 'add', uniq: 'stealth', route: 'passives', key: 'stealth', label: '狙われにくさ', fmt: 'pct' },

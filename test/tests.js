@@ -1053,7 +1053,9 @@
         'buff_power',
         // 支援役がSPを使い切れるようにするための枝 (§5.10)
         'buff_extend', 'support_stack', 'buff_shield', 'buff_heal',
-        'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal', 'round_buff'];
+        'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal', 'round_buff',
+        // 回復を攻めに向ける枝 (§5.11)
+        'smite', 'heal_to_power'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -1446,6 +1448,99 @@
         assertTrue('支援: 祝福は回復した相手にバフを残す',
           cast({ healBuff: 0.2 }, 0.4).buffs > cast({}, 0.4).buffs, '');
         RPG.rng.seed(null);
+      }
+
+      /* ===== 回復を攻めに向ける枝 (§5.11) ===== */
+      {
+        const mk = (/** @type {string} */ id, /** @type {any} */ p) => {
+          const u = RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          Object.assign(u.passives, p || {});
+          return u;
+        };
+
+        // --- あらゆる回復が「恩返し」に載ること ---
+        //
+        // 以前は回復技を受けたぶんしか数えていなかった。
+        // 再生・吸命・撃破時回復・ウェーブ回復は直接HPを足していて記録に載らず、
+        // **自己再生で耐えながら殴る組み方では恩返しが一切伸びなかった**。
+        {
+          RPG.rng.seed(4141);
+          const hero = mk('ch_hero', { regen: 0.1 });
+          const b = RPG.battle.start({
+            fieldId: 'fl_origin', waves: 1, bossFinale: true,
+            party: [hero, mk('ch_rizel', {})],
+          });
+          b.party[0].hp = Math.floor(b.party[0].maxHp * 0.3);
+          const before = b.party[0].mendRatio || 0;
+          const startRound = b.totalRounds;
+          let g = 0;
+          while (!b.finished && b.totalRounds === startRound && g++ < 30) {
+            const a = RPG.autoplay.chooseAction(b); if (!a) break;
+            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          }
+          assertTrue('恩返し: 再生でも積む',
+            (b.party[0].mendRatio || 0) > before,
+            `${before} → ${(b.party[0].mendRatio || 0).toFixed(3)}`);
+          RPG.rng.seed(null);
+        }
+
+        // --- 灼ける慈悲: 癒しがそのまま攻めになる ---
+        {
+          const healId = Object.keys(RPG.data.skills).filter((id) =>
+            RPG.data.skills[id].plugin === 'heal' && !(RPG.data.skills[id].params || {}).party)[0];
+          /** @param {number} rate */
+          const cast = (rate) => {
+            RPG.rng.seed(4242);
+            const u = mk('ch_hero', { smite: rate });
+            u.skills = [healId].concat(u.skills);
+            const b = RPG.battle.start({
+              fieldId: 'fl_plain', waves: 1, bossFinale: false, party: [u, mk('ch_rizel', {})],
+            });
+            for (const x of b.party) x.hp = Math.floor(x.maxHp * 0.4);
+            const foeHp = b.enemies[0].hp;
+            RPG.battle.executeSkill(b, b.party[0], healId, [b.party[1]]);
+            RPG.rng.seed(null);
+            return foeHp - b.enemies[0].hp;
+          };
+          assertTrue('灼ける慈悲: 回復すると敵が削れる', cast(0.5) > 0, `${cast(0.5)} ダメージ`);
+          assertTrue('灼ける慈悲: 積んでいなければ何も起きない', cast(0) === 0, '');
+
+          // 波及ぶんでは飛ばさない。1回の回復から何度も撃ててしまう。
+          RPG.rng.seed(4343);
+          const u = mk('ch_hero', { smite: 0.5, healSpread: 0.5 });
+          u.skills = [healId].concat(u.skills);
+          const b = RPG.battle.start({
+            fieldId: 'fl_plain', waves: 1, bossFinale: false,
+            party: [u, mk('ch_rizel', {}), mk('ch_noa', {})],
+          });
+          for (const x of b.party) x.hp = Math.floor(x.maxHp * 0.4);
+          RPG.battle.executeSkill(b, b.party[0], healId, [b.party[1]]);
+          const hits = b.log.filter((/** @type {any} */ l) => /灼か/.test(l.text)).length;
+          assertTrue('灼ける慈悲: 波及ぶんでは重ねて飛ばない', hits === 1, `${hits}回`);
+          RPG.rng.seed(null);
+        }
+
+        // --- 祈りの刃: 回復量への投資が火力にも乗る ---
+        {
+          /** @param {number} htp */
+          const power = (htp) => {
+            const u = mk('ch_hero', { healPower: 1.0, healToPower: htp });
+            const b = RPG.battle.start({
+              fieldId: 'fl_plain', waves: 1, bossFinale: false, party: [u],
+            });
+            return RPG.battle.setPower(b, b.party[0]);
+          };
+          assertNear('祈りの刃: 積まなければ素のまま', power(0), 1, 1e-9);
+          assertNear('祈りの刃: 回復量の伸びぶん火力が乗る', power(0.5), 1.5, 1e-9);
+
+          // 回復量に振っていなければ何も起きない。掛け算なので片方だけでは動かない。
+          const u = mk('ch_hero', { healPower: 0, healToPower: 1 });
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, bossFinale: false, party: [u] });
+          assertNear('祈りの刃: 回復に振っていなければ効かない',
+            RPG.battle.setPower(b, b.party[0]), 1, 1e-9);
+        }
       }
 
       /* ===== バフに付随する効果 (§5.10) ===== */
@@ -6658,6 +6753,8 @@
           healBuff: (r) => r.unit.passives.healBuff,
           lowHpHeal: (r) => r.unit.passives.lowHpHeal,
           roundBuff: (r) => r.unit.passives.roundBuff,
+          smite: (r) => r.unit.passives.smite,
+          healToPower: (r) => r.unit.passives.healToPower,
           capBreak: (r) => r.attacker.capBreak,
         };
 
