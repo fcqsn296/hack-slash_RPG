@@ -482,6 +482,15 @@
     return { rate, text: `格上 与ダメージ ${Math.round(rate * 100)}%` };
   }
 
+  /**
+   * 出撃先に並べるフィールド。
+   * ストーリー側の「どこまで開いたか」は worldmap が持っている (§20.3)。
+   */
+  function sortieFieldIds() {
+    if (RPG.state.mode() !== 'story') return Object.keys(RPG.data.fields);
+    return RPG.worldmap.openFields();
+  }
+
   /** @param {HTMLElement} root */
   /**
    * 行き先の一覧 (§1.4)。
@@ -678,7 +687,15 @@
       // コアだけなら宣言順＝推奨レベル順なので今まで気付かなかったが、
       // 拡張フィールドは末尾に足されるので、Lv40の狩場が Lv200 の後ろに出る。
       // 一覧は進行の道しるべなので、レベルで並べないと選ぶ順が読めない。
-      h('div.field-grid', Object.keys(RPG.data.fields).sort((a, b) =>
+      // 開いた場所が1つも無いときは、空の枠だけが残って壊れて見える。
+      // 「まだ無い」ではなく「どうすれば増えるか」を書く。
+      sortieFieldIds().length === 0
+        ? h('p.empty', {
+            text: '出撃できる場所はまだありません。'
+              + '物語を進めて外へ出ると、そこで出る相手の狩場がここに並びます。',
+          })
+        : null,
+      h('div.field-grid', sortieFieldIds().sort((a, b) =>
         RPG.data.fields[a].rec_level - RPG.data.fields[b].rec_level).map((id) => {
         const f = RPG.data.fields[id];
         const selected = selectedField === id;

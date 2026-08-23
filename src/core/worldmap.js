@@ -223,7 +223,38 @@
     return eventAt(m, pos.x + d[0], pos.y + d[1]);
   }
 
+  /**
+   * ストーリーで出撃先に出してよいフィールド (§20.3)。
+   *
+   * ── なぜ絞るのか ──
+   * ストーリーで拠点に戻ると、周回と同じ出撃画面から全フィールドへ出られた。
+   * レベル上げの近道に使えるのは構わない（オートの残量も別枠で消費する）が、
+   * 第一章のパーティに推奨Lv200まで並ぶのは、行ける場所の目安として役に立たない。
+   *
+   * ── どう絞るか ──
+   * **歩いて着いた場所で実際に出る相手**だけを並べる。
+   * 訪れたマップの encounter が指しているフィールドを開けていく。
+   * 章を進めてマップが増えれば自動で増えるので、別に一覧を持たなくて済む。
+   *
+   * @returns {string[]}
+   */
+  function openFields() {
+    const p = RPG.state.storyProfile();
+    const flags = (p.progress && p.progress.flags) || {};
+    /** @type {string[]} */
+    const out = [];
+    for (const mid of Object.keys(RPG.data.maps)) {
+      if (!flags['saw_' + mid]) continue;
+      const enc = RPG.data.maps[mid].encounter;
+      if (enc && enc.fieldId && RPG.data.fields[enc.fieldId] && out.indexOf(enc.fieldId) < 0) {
+        out.push(enc.fieldId);
+      }
+    }
+    return out;
+  }
+
   RPG.worldmap = {
     def, current, enter, move, resolve, tileAt, eventAt, isDone, setFlag, facing, here,
+    openFields,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

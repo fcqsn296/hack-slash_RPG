@@ -7403,6 +7403,62 @@
           assertTrue('遭遇: 塔の判定を横取りしない',
             RPG.battle.kindOf(tower) === 'tower', RPG.battle.kindOf(tower));
         }
+
+        // --- 出撃先は歩いて着いた範囲だけ (§20.3) ---
+        //
+        // 拠点へ戻ると周回と同じ出撃画面が出るので、全フィールドが並んでいた。
+        // 第一章のパーティに推奨Lv200まで見えるのは、目安として役に立たない。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          assertTrue('出撃先: どこも訪れていなければ空',
+            W.openFields().length === 0, W.openFields().join(', '));
+
+          W.enter('mp_forge');
+          assertTrue('出撃先: 敵の出ないマップでは増えない',
+            W.openFields().length === 0, W.openFields().join(', '));
+
+          W.enter('mp_ashfield');
+          const open = W.openFields();
+          assertTrue('出撃先: 訪れたマップで出る相手のフィールドが開く',
+            open.length === 1 && open[0] === RPG.data.maps.mp_ashfield.encounter.fieldId,
+            open.join(', '));
+          assertTrue('出撃先: 全フィールドが並ぶわけではない',
+            open.length < Object.keys(RPG.data.fields).length,
+            `${open.length} / ${Object.keys(RPG.data.fields).length}`);
+
+          // 周回側は今までどおり全部出す
+          RPG.state.setMode('hack');
+          assertTrue('出撃先: 周回側は絞らない',
+            Object.keys(RPG.data.fields).length > open.length, '');
+        }
+
+        // --- 台詞が敵の実態と食い違っていないこと (§20.2) ---
+        //
+        // 「草の陰には旧い機械がいる」と言わせていたが、実際に出るのは
+        // スライム・狼・蝙蝠で、機械は1体もいなかった。
+        // 敵の名簿を差し替えたときに台詞だけ古びるのを、ここで捕まえる。
+        {
+          const enc = RPG.data.maps.mp_ashfield.encounter;
+          const field = RPG.data.fields[enc.fieldId];
+          const names = field.pool.concat([field.boss])
+            .map((/** @type {string} */ id) => RPG.data.enemies[id].name).join(' ');
+          const mechanical = /機械|機兵|自動機|ドローン|ロボ/;
+          assertTrue('物語: 灰の野に機械の敵はいない',
+            !mechanical.test(names), names);
+
+          // 台詞の側も、いない相手を名指ししていないこと
+          const lines = [];
+          for (const c of RPG.story.chapters()) {
+            for (const sc of c.scenes || []) {
+              for (const ln of sc.lines || []) lines.push(ln.text);
+            }
+          }
+          const claims = lines.filter((/** @type {string} */ t) =>
+            /草の陰|外にいる/.test(t) && mechanical.test(t));
+          assertTrue('物語: 出ない相手を台詞が名指ししていない',
+            claims.length === 0, claims.join(' / '));
+        }
       } finally {
         RPG.rng.seed(null);
         if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
