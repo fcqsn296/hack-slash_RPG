@@ -39,6 +39,12 @@
     if (!m) throw new Error(`マップ ${mapId} が見つかりません`);
     const p = RPG.state.storyProfile();
     if (!p.progress) p.progress = { chapter: null, scene: 0, cleared: {}, flags: {} };
+    // 「そのマップを見た」印 (§20.2)。
+    // 物語のシーンは、探索が立てたフラグをそのまま読む。
+    // 進行を別の数え方で持つと二重帳簿になってずれる。
+    if (!p.progress.flags) p.progress.flags = {};
+    p.progress.flags['saw_' + mapId] = true;
+
     const pos = at || m.start;
     p.progress.map = {
       id: mapId,
@@ -192,6 +198,19 @@
   }
 
   /**
+   * いま立っているマスのイベント。
+   *
+   * 「調べる」は正面だけを見ていたが、それだと **足元のイベントに届かない**。
+   * 仲間や会話は歩けるマスに置くので、乗ってしまうと二度と拾えなくなる。
+   * 実際、第一章で仲間になるマスに乗ると詰んだ。
+   */
+  function here() {
+    const pos = current();
+    if (!pos) return null;
+    return eventAt(def(pos.id), pos.x, pos.y);
+  }
+
+  /**
    * いま立っているマスの1つ先（向いている方向）にあるイベント。
    * 会話は「乗る」ではなく「向かって調べる」ほうが自然なので、
    * 画面側の決定ボタンからはこちらを引く。
@@ -205,6 +224,6 @@
   }
 
   RPG.worldmap = {
-    def, current, enter, move, resolve, tileAt, eventAt, isDone, setFlag, facing,
+    def, current, enter, move, resolve, tileAt, eventAt, isDone, setFlag, facing, here,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

@@ -59,7 +59,7 @@
    */
   function step(dx, dy) {
     // 吹き出しが出ているあいだは動かない。読み飛ばしを防ぐ。
-    if (message) { message = null; render(); return; }
+    if (message) { dismiss(); return; }
 
     const r = RPG.worldmap.move(dx, dy);
     if (r.encounter) { RPG.app.startStoryBattle(r.encounter); return; }
@@ -68,15 +68,43 @@
       // 会話だけは「調べる」で読む形にして、通りすがりに流れないようにする。
       if (r.event.kind !== 'talk' && r.event.kind !== 'join') fire(r.event);
     }
+    // 出口で別のマップへ移ると「見た」印が立つ。そこで挟まるシーンがある。
+    if (!message && afterEvent()) return;
     render();
   }
 
   /** 決定ボタン。向いている先を調べる。 */
   function interact() {
-    if (message) { message = null; render(); return; }
-    const ev = RPG.worldmap.facing();
+    if (message) { dismiss(); return; }
+    // 足元が先。乗ったまま調べられないと、歩けるマスに置いたイベントが拾えない。
+    const under = RPG.worldmap.here();
+    const ev = (under && !RPG.worldmap.isDone(under)) ? under : RPG.worldmap.facing();
     if (ev) fire(ev);
+    // 吹き出しが出たなら、それを読み終えるまでシーンは挟まない。
+    // 先に挟むと「仲間になった」の一言が飲み込まれて消える。
+    if (!message && afterEvent()) return;
     render();
+  }
+
+  /**
+   * 吹き出しを閉じる。
+   *
+   * 閉じた直後が、章のシーンを挟む場所 (§20.2)。
+   * 仲間が加わった／宝箱を開けたことでフラグが立ち、
+   * その結果として再生できるようになったシーンがここで流れる。
+   */
+  function dismiss() {
+    message = null;
+    if (afterEvent()) return;
+    render();
+  }
+
+  /**
+   * 溜まったシーンがあれば画面を明け渡す。
+   * @returns {boolean} 明け渡したなら true（呼び出し側は描き直さないこと）
+   */
+  function afterEvent() {
+    return !!(RPG.app.playPendingScene && RPG.app.playPendingScene());
   }
 
   /** @param {any} ev */
@@ -151,7 +179,7 @@
       message ? h('div.wm-message',
         message.who ? W.portrait(RPG.data.characters[message.who], 'sm') : null,
         h('p', { text: message.text }),
-        W.button('閉じる', () => { message = null; render(); }, { variant: 'ghost' })
+        W.button('閉じる', dismiss, { variant: 'ghost' })
       ) : null,
       h('div.wm-pad',
         h('div'), padBtn('↑', 0, -1), h('div'),
@@ -161,10 +189,20 @@
         h('div'), padBtn('↓', 0, 1), h('div')
       ),
       h('div.wm-actions',
-        W.button('拠点へ戻る', () => RPG.app.showBase(), { variant: 'ghost' })
+        // 拠点はストーリー側のまま開く。装備や育成をいじってから探索へ戻れる。
+        // モードごと抜けるのは拠点側の「ハクスラへ戻る」から。
+        W.button('拠点へ戻る', () => RPG.app.showBase(), { variant: 'ghost' }),
+        h('span.hint.hint-sm', { text: chapterLabel() })
       ),
     ];
     root.replaceChildren(...parts.filter((n) => !!n));
+  }
+
+  /** いま何章のどこなのか。歩いているあいだ見失わないよう足元に出す。 */
+  function chapterLabel() {
+    const st = RPG.story && RPG.story.status();
+    if (!st) return '';
+    return `${st.chapter.name}（${st.done} / ${st.total}）`;
   }
 
   function padBtn(label, dx, dy) {

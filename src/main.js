@@ -484,13 +484,74 @@
   function showMap(mapId, at) {
     RPG.state.setMode('story');
     if (mapId) RPG.worldmap.enter(mapId, at);
-    else if (!RPG.worldmap.current()) RPG.worldmap.enter('mp_forge');
+
+    // まだ再生していないシーンがあれば、歩かせる前にそちらを流す (§20.2)。
+    // 探索へ戻すのは読み終わってから。先に地図を出すと、
+    // 台詞が始まる前に歩けてしまって順番が崩れる。
+    if (playPendingScene()) return;
+
+    // 章の導入で enterMap が入る作りなので、シーンを消化した後でも
+    // まだ現在地が無いことがある。そのときだけ既定のマップへ落とす。
+    if (!RPG.worldmap.current()) RPG.worldmap.enter('mp_forge');
 
     $('#screen-base').classList.add('hidden');
     $('#screen-battle').classList.add('hidden');
+    $('#screen-story').classList.add('hidden');
     $('#screen-map').classList.remove('hidden');
     refreshTopbar();
     RPG.ui.worldmap.mount($('#screen-map'));
+  }
+
+  /**
+   * 物語を開く (§20.2)。拠点の入口から呼ぶ。
+   * 章が始まっていなければ始めてから、続きの場所へ入る。
+   */
+  function showStory() {
+    RPG.state.setMode('story');
+    RPG.story.start();
+    showMap();
+  }
+
+  /**
+   * 溜まっているシーンがあれば再生する。
+   *
+   * @returns {boolean} 再生したなら true（呼び出し側は画面を触らずに戻ること）
+   */
+  function playPendingScene() {
+    const scene = RPG.story.pending();
+    if (!scene) return false;
+
+    RPG.ui.worldmap.unmount();
+    $('#screen-base').classList.add('hidden');
+    $('#screen-battle').classList.add('hidden');
+    $('#screen-map').classList.add('hidden');
+    $('#screen-story').classList.remove('hidden');
+
+    RPG.ui.story.play($('#screen-story'), scene, () => {
+      const res = RPG.story.finish(scene);
+      if (res.cleared) {
+        const c = RPG.story.chapterDef(res.cleared);
+        toast(`${c ? c.name : res.cleared} クリア`);
+      }
+      // then.enterMap があればそこへ。無ければ今いる場所へ戻る。
+      showMap(res.enterMap);
+    });
+    return true;
+  }
+
+  /**
+   * ハクスラ側へ戻る (§20)。
+   *
+   * モードを戻さずに拠点を出すと、ストーリー側のプロファイル
+   * （別のキャラ・別の所持金）のまま周回の画面が並ぶことになる。
+   */
+  function leaveStory() {
+    RPG.ui.worldmap.unmount();
+    RPG.ui.story.close();
+    RPG.state.setMode('hack');
+    $('#screen-map').classList.add('hidden');
+    $('#screen-story').classList.add('hidden');
+    showBase();
   }
 
   /**
@@ -640,7 +701,7 @@
 
   RPG.app = {
     boot, showBase, startBattle, startQuest, startTowerFloor, startArena, finishBattle,
-    showMap, startStoryBattle,
+    showMap, startStoryBattle, showStory, leaveStory, playPendingScene,
     toast, refreshTopbar, showNameDialog, showDataDialog,
   };
 

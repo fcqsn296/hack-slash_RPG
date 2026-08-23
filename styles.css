@@ -3671,3 +3671,47 @@ body.has-backdrop { background: transparent; }
 }
 .preset-buy-text { font-size: 11.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .preset-buy .btn { padding: 4px 12px; font-size: 11.5px; }
+
+/* ============ シーン再生 (§20.2) ============
+   マップの吹き出しと違い、読み終わるまで探索へ戻さない。
+   1行ずつ送る一方通行なので、残り行数を必ず見せる。 */
+.scene {
+  display: flex; flex-direction: column; gap: 12px;
+  /* 親（#screen-story）は中身の高さに潰れるので、% では効かない。
+     台詞を画面の下寄りに置きたいので、ビューポート基準で背丈を作る。 */
+  min-height: 62vh;
+  padding: 16px;
+  justify-content: flex-end;
+}
+.scene-stage {
+  display: flex; align-items: flex-end; gap: 12px;
+  flex: 1; min-height: 0;
+}
+.scene-portrait { flex: 0 0 auto; align-self: flex-end; }
+.scene-box {
+  flex: 1;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 10px;
+  background: rgba(10, 12, 18, 0.86);
+}
+/* 地の文は話者がいないので、枠を控えめにして台詞と区別する */
+.scene-box.is-narration {
+  border-color: var(--line);
+  background: rgba(10, 12, 18, 0.7);
+}
+.scene-who {
+  display: block; margin-bottom: 5px;
+  font-size: 12px; font-weight: 600; color: var(--gold);
+}
+.scene-text { margin: 0; font-size: 14px; line-height: 1.85; color: #dbe2ec; }
+.scene-box.is-narration .scene-text { color: #aeb7c4; }
+.scene-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.scene-count { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.scene-btns { display: flex; gap: 6px; }
+.scene-hint { margin: 0; text-align: right; }
+
+/* 拠点のストーリー入口 */
+.story-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }

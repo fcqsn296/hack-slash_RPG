@@ -7222,6 +7222,156 @@
           assertTrue('マップ: ストーリー側には残る',
             W.current() && W.current().id === 'mp_forge', JSON.stringify(W.current()));
         }
+
+        // --- 足元のイベントを調べられる (§20.2) ---
+        //
+        // 「調べる」が正面しか見ていなかったので、歩けるマスに置いた仲間や会話は
+        // **乗ってしまうと二度と拾えなかった**。実際に第一章の加入マスで詰んだ。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const join = (RPG.data.maps.mp_forge.events || [])
+            .filter((/** @type {any} */ e) => e.kind === 'join')[0];
+          W.enter('mp_forge', { x: join.x, y: join.y });
+          const under = W.here();
+          assertTrue('マップ: 乗っているマスのイベントを取れる',
+            !!under && under.kind === 'join', JSON.stringify(under));
+          W.enter('mp_forge');
+          assertTrue('マップ: 何も無いマスでは null',
+            W.here() === null, JSON.stringify(W.here()));
+        }
+
+        /* ===== 物語の進行 (§20.2) ===== */
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+
+          // --- データの整合 ---
+          const chapters = RPG.story.chapters();
+          assertTrue('物語: 章がある', chapters.length > 0, `${chapters.length}章`);
+
+          /** @type {string[]} */
+          const sceneIds = [];
+          const badWho = [];
+          const badMap = [];
+          for (const c of chapters) {
+            for (const sc of c.scenes || []) {
+              sceneIds.push(sc.id);
+              for (const ln of sc.lines || []) {
+                if (ln.who && !RPG.data.characters[ln.who]) badWho.push(`${sc.id}: ${ln.who}`);
+              }
+              const to = (sc.then || {}).enterMap;
+              if (to && !RPG.data.maps[to]) badMap.push(`${sc.id}: ${to}`);
+            }
+          }
+          assertTrue('物語: シーンIDが重複していない',
+            new Set(sceneIds).size === sceneIds.length, `${sceneIds.length}件`);
+          assertTrue('物語: 話し手が実在するキャラを指す', badWho.length === 0, badWho.join(' / '));
+          assertTrue('物語: 行き先が実在するマップを指す', badMap.length === 0, badMap.join(' / '));
+
+          // 空のシーンは画面が真っ白になる。データ側で弾いておく。
+          const empty = [];
+          for (const c of chapters) {
+            for (const sc of c.scenes || []) {
+              if (!Array.isArray(sc.lines) || sc.lines.length === 0) empty.push(sc.id);
+              else if (sc.lines.some((/** @type {any} */ l) => !l.text)) empty.push(sc.id + '(空行)');
+            }
+          }
+          assertTrue('物語: 中身の無いシーンが無い', empty.length === 0, empty.join(', '));
+
+          // 章の導入（when なし）が先頭にあること。
+          // 後ろに置くと、条件付きのシーンが先に流れて話の順が崩れる。
+          const misplaced = chapters.filter((/** @type {any} */ c) =>
+            (c.scenes || []).some((/** @type {any} */ sc, /** @type {number} */ i) => !sc.when && i > 0));
+          assertTrue('物語: 条件なしのシーンは章の先頭だけ',
+            misplaced.length === 0, misplaced.map((/** @type {any} */ c) => c.id).join(', '));
+
+          // --- 進行 ---
+          assertTrue('物語: 始める前は章が無い', RPG.story.current() === null, '');
+          const first = RPG.story.start();
+          assertTrue('物語: 始めると最初の章に入る',
+            !!first && first.id === chapters[0].id, first ? first.id : 'null');
+
+          const opening = RPG.story.pending();
+          assertTrue('物語: 章に入ると導入シーンが待っている',
+            !!opening && opening.id === chapters[0].scenes[0].id, opening ? opening.id : 'null');
+
+          const done = RPG.story.finish(opening);
+          assertTrue('物語: 再生し終えると次からは出てこない',
+            RPG.story.played(opening) && RPG.story.pending() !== opening, '');
+          assertTrue('物語: then.enterMap が返る',
+            done.enterMap === 'mp_forge', JSON.stringify(done));
+
+          // --- 条件で引く ---
+          // 順番に消化する形にすると、探索の順序を縛ることになる。
+          const g = RPG.story.progress();
+          assertTrue('物語: 条件がそろうまで次は出てこない',
+            RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
+          g.flags.join_rizel = true;
+          const after = RPG.story.pending();
+          assertTrue('物語: フラグが立つとそのシーンが出る',
+            !!after && after.when.flag === 'join_rizel', after ? after.id : 'null');
+
+          // 複数条件は全部そろって初めて出る
+          RPG.story.finish(after);
+          g.flags.saw_mp_ashfield = true;
+          RPG.story.finish(RPG.story.pending());
+          g.flags.ash_chest_1 = true;
+          assertTrue('物語: 条件が一部だけでは出てこない',
+            RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
+          g.flags.ash_chest_2 = true;
+          const last = RPG.story.pending();
+          assertTrue('物語: 条件が全部そろうと出る', !!last, last ? last.id : 'null');
+
+          // --- 章のクリア ---
+          const cleared = RPG.story.finish(last);
+          assertTrue('物語: then.clear で章がクリアになる',
+            cleared.cleared === chapters[0].id && RPG.story.isCleared(chapters[0].id),
+            JSON.stringify(cleared));
+          assertTrue('物語: 読み切ると待ちのシーンが無くなる',
+            RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
+
+          const st = RPG.story.status();
+          assertTrue('物語: 進み具合を数えられる',
+            !!st && st.done === st.total && st.cleared,
+            st ? `${st.done}/${st.total}` : 'null');
+
+          // --- 始め直しても冒頭は流れない ---
+          // 拠点から入り直すたびに導入が再生されると、話が進まなくなる。
+          RPG.story.start();
+          assertTrue('物語: 入り直しても再生済みのシーンは戻らない',
+            RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
+
+          // --- 進行はストーリー側にしか残らない ---
+          RPG.state.setMode('hack');
+          assertTrue('物語: ハクスラ側に進行が漏れない',
+            !RPG.state.get().progress, JSON.stringify(RPG.state.get().progress));
+          RPG.state.setMode('story');
+          assertTrue('物語: ストーリー側には残る',
+            RPG.story.isCleared(chapters[0].id), '');
+
+          // --- マップのフラグを読んでいること ---
+          // 進行を別の仕組みで数え直すと二重帳簿になってずれる。
+          // 章の条件が、探索側が立てうるフラグを指しているかを確かめる。
+          const mapFlags = new Set();
+          for (const mid of Object.keys(RPG.data.maps)) {
+            mapFlags.add('saw_' + mid);
+            for (const ev of RPG.data.maps[mid].events || []) if (ev.flag) mapFlags.add(ev.flag);
+          }
+          const orphan = [];
+          for (const c of chapters) {
+            for (const sc of c.scenes || []) {
+              const need = sc.when ? (sc.when.flags || (sc.when.flag ? [sc.when.flag] : [])) : [];
+              for (const f of need) {
+                // 前のシーンが then.flag で立てるぶんも正当な供給元
+                const fromScene = (c.scenes || []).some((/** @type {any} */ o) =>
+                  (o.then || {}).flag === f);
+                if (!mapFlags.has(f) && !fromScene) orphan.push(`${sc.id}: ${f}`);
+              }
+            }
+          }
+          assertTrue('物語: シーンの条件は必ず立てられる', orphan.length === 0, orphan.join(' / '));
+        }
       } finally {
         RPG.rng.seed(null);
         if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);

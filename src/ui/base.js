@@ -477,6 +477,28 @@
       identify: boxCount > 0,
     };
 
+    // ストーリー側では周回向けの入口を出さない。
+    // ガチャや塔はハクスラ側の仕組みで、別プロファイルの資金と噛み合わない。
+    if (RPG.state.mode() === 'story') {
+      const st = RPG.story.status();
+      return h('div.dest-panel',
+        h('div.dest-head',
+          h('b', { text: '物語' }),
+          h('span.hint.hint-sm', {
+            text: st ? `${st.chapter.name}（${st.done} / ${st.total}）` : 'これから始まる',
+          })
+        ),
+        h('div.story-actions',
+          W.button('探索へ戻る', () => RPG.app.showMap(), { variant: 'primary' }),
+          W.button('ハクスラへ戻る', () => RPG.app.leaveStory(), { variant: 'ghost' })
+        ),
+        h('p.hint.hint-sm', {
+          text: '物語のキャラ・装備・所持金は周回のものとは別です。'
+            + 'ここで育てたものは周回側には持ち込めません。',
+        })
+      );
+    }
+
     const items = [
       { id: 'gacha', label: 'ガチャ', desc: '仲間を増やす' },
       { id: 'party', label: '編成', desc: '連れていく4人を選ぶ' },
@@ -485,6 +507,12 @@
       { id: 'tower', label: '塔', desc: 'どこまで登れるか挑む' },
       { id: 'arena', label: '闘技場', desc: 'レベル上限を伸ばす' },
       { id: 'codex', label: '図鑑', desc: '出会った敵と、用語の説明' },
+      // 物語はタブではなく別画面なので、押したときの行き先を直接持つ。
+      {
+        id: 'story', label: '物語', icon: 'tab-party',
+        desc: RPG.story.status() ? '続きから' : 'もうひとつの育成で遊ぶ',
+        action: () => RPG.app.showStory(),
+      },
     ];
 
     return h('div.dest-panel',
@@ -495,9 +523,13 @@
       h('div.dest-grid', items.map((it) => {
         const tab = TABS.find((t) => t.id === it.id);
         return h('button.dest-item' + (spot[it.id] ? '.is-spot' : ''), {
-          onClick: () => { activeTab = it.id; render(root); },
+          onClick: () => {
+            if (it.action) { it.action(); return; }
+            activeTab = it.id;
+            render(root);
+          },
         },
-          W.icon(tab ? tab.icon : 'tab-party', { size: '18px' }),
+          W.icon(tab ? tab.icon : (it.icon || 'tab-party'), { size: '18px' }),
           h('span.dest-label', { text: it.label }),
           h('span.dest-desc', { text: it.desc })
         );
