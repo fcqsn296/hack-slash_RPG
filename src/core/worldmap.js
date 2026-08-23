@@ -69,24 +69,49 @@
     return RPG.data.tileKinds[kind] || RPG.data.tileKinds.wall;
   }
 
+  /** 立っている印か。 @param {string} flag */
+  function hasFlag(flag) {
+    const p = RPG.state.storyProfile();
+    return !!((p.progress && p.progress.flags) || {})[flag];
+  }
+
   /**
-   * そのマスにあるイベント。
+   * まだ現れていないイベントか (§20.4)。
+   *
+   * `needs` を満たすまでは、そこに何も無いものとして扱う。
+   * 同じ場所で話が動くとき——静かな集落が襲われる、閉じていた扉が開く——を、
+   * **マップを2枚に分けずに**書けるようにするための仕掛け。
+   * 分けるとタイルを二重に持つことになり、片方だけ直す事故が起きる。
+   */
+  function isHidden(ev) {
+    return !!(ev && ev.needs && !hasFlag(ev.needs));
+  }
+
+  /**
+   * そのマスにあるイベント。まだ現れていないものは無いものとして返す。
    * @param {any} m @param {number} x @param {number} y
    */
   function eventAt(m, x, y) {
-    return (m.events || []).find((/** @type {any} */ e) => e.x === x && e.y === y) || null;
+    const ev = (m.events || []).find((/** @type {any} */ e) => e.x === x && e.y === y) || null;
+    return isHidden(ev) ? null : ev;
   }
 
-  /** 済ませたイベントかどうか。flag を持つものだけが一度きりになる。 */
+  /**
+   * 済ませたイベントかどうか。flag を持つものだけが一度きりになる。
+   *
+   * 出口だけは別。扉は何度でもくぐるものなので、印を持たせても閉じない。
+   * （出口に印を持たせられないと、「戻ってきた」を話の条件にできない）
+   */
   function isDone(ev) {
     if (!ev || !ev.flag) return false;
-    const p = RPG.state.storyProfile();
-    return !!(p.progress.flags || {})[ev.flag];
+    if (ev.kind === 'exit') return false;
+    return hasFlag(ev.flag);
   }
 
   /** @param {string} flag */
   function setFlag(flag) {
     const p = RPG.state.storyProfile();
+    if (!p.progress) p.progress = {};
     if (!p.progress.flags) p.progress.flags = {};
     p.progress.flags[flag] = true;
   }
@@ -163,8 +188,28 @@
     }
 
     if (ev.kind === 'exit') {
+      // 扉は閉じない（isDone が exit を素通しする）ので、
+      // 印を立てても通り抜けられなくなることはない。
+      if (ev.flag) setFlag(ev.flag);
       enter(ev.to, ev.at);
       return { ok: true, kind: 'exit', to: ev.to };
+    }
+
+    if (ev.kind === 'battle') {
+      // 決まった相手との戦い (§20.4)。
+      //
+      // 歩いていて出る遭遇と違い、**勝つまで印が立たない**。
+      // 負けても消えないので、育ててから挑み直せる。
+      // 印を立てるのは戦闘が終わってからなので、ここでは渡すだけ。
+      return { ok: true, kind: 'battle', enc: ev.enc, flag: ev.flag, text: ev.text };
+    }
+
+    if (ev.kind === 'scene') {
+      // 話を起こすだけのマス (§20.4)。
+      // 吹き出しは出さない。印を立てると story.js 側が拾って本編が流れる。
+      if (ev.flag) setFlag(ev.flag);
+      RPG.state.persist();
+      return { ok: true, kind: 'scene' };
     }
 
     if (ev.kind === 'join') {
@@ -254,7 +299,7 @@
   }
 
   RPG.worldmap = {
-    def, current, enter, move, resolve, tileAt, eventAt, isDone, setFlag, facing, here,
-    openFields,
+    def, current, enter, move, resolve, tileAt, eventAt, isDone, isHidden, hasFlag,
+    setFlag, facing, here, openFields,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

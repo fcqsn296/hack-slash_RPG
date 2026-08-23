@@ -559,7 +559,7 @@
    * 勝っても負けてもマップへ戻る。拠点へ吐き出すと探索が途切れる。
    * @param {any} enc
    */
-  function startStoryBattle(enc) {
+  function startStoryBattle(enc, opts) {
     RPG.ui.worldmap.unmount();
     const party = RPG.state.partyUnits();
     currentBattle = RPG.battle.start({
@@ -570,6 +570,9 @@
     // 「もう一度」で同じ遭遇をやり直せるように、内容ごと控えておく。
     // フラグだけだと繰り返せず、通常の出撃に化けていた。
     currentBattle.mapEncounter = enc;
+    // 決まった相手との戦い (§20.4)。勝ったときだけ印が立つ。
+    // 負けても消えないので、育ててから挑み直せる。
+    currentBattle.mapFlag = (opts && opts.mapFlag) || null;
     RPG.state.get().stats.battles++;
     RPG.state.persist();
 
@@ -677,6 +680,13 @@
     // 種別の判定は RPG.battle.kindOf に一本化してある。
     // ここだけ生のフラグを見ていると、UI側の「もう一度」と食い違う。
     const backToMap = RPG.battle.kindOf(battle) === 'map';
+
+    // 決まった相手を倒した印 (§20.4)。
+    // 報酬を配り終えてから立てる。先に立てると、負けたときにも話が進む。
+    if (backToMap && battle.mapFlag && battle.victory) {
+      RPG.worldmap.setFlag(battle.mapFlag);
+      RPG.state.persist();
+    }
     currentBattle = null;
     refreshTopbar();
     if (opts.silent) return;   // 「もう一度」からは呼び出し側が次の戦闘を始める

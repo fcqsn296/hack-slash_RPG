@@ -66,7 +66,13 @@
     if (r.event) {
       // 乗った瞬間に起きるもの（宝箱・出口）はその場で解決する。
       // 会話だけは「調べる」で読む形にして、通りすがりに流れないようにする。
-      if (r.event.kind !== 'talk' && r.event.kind !== 'join') fire(r.event);
+      // 会話と加入だけは「調べる」で読む形にして、通りすがりに流れないようにする。
+      // 戦いと場面転換は乗った時点で起きてよい（避けて通れると話が進まない）。
+      if (r.event.kind !== 'talk' && r.event.kind !== 'join') {
+        fire(r.event);
+        // 戦闘に入ったならこの画面はもう無い
+        if (r.event.kind === 'battle') return;
+      }
     }
     // 出口で別のマップへ移ると「見た」印が立つ。そこで挟まるシーンがある。
     if (!message && afterEvent()) return;
@@ -111,6 +117,12 @@
   function fire(ev) {
     const res = RPG.worldmap.resolve(ev);
     if (!res.ok) return;
+    if (res.kind === 'battle') {
+      // 決まった相手との戦い。ここで画面を明け渡すので描き直さない。
+      RPG.app.startStoryBattle(res.enc, { mapFlag: res.flag });
+      return;
+    }
+    if (res.kind === 'scene') return;   // 印が立つだけ。本編は afterEvent が拾う
     if (res.kind === 'chest') {
       const parts = [];
       if (res.gained.gold) parts.push(`${res.gained.gold.toLocaleString()} G`);

@@ -7307,27 +7307,44 @@
           const g = RPG.story.progress();
           assertTrue('物語: 条件がそろうまで次は出てこない',
             RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
-          g.flags.join_rizel = true;
-          const after = RPG.story.pending();
-          assertTrue('物語: フラグが立つとそのシーンが出る',
-            !!after && after.when.flag === 'join_rizel', after ? after.id : 'null');
 
-          // 複数条件は全部そろって初めて出る
-          RPG.story.finish(after);
-          g.flags.saw_mp_ashfield = true;
-          RPG.story.finish(RPG.story.pending());
-          g.flags.ash_chest_1 = true;
-          assertTrue('物語: 条件が一部だけでは出てこない',
-            RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
-          g.flags.ash_chest_2 = true;
-          const last = RPG.story.pending();
-          assertTrue('物語: 条件が全部そろうと出る', !!last, last ? last.id : 'null');
+          // 章の中身が変わってもここが壊れないよう、
+          // シーンが求めている印を **その場で読んで** 立てながら辿る。
+          /** @param {any} when */
+          const needsOf = (when) =>
+            !when ? [] : (when.flags || (when.flag ? [when.flag] : []));
+
+          let guard = 0;
+          let lastClear = null;
+          while (guard++ < 50) {
+            const sc = RPG.story.pending();
+            if (!sc) {
+              // 待ちが無いなら、次のシーンが求めている印を立てて進める
+              const next = (chapters[0].scenes || [])
+                .filter((/** @type {any} */ x) => !RPG.story.played(x))[0];
+              if (!next) break;
+              const need = needsOf(next.when);
+              if (need.length === 0) break;
+              // 一部だけ立てても出てこないこと（複数条件のシーンで効く）
+              if (need.length > 1) {
+                g.flags[need[0]] = true;
+                assertTrue('物語: 条件が一部だけでは出てこない',
+                  RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
+              }
+              for (const f of need) g.flags[f] = true;
+              assertTrue(`物語: 「${next.id}」は条件がそろうと出る`,
+                RPG.story.pending() === next, (RPG.story.pending() || {}).id || 'null');
+              continue;
+            }
+            const res = RPG.story.finish(sc);
+            if (res.cleared) lastClear = res;
+          }
 
           // --- 章のクリア ---
-          const cleared = RPG.story.finish(last);
           assertTrue('物語: then.clear で章がクリアになる',
-            cleared.cleared === chapters[0].id && RPG.story.isCleared(chapters[0].id),
-            JSON.stringify(cleared));
+            !!lastClear && lastClear.cleared === chapters[0].id
+            && RPG.story.isCleared(chapters[0].id),
+            JSON.stringify(lastClear));
           assertTrue('物語: 読み切ると待ちのシーンが無くなる',
             RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
 
@@ -7458,6 +7475,136 @@
             /草の陰|外にいる/.test(t) && mechanical.test(t));
           assertTrue('物語: 出ない相手を台詞が名指ししていない',
             claims.length === 0, claims.join(' / '));
+        }
+
+        // --- needs で出し分けるイベント (§20.4) ---
+        //
+        // 静かな集落が襲われる、といった「同じ場所で話が動く」場面を
+        // マップを2枚に分けずに書くための仕掛け。
+        // 分けるとタイルを二重に持つことになり、片方だけ直す事故が起きる。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const gated = [];
+          for (const mid of Object.keys(RPG.data.maps)) {
+            for (const ev of RPG.data.maps[mid].events || []) {
+              if (ev.needs) gated.push({ mid, ev });
+            }
+          }
+          assertTrue('出し分け: needs 付きのイベントがある', gated.length > 0, `${gated.length}件`);
+
+          const g = gated[0];
+          W.enter(g.mid);
+          assertTrue('出し分け: 印が立つまでそこには何も無い',
+            W.eventAt(RPG.data.maps[g.mid], g.ev.x, g.ev.y) === null, g.ev.needs);
+          W.setFlag(g.ev.needs);
+          assertTrue('出し分け: 印が立つと現れる',
+            W.eventAt(RPG.data.maps[g.mid], g.ev.x, g.ev.y) === g.ev, g.ev.needs);
+
+          // needs が実際に立てられる印を指していること。
+          // 打ち間違えると、そのイベントは永久に出てこない。
+          const sources = new Set();
+          for (const mid of Object.keys(RPG.data.maps)) {
+            sources.add('saw_' + mid);
+            for (const ev of RPG.data.maps[mid].events || []) if (ev.flag) sources.add(ev.flag);
+          }
+          for (const c of RPG.story.chapters()) {
+            for (const sc of c.scenes || []) if ((sc.then || {}).flag) sources.add(sc.then.flag);
+          }
+          const dead = gated.filter((/** @type {any} */ x) => !sources.has(x.ev.needs));
+          assertTrue('出し分け: needs は必ず立てられる印を指す',
+            dead.length === 0, dead.map((/** @type {any} */ x) => x.ev.needs).join(', '));
+        }
+
+        // --- 決まった相手との戦い (§20.4) ---
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const fights = [];
+          for (const mid of Object.keys(RPG.data.maps)) {
+            for (const ev of RPG.data.maps[mid].events || []) {
+              if (ev.kind === 'battle') fights.push({ mid, ev });
+            }
+          }
+          assertTrue('固定戦: 章に決まった相手がいる', fights.length > 0, `${fights.length}件`);
+
+          const bad = fights.filter((/** @type {any} */ f) =>
+            !f.ev.enc || !RPG.data.fields[f.ev.enc.fieldId] || !f.ev.flag);
+          assertTrue('固定戦: 行き先のフィールドと印が揃っている', bad.length === 0,
+            bad.map((/** @type {any} */ f) => f.ev.x + ',' + f.ev.y).join(' / '));
+
+          // resolve は印を立てない。勝ってから立てるので、
+          // 逃げても負けても話が進んでしまうことがない。
+          const f = fights[0];
+          W.enter(f.mid);
+          W.setFlag(f.ev.needs);
+          const res = W.resolve(f.ev);
+          assertTrue('固定戦: 挑んだだけでは印が立たない',
+            res.ok && res.kind === 'battle' && !W.hasFlag(f.ev.flag), JSON.stringify(res.enc));
+          assertTrue('固定戦: 負けても消えない',
+            W.eventAt(RPG.data.maps[f.mid], f.ev.x, f.ev.y) === f.ev, '');
+        }
+
+        // --- 出口は何度でも通れる (§20.4) ---
+        //
+        // 印を持たせられないと「戻ってきた」を話の条件にできない。
+        // かといって普通のイベントと同じ扱いにすると、一度通った扉が閉じる。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const exits = [];
+          for (const mid of Object.keys(RPG.data.maps)) {
+            for (const ev of RPG.data.maps[mid].events || []) {
+              if (ev.kind === 'exit') exits.push({ mid, ev });
+            }
+          }
+          const ex = exits[0];
+          W.enter(ex.mid);
+          W.setFlag('__probe_exit');
+          const probe = Object.assign({}, ex.ev, { flag: '__probe_exit' });
+          assertTrue('出口: 印が立っていても閉じない', W.isDone(probe) === false, '');
+        }
+
+        // --- ボスに挑む時点で勝てること (§20.4 / §14.2) ---
+        //
+        // 灰の野を普通に渡ればレベルが上がるので、そのくらいで勝てるかを見る。
+        // 走り抜けた場合（Lv1）に落とせるのは意図した手応え。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const join = (RPG.data.maps.mp_forge.events || [])
+            .filter((/** @type {any} */ e) => e.kind === 'join')[0];
+          W.enter('mp_forge');
+          W.resolve(join);
+          const fight = (RPG.data.maps.mp_hamlet.events || [])
+            .filter((/** @type {any} */ e) => e.kind === 'battle')[0];
+
+          /** @param {number} lv @param {number} n */
+          const winRate = (lv, n) => {
+            const s2 = RPG.state.get();
+            for (const id of s2.party) s2.characters[id].level = lv;
+            let win = 0;
+            for (let i = 0; i < n; i++) {
+              const b = RPG.battle.start({
+                fieldId: fight.enc.fieldId, waves: fight.enc.waves,
+                bossFinale: fight.enc.bossFinale, party: RPG.state.partyUnits(),
+              });
+              let guard2 = 0;
+              while (!b.finished && guard2++ < 500) {
+                if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+                const a = RPG.autoplay.chooseAction(b); if (!a) break;
+                RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+              }
+              if (b.victory) win++;
+            }
+            return win / n;
+          };
+          const early = winRate(5, 16);
+          assertTrue('固定戦: 灰の野を渡ったくらいのレベルで勝てる', early >= 0.75,
+            `Lv5 勝率 ${Math.round(early * 100)}%`);
+          const rushed = winRate(1, 16);
+          assertTrue('固定戦: 走り抜けると落とせる', rushed < early,
+            `Lv1 ${Math.round(rushed * 100)}% / Lv5 ${Math.round(early * 100)}%`);
         }
       } finally {
         RPG.rng.seed(null);
