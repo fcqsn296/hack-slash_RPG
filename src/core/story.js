@@ -154,8 +154,31 @@
     };
   }
 
+  /**
+   * 読み返し用の一覧 (§20.6)。
+   *
+   * ── なぜ「見た場面」しか出さないのか ──
+   * 全部並べると、まだ読んでいない章のシーン名から先が透ける。
+   * 章そのものは、1つでも読み終えていれば見出しを出す。
+   * どこまで来たかが分かるほうが、続きを探しやすい。
+   *
+   * @returns {Array<{chapter: any, cleared: boolean, scenes: Array<{scene: any, played: boolean}>, done: number, total: number}>}
+   */
+  function log() {
+    return chapters().map((c) => {
+      const list = (c.scenes || []).map((sc) => ({ scene: sc, played: played(sc) }));
+      return {
+        chapter: c,
+        cleared: isCleared(c.id),
+        scenes: list.filter((x) => x.played),
+        done: list.filter((x) => x.played).length,
+        total: list.length,
+      };
+    }).filter((x) => x.done > 0);
+  }
+
   RPG.story = {
     progress, chapters, chapterDef, current, start,
-    satisfied, played, pending, finish, isCleared, status,
+    satisfied, played, pending, finish, isCleared, status, log,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

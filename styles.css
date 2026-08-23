@@ -3092,7 +3092,9 @@ body.has-backdrop { background: transparent; }
   border: 1px solid var(--line); border-radius: 10px;
   background: rgba(255, 255, 255, .04);
 }
-.wm-message p { margin: 0; flex: 1; min-width: 0; }
+/* 改行を残す。加入や入手の文面は空行で段を分けているのに、
+   詰めて描かれて「一続きの文」に見えていた。 */
+.wm-message p { margin: 0; flex: 1; min-width: 0; white-space: pre-line; line-height: 1.7; }
 
 /* 十字ボタン。スマホでは指で押すのが主になる。 */
 .wm-pad {
@@ -3715,3 +3717,5 @@ body.has-backdrop { background: transparent; }
 
 /* 拠点のストーリー入口 */
 .story-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+/* 読み返しの見出しは台詞そのものなので、長いときは折り返す (§20.6) */
+.glossary-item .glossary-term { line-height: 1.6; }

@@ -211,10 +211,28 @@ RPG.data.maps = {
           + '中を覗いても霜の張った暗がりがあるだけだった。'
           + '——一つだけ、まだ薄く光っている。' },
 
-      { x: 2, y: 8, kind: 'chest', flag: 'vault_chest_1',
-        gold: 1200, boxes: { box_silver: 2 } },
+      // 下層の一点もの (§20.5)。
+      //
+      // ここは管理者の持ち場だったので、遺物[reli]で揃えてある。
+      // 数値は金の宝箱の上振れ（atk153）と竜の上振れ（atk314）のあいだ。
+      // 段を飛ばさずに、拾った瞬間に効いたと分かる位置。
+      { x: 2, y: 8, kind: 'chest', flag: 'vault_chest_1', gold: 1200,
+        equip: {
+          base: 'eq_relic_claw', rarity: 'LEGEND', name: '灰銀の爪',
+          // 攻撃力と魔力を同値で持たせている。主人公の等価変換と噛み合い、
+          // 物理でも魔術でも、高いほうへ揃うぶんが無駄にならない。
+          stats: { atk: 168, magi_power: 168 },
+          tagBonuses: [{ tag: 'reli', value: 0.26 }],
+          critRate: 0.05,
+        } },
       { x: 12, y: 3, kind: 'chest', flag: 'vault_chest_2',
-        boxes: { box_gold: 1 } },
+        boxes: { box_dragon: 1 },
+        equip: {
+          base: 'eq_relic_core', rarity: 'LEGEND', name: '焼けた索引',
+          stats: { hp: 640, def: 96 },
+          tagBonuses: [{ tag: 'reli', value: 0.22 }],
+          reduction: 0.06,
+        } },
 
       // 筋書きで加わる1人 (§20.5)。ガチャは引かせない。
       { x: 2, y: 3, kind: 'join', who: 'ch_shiki', flag: 'join_shiki', needs: 'vault_pods',

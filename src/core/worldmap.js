@@ -179,9 +179,21 @@
     if (isDone(ev)) return { ok: false };
 
     if (ev.kind === 'chest') {
-      const gained = { gold: ev.gold || 0, boxes: ev.boxes || {} };
+      /** @type {any} */
+      const gained = { gold: ev.gold || 0, boxes: ev.boxes || {}, equip: null };
       if (gained.gold) RPG.state.addGold(gained.gold);
       for (const b of Object.keys(gained.boxes)) RPG.state.addBox(b, gained.boxes[b]);
+      // 性能を固定した装備 (§20.5)。
+      //
+      // 宝箱を渡すだけだと、鑑定して初めて中身が決まるので
+      // **その場所で手に入れた実感が残らない**。
+      // 物語の要所では、名前の付いた1点をそのまま渡す。
+      // 乱数を使わないので、誰が拾っても同じものになる。
+      if (ev.equip) {
+        const item = RPG.gear.forge(ev.equip, RPG.state.nextUid());
+        RPG.state.get().inventory.push(item);
+        gained.equip = item;
+      }
       if (ev.flag) setFlag(ev.flag);
       RPG.state.persist();
       return { ok: true, kind: 'chest', gained };

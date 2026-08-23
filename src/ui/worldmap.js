@@ -129,7 +129,15 @@
       for (const b of Object.keys(res.gained.boxes || {})) {
         parts.push(`${RPG.data.boxes[b].name}×${res.gained.boxes[b]}`);
       }
-      message = { text: parts.join('、') + ' を手に入れた。' };
+      // 名前の付いた装備は最後に、鑑定が要らないことを添えて出す。
+      // 宝箱と並べて書くと、どちらも「開けてのお楽しみ」に見えてしまう。
+      const eq = res.gained.equip;
+      let text = parts.length ? parts.join('、') + ' を手に入れた。' : '';
+      if (eq) {
+        text += (text ? '\n\n' : '')
+          + `「${eq.name}」を手に入れた。\n${describeEquip(eq)}`;
+      }
+      message = { text };
       RPG.app.refreshTopbar();
     } else if (res.kind === 'talk') {
       message = { text: res.text, who: res.who };
@@ -208,6 +216,25 @@
       ),
     ];
     root.replaceChildren(...parts.filter((n) => !!n));
+  }
+
+  /**
+   * 拾った装備の中身を1行で。
+   * 「手に入れた」だけだと、強いのかどうか分からないまま話が進む。
+   * @param {any} it
+   */
+  function describeEquip(it) {
+    const parts = [];
+    for (const k of Object.keys(it.stats || {})) {
+      if (it.stats[k]) parts.push(`${RPG.units.STAT_LABEL[k] || k} +${it.stats[k]}`);
+    }
+    for (const b of it.tagBonuses || []) {
+      parts.push(`[${RPG.damage.TAG_LABEL[b.tag]}] +${Math.round(b.value * 100)}%`);
+    }
+    if (it.critRate) parts.push(`会心 +${Math.round(it.critRate * 100)}%`);
+    if (it.reduction) parts.push(`被ダメ軽減 +${Math.round(it.reduction * 100)}%`);
+    if (it.capBreak) parts.push(`上限突破 +${Math.round(it.capBreak * 100)}%`);
+    return parts.join(' ／ ');
   }
 
   /** いま何章のどこなのか。歩いているあいだ見失わないよう足元に出す。 */

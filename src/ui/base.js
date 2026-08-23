@@ -921,18 +921,65 @@
           text: s.collect ? `${s.label} ${p.found}/${p.total}` : s.label,
         });
       })),
-      // 用語には「未発見」が無いので、切り替えごと出さない
-      codexView.section === 'system' ? null : h('div.toolbar-row',
+      // 用語と物語には「未発見」が無いので、切り替えごと出さない
+      codexView.section === 'system' || codexView.section === 'story' ? null : h('div.toolbar-row',
         h('button.pill' + (codexView.showUnknown ? '.is-on' : ''), {
           onClick: () => { codexView.showUnknown = !codexView.showUnknown; render(root); },
           text: '未発見も表示',
         })
       ),
-      codexView.section === 'system' ? codexGlossary(root) : [
-        codexView.selected ? codexDetail(root) : null,
-        codexGrid(root),
-      ]
+      codexView.section === 'system' ? codexGlossary(root)
+        : codexView.section === 'story' ? codexStory(root)
+        : [
+          codexView.selected ? codexDetail(root) : null,
+          codexGrid(root),
+        ]
     );
+  }
+
+  /**
+   * 読み返し (§20.6)。
+   *
+   * ── なぜ図鑑に置くのか ──
+   * シーンの再生は一方通行で、閉じたら二度と読めなかった。
+   * かといって物語の画面に置くと、探索中にしか開けない。
+   * 「見たものを見返す場所」は既に図鑑なので、そこへ並べる。
+   *
+   * 見た場面しか出さない。全部並べると、まだ読んでいない先が題名から透ける。
+   * @param {HTMLElement} root
+   */
+  function codexStory(root) {
+    const log = RPG.story.log();
+    if (log.length === 0) {
+      return h('p.empty', {
+        text: 'まだ物語を始めていません。拠点の「物語」から入ると、'
+          + '読んだ場面がここに残ります。',
+      });
+    }
+    return h('div.glossary', log.map((entry) => h('section.glossary-group',
+      h('h3.glossary-group-name', { text: entry.chapter.name }),
+      h('p.glossary-group-desc', {
+        text: `${entry.chapter.lead || ''}（${entry.done} / ${entry.total}`
+          + `${entry.cleared ? '・読了' : ''}）`,
+      }),
+      h('div.glossary-list', entry.scenes.map(({ scene }) => {
+        // 見出しは1行目から起こす。シーンIDは読み手に意味が無い。
+        const first = (scene.lines || [])[0] || { text: '' };
+        const who = first.who
+          ? (first.who === 'ch_hero' ? RPG.state.charName('ch_hero')
+            : (RPG.data.characters[first.who] || {}).name)
+          : null;
+        return h('div.glossary-item',
+          h('button.glossary-head', {
+            onClick: () => RPG.app.replayScene(scene),
+          },
+            h('span.glossary-term', { text: who ? `${who}「${first.text}」` : first.text }),
+            h('span.glossary-short', { text: `${scene.lines.length}行` }),
+            h('span.glossary-mark', { text: '▶' })
+          )
+        );
+      }))
+    )));
   }
 
   /**

@@ -27,6 +27,7 @@
     { id: 'enemy', label: '敵', collect: true },
     { id: 'field', label: 'フィールド', collect: true },
     { id: 'system', label: '用語', collect: false },
+    { id: 'story', label: '物語', collect: false },
   ];
 
   /** セーブ側の記録。 */

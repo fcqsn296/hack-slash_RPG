@@ -7440,6 +7440,84 @@
           assertTrue('物語: シーンの条件は必ず立てられる', orphan.length === 0, orphan.join(' / '));
         }
 
+        // --- 読み返し (§20.6) ---
+        //
+        // シーンの再生は一方通行で、閉じたら二度と読めなかった。
+        // 図鑑から読み返せるようにしたが、**進行に触れてはいけない**。
+        // finish を呼ぶと then が二度目に走り、章が勝手に進む。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          assertTrue('読み返し: 始める前は何も出さない',
+            RPG.story.log().length === 0, `${RPG.story.log().length}章`);
+
+          RPG.story.start();
+          const opening = RPG.story.pending();
+          assertTrue('読み返し: 読む前の章は一覧に出ない',
+            RPG.story.log().length === 0, '');
+
+          RPG.story.finish(opening);
+          const log = RPG.story.log();
+          assertTrue('読み返し: 読んだ章が出る', log.length === 1, `${log.length}章`);
+          assertTrue('読み返し: 読んだ場面だけが並ぶ',
+            log[0].scenes.length === 1 && log[0].scenes[0].scene.id === opening.id,
+            log[0].scenes.map((/** @type {any} */ x) => x.scene.id).join(', '));
+          assertTrue('読み返し: まだ読んでいない先は題名も出ない',
+            log[0].scenes.length < log[0].total, `${log[0].done} / ${log[0].total}`);
+
+          // 読み返しても進行が動かないこと。
+          // ここは finish を呼ばない作りなので、状態が一致するはず。
+          const snapshot = JSON.stringify(RPG.story.progress());
+          const again = RPG.story.log()[0].scenes[0].scene;
+          assertTrue('読み返し: 対象の場面を取り出せる', !!again && again.id === opening.id, '');
+          assertTrue('読み返し: 読み返しても進行が動かない',
+            JSON.stringify(RPG.story.progress()) === snapshot, '');
+
+          // 図鑑の区分に載っていて、収集率には数えないこと
+          const sec = RPG.codex.SECTIONS.filter((/** @type {any} */ x) => x.id === 'story')[0];
+          assertTrue('読み返し: 図鑑の区分にある', !!sec, '');
+          assertTrue('読み返し: 収集率に数えない', !!sec && sec.collect === false, '');
+        }
+
+        // --- 宝箱から出る確定装備 (§20.5) ---
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          const fixed = [];
+          for (const mid of Object.keys(RPG.data.maps)) {
+            for (const ev of RPG.data.maps[mid].events || []) {
+              if (ev.kind === 'chest' && ev.equip) fixed.push({ mid, ev });
+            }
+          }
+          assertTrue('確定装備: 物語に一点ものがある', fixed.length > 0, `${fixed.length}件`);
+
+          const badBase = fixed.filter((/** @type {any} */ f) => !RPG.data.equipBases[f.ev.equip.base]);
+          assertTrue('確定装備: 実在する装備ベースを指す', badBase.length === 0,
+            badBase.map((/** @type {any} */ f) => f.ev.equip.base).join(', '));
+
+          const f = fixed[0];
+          W.enter(f.mid);
+          const before = RPG.state.get().inventory.length;
+          const res = W.resolve(f.ev);
+          assertTrue('確定装備: 拾うと在庫に入る',
+            res.ok && !!res.gained.equip
+            && RPG.state.get().inventory.length === before + 1,
+            res.gained && res.gained.equip ? res.gained.equip.name : 'なし');
+
+          // 乱数を使わないので、誰が拾っても同じものになる。
+          // identify() と違い「厳選」の対象にしない。
+          const a = RPG.gear.forge(f.ev.equip, 9001);
+          const b = RPG.gear.forge(f.ev.equip, 9002);
+          assertTrue('確定装備: 何度作っても同じ性能',
+            JSON.stringify(a.stats) === JSON.stringify(b.stats), JSON.stringify(a.stats));
+
+          // 段を飛ばしていないこと。金の宝箱の上振れは超えるが、
+          // 竜の宝箱の上振れは超えない位置に置いてある。
+          const atk = Math.max.apply(null, fixed.map((/** @type {any} */ x) =>
+            (x.ev.equip.stats || {}).atk || 0));
+          assertTrue('確定装備: 竜の宝箱を上回らない', atk < 314, `最大 ATK ${atk}`);
+        }
+
         // --- マップの遭遇は「マップの戦闘」として扱われる (§20) ---
         //
         // 種別に載せていなかったので、「もう一度」が通常の出撃に化けて、

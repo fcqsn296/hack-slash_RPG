@@ -540,6 +540,29 @@
   }
 
   /**
+   * 読み返し (§20.6)。
+   *
+   * 本編の再生と違って **finish を呼ばない**。
+   * 呼ぶと then が二度目に走り、章が勝手に進んだり印が立ち直したりする。
+   * ここは読むだけで、進行には一切触れない。
+   *
+   * @param {any} scene
+   */
+  function replayScene(scene) {
+    if (!scene) return;
+    $('#screen-base').classList.add('hidden');
+    $('#screen-battle').classList.add('hidden');
+    $('#screen-map').classList.add('hidden');
+    $('#screen-story').classList.remove('hidden');
+    RPG.ui.story.play($('#screen-story'), scene, () => {
+      $('#screen-story').classList.add('hidden');
+      // 読み終えたら図鑑へ返す。呼んだ場所へ戻らないと、探し直しになる。
+      RPG.ui.base.activeTab = 'codex';
+      showBase();
+    });
+  }
+
+  /**
    * ハクスラ側へ戻る (§20)。
    *
    * モードを戻さずに拠点を出すと、ストーリー側のプロファイル
@@ -716,7 +739,7 @@
 
   RPG.app = {
     boot, showBase, startBattle, startQuest, startTowerFloor, startArena, finishBattle,
-    showMap, startStoryBattle, showStory, leaveStory, playPendingScene,
+    showMap, startStoryBattle, showStory, leaveStory, playPendingScene, replayScene,
     toast, refreshTopbar, showNameDialog, showDataDialog,
   };
 
