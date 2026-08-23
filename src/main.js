@@ -567,6 +567,9 @@
       bossFinale: enc.bossFinale === true,
     });
     currentBattle.fromMap = true;
+    // 「もう一度」で同じ遭遇をやり直せるように、内容ごと控えておく。
+    // フラグだけだと繰り返せず、通常の出撃に化けていた。
+    currentBattle.mapEncounter = enc;
     RPG.state.get().stats.battles++;
     RPG.state.persist();
 
@@ -671,7 +674,9 @@
       toast(`${tower.floor}階 到達報酬: ` + tower.rewards.join(' ／ '));
     }
 
-    const backToMap = battle.fromMap;
+    // 種別の判定は RPG.battle.kindOf に一本化してある。
+    // ここだけ生のフラグを見ていると、UI側の「もう一度」と食い違う。
+    const backToMap = RPG.battle.kindOf(battle) === 'map';
     currentBattle = null;
     refreshTopbar();
     if (opts.silent) return;   // 「もう一度」からは呼び出し側が次の戦闘を始める

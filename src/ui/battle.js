@@ -635,12 +635,27 @@
                 RPG.app.finishBattle(battle, { silent: true });
                 RPG.app.startQuest(questId);
               }, { variant: 'primary', sub: battle.quest.name })
+            : RPG.battle.kindOf(battle) === 'map'
+            // マップの遭遇は同じ遭遇をやり直す (§20)。
+            // 通常の出撃に落とすと、終わったあとマップではなく拠点へ戻ってしまう。
+            ? W.button('もう一度', () => {
+                const enc = battle.mapEncounter;
+                RPG.app.finishBattle(battle, { silent: true });
+                RPG.app.startStoryBattle(enc);
+              }, { variant: 'primary', sub: 'この場でもう一戦' })
             : W.button('もう一度', () => {
                 // 報酬を受け取ってから、同じ場所へそのまま出撃し直す
                 RPG.app.finishBattle(battle, { silent: true });
                 RPG.app.startBattle(sortie.fieldId, sortie.waves, sortie.bossFinale);
               }, { variant: 'primary', sub: `${battle.field.name} ${sortie.waves}戦` }),
-          W.button('拠点へ戻る', () => RPG.app.finishBattle(battle), { variant: 'ghost' })
+          // 名前は実際の行き先に合わせる。
+          // マップから来た戦闘なのに「拠点へ戻る」と書いてあり、
+          // 押すとマップへ戻るので、どちらが正しいのか読めなかった。
+          W.button(
+            RPG.battle.kindOf(battle) === 'map' ? 'マップへ戻る' : '拠点へ戻る',
+            () => RPG.app.finishBattle(battle),
+            { variant: 'ghost' }
+          )
         )
       );
     }

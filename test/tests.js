@@ -7372,6 +7372,37 @@
           }
           assertTrue('物語: シーンの条件は必ず立てられる', orphan.length === 0, orphan.join(' / '));
         }
+
+        // --- マップの遭遇は「マップの戦闘」として扱われる (§20) ---
+        //
+        // 種別に載せていなかったので、「もう一度」が通常の出撃に化けて、
+        // 終わったあとマップではなく拠点（宝箱の鑑定画面）へ吐き出されていた。
+        // 戻り先の判定も画面の名前も、ここの種別ひとつから決まるようにしてある。
+        {
+          RPG.state.reset();
+          RPG.state.setMode('story');
+          W.enter('mp_ashfield');
+          const enc = RPG.data.maps.mp_ashfield.encounter;
+          const b = RPG.battle.start({
+            fieldId: enc.fieldId, waves: enc.waves, bossFinale: enc.bossFinale,
+            party: RPG.state.partyUnits(),
+          });
+          assertTrue('遭遇: 印を付ける前は通常の出撃',
+            RPG.battle.kindOf(b) === 'field', RPG.battle.kindOf(b));
+          b.fromMap = true;
+          assertTrue('遭遇: マップから来た戦闘は map として扱う',
+            RPG.battle.kindOf(b) === 'map', RPG.battle.kindOf(b));
+
+          // 塔・闘技場・クエストの判定を食わないこと。
+          // 先に判定される種別を上書きすると、そちらの戻り先が壊れる。
+          const tower = RPG.battle.start({
+            fieldId: enc.fieldId, waves: 1, bossFinale: false, party: RPG.state.partyUnits(),
+          });
+          tower.fromMap = true;
+          tower.tower = { floor: 1 };
+          assertTrue('遭遇: 塔の判定を横取りしない',
+            RPG.battle.kindOf(tower) === 'tower', RPG.battle.kindOf(tower));
+        }
       } finally {
         RPG.rng.seed(null);
         if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);

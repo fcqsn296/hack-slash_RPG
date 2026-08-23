@@ -103,7 +103,26 @@
     { id: 'forge', label: '鍛冶', icon: 'tab-gear' },
     { id: 'party', label: '編成', icon: 'tab-party' },
     { id: 'codex', label: '図鑑', icon: 'tab-identify' },
+    // 物語はタブの中身を持たず別画面へ移る。action を持つものは
+    // タブを切り替えるのではなく、それを実行する。
+    { id: 'story', label: '物語', icon: 'tab-party', action: () => RPG.app.showStory() },
   ];
+
+  /**
+   * 周回側にしか無い画面 (§20)。
+   *
+   * ストーリー側は別プロファイル（別のキャラ・別の所持金）なので、
+   * ガチャや塔をそのまま出すと、噛み合わない資金で回すことになる。
+   * 「ほかの場所へ」では既に隠していたのに、メニューには残っていて
+   * **同じ拠点なのに入口が2種類ある**状態だった。
+   */
+  const HACK_ONLY = ['gacha', 'tower', 'arena', 'quest'];
+
+  /** いまのモードで出してよいタブか。 */
+  function tabAllowed(t) {
+    if (RPG.state.mode() !== 'story') return true;
+    return HACK_ONLY.indexOf(t.id) < 0;
+  }
 
   /** 「その他」の引き出しが開いているか */
   let drawerOpen = false;
@@ -113,9 +132,16 @@
     applyBackdrop();
 
     /** @param {any} t */
-    const go = (t) => { activeTab = t.id; drawerOpen = false; render(root); };
-    const primary = TABS.filter((t) => t.primary);
-    const rest = TABS.filter((t) => !t.primary);
+    const go = (t) => {
+      drawerOpen = false;
+      // 別画面へ移るものは、タブを切り替えずにそのまま渡す。
+      if (t.action) { t.action(); return; }
+      activeTab = t.id;
+      render(root);
+    };
+    const shown = TABS.filter(tabAllowed);
+    const primary = shown.filter((t) => t.primary);
+    const rest = shown.filter((t) => !t.primary);
     const inDrawer = rest.some((t) => t.id === activeTab);
 
     replace(root,
@@ -507,9 +533,8 @@
       { id: 'tower', label: '塔', desc: 'どこまで登れるか挑む' },
       { id: 'arena', label: '闘技場', desc: 'レベル上限を伸ばす' },
       { id: 'codex', label: '図鑑', desc: '出会った敵と、用語の説明' },
-      // 物語はタブではなく別画面なので、押したときの行き先を直接持つ。
       {
-        id: 'story', label: '物語', icon: 'tab-party',
+        id: 'story', label: '物語',
         desc: RPG.story.status() ? '続きから' : 'もうひとつの育成で遊ぶ',
         action: () => RPG.app.showStory(),
       },
@@ -529,7 +554,7 @@
             render(root);
           },
         },
-          W.icon(tab ? tab.icon : (it.icon || 'tab-party'), { size: '18px' }),
+          W.icon((tab && tab.icon) || it.icon || 'tab-party', { size: '18px' }),
           h('span.dest-label', { text: it.label }),
           h('span.dest-desc', { text: it.desc })
         );

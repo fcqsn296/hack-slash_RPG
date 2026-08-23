@@ -1116,6 +1116,9 @@
     // questId ではなく quest を見る。カタログ外の合成クエストには id が無く、
     // id で判定すると通常の出撃に化けるため。
     if (battle.quest) return 'quest';
+    // マップ上の遭遇 (§20)。ここに載せていなかったので、
+    // 「もう一度」が通常の出撃に化けて、終わったあと拠点へ吐き出されていた。
+    if (battle.fromMap) return 'map';
     return 'field';
   }
 
