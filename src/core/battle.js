@@ -936,6 +936,16 @@
    * @param {string} text
    * @param {string} [kind]
    */
+  /**
+   * かけたバフの効果量 (§5.9)。
+   * 「かける側」の伸びしろ。受け手の buffDuration とは別の軸。
+   * @param {any} caster @param {number} value
+   */
+  function buffAmount(caster, value) {
+    const power = (caster && caster.passives && caster.passives.buffPower) || 0;
+    return power > 0 ? value * (1 + power) : value;
+  }
+
   function pushLog(battle, text, kind) {
     battle.log.push({ text, kind: kind || 'info' });
   }
@@ -1120,6 +1130,55 @@
     // 「もう一度」が通常の出撃に化けて、終わったあと拠点へ吐き出されていた。
     if (battle.fromMap) return 'map';
     return 'field';
+  }
+
+  /* ======================== 狙い (§5.9) ========================
+   *
+   * ── なぜ要るのか ──
+   * 敵は `RPG.rng.pick` で一様に相手を選んでいた。
+   * 実測すると、盾役の被害は 23% で癒し手（26%）より少ない。誰を前に出しても4分の1。
+   *
+   * そのせいで「殴られること」を前提にした効果が **まとめて眠っていた** ——
+   * 反撃・棘・鏡面・被弾するほど火力・瀕死ほど硬い・庇う・痛みの分配・後列ほど硬い。
+   * 反撃に全振りしても、発動する機会は素のままだった。
+   *
+   * ── なぜ固定ではなく重みなのか ──
+   * 「必ず自分が狙われる」にすると、癒し手が永久に安全になり、
+   * 全体攻撃を置く意味も消える。確率を傾けるだけに留める。
+   *
+   * ── 上限を置く理由 ──
+   * 軽減は合計100%で無敵に届く (§3.1-3)。そこへ狙いを全部集めると、
+   * 何も通らない壁が1体立って戦闘が終わる。
+   * 4人なら最大でも6割前後に収まるよう、重みの側で頭を打たせる。
+   */
+  const THREAT_MIN = 0.25;
+  const THREAT_MAX = 4;
+
+  /**
+   * その味方の狙われやすさ。既定は1。
+   * @param {any} unit
+   */
+  function threatOf(unit) {
+    const p = (unit && unit.passives) || {};
+    const raw = 1 + (p.taunt || 0) - (p.stealth || 0);
+    return Math.max(THREAT_MIN, Math.min(THREAT_MAX, raw));
+  }
+
+  /**
+   * 重みに従って狙う相手を選ぶ。
+   * 全員が既定値なら、今までどおりの一様ランダムと同じ結果になる。
+   * @param {any[]} units
+   */
+  function pickTarget(units) {
+    if (units.length <= 1) return units[0] || null;
+    let total = 0;
+    const weights = units.map((u) => { const w = threatOf(u); total += w; return w; });
+    let roll = RPG.rng.float(0, total);
+    for (let i = 0; i < units.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) return units[i];
+    }
+    return units[units.length - 1];
   }
 
   /** 生存している味方 */
@@ -1770,6 +1829,9 @@
        */
       addUniqueBuff: (target, value, turns, label) => {
         // 「持続の心得」で受け手側の持続が延びる (§5.8)
+        // 効果量のほうは **かけた側** を見る (§5.9)。
+        // 弱体には「与える量」の軸があるのに、バフ側は受け手の持続しか無かった。
+        value = buffAmount(actor, value);
         target.buffUnique.push({ value, turns: buffTurns(target, turns), label });
         pushLog(battle, `${target.name} に ${label}（固有 +${Math.round(value * 100)}%）`, 'buff');
         pushEvent(battle, { type: 'buff', key: target.key, label });
@@ -1780,6 +1842,7 @@
        * @param {any} target @param {string} tag @param {number} value @param {number} turns @param {string} label
        */
       addTagBuff: (target, tag, value, turns, label) => {
+        value = buffAmount(actor, value);
         target.buffTags.push({ tag, value, turns: buffTurns(target, turns), label, matchType: null });
         pushLog(
           battle,
@@ -2262,7 +2325,7 @@
         const kind = targetKind(skill);
         const targets = kind === 'ally'
           ? [RPG.rng.pick(livingEnemies(battle))]
-          : [RPG.rng.pick(stillAlive)];
+          : [pickTarget(stillAlive)];
         executeSkill(battle, enemy, skillId, targets);
       }
     }
@@ -2464,6 +2527,7 @@
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss,
     currentActor, livingParty, livingEnemies, targetKind,
+    threatOf, pickTarget, THREAT_MIN, THREAT_MAX,
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage,

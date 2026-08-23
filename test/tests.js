@@ -1046,7 +1046,11 @@
         // 新しい軸 (§9.1): 自傷を糧にする / 殴った回数で進む刻印
         'self_curse_power', 'sigil_burst',
         // 新しい軸 (§5.9): 回避 / 執着 / 連携 / 恩返し / CT短縮
-        'evade', 'focus_power', 'relay_power', 'mend_power', 'cooldown_cut'];
+        'evade', 'focus_power', 'relay_power', 'mend_power', 'cooldown_cut',
+        // 狙い (§5.9)。敵の的付けを傾けて、「殴られてから」の効果を起動する
+        'taunt', 'stealth',
+        // かける側のバフ強化 (§5.9)。弱体側にしかなかった「与える量」の対
+        'buff_power'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -1259,6 +1263,91 @@
 
       assertNear('先制: 1ラウンド目に+30%', dmg({ firstRoundPower: 0.3 }, {}, { firstRound: true }), 1300, 0);
       assertNear('先制: 2ラウンド目以降は効果なし', dmg({ firstRoundPower: 0.3 }, {}, { firstRound: false }), 1000, 0);
+
+      /* ===== 狙い (§5.9) ===== */
+      //
+      // 敵は一様ランダムに相手を選んでいた。実測で盾役の被害は 23%、
+      // 癒し手の 26% より少なく、誰を前に出しても4分の1だった。
+      // そのせいで「殴られてから」の効果（反撃・棘・鏡面・被弾するほど火力・
+      // 庇う・痛みの分配）が、投資しても発動機会が増えないまま眠っていた。
+      {
+        RPG.rng.seed(20260823);
+        /** @param {number} [taunt] @param {number} [stealth] */
+        const mk = (taunt, stealth) => ({ name: 'u', passives: { taunt: taunt || 0, stealth: stealth || 0 } });
+        /** @param {any[]} units @param {number} n */
+        const share = (units, n) => {
+          const c = units.map(() => 0);
+          for (let i = 0; i < n; i++) c[units.indexOf(RPG.battle.pickTarget(units))]++;
+          return c.map((v) => v / n);
+        };
+
+        assertNear('狙い: 素の重みは1', RPG.battle.threatOf(mk()), 1, 1e-9);
+        assertTrue('狙い: 名乗りで重みが増える',
+          RPG.battle.threatOf(mk(1.2)) > RPG.battle.threatOf(mk()), '');
+        assertTrue('狙い: 気配殺しで重みが減る',
+          RPG.battle.threatOf(mk(0, 0.75)) < RPG.battle.threatOf(mk()), '');
+
+        // 全員が素なら今までと同じ一様ランダム。
+        // ここが崩れると、狙いを振っていない人の体験まで変わってしまう。
+        const flat = share([mk(), mk(), mk(), mk()], 20000);
+        assertTrue('狙い: 全員が素なら今までどおり一様',
+          flat.every((v) => Math.abs(v - 0.25) < 0.02),
+          flat.map((v) => Math.round(v * 100) + '%').join(' / '));
+
+        const tanked = share([mk(1.2), mk(), mk(), mk()], 20000);
+        assertTrue('狙い: 名乗りを積むと自分に寄る',
+          tanked[0] > flat[0] + 0.1, `${Math.round(tanked[0] * 100)}%`);
+
+        // 上限 (§3.1-3)。軽減は合計100%で無敵に届くので、
+        // そこへ狙いを全部集められると、何も通らない壁が1体立って戦闘が終わる。
+        const capped = share([mk(9), mk(), mk(), mk()], 20000);
+        assertTrue('狙い: 振り切っても頭打ちになる',
+          capped[0] < 0.65, `${Math.round(capped[0] * 100)}%`);
+        assertNear('狙い: 重みの上限', RPG.battle.threatOf(mk(99)), RPG.battle.THREAT_MAX, 1e-9);
+
+        // 0にはならない。完全に消えると全体攻撃を置く意味も無くなる。
+        const hidden = share([mk(0, 9), mk(), mk(), mk()], 20000);
+        assertTrue('狙い: 隠れても狙われなくはならない',
+          hidden[0] > 0.02, `${Math.round(hidden[0] * 100)}%`);
+        assertNear('狙い: 重みの下限', RPG.battle.threatOf(mk(0, 99)), RPG.battle.THREAT_MIN, 1e-9);
+        RPG.rng.seed(null);
+      }
+
+      /* ===== かける側のバフ強化 (§5.9) ===== */
+      //
+      // 弱体には「与える量」も「与える持続」もあったのに、
+      // バフ側は受け手の持続しか無く、バフ役に伸びしろが1つも無かった。
+      {
+        const skillId = Object.keys(RPG.data.skills)
+          .filter((id) => RPG.data.skills[id].plugin === 'tag_buff')[0];
+        /** @param {number} power */
+        const cast = (power) => {
+          const party = [
+            RPG.units.buildCharacterUnit({ id: 'ch_hero', level: 60, limitBreak: 0, tree: {},
+              skillOrder: [], equipped: { weapon: [], armor: [], accessory: [] } }, []),
+            RPG.units.buildCharacterUnit({ id: 'ch_rizel', level: 60, limitBreak: 0, tree: {},
+              skillOrder: [], equipped: { weapon: [], armor: [], accessory: [] } }, []),
+          ];
+          party[0].passives.buffPower = power;
+          party[0].skills = [skillId].concat(party[0].skills);
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, bossFinale: false, party });
+          RPG.battle.executeSkill(b, b.party[0], skillId, [b.party[1]]);
+          return (b.party[1].buffTags || [])[0];
+        };
+        const plain = cast(0);
+        const boosted = cast(0.5);
+        assertTrue('バフ強化: 素ではスキルの値そのまま',
+          !!plain && Math.abs(plain.value - RPG.data.skills[skillId].params.value) < 1e-9,
+          plain ? String(plain.value) : 'なし');
+        assertNear('バフ強化: かける側の値で伸びる',
+          boosted ? boosted.value : 0, plain.value * 1.5, 1e-9);
+
+        // 受け手の持続とは別枠であること。混ざると「持続の心得」で
+        // 効果量まで伸びてしまう。
+        assertTrue('バフ強化: 受け手の持続とは別の軸',
+          RPG.data.effectKinds.buff_power.key === 'buffPower'
+          && RPG.data.effectKinds.buff_duration.key === 'buffDuration', '');
+      }
 
       // 格上補正 (§3.2 ステップ7.5)。推奨レベルを実際の関門にするための補正。
       // 攻撃側は Lv60。20 までは適正に遊んでいるときの差なので無傷にしてある。
@@ -6347,6 +6436,10 @@
           midPowerStatus: (r) => r.unit.passives.midPowerStatus,
           midPowerCombo: (r) => r.unit.passives.midPowerCombo,
           debuffDuration: (r) => r.unit.passives.debuffDuration,
+          // §5.9 狙いとバフ強化。passives へ入るので、ここで確かめられる。
+          buffPower: (r) => r.unit.passives.buffPower,
+          taunt: (r) => r.unit.passives.taunt,
+          stealth: (r) => r.unit.passives.stealth,
           capBreak: (r) => r.attacker.capBreak,
         };
 

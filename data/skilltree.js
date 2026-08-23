@@ -576,6 +576,18 @@ RPG.data.skillTree = [
     desc: 'ウェーブを越えるごとに威力 +15%',
   },
   {
+    id: 'tr_taunt_hi', tier: 'high', name: '一身に受ける', cost: 6, maxLevel: 2,
+    effects: [{ kind: 'taunt', value: 0.8 },
+              { kind: 'counter', value: 0.15 }],
+    // 狙いを極めた先に反撃を置く。集めた攻撃がそのまま手数に変わる。
+    desc: '狙われやすさ +80%／反撃率 +15%。集めた攻撃を撃ち返す構えの終点',
+  },
+  {
+    id: 'tr_buff_power_hi', tier: 'high', name: '万雷の号令', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'buff_power', value: 0.2 }],
+    desc: '自分がかけるバフの効果量 +20%',
+  },
+  {
     id: 'tr_guard_ally_hi', tier: 'high', name: '不動の盾', cost: 6, maxLevel: 2,
     effects: [{ kind: 'guard_ally', value: 0.2 }],
     desc: '味方が受けるダメージの 20% を肩代わりする',
@@ -1229,6 +1241,24 @@ RPG.data.skillTree = [
 
   /* ===== バフと障壁の扱い (§5.8) ===== */
   {
+    id: 'tr_buff_power', tier: 'basic', name: '励ましの声', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'buff_power', value: 0.12 }],
+    // 弱体には「与える量」も「与える持続」もあったのに、
+    // バフ側は **受け手の持続** しか無かった (§5.9)。かける側の伸びしろ。
+    desc: '自分がかけるバフの効果量 +12%（受け手側の「持続の心得」とは別枠）',
+  },
+  {
+    id: 'tr_taunt', tier: 'basic', name: '名乗り', cost: 2, maxLevel: 3,
+    effects: [{ kind: 'taunt', value: 0.4 }],
+    // 敵は一様ランダムに殴る相手を選ぶので、盾役でも4分の1しか狙われない (§5.9)。
+    desc: '敵に狙われやすくなる +40%。反撃・棘・庇うなど「殴られてから」の効果と噛み合う',
+  },
+  {
+    id: 'tr_stealth', tier: 'basic', name: '気配殺し', cost: 2, maxLevel: 3,
+    effects: [{ kind: 'stealth', value: 0.25 }],
+    desc: '敵に狙われにくくなる -25%。ただし0にはならない（全体攻撃も避けられない）',
+  },
+  {
     id: 'tr_buff_len', tier: 'basic', name: '持続の心得', cost: 2, maxLevel: 3,
     effects: [{ kind: 'buff_duration', value: 1 }],
     desc: '自分が受けるバフの持続 +1ターン',
@@ -1420,6 +1450,18 @@ RPG.data.skillTree = [
     id: 'tr_atk_to_def_mid', tier: 'mid', name: '剛体', cost: 3, maxLevel: 4,
     effects: [{ kind: 'atk_to_def', value: 0.25 }],
     desc: 'ATKの25%をDEFに上乗せ',
+  },
+  {
+    id: 'tr_buff_power_mid', tier: 'mid', name: '鼓舞の才', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'buff_power', value: 0.15 }],
+    desc: '自分がかけるバフの効果量 +15%。全体バフを撒く役ほど効く',
+  },
+  {
+    id: 'tr_taunt_mid', tier: 'mid', name: '矢面', cost: 4, maxLevel: 3,
+    effects: [{ kind: 'taunt', value: 0.5 },
+              { kind: 'reduction', value: 0.04 }],
+    // 狙いを集めるだけでは溶けるので、耐える側も少し付ける。
+    desc: '狙われやすさ +50%／被ダメージ軽減 +4%',
   },
   {
     id: 'tr_buff_len_mid', tier: 'mid', name: '長息', cost: 3, maxLevel: 3,

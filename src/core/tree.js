@@ -246,7 +246,7 @@
    */
   const KNOWN_EFFECT_KINDS = [
     'all_spread', 'ambush', 'atk_to_def', 'auto_low_skill', 'back_guard', 'boss_guard',
-    'boss_slayer', 'buff_duration', 'buff_on_kill', 'cap_break', 'chain', 'chain_power',
+    'boss_slayer', 'buff_duration', 'buff_on_kill', 'buff_power', 'cap_break', 'chain', 'chain_power',
     'chaos', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
     'counter', 'counter_all',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
@@ -265,11 +265,11 @@
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
-    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage',
+    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'stable_damage', 'stealth',
     'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
-    'thorns', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
+    'taunt', 'thorns', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
     'wave_stack', 'weak_guard', 'weak_hunter'
   ];
 
@@ -397,6 +397,11 @@
       damageShare: 0,      // 受けたダメージを味方全体で分け合う割合
       waveRevive: 0,       // ウェーブ開始時に復活するHPの割合
       wavePower: 0,        // 最終ウェーブ（ボス戦）での火力
+      // §5.9 狙い。敵は今まで一様ランダムに殴る相手を選んでいた。
+      taunt: 0,            // 狙われやすさ
+      stealth: 0,          // 狙われにくさ
+      // §5.9 自分がかけるバフの効果量。受け手側の buffDuration とは別枠。
+      buffPower: 0,
     };
     /** ダメージ計算に渡す状況依存の補正 */
     const situational = {
@@ -594,6 +599,9 @@
           case 'chain_power': passives.chainPower += amount; break;
           // --- バフ・障壁 (§5.8) ---
           case 'buff_duration': passives.buffDuration += amount; break;
+          case 'buff_power': passives.buffPower += amount; break;
+          case 'taunt': passives.taunt += amount; break;
+          case 'stealth': passives.stealth += amount; break;
           case 'buff_on_kill': passives.buffOnKill += amount; break;
           case 'shield_regen': passives.shieldRegen += amount; break;
           // --- 技の使い分け (§5.8) ---
