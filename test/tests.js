@@ -2980,7 +2980,7 @@
 
       assertTrue('プリセット: 初期状態は全枠が空',
         RPG.state.presets('ch_hero').every((p) => p === null),
-        `${RPG.state.PRESET_SLOTS} 枠`);
+        `${RPG.state.presetSlots()} 枠`);
 
       // --- 保存と復元 ---
       RPG.state.equip('ch_hero', swordA.uid);
@@ -3031,6 +3031,149 @@
       assertTrue('プリセット: キャラごとに独立している',
         RPG.state.presets('ch_hero')[0].name === 'A' &&
         RPG.state.presets('ch_rizel')[0].name === 'B', '');
+
+      /* ----- ビルドプリセット (§7.5-2) ----- */
+
+      // --- 枠はアカウント単位 ---
+      {
+        const free = RPG.data.presetFreeSlots;
+        assertTrue('枠: 最初は無料ぶんだけある',
+          RPG.state.presetSlots() === free, `${RPG.state.presetSlots()} 枠`);
+
+        save.gold = 0;
+        const poor = RPG.state.buyPresetSlot();
+        assertTrue('枠: ゴールドが足りなければ買えない', !poor.ok, poor.reason || '');
+        assertTrue('枠: 買えなかったときは枠が増えていない',
+          RPG.state.presetSlots() === free, `${RPG.state.presetSlots()} 枠`);
+
+        const cost = RPG.state.nextSlotCost();
+        save.gold = cost;
+        const bought = RPG.state.buyPresetSlot();
+        assertTrue('枠: 買うと1つ増える',
+          bought.ok && RPG.state.presetSlots() === free + 1, `${RPG.state.presetSlots()} 枠`);
+        assertTrue('枠: 買った分だけゴールドが減る', save.gold === 0, `${save.gold} G`);
+
+        // 買った枠は全キャラで使える。キャラごとに買わせると、
+        // 仲間を増やすほど買い直しが要る税になってしまう。
+        assertTrue('枠: 増えた枠は他のキャラでも使える',
+          RPG.state.presets('ch_rizel').length === free + 1
+          && RPG.state.presets('ch_hero').length === free + 1,
+          `リゼル ${RPG.state.presets('ch_rizel').length} 枠`);
+
+        // 上限まで買ったら、それ以上は出さない
+        let guard = 0;
+        while (RPG.state.nextSlotCost() != null && guard++ < 20) {
+          save.gold = RPG.state.nextSlotCost();
+          RPG.state.buyPresetSlot();
+        }
+        assertTrue('枠: 上限を超えては買えない',
+          RPG.state.presetSlots() === RPG.data.presetMaxSlots
+          && RPG.state.nextSlotCost() === null,
+          `${RPG.state.presetSlots()} / 上限${RPG.data.presetMaxSlots}`);
+        assertTrue('枠: 値段は買うほど高くなる',
+          RPG.data.presetSlotCosts.every((/** @type {number} */ c, /** @type {number} */ i) =>
+            i === 0 || c > RPG.data.presetSlotCosts[i - 1]),
+          RPG.data.presetSlotCosts.join(' → '));
+      }
+
+      // --- 保存の範囲 ---
+      {
+        const hero = save.characters.ch_hero;
+        hero.level = 60;
+        hero.tree = {};
+        RPG.state.investNode('ch_hero', 'tr_atk');
+        RPG.state.investNode('ch_hero', 'tr_atk');
+        const treeSnapshot = JSON.stringify(hero.tree);
+
+        RPG.state.savePreset('ch_hero', 0, '装備だけ', 'gear');
+        assertTrue('ビルド枠: 装備のみで保存するとツリーを持たない',
+          RPG.state.presets('ch_hero')[0].scope === 'gear'
+          && RPG.state.presets('ch_hero')[0].tree === undefined, '');
+
+        RPG.state.savePreset('ch_hero', 1, 'ビルド込み', 'full');
+        const full = RPG.state.presets('ch_hero')[1];
+        assertTrue('ビルド枠: ビルド込みで保存するとツリーも入る',
+          full.scope === 'full' && JSON.stringify(full.tree) === treeSnapshot,
+          `SP${RPG.tree.spentSp(full.tree)}`);
+
+        // 装備だけの枠を適用してもツリーは動かない。
+        // ここが崩れると「装備だけ替える」という今までの使い方が壊れる。
+        RPG.state.investNode('ch_hero', 'tr_atk');
+        const changed = JSON.stringify(hero.tree);
+        RPG.state.applyPreset('ch_hero', 0);
+        assertTrue('ビルド枠: 装備のみの枠はツリーに触らない',
+          JSON.stringify(hero.tree) === changed, `tr_atk Lv${hero.tree.tr_atk}`);
+
+        // ビルド込みの枠は保存時のツリーへ戻す
+        const applied = RPG.state.applyPreset('ch_hero', 1);
+        assertTrue('ビルド枠: 適用すると保存時のツリーに戻る',
+          applied.ok && JSON.stringify(hero.tree) === treeSnapshot,
+          `tr_atk Lv${hero.tree.tr_atk}`);
+        assertTrue('ビルド枠: ビルドを入れ替えたことを報告する',
+          !!applied.build, JSON.stringify(applied.build || null));
+      }
+
+      // --- 適用は無料（既定） ---
+      {
+        const goldBefore = save.gold = 100000;
+        RPG.state.applyPreset('ch_hero', 1);
+        assertTrue('ビルド枠: 既定では切り替えに費用がかからない',
+          save.gold === goldBefore && RPG.data.presetApplyCostRate === 0,
+          `${save.gold} G / 係数 ${RPG.data.presetApplyCostRate}`);
+
+        // 振り直しの費用は据え置き。ここが無料になると、
+        // 「新しいビルドを作る」ことまでタダになってしまう。
+        assertTrue('ビルド枠: 振り直しの費用は据え置き',
+          RPG.tree.resetCost(60) === 60 * RPG.data.skillResetCostPerLevel,
+          `${RPG.tree.resetCost(60).toLocaleString()} G`);
+      }
+
+      // --- 適用できないものは触る前に弾く ---
+      {
+        const hero = save.characters.ch_hero;
+        const preset = RPG.state.presets('ch_hero')[1];
+        // SPが足りない状況を作る（レベルを下げる）
+        const keepLevel = hero.level;
+        const keepTree = JSON.stringify(hero.tree);
+        hero.level = 2;
+        const res = RPG.state.applyPreset('ch_hero', 1);
+        assertTrue('ビルド枠: SPが足りなければ適用しない', !res.ok, res.reason || '');
+        assertTrue('ビルド枠: 弾いたときはツリーを触っていない',
+          JSON.stringify(hero.tree) === keepTree, '');
+        hero.level = keepLevel;
+
+        // 存在しないノードは飛ばして適用する。
+        // ここで弾くと、更新のたびに古いプリセットが永久に使えなくなる。
+        preset.tree.tr_this_node_is_gone = 3;
+        const lost = RPG.state.applyPreset('ch_hero', 1);
+        assertTrue('ビルド枠: 消えたノードは飛ばして適用する',
+          lost.ok && lost.build.lostNodes.length === 1
+          && hero.tree.tr_this_node_is_gone === undefined,
+          (lost.build ? lost.build.lostNodes : []).join(', '));
+        delete preset.tree.tr_this_node_is_gone;
+      }
+
+      // --- パーティ一括 ---
+      {
+        save.party = ['ch_hero', 'ch_rizel'];
+        RPG.state.savePreset('ch_hero', 2, '周回', 'full');
+        RPG.state.savePreset('ch_rizel', 2, '周回', 'full');
+        assertTrue('一括: 2人以上が持つ名前だけが候補になる',
+          RPG.state.partyPresetNames().indexOf('周回') >= 0
+          && RPG.state.partyPresetNames().indexOf('ビルド込み') < 0,
+          RPG.state.partyPresetNames().join('、'));
+
+        const bulk = RPG.state.applyPartyPreset('周回');
+        assertTrue('一括: パーティ全員に適用される',
+          bulk.applied.length === 2 && bulk.skipped.length === 0,
+          bulk.applied.map((/** @type {any} */ a) => a.name).join('、'));
+
+        RPG.state.deletePreset('ch_rizel', 2);
+        const partial = RPG.state.applyPartyPreset('周回');
+        assertTrue('一括: 枠が無い相手は理由を添えて飛ばす',
+          partial.applied.length === 1 && partial.skipped.length === 1,
+          (partial.skipped[0] || {}).reason || '');
+      }
 
       if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
       else localStorage.setItem(RPG.state.STORAGE_KEY, before);

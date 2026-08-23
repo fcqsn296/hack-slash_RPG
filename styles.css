@@ -3644,3 +3644,30 @@ body.has-backdrop { background: transparent; }
 }
 .glossary-link:hover { background: rgba(198, 164, 92, 0.14); }
 .glossary-body strong { color: var(--text); font-weight: 600; }
+
+/* ============ ビルドプリセット (§7.5-2) ============
+   枠はアカウント単位で買う。パーティ一括は、同じ名前が2人以上に
+   付いているときだけ出るので、無いあいだは行ごと消える。 */
+.presets-head { display: flex; align-items: baseline; gap: 8px; }
+.presets-slots {
+  font-size: 11px; color: var(--gold); font-variant-numeric: tabular-nums;
+}
+.preset-party {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.preset-party-label { font-size: 11px; color: var(--text-dim); }
+.preset-party-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.preset-party-btns .btn { padding: 4px 12px; font-size: 11.5px; }
+.preset-buy {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+.preset-buy-text { font-size: 11.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.preset-buy .btn { padding: 4px 12px; font-size: 11.5px; }

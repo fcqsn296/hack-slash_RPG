@@ -34,6 +34,9 @@
   const PROFILE_KEYS = [
     'characters', 'inventory', 'party', 'gold', 'boxes', 'items',
     'uidCounter', 'levelCapBonus', 'lastSortie', 'autoLimit',
+    // 枠はゴールドで買うので、ゴールドと同じ側に置く。
+    // ストーリー側の資金で買った枠がハクスラ側に現れると、収支が繋がってしまう。
+    'presetSlots',
   ];
 
   /**
@@ -52,6 +55,7 @@
       levelCapBonus: 0,
       lastSortie: null,
       autoLimit: RPG.autolimit ? RPG.autolimit.defaults() : null,
+      presetSlots: RPG.data.presetFreeSlots || 3,
       // 進行状況 (§20)。どの章のどこまで見たか、と立った旗。
       progress: { chapter: null, scene: 0, cleared: {}, flags: {} },
       // まだ一度も始めていない
@@ -172,6 +176,9 @@
       arena: {},
       // レベル上限の上乗せぶん (§6.5)。闘技場の報酬で伸びる。
       levelCapBonus: 0,
+      // プリセットの枠数 (§7.5-2)。全キャラ共通で、ゴールドで増やせる。
+      // arena と同じ理由でここに置く。migrate 側だけで補うと往復が一致しない。
+      presetSlots: RPG.data.presetFreeSlots || 3,
       // 所持している道具 { 道具ID: 個数 }。装備とは別枠で数えるだけのもの。
       items: {},
       // ガチャの天井 (§6.6)。引くたびに貯まり、好きなキャラとの交換に使う。
@@ -208,7 +215,8 @@
       klassTree: {},
       equipped: { weapon: [], armor: [], accessory: [] },
       // 装備プリセット (§7.5)。空きは null。
-      presets: new Array(PRESET_SLOTS).fill(null),
+      // 枠数はアカウント側で持つ。ここは空で作り、presets() が今の枠数まで伸ばす。
+      presets: [],
     };
   }
 
@@ -351,6 +359,11 @@
       // 倍数を丸め直すだけなので、何度通しても結果は変わらない。
       if (s.levelCapBonus % step !== 0) s.levelCapBonus = roundUp(s.levelCapBonus);
     }
+    // 枠数はアカウント（プロファイル）単位。旧セーブは無料ぶんから始まる。
+    const freeSlots = RPG.data.presetFreeSlots || 3;
+    const maxSlots = RPG.data.presetMaxSlots || 6;
+    if (typeof s.presetSlots !== 'number' || !isFinite(s.presetSlots)) s.presetSlots = freeSlots;
+    s.presetSlots = Math.max(freeSlots, Math.min(maxSlots, Math.floor(s.presetSlots)));
     if (s.tower.claimed == null) s.tower.claimed = 0;
     if (s.tower.run === undefined) s.tower.run = null;
     // 自動売却ルールは RPG.autosell が既定値を持つ。欠けているキーだけ補う。
@@ -363,8 +376,9 @@
       if (c.klass === undefined) c.klass = null;
       if (!c.klassTree) c.klassTree = {};
       if (!c.equipped) c.equipped = { weapon: [], armor: [], accessory: [] };
-      if (!Array.isArray(c.presets)) c.presets = [];
-      while (c.presets.length < PRESET_SLOTS) c.presets.push(null);
+        if (!Array.isArray(c.presets)) c.presets = [];
+      // 旧セーブのプリセットは装備だけを持っていた。scope が無いものは装備のみ扱い。
+      for (const p of c.presets) if (p && !p.scope) p.scope = 'gear';
       delete c.slotBonus; // 旧形式。スロットはスキルツリーから導出するようになった
     }
     return s;
@@ -559,40 +573,168 @@
     persist();
   }
 
-  /* ---------------- 装備プリセット (§7.5) ---------------- */
-
-  /** キャラ1人あたりのプリセット枠 */
-  const PRESET_SLOTS = 3;
+  /* ---------------- 装備・ビルドプリセット (§7.5) ---------------- */
 
   /**
-   * そのキャラのプリセット一覧。常に PRESET_SLOTS 個の配列を返す（空きは null）。
+   * 枠の数 (§7.5-2)。
+   *
+   * キャラごとではなくアカウント（プロファイル）単位で持つ。
+   * キャラごとに買わせると、仲間を増やすほど買い直しが増える税になる。
+   */
+  function presetSlots() {
+    const s = get();
+    const free = RPG.data.presetFreeSlots || 3;
+    const max = RPG.data.presetMaxSlots || 6;
+    const n = typeof s.presetSlots === 'number' ? s.presetSlots : free;
+    return Math.max(free, Math.min(max, n));
+  }
+
+  /**
+   * 次の枠の値段。上限に達していれば null。
+   * @returns {number|null}
+   */
+  function nextSlotCost() {
+    const free = RPG.data.presetFreeSlots || 3;
+    const costs = RPG.data.presetSlotCosts || [];
+    const idx = presetSlots() - free;       // 0 なら4枠目を買うところ
+    if (idx < 0 || idx >= costs.length) return null;
+    return costs[idx];
+  }
+
+  /**
+   * 枠をひとつ買う。
+   * @returns {{ ok: boolean, cost?: number, slots?: number, reason?: string }}
+   */
+  function buyPresetSlot() {
+    const s = get();
+    const cost = nextSlotCost();
+    if (cost == null) return { ok: false, reason: 'これ以上は増やせません' };
+    if (s.gold < cost) {
+      return { ok: false, reason: `ゴールドが${(cost - s.gold).toLocaleString()}足りない` };
+    }
+    s.gold -= cost;
+    s.presetSlots = presetSlots() + 1;
+    persist();
+    return { ok: true, cost, slots: s.presetSlots };
+  }
+
+  /**
+   * そのキャラのプリセット一覧。常に枠の数だけの配列を返す（空きは null）。
+   *
+   * 枠を買うと全キャラで同時に増える。逆に減ることは無いので、
+   * 既に埋まっている枠が消えることはない。
    * @param {string} charId
-   * @returns {Array<{name: string, equipped: Record<string, number[]>}|null>}
+   * @returns {Array<any|null>}
    */
   function presets(charId) {
+    const n = presetSlots();
     const c = get().characters[charId];
-    if (!c) return new Array(PRESET_SLOTS).fill(null);
+    if (!c) return new Array(n).fill(null);
     if (!Array.isArray(c.presets)) c.presets = [];
-    while (c.presets.length < PRESET_SLOTS) c.presets.push(null);
+    while (c.presets.length < n) c.presets.push(null);
     return c.presets;
   }
 
   /**
-   * 今の装備をプリセットに保存する。
+   * 今の状態をプリセットに保存する。
+   *
+   * scope が 'gear' なら装備だけ、'full' ならビルド（ツリー・クラス・技の並び）も含める。
+   * 装備だけを入れ替えたい場面が既にできているので、常にビルド込みにはしない。
+   *
    * @param {string} charId
    * @param {number} index
    * @param {string} [name]
+   * @param {'gear'|'full'} [scope]
    */
-  function savePreset(charId, index, name) {
+  function savePreset(charId, index, name, scope) {
     const c = get().characters[charId];
-    if (!c || index < 0 || index >= PRESET_SLOTS) return null;
+    if (!c || index < 0 || index >= presetSlots()) return null;
     const list = presets(charId);
     /** @type {Record<string, number[]>} */
     const equipped = {};
     for (const slot of Object.keys(c.equipped)) equipped[slot] = c.equipped[slot].slice();
-    list[index] = { name: (name || `構成${index + 1}`).slice(0, NAME_MAX), equipped };
+
+    /** @type {any} */
+    const preset = {
+      name: (name || `構成${index + 1}`).slice(0, NAME_MAX),
+      scope: scope === 'full' ? 'full' : 'gear',
+      equipped,
+    };
+    if (preset.scope === 'full') {
+      preset.tree = Object.assign({}, c.tree);
+      preset.klass = c.klass || null;
+      preset.klassTree = Object.assign({}, c.klassTree);
+      preset.skillOrder = (c.skillOrder || []).slice();
+    }
+    list[index] = preset;
     persist();
     return list[index];
+  }
+
+  /**
+   * プリセットのビルド部分が今のキャラに適用できるか (§7.5-2)。
+   *
+   * ツリーを丸ごと差し替えるので、**適用してから失敗が分かる状態にはしない**。
+   * 先に全部確かめて、駄目なら何も触らずに理由を返す。
+   *
+   * @param {any} c キャラのセーブ
+   * @param {any} preset
+   * @returns {{ ok: boolean, reason?: string, lostNodes?: string[] }}
+   */
+  function checkBuildPreset(c, preset) {
+    if (!preset || preset.scope !== 'full') return { ok: true };
+
+    // 更新で消えたノードは飛ばす。ここで弾くと、古いプリセットが永久に使えなくなる。
+    /** @type {string[]} */
+    const lostNodes = [];
+    /** @type {Record<string, number>} */
+    const tree = {};
+    for (const id of Object.keys(preset.tree || {})) {
+      if (RPG.tree.node(id)) tree[id] = preset.tree[id];
+      else lostNodes.push(id);
+    }
+
+    // SPは (レベル-1)+限界突破 で単調に増えるので、同じキャラの過去の記録なら必ず収まる。
+    // それでも確かめるのは、セーブを編集した場合や、配布量を変えた場合に備えて。
+    const needSp = RPG.tree.spentSp(tree);
+    const haveSp = (c.level - 1) + c.limitBreak;
+    if (needSp > haveSp) {
+      return { ok: false, reason: `SPが${needSp - haveSp}点足りない（必要${needSp} / 所持${haveSp}）` };
+    }
+
+    if (preset.klass && !RPG.data.classes[preset.klass]) {
+      return { ok: false, reason: 'このクラスは今のバージョンに存在しません' };
+    }
+    if (preset.klass) {
+      const probe = Object.assign({}, c, { klass: preset.klass, klassTree: preset.klassTree || {} });
+      const need = RPG.klass.spentPoints(probe);
+      const have = RPG.klass.totalPoints(probe);
+      if (need > have) {
+        return { ok: false, reason: `クラスポイントが${need - have}点足りない（必要${need} / 所持${have}）` };
+      }
+    }
+    return { ok: true, lostNodes };
+  }
+
+  /**
+   * 保存済みビルドへ切り替える費用 (§7.5-2)。
+   *
+   * 既定は0（無料）。枠を買うのが対価で、往復には金を取らない。
+   * 強すぎた場合は presetApplyCostRate を上げれば、ここだけで値段が付く。
+   * @param {string} charId
+   * @param {number} index
+   */
+  function presetApplyCost(charId, index) {
+    const preset = presets(charId)[index];
+    if (!preset || preset.scope !== 'full') return 0;
+    const c = get().characters[charId];
+    if (!c) return 0;
+    const rate = RPG.data.presetApplyCostRate || 0;
+    if (rate <= 0) return 0;
+    // 同じビルドなら切り替えではないので取らない
+    if (JSON.stringify(c.tree) === JSON.stringify(preset.tree || {})
+      && (c.klass || null) === (preset.klass || null)) return 0;
+    return Math.floor(RPG.tree.resetCost(c.level) * rate);
   }
 
   /**
@@ -609,6 +751,40 @@
     const s = get();
     const preset = presets(charId)[index];
     if (!preset) return { ok: false, reason: 'このプリセットは空です' };
+    const c = s.characters[charId];
+    if (!c) return { ok: false, reason: 'このキャラがいません' };
+
+    // ── ビルド部分を先に確かめる ──
+    // 装備を先に着けてからツリーで失敗すると、装備だけ入れ替わった中途半端な状態が残る。
+    // 触る前に全部確かめて、駄目なら何もしない。
+    const check = checkBuildPreset(c, preset);
+    if (!check.ok) return { ok: false, reason: check.reason };
+
+    const cost = presetApplyCost(charId, index);
+    if (cost > 0 && s.gold < cost) {
+      return { ok: false, reason: `ゴールドが${(cost - s.gold).toLocaleString()}足りない` };
+    }
+
+    // ── ビルドの差し替え ──
+    // 1ノードずつ投資するとティア解放の順序で引っかかる。
+    // 保存した時点で成立していた構成なので、丸ごと置き換えるのが正しい。
+    let build = null;
+    if (preset.scope === 'full') {
+      if (cost > 0) s.gold -= cost;
+      /** @type {Record<string, number>} */
+      const tree = {};
+      for (const id of Object.keys(preset.tree || {})) {
+        if (RPG.tree.node(id)) tree[id] = preset.tree[id];
+      }
+      c.tree = tree;
+      c.klass = preset.klass || null;
+      c.klassTree = Object.assign({}, preset.klassTree);
+      c.skillOrder = (preset.skillOrder || []).slice();
+      // ツリーが縮んだぶんのスロット調整と、覚えていない技の掃除。
+      // 装備を入れ直す前に通しておかないと、はみ出した枠の判定が古いままになる。
+      afterTreeShrink(c);
+      build = { cost, lostNodes: check.lostNodes || [] };
+    }
 
     const owned = new Set(s.inventory.map((/** @type {any} */ it) => it.uid));
 
@@ -638,7 +814,51 @@
     }
 
     setLoadout(charId, equipped);
-    return { ok: true, applied, missing, stolen };
+    return { ok: true, applied, missing, stolen, build };
+  }
+
+  /**
+   * パーティ全員に、同じ名前のプリセットを適用する (§7.5-2)。
+   *
+   * ── なぜ名前で揃えるのか ──
+   * 「ボス用」「周回用」をパーティ単位で切り替えたいのが本来の要望だが、
+   * パーティ用の別データを作ると、編成を変えるたびに中身と顔ぶれがずれていく。
+   * 各自の枠に同じ名前を付けておくだけで済むなら、持ち物はキャラ側のままでよい。
+   *
+   * @param {string} name
+   * @returns {{ applied: Array<{name: string, index: number}>, skipped: Array<{name: string, reason: string}> }}
+   */
+  function applyPartyPreset(name) {
+    const s = get();
+    /** @type {Array<{name: string, index: number}>} */
+    const done = [];
+    /** @type {Array<{name: string, reason: string}>} */
+    const skipped = [];
+    for (const id of (s.party || [])) {
+      if (!s.characters[id]) continue;
+      const list = presets(id);
+      const index = list.findIndex((/** @type {any} */ p) => p && p.name === name);
+      if (index < 0) { skipped.push({ name: charName(id), reason: '同じ名前の枠が無い' }); continue; }
+      const res = applyPreset(id, index);
+      if (res.ok) done.push({ name: charName(id), index });
+      else skipped.push({ name: charName(id), reason: res.reason || '失敗' });
+    }
+    return { applied: done, skipped };
+  }
+
+  /**
+   * パーティ内で2人以上が持っている名前の一覧。一括適用の候補。
+   * @returns {string[]}
+   */
+  function partyPresetNames() {
+    const s = get();
+    /** @type {Record<string, number>} */
+    const count = {};
+    for (const id of (s.party || [])) {
+      if (!s.characters[id]) continue;
+      for (const p of presets(id)) if (p) count[p.name] = (count[p.name] || 0) + 1;
+    }
+    return Object.keys(count).filter((n) => count[n] >= 2).sort();
   }
 
   /**
@@ -1213,8 +1433,10 @@
     addGold, addBox, identifyBox, identifyBoxes, equip, unequip, setLoadout, sell,
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
-    presets, savePreset, applyPreset, deletePreset, PRESET_SLOTS,
+    presets, savePreset, applyPreset, deletePreset,
     addExp, levelCap, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    presetSlots, nextSlotCost, buyPresetSlot, presetApplyCost, checkBuildPreset,
+    applyPartyPreset, partyPresetNames,
     mode, setMode, storyProfile, PROFILE_KEYS,
     investNode, refundNode, resetTree, tryJoinParty,
     setClass, investClassNode, refundClassNode, resetClassTree,

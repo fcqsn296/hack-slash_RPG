@@ -2318,11 +2318,42 @@
       const uids = Object.keys(preset.equipped)
         .reduce((/** @type {number[]} */ acc, slot) => acc.concat(preset.equipped[slot]), []);
       const alive = uids.filter((uid) => save.inventory.some((/** @type {any} */ it) => it.uid === uid));
-      return `${alive.length}点` + (alive.length < uids.length ? `（${uids.length - alive.length}点は売却済み）` : '');
+      const gear = `装備${alive.length}点` + (alive.length < uids.length ? `（${uids.length - alive.length}点は売却済み）` : '');
+      if (preset.scope !== 'full') return gear;
+      // ビルド込みの枠は、何が入っているかを数で見せる。
+      // 「ビルド込み」とだけ書いても、中身が空なのか詰まっているのか分からない。
+      const sp = RPG.tree.spentSp(preset.tree || {});
+      const kl = preset.klass && RPG.data.classes[preset.klass]
+        ? RPG.data.classes[preset.klass].name : 'クラス無し';
+      return `${gear} ／ SP${sp} ／ ${kl}`;
     };
 
+    const slots = RPG.state.presetSlots();
+    const nextCost = RPG.state.nextSlotCost();
+    const partyNames = RPG.state.partyPresetNames();
+
     return h('div.presets',
-      h('span.presets-label', { text: '装備プリセット' }),
+      h('div.presets-head',
+        h('span.presets-label', { text: 'プリセット' }),
+        h('span.presets-slots', { text: `${slots}枠` })
+      ),
+      // パーティ一括 (§7.5-2)。
+      // 「ボス用」「周回用」を4人ぶん切り替えるのが本来の目的なので、
+      // 同じ名前が2人以上に付いているときだけ、その名前で一括適用を出す。
+      partyNames.length ? h('div.preset-party',
+        h('span.preset-party-label', { text: 'パーティ一括' }),
+        h('div.preset-party-btns', partyNames.map((/** @type {string} */ name) =>
+          W.button(name, () => {
+            if (!confirm(`パーティ全員に「${name}」を適用しますか？`)) return;
+            const res = RPG.state.applyPartyPreset(name);
+            const parts = [];
+            if (res.applied.length) parts.push(`${res.applied.length}人に適用`);
+            for (const sk of res.skipped) parts.push(`${sk.name}: ${sk.reason}`);
+            RPG.app.toast(parts.join(' ／ ') || '適用できる枠がありません');
+            render(root);
+          }, { variant: 'ghost' })
+        ))
+      ) : null,
       h('div.preset-slots', list.map((preset, i) =>
         h('div.preset-slot' + (preset ? '.is-filled' : ''),
           preset
@@ -2334,21 +2365,40 @@
           h('div.preset-actions',
             preset
               ? W.button('適用', () => {
+                  // ビルド込みはツリーを丸ごと差し替えるので、必ず確認を挟む。
+                  // 装備だけなら着け替えるだけなので、今までどおり即座に適用する。
+                  if (preset.scope === 'full') {
+                    const cost = RPG.state.presetApplyCost(selectedChar, i);
+                    const price = cost > 0 ? `
+費用 ${cost.toLocaleString()} G` : '';
+                    if (!confirm(`${unit.name} のビルドを「${preset.name}」に入れ替えます。`
+                      + `
+今のスキルツリーとクラスは失われます。${price}`)) return;
+                  }
                   const res = RPG.state.applyPreset(selectedChar, i);
                   if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
                   const parts = [`${res.applied}点を装備`];
                   if (res.missing) parts.push(`${res.missing}点は売却済みで欠番`);
                   if (res.stolen && res.stolen.length) parts.push(`${res.stolen.join('、')}から移動`);
+                  if (res.build) {
+                    parts.unshift('ビルドを入れ替え');
+                    if (res.build.cost) parts.push(`${res.build.cost.toLocaleString()} G`);
+                    // 更新で消えたノードは黙って落とすと数が合わなくなるので必ず告げる
+                    if (res.build.lostNodes.length) {
+                      parts.push(`${res.build.lostNodes.length}個のノードは現在存在しません`);
+                    }
+                  }
                   RPG.app.toast(parts.join(' ／ '));
                   render(root);
                 }, { variant: 'primary' })
               : null,
-            W.button(preset ? '上書き' : '現在の装備を保存', () => {
-              const label = prompt('プリセット名', preset ? preset.name : `構成${i + 1}`);
-              if (label === null) return;
-              RPG.state.savePreset(selectedChar, i, label.trim() || `構成${i + 1}`);
-              RPG.app.toast(`「${label.trim() || `構成${i + 1}`}」に保存しました`);
-              render(root);
+            // 保存は「装備だけ」と「ビルド込み」の2種類。
+            // 常にビルド込みにすると、ツリーに触らず装備だけ替える今の使い方が壊れる。
+            W.button(preset ? '上書き' : '装備を保存', () => {
+              savePresetAt(root, i, preset, 'gear');
+            }, { variant: 'ghost' }),
+            W.button(preset && preset.scope === 'full' ? 'ビルドで上書き' : 'ビルド込みで保存', () => {
+              savePresetAt(root, i, preset, 'full');
             }, { variant: 'ghost' }),
             preset
               ? W.button('削除', () => {
@@ -2360,11 +2410,55 @@
           )
         )
       )),
+      // 枠の購入 (§7.5-2)。上限まで買っていれば出さない。
+      nextCost != null ? h('div.preset-buy',
+        h('span.preset-buy-text', {
+          text: `枠を増やす（${slots + 1}枠目）… ${nextCost.toLocaleString()} G`,
+        }),
+        W.button('購入', () => {
+          if (!confirm(`プリセット枠を1つ増やしますか？
+${nextCost.toLocaleString()} G
+
+枠は全キャラ共通で増えます。`)) return;
+          const res = RPG.state.buyPresetSlot();
+          if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+          RPG.app.toast(`${res.slots}枠になりました（-${(res.cost || 0).toLocaleString()} G）`);
+          RPG.app.refreshTopbar();
+          render(root);
+        }, { variant: 'ghost' })
+      ) : null,
       h('p.hint.hint-sm', {
-        text: `${unit.name} 専用の枠です。装備は1つを1人だけなので、` +
-          '他のキャラが着けているものを含むプリセットを適用すると、そちらから外れます。',
+        text: '枠は全キャラ共通です。「装備を保存」は装備だけ、「ビルド込み」は'
+          + 'スキルツリー・クラス・技の並びも一緒に記録します。'
+          + '保存済みビルドへの切り替えは無料ですが、'
+          + '新しく組み直すときの振り直し費用はこれまでどおりかかります。',
+      }),
+      h('p.hint.hint-sm', {
+        text: '装備は1つを1人だけなので、他のキャラが着けているものを含むプリセットを'
+          + '適用すると、そちらから外れます。',
       })
     );
+  }
+
+  /**
+   * プリセットの保存。名前を訊いてから書き込む。
+   * 「装備だけ」と「ビルド込み」で入口が2つあるので、共通部分をここへ出してある。
+   * @param {HTMLElement} root
+   * @param {number} i
+   * @param {any} preset
+   * @param {'gear'|'full'} scope
+   */
+  function savePresetAt(root, i, preset, scope) {
+    const fallback = `構成${i + 1}`;
+    const label = prompt(
+      scope === 'full' ? 'プリセット名（ビルド込み）' : 'プリセット名（装備のみ）',
+      preset ? preset.name : fallback
+    );
+    if (label === null) return;
+    const name = label.trim() || fallback;
+    RPG.state.savePreset(selectedChar, i, name, scope);
+    RPG.app.toast(`「${name}」に保存しました（${scope === 'full' ? 'ビルド込み' : '装備のみ'}）`);
+    render(root);
   }
 
   /**
