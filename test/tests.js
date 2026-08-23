@@ -7066,6 +7066,43 @@
             .filter((/** @type {any} */ e) => e.kind === 'exit' && !RPG.data.maps[e.to]);
           assertTrue(`マップ: ${m.name} の出口は実在するマップを指す`, badExit.length === 0,
             badExit.map((/** @type {any} */ e) => e.to).join(' '));
+
+          // イベントに歩いて辿り着けること (§20.5)。
+          //
+          // 出口を踏むと別のマップへ飛ぶので、**出口の向こう側にある
+          // イベントには永久に届かない**。実際、炉の下層で加入イベントが
+          // 出口の奥に隠れていて、取りに行くと外へ弾き出された。
+          //
+          // 出口のマスを通れない壁として扱い、開始位置から辿れるかを見る。
+          {
+            /** @type {Record<string, boolean>} */
+            const isExit = {};
+            for (const ev of m.events || []) {
+              if (ev.kind === 'exit') isExit[ev.x + ',' + ev.y] = true;
+            }
+            /** @type {Record<string, boolean>} */
+            const seen = {};
+            const key = (/** @type {number} */ x, /** @type {number} */ y) => x + ',' + y;
+            const queue = [[m.start.x, m.start.y]];
+            seen[key(m.start.x, m.start.y)] = true;
+            while (queue.length) {
+              const cur = queue.shift() || [0, 0];
+              for (const d of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = cur[0] + d[0];
+                const ny = cur[1] + d[1];
+                const k = key(nx, ny);
+                if (seen[k] || !W.tileAt(m, nx, ny).walk) continue;
+                seen[k] = true;
+                // 出口はそこで別のマップへ移るので、先へは進めない
+                if (!isExit[k]) queue.push([nx, ny]);
+              }
+            }
+            const unreachable = (m.events || [])
+              .filter((/** @type {any} */ ev) => !seen[key(ev.x, ev.y)])
+              .map((/** @type {any} */ ev) => `${ev.kind}(${ev.x},${ev.y})`);
+            assertTrue(`マップ: ${m.name} のイベントは全て歩いて届く`,
+              unreachable.length === 0, unreachable.join(' / '));
+          }
         }
 
         // --- 当たり判定 ---
@@ -7348,10 +7385,23 @@
           assertTrue('物語: 読み切ると待ちのシーンが無くなる',
             RPG.story.pending() === null, JSON.stringify(RPG.story.pending()));
 
+          // クリアすると次の章へ進むので、status() は「次の章」を指す。
+          // 章が1つしか無かったころは終わった章を指していた。
           const st = RPG.story.status();
-          assertTrue('物語: 進み具合を数えられる',
-            !!st && st.done === st.total && st.cleared,
-            st ? `${st.done}/${st.total}` : 'null');
+          if (chapters.length > 1) {
+            assertTrue('物語: クリアすると次の章へ進む',
+              !!st && st.chapter.id === chapters[1].id && st.done === 0,
+              st ? `${st.chapter.id} ${st.done}/${st.total}` : 'null');
+            assertTrue('物語: 次の章の名前が返る',
+              !!lastClear && lastClear.nextChapter === chapters[1].id,
+              JSON.stringify(lastClear));
+          } else {
+            assertTrue('物語: 進み具合を数えられる',
+              !!st && st.done === st.total && st.cleared,
+              st ? `${st.done}/${st.total}` : 'null');
+          }
+          assertTrue('物語: 終えた章はクリア済みのまま',
+            RPG.story.isCleared(chapters[0].id), '');
 
           // --- 始め直しても冒頭は流れない ---
           // 拠点から入り直すたびに導入が再生されると、話が進まなくなる。

@@ -151,6 +151,57 @@
           },
         ],
       },
+
+      {
+        id: 'ch2',
+        name: '第二章　継承の座',
+        lead: '炉の下には、灰の届かない場所がある。',
+        scenes: [
+          {
+            id: 'ch2_descend',
+            when: { flag: 'saw_mp_vault' },
+            lines: [
+              { who: null, text: '階を下りきると、空気が変わった。乾いていて、冷たくて、灰の匂いがまったくしない。' },
+              { who: 'ch_rizel', text: '……嘘。ここ、外と繋がってない。' },
+              { who: 'ch_rizel', text: '遺構はどこも灰まみれよ。隙間から入るの。ここは、一度も入られてない。' },
+              { who: 'ch_hero', text: '閉じていたからだ。俺が起きるまで。' },
+              { who: null, text: '壁の一部がまだ淡く光っている。止まってはいるが、死んではいない。' },
+              { who: 'ch_rizel', text: '……動いてる旧いのって、こういうのを言うのね。' },
+            ],
+          },
+          {
+            id: 'ch2_pods',
+            when: { flag: 'vault_pods' },
+            lines: [
+              { who: null, text: '壁沿いに、人ひとりぶんの箱が並んでいる。数えるのをやめるくらいには並んでいる。' },
+              { who: 'ch_rizel', text: '……全部、人が入ってるの？' },
+              { who: 'ch_hero', text: '入っていた、が正しい。表示が落ちているものは、もう戻らない。' },
+              { who: 'ch_rizel', text: 'どうしてそんなことが分かるの。' },
+              { who: 'ch_hero', text: '分からない。読めるだけだ。……ここに来ると、手が勝手に動く。' },
+              { who: null, text: '主人公が触れた覚えのない操作面に、腕の銀が流れ込んでいく。' },
+              { who: null, text: '一つだけ、まだ光の残っている箱があった。' },
+            ],
+          },
+          {
+            id: 'ch2_shiki',
+            when: { flag: 'join_shiki' },
+            lines: [
+              { who: null, text: '霜が割れ、蓋が引いた。中の人物は、目を開ける前に体を起こしていた。' },
+              { who: 'ch_shiki', text: '……ここ、まだ持ってたんだ。' },
+              { who: 'ch_rizel', text: 'しゃ、喋った。起きてすぐ。' },
+              { who: 'ch_shiki', text: 'そういう風に納められてるから。寝惚ける時間は勘定に入ってない。' },
+              { who: 'ch_shiki', text: '……で。管理者。あんた、何年ぶり？' },
+              { who: 'ch_hero', text: '分からない。名前も覚えていない。' },
+              { who: 'ch_shiki', text: 'ふうん。焼けたんだ、そっちも。' },
+              { who: 'ch_shiki', text: 'いいよ。順番が逆になっただけ。起こされた側が覚えてるなんて、笑い話だけど。' },
+              { who: 'ch_rizel', text: '……あなた、何を覚えてるの。' },
+              { who: 'ch_shiki', text: '空が焼けた日のこと。それと、ここに何人納めたか。' },
+              { who: 'ch_shiki', text: 'シキ。連れていってよ。ここで待ってても、もう誰も来ない。' },
+            ],
+            then: { clear: true },
+          },
+        ],
+      },
     ],
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
