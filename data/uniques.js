@@ -12,6 +12,75 @@
 // 新しいキーを足すときは battle.js / units.js 側にも処理を書くこと。
 RPG.data.uniqueEquips = {
 
+  // ── 狙い (§5.9) ──
+  // 反撃・棘・庇うは「殴られてから」効くのに、殴られるかどうかを選べなかった。
+  uq_public_eye: {
+    name: '衆目の甲', base: 'eq_relic_mail', color: '#e0b45c',
+    desc: '目立つために作られた鎧。守るためではなく、引き受けるために。',
+    stats: { hp: 1100, def: 120 },
+    effects: { taunt: 0.7, counterRate: 0.18 },
+    note: '狙われやすさ +70%／反撃率 +18%',
+  },
+
+  uq_soundless: {
+    name: '無音の外套', base: 'eq_robe', color: '#6b7a90',
+    desc: '在ることを主張しない布。誰も、そこに人がいると思わない。',
+    stats: { magi_power: 175, hp: 480 },
+    effects: { stealth: 0.55, evade: 0.08 },
+    note: '狙われにくさ -55%／回避 +8%',
+  },
+
+  // ── バフ役の分岐 (§5.12) ──
+  uq_war_banner: {
+    name: '万軍の旗印', base: 'eq_relic_core', color: '#7fc9ff',
+    desc: '掲げた者には何も起きない。見上げた者の足だけが速くなる。',
+    stats: { hp: 760, magi_power: 130 },
+    effects: { allyBuffPower: 0.65, buffExtend: 1 },
+    note: '味方にかけるバフの効果量 +65%／かけるバフの持続 +1ターン',
+  },
+
+  uq_lone_crown: {
+    name: '孤高の冠', base: 'eq_relic_seal', color: '#c58cff',
+    desc: '戴く頭は一つでよい。分け与えるための造りではない。',
+    stats: { atk: 150, magi_power: 150 },
+    effects: { selfBuffPower: 0.55, supportStack: 0.05 },
+    note: '自分にかけるバフの効果量 +55%／バフをかけるたび +5%',
+  },
+
+  // ── 回復を攻めに向ける (§5.11) ──
+  uq_searing_seal: {
+    name: '灼身の聖印', base: 'eq_relic_claw', color: '#ffd98a',
+    desc: '癒しと裁きは、同じ光の裏表でしかない。',
+    stats: { magi_power: 200 },
+    effects: { smite: 0.5, triage: 0.4 },
+    note: '回復した量の 50% が敵へ／瀕死の相手への回復量 +40%',
+  },
+
+  uq_prayer_edge: {
+    name: '祈刃', base: 'eq_relic_claw', color: '#9ad6a0',
+    desc: '祈りの文句を刃に彫った者がいた。両方に効くように、と。',
+    stats: { atk: 165, magi_power: 165 },
+    effects: { healToPower: 0.22, mendPower: 0.15 },
+    note: '「与える回復量」の伸びの 22% ぶん火力／受けた回復量による火力 +15%',
+  },
+
+  // ── 支援の枝 (§5.10) ──
+  uq_cleansing_cup: {
+    name: '濯ぎの杯', base: 'eq_relic_core', color: '#8fd8ff',
+    desc: '汚れを落とすためだけの器。攻めの役には一切立たない。',
+    stats: { hp: 900, magi_power: 120 },
+    effects: { cleanse: 0.45, healPower: 0.3 },
+    note: '回復時 45% で弱体を1つ解く／与える回復量 +30%',
+  },
+
+  uq_tide_ring: {
+    name: '波紋の環', base: 'eq_amulet', color: '#7be0b5',
+    desc: '一滴が池を渡る。狙った先だけが濡れるわけではない。',
+    stats: { magi_power: 185, hp: 520 },
+    effects: { healSpread: 0.5, lowHpHeal: 0.05 },
+    note: '回復が他の味方へ 50% 及ぶ／ラウンド終了時、瀕死の味方を 5% 回復',
+  },
+
   // ── 中技帯 (§5.8) ──
   // 攻撃技89個のうち44個がこの帯にあるのに、支える装備が1つも無かった。
   uq_seeping_fang: {

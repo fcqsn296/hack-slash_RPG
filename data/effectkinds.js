@@ -182,6 +182,8 @@ RPG.data.effectKeysSetOnly = {
   wrathRatio: { route: 'setEffects', desc: '受けたダメージを怒りへ変える割合' },
   wrathRelease: { route: 'setEffects', desc: '溜めた怒りを解き放つ' },
   comboLock: { route: 'setEffects', desc: '積んだコンボが減らなくなる' },
+  soloBuff: { route: 'setEffects', desc: '味方にかけたバフが効かなくなる（孤影セットの代償側）' },
+  smiteAll: { route: 'setEffects', desc: '癒しの余波が敵全体へ飛ぶ' },
 };
 
 /**

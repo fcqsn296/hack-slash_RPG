@@ -16,6 +16,87 @@
 // 新しいキーを足すときは、そちらにも処理を書くこと。
 RPG.data.equipSets = {
 
+  // ── 狙い (§5.9) ──
+  // 反撃・棘・庇うは「殴られてから」効くのに、殴られるかどうかを選べなかった。
+  // 敵の的付けを寄せることで、その一群が初めて噛み合う。
+  set_bulwark: {
+    name: '衆目', color: '#e0b45c',
+    flavor: '前へ出る者がいなければ、隊列はただの列である。',
+    desc: '敵の狙いを自分へ寄せる。反撃・棘と組ませて、集めた攻撃を手数に変える。',
+    bonuses: [
+      {
+        pieces: 2,
+        label: '狙われやすさ +90%',
+        effects: { taunt: 0.9 },
+      },
+      {
+        pieces: 4,
+        label: '狙われやすさ +180%／反撃率 +25%／反撃が敵全体に及ぶ',
+        effects: { taunt: 1.8, counterRate: 0.25, counterAll: true },
+      },
+    ],
+  },
+
+  // ── バフ役の分岐 (§5.12) ──
+  set_banner: {
+    name: '万軍', color: '#7fc9ff',
+    flavor: '旗は振る者のためではなく、見る者のために在る。',
+    desc: '味方へかけるバフだけが伸びる。自分は素のまま、隊列を押し上げる役。',
+    bonuses: [
+      {
+        pieces: 2,
+        label: '味方にかけるバフの効果量 +60%',
+        effects: { allyBuffPower: 0.6 },
+      },
+      {
+        pieces: 4,
+        // 号令はツリー側にもあるので、セットでも配ると二重になる (§5.12)。
+        // 実測でバフ役が 6.2R → 4.4R、戦闘不能が11→2まで落ちて支配的になった。
+        // セットは「味方へ厚く配る」一点に絞り、号令はツリーの側だけに残す。
+        label: '味方へのバフ +70%／かけるバフの持続 +1／味方へのバフが1ターン長く残る',
+        effects: { allyBuffPower: 0.7, buffExtend: 2 },
+      },
+    ],
+  },
+
+  set_solitude: {
+    name: '孤影', color: '#c58cff',
+    flavor: '誰も助けに来ないのなら、誰も助けなくてよい。',
+    desc: '自分へのバフだけが濃くなる。代わりに、味方へかけたバフは一切通らなくなる。',
+    bonuses: [
+      {
+        pieces: 2,
+        label: '自分にかけるバフの効果量 +80%',
+        effects: { selfBuffPower: 0.8 },
+      },
+      {
+        pieces: 4,
+        // 「大きな代償と引き換えに大きな見返り」の枠 (§7.7)。
+        label: '自分へのバフ +170%／ただし味方へかけたバフは効かなくなる',
+        effects: { selfBuffPower: 1.7, soloBuff: true },
+      },
+    ],
+  },
+
+  // ── 回復の反転 (§5.11) ──
+  set_stigma: {
+    name: '聖痕', color: '#ffd98a',
+    flavor: '癒しは、癒されぬものを焼く。',
+    desc: '癒した量が敵へ返る。回復し続けることがそのまま攻撃になる。',
+    bonuses: [
+      {
+        pieces: 2,
+        label: '回復した量の 45% が敵1体へ',
+        effects: { smite: 0.45 },
+      },
+      {
+        pieces: 4,
+        label: '回復した量の 85% が **敵全体** へ／瀕死の相手への回復量 +50%',
+        effects: { smite: 0.85, smiteAll: true, triage: 0.5 },
+      },
+    ],
+  },
+
   set_echo: {
     name: '残響', color: '#8fd8ff',
     flavor: '打ち込んだ音は、遅れて還ってくる。',
