@@ -28,6 +28,25 @@ RPG.data.fields = {
     bg: ['#33283f', '#140f1c'],
     desc: '硬いゴーレムが並ぶ。防御無視の「破鎧撃」が刺さる。',
   },
+  /**
+   * 封絶の浅層 (§20.6)。第三章の舞台。
+   *
+   * fl_mine(推奨12/敵14) と fl_nest(推奨28/敵32) のあいだを埋める。
+   * この帯は今まで一段飛びだった。
+   *
+   * 機械しか出さないのは第一章の台詞に合わせるため
+   * （「旧いのは炉の中で止まってる。外にいるのは、ぜんぶ生き物」）。
+   * ここは炉の内側なので、機械が出てよい唯一の序盤帯になる。
+   */
+  fl_deep: {
+    name: '封絶の浅層', rec_level: 20, enemy_lv: 22, size: [2, 3],
+    pool: ['em_hall_lamp', 'em_scribe_unit', 'em_gate_frame'],
+    boss: 'bs_second_warden',
+    gold_mult: 1, exp_mult: 1,
+    bg: ['#2a3340', '#0d1219'],
+    desc: '継承の座のさらに下。灰が届かず、止まりきれなかった機械が残っている。',
+  },
+
   fl_nest: {
     name: '灼獄竜の巣', rec_level: 28, enemy_lv: 32, size: [2, 3],
     pool: ['em_drake', 'em_dark_knight', 'em_golem'],

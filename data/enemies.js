@@ -327,6 +327,65 @@ RPG.data.enemies = {
       + '待ちきれずに「渡す」の意味を書き換えた。',
   },
 
+  /* ── 封絶の浅層 (§20.6 / 第三章) ──
+   *
+   * 既存の機械（em_warden_unit ほか）は base hp 15500 などで、
+   * 敵レベルを下げても **base がそのまま床になる**ので序盤には置けない。
+   * ストーリーは Lv1 から始まる別プロファイルなので、この帯用に作り直す。
+   *
+   * 目盛りは em_golem(hp1100 atk119 def108) と
+   * bs_gnaw_king(hp2500 atk133 def72) のあいだ。
+   *
+   * 第一章で「旧いのは炉の中で止まってる。外にいるのは、ぜんぶ生き物」と
+   * 言わせているので、機械は炉の内側にしか出さない。ここはその内側にあたる。
+   */
+  em_hall_lamp: {
+    name: '灯し番', element: 'light',
+    base: { hp: 760, atk: 96, def: 58, magi_power: 120 },
+    growth: { hp: 62, atk: 7.4, def: 4.0, magi_power: 8.2 },
+    skills: ['sk_enemy_pulse', 'sk_enemy_claw'],
+    gold: 34, exp: 30,
+    drops: [{ box: 'box_silver', chance: 0.35, count: 1 }],
+    color: '#ffe9b0', glyph: '灯',
+    desc: '通路を照らすためだけの機械。照らす相手がいなくなっても、まだ照らしている。',
+  },
+
+  em_scribe_unit: {
+    name: '記録機', element: 'dark',
+    base: { hp: 640, atk: 88, def: 44, magi_power: 148 },
+    growth: { hp: 54, atk: 6.6, def: 3.2, magi_power: 10.4 },
+    skills: ['sk_enemy_shadow', 'sk_enemy_wither'],
+    gold: 40, exp: 36,
+    drops: [{ box: 'box_silver', chance: 0.4, count: 1 }],
+    color: '#a98fd0', glyph: '記',
+    desc: '書き取るための機械。書く先が尽きたので、同じ行を上から何度も重ねている。',
+  },
+
+  em_gate_frame: {
+    name: '門枠', element: 'earth',
+    base: { hp: 1450, atk: 104, def: 142, magi_power: 40 },
+    growth: { hp: 108, atk: 8.0, def: 8.8, magi_power: 3.0 },
+    skills: ['sk_enemy_crush', 'sk_enemy_quake'],
+    gold: 48, exp: 44,
+    drops: [{ box: 'box_silver', chance: 0.45, count: 1 },
+            { box: 'box_gold', chance: 0.05, count: 1 }],
+    color: '#8d9aa8', glyph: '門',
+    desc: '扉ではなく、扉の枠。閉じるものが失われても、通す相手を選び続けている。',
+  },
+
+  bs_second_warden: {
+    name: '二番機ドゥオ', element: 'none', boss: true,
+    base: { hp: 3000, atk: 176, def: 128, magi_power: 150 },
+    growth: { hp: 218, atk: 13.2, def: 9.6, magi_power: 11.0 },
+    skills: ['sk_enemy_pulse', 'sk_enemy_crush', 'sk_enemy_rend'],
+    gold: 260, exp: 340,
+    drops: [{ box: 'box_gold', chance: 1, count: 1 },
+            { box: 'box_silver', chance: 1, count: 2 }],
+    color: '#c9d4e0', glyph: '弐',
+    desc: '一番機の次に作られた機体。命令の写しを預かっていたが、'
+      + '写した相手が黙ったので、写しのほうを本物として守っている。',
+  },
+
   bs_genesis_echo: {
     name: '創世の残響', element: 'none', boss: true,
     base: { hp: 68000, atk: 900, def: 1150, magi_power: 1000 },
