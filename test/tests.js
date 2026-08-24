@@ -1055,7 +1055,9 @@
         'buff_extend', 'support_stack', 'buff_shield', 'buff_heal',
         'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal', 'round_buff',
         // 回復を攻めに向ける枝 (§5.11)
-        'smite', 'heal_to_power'];
+        'smite', 'heal_to_power',
+        // バフ役の分岐 (§5.12)
+        'self_buff_power', 'ally_buff_power'];
       const unknown = [];
       for (const n of nodes) {
         for (const e of n.effects) if (!KNOWN.includes(e.kind)) unknown.push(`${n.name}: ${e.kind}`);
@@ -1352,6 +1354,62 @@
         assertTrue('バフ強化: 受け手の持続とは別の軸',
           RPG.data.effectKinds.buff_power.key === 'buffPower'
           && RPG.data.effectKinds.buff_duration.key === 'buffDuration', '');
+      }
+
+      /* ===== バフ役の分岐 (§5.12) ===== */
+      //
+      // バフ役だけ方針が1つしか無かった。攻撃側は小技と大技で帯が重ならず排他になり、
+      // 回復側も純回復・神官戦士・反転で方向が分かれるのに、
+      // バフ側は「強く・長く・多く」が全部同じ向きで、全部足せば全部乗るだけだった。
+      //
+      // 1回のバフは自分にかかるか味方にかかるかのどちらかしかない。
+      // その性質だけで、追加のルールを置かずに排他の選択が生まれる。
+      {
+        const skillId = Object.keys(RPG.data.skills)
+          .filter((id) => RPG.data.skills[id].plugin === 'tag_buff')[0];
+        /** @param {any} passives */
+        const cast = (passives) => {
+          const mk = (/** @type {string} */ id) => RPG.units.buildCharacterUnit(
+            { id, level: 60, limitBreak: 0, tree: {}, skillOrder: [],
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          const party = [mk('ch_hero'), mk('ch_rizel'), mk('ch_noa')];
+          Object.assign(party[0].passives, passives);
+          party[0].skills = [skillId].concat(party[0].skills);
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, bossFinale: false, party });
+          RPG.battle.executeSkill(b, b.party[0], skillId, [b.party[1]]);
+          return b.party.map((/** @type {any} */ u) => (u.buffTags || []).slice(-1)[0].value);
+        };
+        const plain = cast({});
+        const self = cast({ selfBuffPower: 0.6 });
+        const ally = cast({ allyBuffPower: 0.6 });
+        const even = cast({ buffPower: 0.6 });
+
+        assertTrue('分岐: 自己特化は自分だけ伸びる',
+          self[0] > plain[0] && Math.abs(self[1] - plain[1]) < 1e-9,
+          self.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
+        assertTrue('分岐: 味方特化は味方だけ伸びる',
+          Math.abs(ally[0] - plain[0]) < 1e-9 && ally[1] > plain[1],
+          ally.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
+        assertTrue('分岐: 均等はどちらにも乗る',
+          even[0] > plain[0] && even[1] > plain[1],
+          even.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
+
+        // 中間が両端より弱いこと。中技が小技・大技より薄いのと同じ関係。
+        // ここが崩れると、専門化する理由が無くなって分岐が死ぬ。
+        const totalOf = (/** @type {string} */ kind) => RPG.data.skillTree.reduce(
+          (/** @type {number} */ sum, /** @type {any} */ n) => sum
+            + (n.effects || []).filter((/** @type {any} */ e) => e.kind === kind)
+              .reduce((/** @type {number} */ a, /** @type {any} */ e) => a + e.value * n.maxLevel, 0), 0);
+        assertTrue('分岐: 味方特化は均等より濃い',
+          totalOf('ally_buff_power') > totalOf('buff_power'),
+          `味方 ${totalOf('ally_buff_power').toFixed(2)} / 均等 ${totalOf('buff_power').toFixed(2)}`);
+
+        // 両取りしても片方は必ず遊ぶ。1回のバフは自分か味方かのどちらかなので、
+        // 追加のルールなしに排他が成立している。
+        const both = cast({ selfBuffPower: 0.6, allyBuffPower: 0.6 });
+        assertTrue('分岐: 両方に振っても1回のバフでは片方しか働かない',
+          Math.abs(both[0] - self[0]) < 1e-9 && Math.abs(both[1] - ally[1]) < 1e-9,
+          both.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
       }
 
       /* ===== 支援役がSPを使い切れること (§5.10) ===== */
@@ -6755,6 +6813,8 @@
           roundBuff: (r) => r.unit.passives.roundBuff,
           smite: (r) => r.unit.passives.smite,
           healToPower: (r) => r.unit.passives.healToPower,
+          selfBuffPower: (r) => r.unit.passives.selfBuffPower,
+          allyBuffPower: (r) => r.unit.passives.allyBuffPower,
           capBreak: (r) => r.attacker.capBreak,
         };
 

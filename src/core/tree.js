@@ -248,6 +248,7 @@
     'all_spread', 'ambush', 'atk_to_def', 'auto_low_skill', 'back_guard', 'boss_guard',
     'boss_slayer', 'buff_duration', 'buff_extend', 'buff_heal', 'buff_on_kill', 'buff_power',
     'buff_shield', 'cap_break', 'chain', 'chain_power',
+    'ally_buff_power', 'self_buff_power',
     'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
     'counter', 'counter_all',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
@@ -412,6 +413,11 @@
       // Lv150の154SPに対して**半分以上が行き場を失っていた**。
       // 中途半端に攻撃へ振らせないために、役の中で使い切れる量まで足す。
       buffExtend: 0,       // かけるバフの持続（受け手の buffDuration とは別）
+      // §5.12 バフ役の分岐。アタッカーの「小技/大技」に対応する排他の軸。
+      // 1回のバフは自分にかかるか味方にかかるかのどちらかなので、
+      // 両方に振ると、どちらの場面でも半分が遊ぶ。
+      selfBuffPower: 0,    // 自分にかけるぶんだけ伸びる
+      allyBuffPower: 0,    // 自分以外にかけるぶんだけ伸びる
       supportStack: 0,     // 支援した回数ぶん、自分のバフが強くなる
       buffShield: 0,       // バフをかけた相手に障壁
       buffHeal: 0,         // バフをかけた相手を回復
@@ -623,6 +629,8 @@
           case 'buff_duration': passives.buffDuration += amount; break;
           case 'buff_power': passives.buffPower += amount; break;
           case 'buff_extend': passives.buffExtend += amount; break;
+          case 'self_buff_power': passives.selfBuffPower += amount; break;
+          case 'ally_buff_power': passives.allyBuffPower += amount; break;
           case 'support_stack': passives.supportStack += amount; break;
           case 'buff_shield': passives.buffShield += amount; break;
           case 'buff_heal': passives.buffHeal += amount; break;

@@ -651,6 +651,23 @@ RPG.data.skillTree = [
     desc: 'バフをかけるたび、自分がかけるバフの効果量 +6%（その戦闘のあいだ）',
   },
   {
+    id: 'tr_self_buff_hi', tier: 'high', name: '一人の軍', cost: 6, maxLevel: 3,
+    effects: [{ kind: 'self_buff_power', value: 0.14 }],
+    desc: '自分にかけるバフの効果量 +14%',
+  },
+  {
+    id: 'tr_ally_buff_hi', tier: 'high', name: '万軍の旗', cost: 6, maxLevel: 3,
+    effects: [{ kind: 'ally_buff_power', value: 0.28 }],
+    desc: '味方にかけるバフの効果量 +28%',
+  },
+  {
+    id: 'tr_opening_hi', tier: 'high', name: '開戦の号砲', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'opening_buff', value: 0.14 }],
+    // 時間軸の対比 (§5.12)。開幕から持っている型と、重ねて伸ばす型。
+    // 短い戦闘なら前者、長引くなら後者が勝つ。
+    desc: '戦闘開始時から固有バフ +14% を持って始まる',
+  },
+  {
     id: 'tr_buff_kill_hi', tier: 'high', name: '連戦の勢い', cost: 5, maxLevel: 3,
     effects: [{ kind: 'buff_on_kill', value: 0.12 }],
     desc: '敵を倒すたびに固有バフ +12%',
@@ -1442,11 +1459,23 @@ RPG.data.skillTree = [
 
   /* ===== バフと障壁の扱い (§5.8) ===== */
   {
+    id: 'tr_self_buff', tier: 'basic', name: '独り立ち', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'self_buff_power', value: 0.08 }],
+    // 対象による分岐 (§5.12)。1回のバフは自分か味方かのどちらかにしかかからないので、
+    // 両方に振ると、どちらの場面でも半分が遊ぶ。小技と大技の関係と同じ。
+    desc: '自分にかけるバフの効果量 +8%（味方へのぶんには乗らない）',
+  },
+  {
+    id: 'tr_ally_buff', tier: 'basic', name: '献身', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'ally_buff_power', value: 0.15 }],
+    desc: '味方にかけるバフの効果量 +15%（自分へのぶんには乗らない）',
+  },
+  {
     id: 'tr_buff_power', tier: 'basic', name: '励ましの声', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'buff_power', value: 0.12 }],
+    effects: [{ kind: 'buff_power', value: 0.09 }],
     // 弱体には「与える量」も「与える持続」もあったのに、
     // バフ側は **受け手の持続** しか無かった (§5.9)。かける側の伸びしろ。
-    desc: '自分がかけるバフの効果量 +12%（受け手側の「持続の心得」とは別枠）',
+    desc: '自分がかけるバフの効果量 +9%（受け手側の「持続の心得」とは別枠）',
   },
   {
     id: 'tr_taunt', tier: 'basic', name: '名乗り', cost: 2, maxLevel: 3,
@@ -1653,14 +1682,24 @@ RPG.data.skillTree = [
     desc: 'ATKの25%をDEFに上乗せ',
   },
   {
+    id: 'tr_self_buff_mid', tier: 'mid', name: '孤高の構え', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'self_buff_power', value: 0.1 }],
+    desc: '自分にかけるバフの効果量 +10%。自分で撒いて自分で殴る形',
+  },
+  {
+    id: 'tr_ally_buff_mid', tier: 'mid', name: '旗手', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'ally_buff_power', value: 0.2 }],
+    desc: '味方にかけるバフの効果量 +20%。全体バフを撒く役の中核',
+  },
+  {
     id: 'tr_opening_mid', tier: 'mid', name: '先陣の気勢', cost: 3, maxLevel: 4,
     effects: [{ kind: 'opening_buff', value: 0.1 }],
     desc: '戦闘開始時から固有バフ +10% を持って始まる',
   },
   {
     id: 'tr_buff_power_mid', tier: 'mid', name: '鼓舞の才', cost: 3, maxLevel: 4,
-    effects: [{ kind: 'buff_power', value: 0.15 }],
-    desc: '自分がかけるバフの効果量 +15%。全体バフを撒く役ほど効く',
+    effects: [{ kind: 'buff_power', value: 0.11 }],
+    desc: '自分がかけるバフの効果量 +11%。全体バフを撒く役ほど効く',
   },
   {
     id: 'tr_taunt_mid', tier: 'mid', name: '矢面', cost: 4, maxLevel: 3,

@@ -43,6 +43,8 @@ RPG.data.effectKinds = {
   buff_duration: { to: 'passives', shape: 'add', uniq: null, key: 'buffDuration', label: '受けるバフの持続', fmt: 'turn' },
   buff_power: { to: 'passives', shape: 'add', uniq: 'buffPower', route: 'passives', key: 'buffPower', label: '自分がかけるバフの効果量', fmt: 'pct' },
   buff_extend: { to: 'passives', shape: 'add', uniq: 'buffExtend', route: 'passives', key: 'buffExtend', label: '自分がかけるバフの持続', fmt: 'turn' },
+  self_buff_power: { to: 'passives', shape: 'add', uniq: 'selfBuffPower', route: 'passives', key: 'selfBuffPower', label: '自分にかけるバフだけ効果量', fmt: 'pct' },
+  ally_buff_power: { to: 'passives', shape: 'add', uniq: 'allyBuffPower', route: 'passives', key: 'allyBuffPower', label: '味方にかけるバフだけ効果量', fmt: 'pct' },
   support_stack: { to: 'passives', shape: 'add', uniq: 'supportStack', route: 'passives', key: 'supportStack', label: '支援するほど自分のバフが強くなる', fmt: 'pct' },
   buff_shield: { to: 'passives', shape: 'add', uniq: 'buffShield', route: 'passives', key: 'buffShield', label: 'バフをかけた相手に障壁', fmt: 'pct' },
   buff_heal: { to: 'passives', shape: 'add', uniq: 'buffHeal', route: 'passives', key: 'buffHeal', label: 'バフをかけた相手を回復', fmt: 'pct' },

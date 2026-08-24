@@ -117,6 +117,8 @@ RPG.data.nodeCategories = [
       'slot', 'opening_buff', 'buff_duration', 'buff_on_kill',
       // かける側のバフ強化 (§5.9 / §5.10)。受け手の buff_duration と並べる。
       'buff_power', 'buff_extend', 'support_stack', 'buff_shield', 'buff_heal', 'round_buff',
+      // 対象による分岐 (§5.12)。自分に厚く／味方に厚く、の排他。
+      'self_buff_power', 'ally_buff_power',
     ],
   },
   {

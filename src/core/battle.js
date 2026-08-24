@@ -978,7 +978,7 @@
    * 「かける側」の伸びしろ。受け手の buffDuration とは別の軸。
    * @param {any} caster @param {number} value
    */
-  function buffAmount(caster, value, stackCount) {
+  function buffAmount(caster, value, stackCount, target) {
     const p = (caster && caster.passives) || {};
     // 「重ねる声」— 支援した回数ぶん、自分のバフが強くなる (§5.10)。
     // 戦闘のあいだだけ積み上がるので、長引くほど後半のバフが効く。
@@ -987,7 +987,24 @@
     // 同じ技なのに後の味方ほど強い値が乗る（実際そうなっていた）。
     // 呼び出し側が詠唱前の値を渡す。
     const stack = (p.supportStack || 0) * (stackCount || 0);
-    const power = (p.buffPower || 0) + stack;
+
+    // 「かける対象」による分岐 (§5.12)。
+    //
+    // ── なぜ要るのか ──
+    // バフ役だけ**方針が1つしか無かった**。攻撃側は小技と大技で帯が重ならず
+    // 排他の選択になり、回復側も純回復・神官戦士・反転で方向が分かれる。
+    // ところがバフ側は「強く・長く・多く」が全部同じ向きで、
+    // 261SPぶんあっても**全部足せば全部乗る**だけだった。
+    //
+    // ── なぜ排他になるのか ──
+    // 1回のバフは自分にかかるか味方にかかるかのどちらかしかない。
+    // 両方に振ると、どちらの場面でも半分が遊ぶ。
+    // 小技と大技が「帯が重ならない」ことで排他になっているのと同じ形で、
+    // 追加のルールを置かずに選択が生まれる。
+    const toSelf = target != null && target === caster;
+    const side = toSelf ? (p.selfBuffPower || 0) : (p.allyBuffPower || 0);
+
+    const power = (p.buffPower || 0) + stack + side;
     return power > 0 ? value * (1 + power) : value;
   }
 
@@ -1961,7 +1978,7 @@
         // 「持続の心得」で受け手側の持続が延びる (§5.8)
         // 効果量のほうは **かけた側** を見る (§5.9)。
         // 弱体には「与える量」の軸があるのに、バフ側は受け手の持続しか無かった。
-        value = buffAmount(actor, value, stackAtCast);
+        value = buffAmount(actor, value, stackAtCast, target);
         // 持続も「かける側」で伸ばせる (§5.10)。受け手の buffDuration とは別枠。
         const extend = (actor.passives && actor.passives.buffExtend) || 0;
         target.buffUnique.push({ value, turns: buffTurns(target, turns) + extend, label });
@@ -1976,7 +1993,7 @@
        * @param {any} target @param {string} tag @param {number} value @param {number} turns @param {string} label
        */
       addTagBuff: (target, tag, value, turns, label) => {
-        value = buffAmount(actor, value, stackAtCast);
+        value = buffAmount(actor, value, stackAtCast, target);
         const extendTag = (actor.passives && actor.passives.buffExtend) || 0;
         target.buffTags.push({
           tag, value, turns: buffTurns(target, turns) + extendTag, label, matchType: null,
@@ -2492,12 +2509,16 @@
     for (const u of livingParty(battle)) {
       const rb = (u.passives && u.passives.roundBuff) || 0;
       if (rb <= 0) continue;
-      const value = buffAmount(u, rb, u.supportCount || 0);
+      // 号令は自分にも味方にもかかるので、相手ごとに値が変わる (§5.12)。
+      // 全体特化なら味方へ厚く、自己特化なら自分へ厚く乗る。
+      let shown = 0;
       for (const ally of livingParty(battle)) {
+        const value = buffAmount(u, rb, u.supportCount || 0, ally);
         ally.buffUnique.push({ value, turns: buffTurns(ally, 1), label: '号令' });
         pushEvent(battle, { type: 'buff', key: ally.key, label: '号令' });
+        shown = Math.max(shown, value);
       }
-      pushLog(battle, `${u.name} の号令（固有 +${Math.round(value * 100)}%）`, 'buff');
+      pushLog(battle, `${u.name} の号令（固有 最大 +${Math.round(shown * 100)}%）`, 'buff');
     }
   }
 
