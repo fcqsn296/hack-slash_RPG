@@ -31,6 +31,121 @@
 //   gold / boxes / character / equip / autoCharge（オート回数の上限を永続的に増やす）
 RPG.data.quests = {
 
+  /* =================== 0. 属性で縛るもの (§10.3-3) ===================
+   *
+   * `elements` は最初から用意してあったのに、**一度も使っていなかった**。
+   * 属性は装備とツリーの両方に軸があるのに、それを名指しで問う場所が無い。
+   *
+   * 単色で組むと相性事故が確定するフィールドを選んである。
+   * 「全属性適応」や「属性貫通」を積んでいれば抜けられる、という形。
+   */
+  q_mono_flame: {
+    name: '緋一色',
+    desc: '火属性のキャラだけで灼獄竜の巣を抜ける。相手も火なので、'
+      + '相性で押せない。属性を扱う枝を持っているかが問われる。',
+    fieldId: 'fl_nest', waves: 5, bossFinale: true,
+    // 実測で 100%・2.2R と縛りが機能していなかったので、敵を引き上げてある。
+    enemyLv: 95,
+    rules: { elements: ['fire'], noAuto: true },
+    unlock: { level: 50 },
+    reward: {
+      gold: 8000,
+      boxes: { box_gold: 2 },
+      equip: {
+        base: 'eq_relic_claw', rarity: 'LEGEND', name: '緋一の爪',
+        stats: { atk: 120, magi_power: 120 },
+        tagBonuses: [{ tag: 'reli', value: 0.24 }],
+        critRate: 0.07,
+      },
+    },
+  },
+
+  q_mono_tide: {
+    name: '蒼一色',
+    desc: '水属性のキャラだけで忘却の遺構へ。普段は使わない顔ぶれが揃っているか。'
+      + '控えを育てていた人だけが通れる。',
+    fieldId: 'fl_ruins', waves: 5, bossFinale: true,
+    enemyLv: 125,
+    rules: { elements: ['water'], noAuto: true },
+    unlock: { level: 75 },
+    reward: {
+      gold: 14000,
+      boxes: { box_dragon: 1 },
+      autoCharge: 3,
+    },
+  },
+
+  /* =================== 終盤帯の縛り (§10.3) ===================
+   *
+   * 縛りつきのクエストが推奨80までで止まっていた。
+   * 上限まで育てた人が手動で挑む場所が無いので、上の帯にも置く。
+   */
+  q_silent_ashfall: {
+    name: '沈黙の灰燼',
+    desc: '灰燼の果てを、オートに頼らず15ラウンド以内で抜ける。'
+      + '6ラウンドしかない。手数で押すか、一撃で畳むかを決めてから入ること。',
+    fieldId: 'fl_ashfall', waves: 5, bossFinale: true,
+    // 15ラウンドでは一度も引っかからなかった（実測4.2R）。
+    rules: { maxRounds: 6, noAuto: true },
+    unlock: { level: 110 },
+    reward: {
+      gold: 30000,
+      boxes: { box_dragon: 2 },
+      autoCharge: 5,
+    },
+  },
+
+  q_unbroken_origin: {
+    name: '不倒の陣',
+    desc: '創世の残響を、ひとりも倒れずに抜ける。'
+      + '削られてから立て直すのでは間に合わない。倒れない形を先に作ること。',
+    fieldId: 'fl_origin', waves: 5, bossFinale: true,
+    rules: { allAlive: true },
+    unlock: { level: 150 },
+    reward: {
+      gold: 60000,
+      boxes: { box_astral: 1 },
+      equip: {
+        base: 'eq_relic_mail', rarity: 'LEGEND', name: '不倒の陣衣',
+        stats: { hp: 1400, def: 150 },
+        tagBonuses: [{ tag: 'reli', value: 0.26 }],
+        reduction: 0.1,
+      },
+    },
+  },
+
+  q_lone_abyss: {
+    name: '独りの遺構',
+    desc: '忘却の遺構へ、誰も連れずに入る。'
+      + '庇う者も、癒す者もいない。30ラウンドで決めきること。',
+    // 終焉の深淵では単騎の達成率が0%だった。忘却の遺構まで下げてある。
+    // 5連戦だと単騎で66ラウンドかかった。数を減らして、長さではなく密度で問う。
+    fieldId: 'fl_ruins', waves: 3, bossFinale: true,
+    rules: { maxParty: 1, maxRounds: 30, noAuto: true },
+    unlock: { quest: 'q_solo_plain', level: 80 },
+    reward: {
+      gold: 40000,
+      boxes: { box_dragon: 2 },
+      autoCharge: 5,
+    },
+  },
+
+  q_endless_vigil: {
+    name: '終わらぬ見張り',
+    desc: '終わりなき回廊を、10ラウンド以内で抜ける。'
+      + '相手はこちらの練度に合わせて上がってくるので、'
+      + '育てるだけでは縮まらない。10ラウンドで決めること。',
+    fieldId: 'fl_endless', waves: 5, bossFinale: true,
+    // 20ラウンドでは一度も引っかからなかった（実測8.4R）。
+    rules: { maxRounds: 10 },
+    unlock: { level: 200 },
+    reward: {
+      gold: 100000,
+      boxes: { box_astral: 2 },
+      autoCharge: 6,
+    },
+  },
+
   /* =================== 1. 手動で考えることを要求するもの =================== */
 
   q_solo_plain: {
