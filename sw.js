@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v87';
+const CACHE_VERSION = 'v88';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -205,6 +205,7 @@ const PRECACHE = [
   './assets/characters/ch_vell.webp',
   './assets/enemies/bs_ashen_monarch.webp',
   './assets/enemies/bs_end_dragon.webp',
+  './assets/enemies/bs_first_warden.webp',
   './assets/enemies/bs_flame_wyrm.webp',
   './assets/enemies/bs_genesis_echo.webp',
   './assets/enemies/bs_gnaw_king.webp',
@@ -212,6 +213,7 @@ const PRECACHE = [
   './assets/enemies/bs_ruin_keeper.webp',
   './assets/enemies/em_abyss_serpent.webp',
   './assets/enemies/em_ash_revenant.webp',
+  './assets/enemies/em_ash_sifter.webp',
   './assets/enemies/em_cinder_queen.webp',
   './assets/enemies/em_dark_knight.webp',
   './assets/enemies/em_drake.webp',
@@ -222,12 +224,14 @@ const PRECACHE = [
   './assets/enemies/em_glass_sentinel.webp',
   './assets/enemies/em_golem.webp',
   './assets/enemies/em_hollow_choir.webp',
+  './assets/enemies/em_index_wraith.webp',
   './assets/enemies/em_null_weaver.webp',
   './assets/enemies/em_sentinel.webp',
   './assets/enemies/em_slime.webp',
   './assets/enemies/em_solar_seraph.webp',
   './assets/enemies/em_thunder_beast.webp',
   './assets/enemies/em_void_titan.webp',
+  './assets/enemies/em_warden_unit.webp',
   './assets/enemies/em_wisp.webp',
   './assets/enemies/em_wolf.webp',
   './assets/enemies/em_world_root.webp',

@@ -272,6 +272,61 @@ RPG.data.enemies = {
     drops: [{ box: 'box_dragon', chance: 1.0, count: 3 }],
     color: '#ff7a2d', glyph: '帝',
   },
+  /* ── 封絶区画 (§10.9) ──
+   *
+   * 第一章でリゼルに「旧いのは炉の中で止まってる」と言わせている。
+   * 外は変異した生態系、機械は遮蔽された施設の内側、という切り分けを
+   * 敵の側でも守るため、機械はここにしか出さない。
+   *
+   * 数値は 創世の残響(敵170) と 終わりなき回廊(敵200) のあいだに置いてある。
+   */
+  em_warden_unit: {
+    name: '巡回機ヴァルグ', element: 'none',
+    base: { hp: 12500, atk: 500, def: 730, magi_power: 400 },
+    growth: { hp: 470, atk: 21, def: 29, magi_power: 17 },
+    skills: ['sk_enemy_crush', 'sk_enemy_pulse'],
+    gold: 620, exp: 3200,
+    drops: [{ box: 'box_dragon', chance: 0.5, count: 1 }],
+    color: '#9aa6b8', glyph: '巡',
+    desc: '止まる命令を受け取れないまま、同じ順路を歩き続けている警備機。',
+  },
+
+  em_ash_sifter: {
+    name: '灰漉しの腕', element: 'earth',
+    base: { hp: 15500, atk: 460, def: 640, magi_power: 510 },
+    growth: { hp: 580, atk: 20, def: 25, magi_power: 22 },
+    skills: ['sk_enemy_quake', 'sk_enemy_wither'],
+    gold: 660, exp: 3400,
+    drops: [{ box: 'box_dragon', chance: 0.55, count: 1 }],
+    color: '#b08a5c', glyph: '漉',
+    desc: '灰を選り分けるための腕。選り分ける対象を、もう区別していない。',
+  },
+
+  em_index_wraith: {
+    name: '索引の亡霊', element: 'dark',
+    base: { hp: 10500, atk: 570, def: 520, magi_power: 720 },
+    growth: { hp: 410, atk: 25, def: 21, magi_power: 30 },
+    skills: ['sk_enemy_wither', 'sk_enemy_judgment'],
+    gold: 700, exp: 3600,
+    drops: [{ box: 'box_dragon', chance: 0.5, count: 1 },
+            { box: 'box_astral', chance: 0.06, count: 1 }],
+    color: '#a06fd0', glyph: '索',
+    desc: '焼けた索引の読み残し。誰を納めたかを、途切れ途切れに唱え続けている。',
+  },
+
+  bs_first_warden: {
+    name: '初代管理機ウーヌス', element: 'light', boss: true,
+    base: { hp: 44000, atk: 640, def: 820, magi_power: 740 },
+    growth: { hp: 1400, atk: 28, def: 33, magi_power: 31 },
+    skills: ['sk_enemy_judgment', 'sk_enemy_apocalypse', 'sk_enemy_pulse'],
+    gold: 5000, exp: 18000,
+    drops: [{ box: 'box_astral', chance: 1, count: 1 },
+            { box: 'box_dragon', chance: 1, count: 2 }],
+    color: '#ffe9a8', glyph: '壹',
+    desc: '最初の管理者に付けられた機体。渡す相手を待ち続け、'
+      + '待ちきれずに「渡す」の意味を書き換えた。',
+  },
+
   bs_genesis_echo: {
     name: '創世の残響', element: 'none', boss: true,
     base: { hp: 68000, atk: 900, def: 1150, magi_power: 1000 },

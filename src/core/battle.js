@@ -21,6 +21,9 @@
   /** 「恩返し」が頭打ちになる、受けた回復の量（最大HP比）(§5.9) */
   const MEND_CAP = 1.5;
 
+  /** かけるバフの効果量の上限 (§5.12)。素の 2.0 倍まで。 */
+  const BUFF_POWER_CAP = 1.0;
+
   /* ============================ 弱点コンボ (§10.6) ============================ */
 
   /**
@@ -1002,9 +1005,23 @@
     // 小技と大技が「帯が重ならない」ことで排他になっているのと同じ形で、
     // 追加のルールを置かずに選択が生まれる。
     const toSelf = target != null && target === caster;
+
+    // 「孤影」セットの代償 (§7.7)。味方へのバフが丸ごと通らなくなる。
+    // 自己特化を極めるほど、隊列の他の3人には何も配れなくなるという取引。
+    const fx = (caster && caster.setEffects) || {};
+    if (!toSelf && target != null && fx.soloBuff) return 0;
+
     const side = toSelf ? (p.selfBuffPower || 0) : (p.allyBuffPower || 0);
 
-    const power = (p.buffPower || 0) + stack + side;
+    // 上限 (§5.12)。
+    //
+    // 均等・特化・重ねる声は別々のキーだが、**同じ1回のバフに全部乗る**。
+    // 上限まで振ると合計が4倍近くになり、鬨の声（[物理]+50%）が +240% を超えた。
+    // 実測ではバフ役1人で 7.5R → 2.0R、戦闘不能0。枠の対価を払っていない。
+    //
+    // 頭を打たせるのは、投資が無駄になるからではなく、
+    // **どれを選ぶか**を意味のある問いにするため。上限に届いたら別の軸へ回す。
+    const power = Math.min(BUFF_POWER_CAP, (p.buffPower || 0) + stack + side);
     return power > 0 ? value * (1 + power) : value;
   }
 
@@ -1943,8 +1960,10 @@
         const smite = (actor.passives && actor.passives.smite) || 0;
         if (smite > 0 && healed > 0 && !(opts && opts.splash)) {
           const foes = (battle.enemies || []).filter((/** @type {any} */ e) => e.alive);
-          if (foes.length > 0) {
-            const foe = foes[0];
+          // 「聖痕」セット (§7.7)。余波が敵全体へ広がる。
+          // 回復1回が全体攻撃になるので、撒くほど盤面が焼ける。
+          const all = (actor.setEffects || {}).smiteAll;
+          for (const foe of (all ? foes : foes.slice(0, 1))) {
             directDamage(battle, foe, healed * smite,
               `${foe.name} が癒しの光に灼かれた — {n} のダメージ`);
           }
@@ -2509,11 +2528,22 @@
     for (const u of livingParty(battle)) {
       const rb = (u.passives && u.passives.roundBuff) || 0;
       if (rb <= 0) continue;
-      // 号令は自分にも味方にもかかるので、相手ごとに値が変わる (§5.12)。
-      // 全体特化なら味方へ厚く、自己特化なら自分へ厚く乗る。
+      // 号令には「かける側の効果量」を乗せない (§5.12)。
+      //
+      // 号令は **手番を使わない**。ラウンドの頭に勝手に配られる。
+      // そこへ倍率まで乗せると、タダのものがタダで倍になる。
+      // 実測ではバフ役1人で 7.5R → 4.3R、戦闘不能が24→3まで落ちた。
+      //
+      // 手番を切って撒くバフ（鬨の声など）は伸びる、
+      // 手番を使わないバフは伸びない、という線で分けてある。
+      // 対象による分岐だけは効かせる（自己特化なら自分へ、全体特化なら味方へ）。
       let shown = 0;
       for (const ally of livingParty(battle)) {
-        const value = buffAmount(u, rb, u.supportCount || 0, ally);
+        const p2 = u.passives || {};
+        const side = ally === u ? (p2.selfBuffPower || 0) : (p2.allyBuffPower || 0);
+        const fx2 = u.setEffects || {};
+        if (ally !== u && fx2.soloBuff) continue;
+        const value = rb * (1 + Math.min(BUFF_POWER_CAP, side) * 0.5);
         ally.buffUnique.push({ value, turns: buffTurns(ally, 1), label: '号令' });
         pushEvent(battle, { type: 'buff', key: ally.key, label: '号令' });
         shown = Math.max(shown, value);
