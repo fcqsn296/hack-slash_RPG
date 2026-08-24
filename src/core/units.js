@@ -457,6 +457,9 @@
       levelPower: (unit.passives && unit.passives.levelPower) || 0,
       // 安定 (§5.6)。ランダム揺らぎの幅を狭める
       stableDamage: (unit.passives && unit.passives.stableDamage) || 0,
+      // 会心率の余りを会心ダメージへ回す割合 (§5.8)。
+      // 変換そのものは damage.js が行う。合計会心率を知っているのがあちらだけのため。
+      critOverflow: (unit.passives && unit.passives.critOverflow) || 0,
       // 属性の噛み合いで決まるもの (§5.7)
       weakHunter: s.weakHunter || 0,
       neutralPower: s.neutralPower || 0,

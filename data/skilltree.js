@@ -228,6 +228,23 @@ RPG.data.skillTree = [
     desc: 'クリティカル倍率 +0.15（1.5倍 → 最大2.25倍）',
   },
   {
+    // 中技に無条件で効く唯一の支援 (§5.8)。
+    // この帯の他の2つ（弱体・コンボ）は「属性有利か弱体中」を要求するので、
+    // 相手を選ばずに効くものが1つも無かった。
+    // 会心はそこを埋めると同時に、crit_combo → 弱点コンボへの着火点になる。
+    id: 'tr_mid_crit', tier: 'mid', name: '技巧', cost: 2, maxLevel: 5,
+    effects: [{ kind: 'mid_power_crit', value: 0.06 }],
+    desc: '中技のクリティカル率 +6%',
+  },
+  {
+    // 会心率の行き場 (§5.8)。
+    // 100%を超えたぶんはそれまで捨てられていた。とくに元から会心率1.00の技
+    // （終焉の一撃・二閃）では、会心率の投資がまるごと無駄になっていた。
+    id: 'tr_crit_overflow', tier: 'high', name: '極点', cost: 4, maxLevel: 3,
+    effects: [{ kind: 'crit_overflow', value: 0.12 }],
+    desc: '会心率が100%を超えたぶん×12% をクリティカル倍率へ上乗せ',
+  },
+  {
     id: 'tr_execute', tier: 'mid', name: '追い打ち', cost: 2, maxLevel: 5,
     effects: [{ kind: 'execute', value: 0.12 }],
     desc: '相手のHPが減っているほど威力上昇（瀕死時 最大+60%）',

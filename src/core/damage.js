@@ -205,6 +205,7 @@
    * @property {number} [setPower]      装備セットの倍率 (§7.7)。battle.js が戦況を見てまとめる
    * @property {number} [lowPowerBoost] 小技だけの底上げ (§4.3)
    * @property {number} [highPowerBoost] 大技だけの底上げ (§5.8)
+   * @property {number} [midPowerCrit]   中技だけの会心率加算 (§5.8)
    * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
    * @property {boolean} [ignoreCap]   ダメージ上限の減衰を通さない (§12 破壊者)
    * @property {number} [chargeRatio]   溜めの威力倍率 (§9.1)。1で溜め無し
@@ -388,9 +389,22 @@
     const critRate = (skill.crit_rate || 0) + (attacker.critRate || 0)
       + ((mods.crit && mods.crit[attackElement]) || 0)
       + ((mods.tagCrit && mods.tagCrit[skill.damage_type]) || 0)
+      + (options.midPowerCrit || 0)  // 中技だけ (§5.8)
       + (options.chargeCrit || 0);   // 溜め (§9.1)
     const crit = options.crit == null ? RPG.rng.chance(critRate) : options.crit;
-    const critical = crit ? CRIT_MULTIPLIER + (attacker.critDamage || 0) : 1;
+
+    // 会心率が100%を超えたぶんを会心ダメージへ回す (§5.8)。
+    //
+    // 100%を超えた会心率はそれまで**完全に捨てられていた**。
+    // 元から会心率1.00の技（終焉の一撃・二閃）では、会心率のノードも装備の会心率も
+    // 効果が0でありながら、画面には「+7%」と表示される状態だった。
+    //
+    // 変換は等倍にしない。100%到達後の会心ダメージは全打撃に確定で乗るので、
+    // 等倍にすると会心率ノードが「痛打」の上位互換になり、あちらが要らなくなる。
+    // 率は critOverflow（パッシブ側）が持つ。
+    const critOverflow = Math.max(0, critRate - 1) * (attacker.critOverflow || 0);
+    const critical = crit
+      ? CRIT_MULTIPLIER + (attacker.critDamage || 0) + critOverflow : 1;
     // 「会心貫通」— 会心したときだけ防御を抜く (§5.7)。
     // 乱数を引いた後に判定しているので、乱数の消費順は会心貫通の有無で変わらない。
     if (crit && attacker.critPierce && !options.ignoreDefense) {
