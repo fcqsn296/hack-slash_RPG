@@ -1038,7 +1038,8 @@
         // 防御で耐える道 (§5.8)
         'hp_to_def',
         // 中技の使い道 (§5.8)
-        'mid_power_status', 'mid_power_combo',
+        'mid_power_status', 'mid_power_combo', 'mid_power_crit',
+        'crit_overflow',
         'crit_stack', 'crit_spread', 'crit_execute',
         'counter_power', 'counter_all', 'chain_power',
         'boss_guard', 'full_hp_foe_power', 'wave_power',
@@ -4943,7 +4944,7 @@
         hasKinds(['low_power_boost', 'low_power_spread', 'low_power_repeat', 'auto_low_skill']),
         `${low} 技`);
       assertTrue('威力帯: 中技を伸ばす手段がある',
-        hasKinds(['mid_power_status', 'mid_power_combo']), `${mid} 技`);
+        hasKinds(['mid_power_status', 'mid_power_combo', 'mid_power_crit']), `${mid} 技`);
       assertTrue('威力帯: 大技を伸ばす手段がある',
         hasKinds(['cap_break', 'high_power_boost']), `${high} 技`);
 
@@ -6763,6 +6764,8 @@
         // 読み取り方まで書いてあるので、置き場所を変えたらここも直すことになる。
         const PROBES = {
           critDamage: (/** @type {any} */ r) => r.attacker.critDamage,
+          critOverflow: (r) => r.attacker.critOverflow,
+          midPowerCrit: (r) => r.unit.passives.midPowerCrit,
           critPierce: (r) => r.attacker.critPierce,
           execute: (r) => r.attacker.execute,
           bossSlayer: (r) => r.attacker.bossSlayer,

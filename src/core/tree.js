@@ -251,6 +251,7 @@
     'ally_buff_power', 'self_buff_power',
     'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
     'counter', 'counter_all',
+    'crit_overflow', 'mid_power_crit',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
     'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
     'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
@@ -326,6 +327,14 @@
       // 中技の役割 (§5.8)。火力ではなく「効果を通す」側で伸ばす。
       midPowerStatus: 0,   // 中技で攻撃したときの弱体付与率への倍率
       midPowerCombo: 0,    // 中技で弱点コンボを積む段数への上乗せ
+      // 中技に無条件で効く唯一の支援 (§5.8)。
+      // 弱体・コンボが「属性有利か弱体中」を要求するのに対し、会心は相手を選ばない。
+      // これが着火点になって crit_combo → midPowerCombo へ繋がる。
+      midPowerCrit: 0,     // 中技のときだけ会心率に加算する
+      // 会心率が100%を超えたぶんを会心ダメージへ回す割合 (§5.8)。
+      // 元から会心率1.00の技（終焉の一撃・二閃）では、会心率の投資が
+      // まるごと捨てられていた。それを受け皿へ流す。
+      critOverflow: 0,
       lowPowerBoost: 0,    // 小技の威力への上乗せ
       autoLowSkill: 0,     // 攻撃後に小技が自動で飛ぶ確率
       lowPowerSpread: 0,   // 小技が敵全体に当たるようになる
@@ -532,6 +541,8 @@
           // 中技の使い道 (§5.8)
           case 'mid_power_status': passives.midPowerStatus += amount; break;
           case 'mid_power_combo': passives.midPowerCombo += amount; break;
+          case 'mid_power_crit': passives.midPowerCrit += amount; break;
+          case 'crit_overflow': passives.critOverflow += amount; break;
           // 小技の使い道 (§4.3)
           case 'low_power_boost': passives.lowPowerBoost += amount; break;
           case 'auto_low_skill': passives.autoLowSkill += amount; break;

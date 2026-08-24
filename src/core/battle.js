@@ -1401,6 +1401,11 @@
           : targetPower(attacker, defender),
         // 小技だけを底上げする (§4.3)。強技には乗らないので置き換えは起きない。
         lowPowerBoost: isLowPower(skill) ? lowPowerBoost(attacker) : 0,
+        // 中技だけ会心率を上げる (§5.8)。
+        // この帯の他の支援（弱体・コンボ）は「属性有利か弱体中」を要求するので、
+        // 相手を選ばずに効くものが1つも無かった。その穴を埋める枠。
+        midPowerCrit: isMidPower(skill)
+          ? ((attacker.passives && attacker.passives.midPowerCrit) || 0) : 0,
         // 闘技場「属性の否定」(§17)。相性を等倍に均す。
         // 適応・極意・貫通といった属性で解く道を丸ごと塞ぐのが狙いなので、
         // 攻撃側の補正が乗るより前に damage.js 側で潰す必要がある。
