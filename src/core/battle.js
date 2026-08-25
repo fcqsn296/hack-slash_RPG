@@ -1423,6 +1423,9 @@
         // 大技だけを底上げする (§5.8)。小技側とは排他で、同じ技には両方乗らない。
         highPowerBoost: isHighPower(skill)
           ? ((attacker.situational && attacker.situational.highPowerBoost) || 0) : 0,
+        // 大技だけ上限を押し上げる (§5.16)。小技側とは排他で、同じ技には両方乗らない。
+        highPowerCap: isHighPower(skill)
+          ? ((attacker.situational && attacker.situational.highPowerCap) || 0) : 0,
         // 破壊者の「終焉の一撃」だけがダメージ上限の外に出る (§12)。
         ignoreCap: !!(skill && skill.ignoreCap),
         // 溜め (§9.1)。威力・会心・上限突破の3つに同時に効く。

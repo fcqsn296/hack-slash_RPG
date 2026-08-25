@@ -1034,7 +1034,7 @@
         'element_crit', 'tag_crit', 'tag_pierce',
         'def_to_atk', 'atk_to_def',
         'buff_duration', 'buff_on_kill', 'shield_regen',
-        'repeat_power', 'variety_power', 'high_power_boost',
+        'repeat_power', 'variety_power', 'high_power_boost', 'high_power_cap',
         // 防御で耐える道 (§5.8)
         'hp_to_def',
         // 中技の使い道 (§5.8)
@@ -4948,7 +4948,7 @@
       assertTrue('威力帯: 中技を伸ばす手段がある',
         hasKinds(['mid_power_status', 'mid_power_combo', 'mid_power_crit']), `${mid} 技`);
       assertTrue('威力帯: 大技を伸ばす手段がある',
-        hasKinds(['cap_break', 'high_power_boost']), `${high} 技`);
+        hasKinds(['cap_break', 'high_power_boost', 'high_power_cap']), `${high} 技`);
 
       // 帯が重ならないこと。重なると「両取り」ができて選択でなくなる。
       const sample = { power: 150, kind: 'active', scaling_stat: 'atk', damage_type: 'phys' };
@@ -6767,6 +6767,7 @@
         const PROBES = {
           critDamage: (/** @type {any} */ r) => r.attacker.critDamage,
           critOverflow: (r) => r.attacker.critOverflow,
+          highPowerCap: (r) => r.attacker.highPowerCap,
           soloBuff: (r) => ((r.unit.setEffects || {}).soloBuff || 0),
           noSelfBuff: (r) => r.unit.passives.noSelfBuff,
           buffCapBonus: (r) => r.unit.passives.buffCapBonus,
