@@ -169,6 +169,35 @@ RPG.data.skills = {
     power: 175, crit_rate: 0.05,
     desc: '【固有】光属性の貫通魔法。闇属性の敵に有利。',
   },
+  // ── 支援のレジェンド3人 (§5.9) ──────────────────────
+  //
+  // どれも unique_buff / tag_buff にしてある。この2つだけが
+  // buffAmount（かける側の効果量）・buffExtend（かける側の持続）・
+  // afterBuff（障壁と回復のおまけ）を通るため。
+  // def_buff と reduction_buff はそこを通らないので、
+  // 支援パッシブを持たせても看板技に一切効かない。
+  sk_lg_litany: {
+    name: '絶えざる連禱', kind: 'active', plugin: 'unique_buff', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+    power: 0, crit_rate: 0,
+    params: { value: 0.5, turns: 4, label: '連禱', party: true },
+    desc: '【固有】4ターンの間、味方全体が固有ユニークバフ+50%を得る。',
+  },
+  sk_lg_thunder_herald: {
+    name: '万雷の触れ', kind: 'active', plugin: 'tag_buff', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'wind',
+    power: 0, crit_rate: 0,
+    params: { tag: 'magi', value: 0.7, turns: 3, label: '万雷', party: true },
+    desc: '【固有】パーティ全体の[魔術]系統補正を3ターン+70%（同タグ加算）。',
+  },
+  sk_lg_ward_weave: {
+    name: '護りの綴れ織り', kind: 'active', plugin: 'unique_buff', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
+    power: 0, crit_rate: 0,
+    params: { value: 0.45, turns: 3, label: '綴れ織り', party: true },
+    desc: '【固有】3ターンの間、味方全体が固有ユニークバフ+45%を得る。',
+  },
+
   sk_gow_roar: {
     name: '金剛の咆哮', kind: 'active', plugin: 'tag_buff', unique: true,
     scaling_stat: 'atk', damage_type: 'reli', element: 'none',

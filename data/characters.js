@@ -827,6 +827,108 @@ RPG.data.characters = {
     desc: '【特殊】直前と違う技を使うと火力+35%。15%で追加行動し、' +
       '敵を倒すたびに固有バフ+15%。技を4本持ち、毎ターン撃ち分けて戦う。',
   },
+
+  // ── 支援の3人 (§5.9) ────────────────────────────
+  //
+  // ツリーには支援の枝が29ノード337SPぶんあるのに、**撒く側の効果を持つ
+  // レジェンドが1人もいなかった**。ミレーヌの buffDuration（自分が受ける側）と
+  // アストラの openingBuff だけで、buffPower / allyBuffPower / roundBuff /
+  // buffShield などは誰も持っていない。【極】旗手まで用意した軸に顔がいない。
+  //
+  // 3人で役割を分けてある。同じ「支援」でも触り心地が違う:
+  //   リタニア   … 手番を使わずに効く（撃たなくても仕事をする）
+  //   ヴェスタ   … 撃つと大きい（天井そのものを上げる）
+  //   ソルヴェイグ … 撃つと固くなる（支援と耐久の橋渡し）
+  //
+  // 固有技はどれも unique_buff / tag_buff。この2つだけが buffAmount と
+  // afterBuff を通るので、支援パッシブが看板技に乗る（skills.js の注記参照）。
+  ch_lg_litania: {
+    name: 'リタニア', title: '絶えざる連禱', rarity: 'LEGEND', element: 'light',
+    base: { hp: 800, atk: 58, def: 60, magi_power: 120 },
+    growth: { hp: 56, atk: 3.2, def: 4.2, magi_power: 9.2 },
+    unique_skills: ['sk_lg_litany'],
+    common_skills: ['sk_heal_light', 'sk_selen_ray', 'sk_focus'],
+    // 【支援】号令はラウンドの頭に勝手に配られる。**手番を使わない**ので、
+    // かける側の効果量は乗らない決まりになっている (§5.12)。
+    // そのぶん「置いておくだけで効く」枠として成立させてある。
+    passives: {
+      roundBuff: 0.10,
+      buffExtend: 1,
+    },
+    color: '#ffe9a8', accent: '#4a3c14', glyph: '禱',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
+      hairColor: '#f2e2b4', hairLight: '#fff8dc', hairDark: '#a89058',
+      eye: '#ffd166', eyeLight: '#fff0c0',
+      outfit: '#3c3418', outfitLight: '#5e5228', outfitTrim: '#ffe9a8',
+      accentColor: '#ffd166',
+    },
+    artPrompt: 'pale gold long hair, warm amber eyes, white and gold liturgical robe, ' +
+      'floating halo of light, hands clasped in prayer, serene gentle smile',
+    desc: '【支援】ラウンド開始時、味方全体に固有バフ+10%（手番を使わない）。' +
+      '自分がかけるバフの持続が+1ターン。撃たなくても働き続ける。',
+  },
+
+  ch_lg_vesta: {
+    name: 'ヴェスタ', title: '万雷の触れ役', rarity: 'LEGEND', element: 'wind',
+    base: { hp: 700, atk: 66, def: 48, magi_power: 145 },
+    growth: { hp: 48, atk: 3.8, def: 3.4, magi_power: 10.4 },
+    unique_skills: ['sk_lg_thunder_herald'],
+    common_skills: ['sk_gale_edge', 'sk_mind_bash', 'sk_focus'],
+    // 【支援】バフの効果量には天井がある（BUFF_POWER_CAP = 1.0）。
+    // buffCapBonus はその天井そのものを押し上げる唯一の鍵で、
+    // 積み上げた buffPower を捨てずに済むのはこの人だけ。
+    passives: {
+      buffPower: 0.35,
+      buffCapBonus: 0.50,
+    },
+    color: '#b8f0d8', accent: '#16443a', glyph: '雷',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'circlet',
+      hairColor: '#9fe8c8', hairLight: '#d8fff0', hairDark: '#3e8870',
+      eye: '#7ef0ff', eyeLight: '#c8faff',
+      outfit: '#1c4038', outfitLight: '#2e6454', outfitTrim: '#b8f0d8',
+      accentColor: '#7ef0ff',
+    },
+    artPrompt: 'mint green high ponytail streaming upward, bright cyan eyes, ' +
+      'herald tabard with silver trim, wind-swept sash, war horn at her hip, fierce grin',
+    desc: '【支援】自分がかけるバフの効果量+35%。さらにバフ効果量の上限を+50%して、' +
+      '積み上げたぶんを捨てずに済む。撃つバフがいちばん大きい。',
+  },
+
+  ch_lg_solveig: {
+    name: 'ソルヴェイグ', title: '護りを編む者', rarity: 'LEGEND', element: 'water',
+    base: { hp: 860, atk: 60, def: 72, magi_power: 108 },
+    growth: { hp: 60, atk: 3.3, def: 5.0, magi_power: 8.4 },
+    unique_skills: ['sk_lg_ward_weave'],
+    common_skills: ['sk_heal_light', 'sk_noa_tide', 'sk_focus'],
+    // 【支援】バフをかけた相手に障壁と回復がついてくる (afterBuff)。
+    // 撒くほど陣形が固くなるので、回復役を1枠減らせる。
+    passives: {
+      allyBuffPower: 0.35,
+      buffShield: 0.12,
+      buffHeal: 0.10,
+    },
+    color: '#8ec4ff', accent: '#16304e', glyph: '織',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'ribbon',
+      hairColor: '#7fa8e0', hairLight: '#c0dcff', hairDark: '#3a5c88',
+      eye: '#a8d8ff', eyeLight: '#dcf0ff',
+      outfit: '#1e3450', outfitLight: '#32526f', outfitTrim: '#8ec4ff',
+      accentColor: '#a8d8ff',
+    },
+    artPrompt: 'deep blue wavy hair with pale ribbon, calm light blue eyes, ' +
+      'layered weaver robe with woven blue threads, spindle and shimmering thread in hand, ' +
+      'quiet composed expression',
+    desc: '【支援】味方にかけるバフの効果量+35%。バフをかけた相手に最大HPの12%の障壁と' +
+      '10%の回復がつく。撒くほど陣形が固くなる。',
+  },
 };
 
 /**
