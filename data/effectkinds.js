@@ -150,6 +150,8 @@ RPG.data.effectKinds = {
   low_power_boost: { to: 'passives', shape: 'add', uniq: 'lowPowerBoost', route: 'setEffects', key: 'lowPowerBoost', label: '小技の火力', fmt: 'pct' },
   low_power_repeat: { to: 'passives', shape: 'add', uniq: 'lowPowerRepeat', route: 'setEffects', key: 'lowPowerRepeat', label: '小技が繰り返す', fmt: 'pct' },
   low_power_spread: { to: 'passives', shape: 'add', uniq: 'lowPowerSpread', route: 'setEffects', key: 'lowPowerSpread', label: '小技が全体に広がる', fmt: 'pct' },
+  mid_power_boost: { to: 'situational', shape: 'add', uniq: 'midPowerBoost', route: 'situational', key: 'midPowerBoost', label: '中技の火力', fmt: 'pct' },
+  mid_power_cap: { to: 'situational', shape: 'add', uniq: 'midPowerCap', route: 'situational', key: 'midPowerCap', label: '中技のダメージ上限突破', fmt: 'pct' },
   mid_power_combo: { to: 'passives', shape: 'add', uniq: 'midPowerCombo', route: 'passives', key: 'midPowerCombo', label: '中技でコンボが多く積む', fmt: 'pct' },
   mid_power_crit: { to: 'passives', shape: 'add', uniq: 'midPowerCrit', route: 'passives', key: 'midPowerCrit', label: '中技の会心率', fmt: 'pct' },
   mid_power_status: { to: 'passives', shape: 'add', uniq: 'midPowerStatus', route: 'passives', key: 'midPowerStatus', label: '中技で弱体が付きやすい', fmt: 'pct' },
