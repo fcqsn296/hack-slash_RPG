@@ -148,6 +148,18 @@
     main.name = def.name + (hard ? '（ハード）' : '');
     main.arenaBoss = true;
 
+    // ハード専用の味付け (§17.2)。
+    //
+    // ── なぜ scale ではなくHPだけを別に持つのか ──
+    // scale は攻撃力にも防御力にも同じだけ掛かる。
+    // 「とにかくHPを盛ってDPSチェックにする」ような調整を scale でやると、
+    // 一撃の重さまで上がって**別の意味で理不尽**になる。
+    // HPだけを動かせる口を分けておく。
+    if (hard && def.hard && def.hard.hpMult) {
+      main.maxHp = Math.floor(main.maxHp * def.hard.hpMult);
+      main.hp = main.maxHp;
+    }
+
     // 攻撃力そのものは触らない。
     // 1発の重さは battle.js が maxHitRatio（最大HPに対する割合）で頭を押さえる。
     // 攻撃力を絞る方式では、技の威力倍率と属性有利に貫かれて一撃死が残るため。
@@ -164,8 +176,13 @@
     battle.enemies = enemies;
 
     // ギミックの状態。hitsThisRound はラウンドごとに数え直す。
+    // ハードではギミックの値も上書きできる (§17.2)。
+    // 通常とハードで「同じ仕掛けの厳しさ」を変えるための口。
+    const gimmicks = Object.assign({}, def.gimmicks || {},
+      (hard && def.hard && def.hard.gimmicks) || {});
+
     battle.arena = {
-      id: def.id, def, hard, gimmicks: def.gimmicks || {}, hitsThisRound: 0,
+      id: def.id, def, hard, gimmicks, hitsThisRound: 0,
       // 実効値。ハードはここで上書きし、battle.js はこちらを見る。
       actionsPerRound: (def.actionsPerRound || 1) + (hard ? HARD_ACTIONS : 0),
       maxHitRatio: Math.min(0.95, def.maxHitRatio * (hard ? HARD_HIT_RATIO : 1)),
