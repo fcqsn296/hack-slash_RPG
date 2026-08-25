@@ -1894,6 +1894,71 @@
   }
 
   /**
+   * ゴールドでレベルを上げる (§6.6)。
+   *
+   * ── なぜ要るのか ──
+   * 経験値は出撃した4人にしか入らない。キャラクターが増えるほど、
+   * 新しく加わった1人を今の水準まで連れて行くための周回が積み上がる。
+   * 実測では、終盤の編成でも主人公255に対して仲間が171・71と離れていた。
+   *
+   * 買える上限はレベル上限そのもの。上限は星霜の欠片でしか伸びないので、
+   * ここが闘技場の周回を短絡させることはない。
+   *
+   * @param {HTMLElement} root
+   * @param {any} charSave
+   */
+  function levelShop(root, charSave) {
+    const save = RPG.state.get();
+    const cap = RPG.state.levelCap();
+    const atMax = charSave.level >= cap;
+
+    /**
+     * 1つぶんのボタン。払えないときは押せない形で額が見えるようにする。
+     * @param {string} label
+     * @param {number} target
+     */
+    const buy = (label, target) => {
+      const q = RPG.state.levelUpCost(selectedChar, target);
+      if (!q.ok) return null;
+      const ok = save.gold >= q.gold;
+      return W.button(label, () => {
+        if (q.levels >= 10 && !confirm(
+          `${q.gold.toLocaleString()} G を払って Lv${charSave.level} → Lv${q.target}（${q.levels}レベル）にします。よろしいですか？`
+        )) return;
+        const res = RPG.state.buyLevels(selectedChar, target);
+        if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+        RPG.app.toast(`Lv${res.level} になった（${res.gold.toLocaleString()} G）`);
+        RPG.app.refreshTopbar();
+        render(root);
+      }, {
+        variant: ok ? 'primary' : 'ghost',
+        disabled: !ok,
+        sub: `${q.gold.toLocaleString()} G`,
+      });
+    };
+
+    return h('div.level-shop',
+      h('div.level-shop-head',
+        h('span.level-shop-value', { text: `Lv${charSave.level}` }),
+        h('span.level-shop-label', { text: `上限 ${cap}` }),
+        h('span.hint.hint-sm', {
+          text: atMax ? 'このキャラは上限に達しています'
+            : '経験値は出撃した者にしか入らない。遅れた仲間はここで引き上げられる。',
+        })
+      ),
+      atMax ? null : h('div.level-shop-actions',
+        buy('+1', charSave.level + 1),
+        buy('+10', charSave.level + 10),
+        buy('上限まで', cap)
+      ),
+      atMax ? null : h('p.hint.hint-sm', {
+        text: `1経験値あたり ${RPG.state.GOLD_PER_EXP} G。周回で同時に入る額のおよそ2倍なので、`
+          + `出撃して稼ぐほうが得です。貯まっている経験値のぶんは差し引かれます。`,
+      })
+    );
+  }
+
+  /**
    * 再抽選 (§7.9)。星霜の欠片を払って副オプションを枠ごとに引き直す。
    *
    * 厳選（全体・ゴールド）と分けてあるのは、あちらでは
@@ -2948,6 +3013,9 @@ ${nextCost.toLocaleString()} G
             })
           )
         ),
+
+        // --- ゴールドでレベルを上げる (§6.6) ---
+        levelShop(root, charSave),
 
         // 固有能力。ここに出さないと、どの方向に振るべきか確かめるために
         // 毎回 図鑑を開いて戻ってくることになる。

@@ -1958,6 +1958,88 @@
         plain.length ? plain.join(' / ') : '全レジェンドが固有の仕掛けを持つ');
     }
 
+    /* ===== ゴールドでレベルを上げる (§6.6) ===== */
+    {
+      const before = localStorage.getItem(RPG.state.STORAGE_KEY);
+      RPG.state.reset();
+      const save = RPG.state.get();
+      const hero = save.characters.ch_hero;
+      const cap = RPG.state.levelCap();
+
+      // --- 見積もりが必要経験値と釣り合っているか ---
+      {
+        hero.level = 50; hero.exp = 0;
+        save.gold = 99999999;
+        const q = RPG.state.levelUpCost('ch_hero', 60);
+        let need = 0;
+        for (let L = 50; L < 60; L++) need += RPG.units.expToNext(L);
+        assertTrue('レベル購入: 見積もりが必要経験値 × 相場と一致',
+          q.ok && q.gold === Math.ceil(need * RPG.state.GOLD_PER_EXP) && q.levels === 10,
+          `${q.gold} G / 必要経験値 ${need}`);
+      }
+
+      // --- 貯まっている経験値は差し引かれる ---
+      {
+        hero.level = 50; hero.exp = 0;
+        const full = RPG.state.levelUpCost('ch_hero', 51).gold;
+        hero.exp = Math.floor(RPG.units.expToNext(50) / 2);
+        const half = RPG.state.levelUpCost('ch_hero', 51).gold;
+        assertTrue('レベル購入: 半端な経験値ぶんは安くなる',
+          half < full && half > 0, `${full} G → ${half} G`);
+        hero.exp = 0;
+      }
+
+      // --- 実際に買う ---
+      {
+        hero.level = 50; hero.exp = 0;
+        save.gold = 99999999;
+        const goldBefore = save.gold;
+        const q = RPG.state.levelUpCost('ch_hero', 70);
+        const res = RPG.state.buyLevels('ch_hero', 70);
+        assertTrue('レベル購入: レベルが上がる', res.ok && hero.level === 70, res.reason || `Lv${hero.level}`);
+        assertTrue('レベル購入: 見積もりどおりゴールドを払う',
+          save.gold === goldBefore - q.gold, `${q.gold.toLocaleString()} G`);
+        assertTrue('レベル購入: 半端な経験値は残さない', hero.exp === 0, String(hero.exp));
+      }
+
+      // --- 上限を超えない ---
+      {
+        hero.level = cap - 3; hero.exp = 0;
+        save.gold = 99999999;
+        RPG.state.buyLevels('ch_hero', cap + 50);
+        assertTrue('レベル購入: レベル上限を超えない', hero.level === cap, `Lv${hero.level} / 上限 ${cap}`);
+        const res = RPG.state.buyLevels('ch_hero', cap);
+        assertTrue('レベル購入: 上限に達していれば断る',
+          res.ok === false && !!res.reason, res.reason || '');
+      }
+
+      // --- 足りなければ断る。断ったときは何も動かない ---
+      {
+        hero.level = 100; hero.exp = 0;
+        const q = RPG.state.levelUpCost('ch_hero', 120);
+        save.gold = q.gold - 1;
+        const res = RPG.state.buyLevels('ch_hero', 120);
+        assertTrue('レベル購入: ゴールドが足りなければ断る',
+          res.ok === false && /足りません/.test(res.reason || ''), res.reason || '');
+        assertTrue('レベル購入: 断られたときはレベルもゴールドも動かない',
+          hero.level === 100 && save.gold === q.gold - 1, `Lv${hero.level} / ${save.gold} G`);
+      }
+
+      // --- 周回のほうが得であること ---
+      //
+      // ここが逆転すると「戦う理由が消える」ので、相場そのものを見張る。
+      // 実測では、1人が経験値を1得るあいだにパーティへ入るゴールドは約0.22。
+      {
+        assertTrue('レベル購入: 周回で稼ぐほうが得な相場になっている',
+          RPG.state.GOLD_PER_EXP > 0.22,
+          `${RPG.state.GOLD_PER_EXP} G/経験値（周回の相場は約0.22）`);
+      }
+
+      if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+      else localStorage.setItem(RPG.state.STORAGE_KEY, before);
+      RPG.state.load();
+    }
+
     /* ===== キャラの固有能力が正しい経路に書かれているか (§8) ===== */
     {
       // ── なぜこの検査が要るのか ──
@@ -9074,6 +9156,8 @@
         '値だけ引き直す費用が実装と一致');
       mentions('gl_refine', `欠片${RPG.enhance.REFINE_SHARDS.all_value}`,
         '全部の値を引き直す費用が実装と一致');
+      mentions('gl_level_buy', `${RPG.state.GOLD_PER_EXP} G`,
+        'レベル購入の相場が実装と一致');
       // 理想値の前提が「実際に副オプションが出る宝箱」であること。
       // 星辰は 100% ユニークなので、あそこを前提にすると届かない数字を示すことになる。
       {
