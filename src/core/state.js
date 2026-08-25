@@ -1028,6 +1028,76 @@
   }
 
   /**
+   * ゴールド1点で買える経験値の相場 (§6.6)。
+   *
+   * ── どう決めたか ──
+   * 周回の実測で、1人が経験値を1得るあいだにパーティ全体へ入るゴールドは
+   * およそ 0.22。そのまま同額にすると「戦っても買っても同じ」になるので、
+   * **2倍の 0.44** にしてある。周回したほうが明確に得で、
+   * ゴールドのほうは「余っているぶんで遅れた仲間を引き上げる」道になる。
+   *
+   * 買える上限はレベル上限そのもの。上限は星霜の欠片でしか伸びないので、
+   * 闘技場 → 欠片 → 上限、という往復はこの仕組みでは短絡しない。
+   */
+  const GOLD_PER_EXP = 0.44;
+
+  /**
+   * いまのレベルから target まで上げるのに要るゴールド (§6.6)。
+   *
+   * 半端に貯まっている経験値は差し引く。1経験値足りないだけで
+   * 満額を払わされると、戦ってから買うのが損になってしまう。
+   *
+   * @param {string} charId
+   * @param {number} target
+   * @returns {{ok: boolean, reason?: string, gold?: number, levels?: number, target?: number}}
+   */
+  function levelUpCost(charId, target) {
+    const c = get().characters[charId];
+    if (!c) return { ok: false, reason: 'キャラクターがいません' };
+    const cap = levelCap();
+    const to = Math.min(cap, Math.floor(target));
+    if (!(to > c.level)) {
+      return { ok: false, reason: c.level >= cap ? 'すでにレベル上限です' : '今より上のレベルを選んでください' };
+    }
+    let gold = 0;
+    for (let L = c.level; L < to; L++) {
+      // 最初の1段だけ、貯まっている経験値ぶんを引く
+      const need = RPG.units.expToNext(L) - (L === c.level ? (c.exp || 0) : 0);
+      gold += Math.max(0, need) * GOLD_PER_EXP;
+    }
+    return { ok: true, gold: Math.ceil(gold), levels: to - c.level, target: to };
+  }
+
+  /**
+   * ゴールドを払ってレベルを上げる (§6.6)。
+   *
+   * ── なぜ要るのか ──
+   * 経験値は出撃した者にしか入らない。キャラクターが増えるほど、
+   * 新しく加わった1人を今の水準まで連れて行くのに周回が要る。
+   * 実際、終盤の編成でも主人公255に対して仲間が171・71と離れていた。
+   * ここは「余ったゴールドで、遅れた仲間を今の水準へ引き上げる」ための道。
+   *
+   * @param {string} charId
+   * @param {number} target
+   * @returns {{ok: boolean, reason?: string, gold?: number, levels?: number, level?: number}}
+   */
+  function buyLevels(charId, target) {
+    const s = get();
+    const c = s.characters[charId];
+    const quote = levelUpCost(charId, target);
+    if (!quote.ok) return quote;
+    if (s.gold < quote.gold) {
+      return { ok: false, reason: `ゴールドが ${(quote.gold - s.gold).toLocaleString()} 足りません` };
+    }
+    addGold(-quote.gold);
+    c.level = quote.target;
+    // 半端な経験値は代金に織り込み済み。持ち越すと二重取りになる。
+    c.exp = 0;
+    persist();
+    return { ok: true, gold: quote.gold, levels: quote.levels, level: c.level };
+  }
+
+  /**
    * 現在のレベル上限 (§6.5)。
    *
    * ── なぜセーブ側に持たせるのか ──
@@ -1434,7 +1504,7 @@
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset,
-    addExp, levelCap, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    addExp, levelCap, GOLD_PER_EXP, levelUpCost, buyLevels, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
     presetSlots, nextSlotCost, buyPresetSlot, presetApplyCost, checkBuildPreset,
     applyPartyPreset, partyPresetNames,
     mode, setMode, storyProfile, PROFILE_KEYS,
