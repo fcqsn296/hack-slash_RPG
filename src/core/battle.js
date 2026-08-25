@@ -1564,17 +1564,44 @@
     // 無属性で殴っても吸収されて逃げ道が消える（実測 0% 勝率）。
     // それは謎かけではなく理不尽なので、ビルドの補正を含まない
     // 攻撃属性 vs ボス属性の相性だけを見る。
+    //
+    // ── 属性変換で抜けられていた (§17.4) ──
+    // `skill.element` だけを見ていたので、`element_convert` で闇に染めると
+    // **有利倍率(1.5倍)は得たまま吸収だけ回避**できていた。実測で吸収0。
+    // damage.js が実際に使う攻撃属性（`mods.convert || skill.element`）と揃える。
+    // 適応や極意は「倍率」を動かすだけで属性そのものは変えないので、
+    // 上のコメントにある「全属性適応で逃げ道が消える」問題は起きない。
+    const atkMods = (attacker && attacker.elementMods) || {};
+    const effectiveElement = atkMods.chaos ? 'none'
+      : (atkMods.convert || skill.element || attacker.element);
     const rawAdvantage = isArenaBoss(battle, defender)
-      && RPG.damage.elementMultiplier(skill.element, defender.element) > 1;
+      && RPG.damage.elementMultiplier(effectiveElement, defender.element) > 1;
 
     if (rawAdvantage && (battle.arena.gimmicks || {}).elementAbsorb && result.damage > 0) {
-      const healed = Math.min(defender.maxHp - defender.hp, result.damage);
-      defender.hp += healed;
-      if (!opts.silent) {
-        pushLog(battle, `${defender.name} は有利属性を喰らって ${healed.toLocaleString()} 回復した`, 'heal');
+      // 喰らう割合 (§17.4)。既定は 1（全部喰う＝従来どおり）。
+      //
+      // ── なぜ全部ではなく割合にできるようにするのか ──
+      // 全部喰われると、有利属性で殴る道が**完全に閉じる**。
+      // 割合にしておけば「損だが通る」ので、
+      // 極まったビルドなら強引に押し切れる余地が残る。
+      // 8割なら、有利(2倍)で殴っても実効0.4倍。
+      // 等倍で殴るほうが得なので、普通は素直に属性を変える判断になる。
+      const g = battle.arena.gimmicks || {};
+      const ratio = g.elementAbsorbRatio != null ? g.elementAbsorbRatio : 1;
+      const absorbed = Math.floor(result.damage * ratio);
+      const through = result.damage - absorbed;
+
+      // 回復は「減っているぶん」までしか乗らない。
+      // 満タンでも吸収そのものは効くように、通す量とは別に数える。
+      const healed = Math.min(Math.max(0, defender.maxHp - defender.hp), absorbed);
+      if (healed > 0) defender.hp += healed;
+      if (!opts.silent && absorbed > 0) {
+        pushLog(battle,
+          `${defender.name} は有利属性を喰らった（${absorbed.toLocaleString()} を吸収`
+          + (healed > 0 ? `／${healed.toLocaleString()} 回復` : '') + '）', 'heal');
       }
-      result.damage = 0;
-      return result;
+      result.damage = through;
+      if (through <= 0) return result;
     }
 
     // 闘技場のボスから受けるダメージには上限を設ける (§17)。
