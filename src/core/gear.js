@@ -20,6 +20,134 @@
   }
 
   /**
+   * 副オプション1つぶんの生の値を引く。
+   * 'stat' だけ整数で、それ以外は割合の実数（緩やかな拡大を通す）。
+   * @param {any} affix
+   * @param {any} box
+   */
+  function rollAffixValue(affix, box) {
+    if (affix.kind === 'stat') {
+      return Math.max(1, Math.floor(RPG.rng.float(affix.range[0], affix.range[1]) * box.stat_mult));
+    }
+    return RPG.rng.float(affix.range[0], affix.range[1]) * softScale(box.stat_mult);
+  }
+
+  /**
+   * 表示用の1行。
+   * @param {any} affix
+   * @param {number} v
+   */
+  function affixLine(affix, v) {
+    return affix.kind === 'stat'
+      ? { label: affix.name, value: '+' + v }
+      : { label: affix.name, value: '+' + (v * 100).toFixed(1) + '%' };
+  }
+
+  /** @param {string} id */
+  function affixById(id) {
+    return RPG.data.affixes.find((/** @type {any} */ a) => a.id === id) || null;
+  }
+
+  /**
+   * その装備が引いた副オプションを {id, v} の並びで返す。
+   *
+   * 再抽選 (§7.9) は「どの枠が何を引いたか」を知る必要があるが、
+   * この記録を持たない装備が既存のセーブに入っている。副オプションの名前は
+   * 一意なので affixLines から引き当てられる。**値は表示文字列から読まない**
+   * （割合系は小数1桁に丸めてあるので、戻すと目減りする）。装備側に残っている
+   * 正確な値のほうから取り戻す。
+   *
+   * @param {any} item
+   * @returns {Array<{id: string, v: number}>}
+   */
+  function affixRollsOf(item) {
+    if (item.affixRolls) {
+      return item.affixRolls.map((/** @type {any} */ r) => ({ id: r.id, v: r.v }));
+    }
+    /** @type {Array<{id: string, v: number}>} */
+    const rolls = [];
+    for (const line of item.affixLines || []) {
+      const affix = RPG.data.affixes.find((/** @type {any} */ a) => a.name === line.label);
+      if (!affix) continue;
+      let v = 0;
+      if (affix.kind === 'stat') {
+        v = parseInt(String(line.value).replace('+', ''), 10) || 0;
+      } else if (affix.kind === 'tag_bonus') {
+        const hit = (item.tagBonuses || []).find((/** @type {any} */ t) => t.tag === affix.tag
+          && (t.matchType || null) === (affix.match_type || null));
+        v = hit ? hit.value : 0;
+      } else if (affix.kind === 'crit') v = item.critRate || 0;
+      else if (affix.kind === 'cap_break') v = item.capBreak || 0;
+      else if (affix.kind === 'reduction') v = item.reduction || 0;
+      rolls.push({ id: affix.id, v });
+    }
+    return rolls;
+  }
+
+  /**
+   * 主ステータスだけを取り出す。強化ぶんと副オプションぶんを除いた素の値。
+   * @param {any} item
+   */
+  function mainStatsOf(item) {
+    if (item.mainStats) return Object.assign({}, item.mainStats);
+    // baseStats は強化前の控え。無ければ強化されていないので stats がそのまま素。
+    /** @type {Record<string, number>} */
+    const main = Object.assign({}, item.baseStats || item.stats);
+    for (const r of affixRollsOf(item)) {
+      const affix = affixById(r.id);
+      if (!affix || affix.kind !== 'stat') continue;
+      if (main[affix.stat] === undefined) continue;
+      main[affix.stat] -= r.v;
+      // その装備の主ステータスに無い種類だったなら、引くと 0 以下になる
+      if (main[affix.stat] <= 0) delete main[affix.stat];
+    }
+    return main;
+  }
+
+  /**
+   * 副オプションの並びを装備へ反映し直す。派生する値は全部作り直す。
+   *
+   * 強化ぶんは乗せない。控え（baseStats）を捨てるので、呼び出し側が
+   * enhance.applyPlus を通して積み直すこと。
+   *
+   * @param {any} item
+   * @param {Array<{id: string, v: number}>} rolls
+   */
+  function applyAffixRolls(item, rolls) {
+    const main = mainStatsOf(item);
+    /** @type {Record<string, number>} */
+    const stats = Object.assign({}, main);
+    /** @type {Array<{tag: string, value: number, matchType: string|null}>} */
+    const tagBonuses = [];
+    /** @type {Array<{label: string, value: string}>} */
+    const affixLines = [];
+    let critRate = 0;
+    let capBreak = 0;
+    let reduction = 0;
+    for (const r of rolls) {
+      const affix = affixById(r.id);
+      if (!affix) continue;
+      if (affix.kind === 'stat') stats[affix.stat] = (stats[affix.stat] || 0) + r.v;
+      else if (affix.kind === 'tag_bonus') {
+        tagBonuses.push({ tag: affix.tag, value: r.v, matchType: affix.match_type || null });
+      } else if (affix.kind === 'crit') critRate += r.v;
+      else if (affix.kind === 'cap_break') capBreak += r.v;
+      else if (affix.kind === 'reduction') reduction += r.v;
+      affixLines.push(affixLine(affix, r.v));
+    }
+    item.mainStats = main;
+    item.affixRolls = rolls.map((r) => ({ id: r.id, v: r.v }));
+    item.stats = stats;
+    item.tagBonuses = tagBonuses;
+    item.critRate = critRate;
+    item.capBreak = capBreak;
+    item.reduction = reduction;
+    item.affixLines = affixLines;
+    delete item.baseStats;
+    return item;
+  }
+
+  /**
    * 宝箱を1つ開封し、装備を1つ生成する。
    *
    * @param {string} boxId
@@ -51,49 +179,24 @@
     const flatScale = box.stat_mult * rarity.main_mult;
     const soft = softScale(box.stat_mult);
 
+    // 主ステータスは部位で決まる。副オプションと分けて控えておくと、
+    // 再抽選 (§7.9) のときに副オプションぶんだけを差し替えられる。
     /** @type {Record<string, number>} */
-    const stats = {};
+    const mainStats = {};
     for (const key of Object.keys(base.main)) {
       const [lo, hi] = base.main[key];
-      stats[key] = Math.max(1, Math.floor(RPG.rng.float(lo, hi) * flatScale));
+      mainStats[key] = Math.max(1, Math.floor(RPG.rng.float(lo, hi) * flatScale));
     }
-
-    /** @type {Array<{tag: string, value: number, matchType: string|null}>} */
-    const tagBonuses = [];
-    /** @type {Array<{label: string, value: string}>} */
-    const affixLines = [];
-    let critRate = 0;
-    let capBreak = 0;
-    let reduction = 0;
 
     // 副オプションを重複なしで抽選する
     const pool = RPG.data.affixes.slice();
     const count = Math.min(rarity.affixes, pool.length);
+    /** @type {Array<{id: string, v: number}>} */
+    const rolls = [];
     for (let i = 0; i < count; i++) {
       const affix = RPG.rng.weighted(pool);
       pool.splice(pool.indexOf(affix), 1);
-
-      if (affix.kind === 'stat') {
-        const v = Math.max(1, Math.floor(RPG.rng.float(affix.range[0], affix.range[1]) * box.stat_mult));
-        stats[affix.stat] = (stats[affix.stat] || 0) + v;
-        affixLines.push({ label: affix.name, value: '+' + v });
-      } else if (affix.kind === 'tag_bonus') {
-        const v = RPG.rng.float(affix.range[0], affix.range[1]) * soft;
-        tagBonuses.push({ tag: affix.tag, value: v, matchType: affix.match_type || null });
-        affixLines.push({ label: affix.name, value: '+' + (v * 100).toFixed(1) + '%' });
-      } else if (affix.kind === 'crit') {
-        const v = RPG.rng.float(affix.range[0], affix.range[1]) * soft;
-        critRate += v;
-        affixLines.push({ label: affix.name, value: '+' + (v * 100).toFixed(1) + '%' });
-      } else if (affix.kind === 'cap_break') {
-        const v = RPG.rng.float(affix.range[0], affix.range[1]) * soft;
-        capBreak += v;
-        affixLines.push({ label: affix.name, value: '+' + (v * 100).toFixed(1) + '%' });
-      } else if (affix.kind === 'reduction') {
-        const v = RPG.rng.float(affix.range[0], affix.range[1]) * soft;
-        reduction += v;
-        affixLines.push({ label: affix.name, value: '+' + (v * 100).toFixed(1) + '%' });
-      }
+      rolls.push({ id: affix.id, v: rollAffixValue(affix, box) });
     }
 
     const prefix = RPG.rng.pick(RPG.data.equipPrefixes[rarityId]);
@@ -112,16 +215,13 @@
       slot: base.slot,
       tag: base.tag,
       rarity: rarityId,
-      stats,
-      tagBonuses,
-      critRate,
-      capBreak,
-      reduction,
-      affixLines,
+      mainStats,
       boxId,
       setId: setId || null,
     };
-    return item;
+    // stats / tagBonuses / critRate / capBreak / reduction / affixLines は
+    // 副オプションの並びから作られる。生成も再抽選も同じ関数を通す。
+    return applyAffixRolls(item, rolls);
   }
 
   /**
@@ -365,5 +465,6 @@
   }
 
   RPG.gear = {
-    SORTS, sortValue, arrange, identify, forge, rollUnique, score, summary };
+    SORTS, sortValue, arrange, identify, forge, rollUnique, score, summary,
+    rollAffixValue, affixById, affixRollsOf, mainStatsOf, applyAffixRolls };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

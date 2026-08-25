@@ -21,6 +21,9 @@
   /** 強化の上限 */
   const MAX_PLUS = 10;
 
+  /** 再抽選に使う道具のID。レベル上限を伸ばす道具と同じもの。 */
+  const SHARD_ITEM = 'it_star_shard';
+
   /**
    * 1段階ごとに平坦ステータスへ乗る割合。+10 で 1.6倍になる。
    *
@@ -40,6 +43,25 @@
   const ENHANCE_BASE_GOLD = 60;
   /** 厳選費用の基準額 */
   const REROLL_BASE_GOLD = 120;
+
+  /**
+   * 再抽選 (§7.9) に要る星霜の欠片。
+   *
+   * 欠片はレベル上限を伸ばす道具でもあるので、上限を伸ばしきる前は
+   * 「レベルを取るか装備を取るか」の選択になる。伸ばしきったあとは
+   * ここが唯一の使い道になる。
+   *
+   * 枠を選べるほど安い。宝箱を大量に開けて**素体（副オプションの種類）を
+   * 選んでから**引き直すほど欠片が減らない、という向きに効かせている。
+   */
+  const REFINE_SHARDS = {
+    all_value: 2,
+    one_full: 2,
+    one_value: 1,
+  };
+
+  /** 再抽選のゴールド係数。枠を1つに絞るぶんには安くする。 */
+  const REFINE_GOLD_RATIO = { all: 1, one: 0.5 };
 
   /**
    * その装備の等級係数。宝箱のグレードが高いほど強化は高くつく。
@@ -237,6 +259,106 @@
   }
 
   /**
+   * 再抽選の費用。
+   * @param {any} item
+   * @param {'all'|'one'} scope
+   * @param {'full'|'value'} depth
+   */
+  function refineCost(item, scope, depth) {
+    const key = scope === 'all' ? 'all_value' : (depth === 'full' ? 'one_full' : 'one_value');
+    return {
+      shards: REFINE_SHARDS[key],
+      gold: Math.round(rerollCost(item) * REFINE_GOLD_RATIO[scope]),
+    };
+  }
+
+  /**
+   * 再抽選 (§7.9)。星霜の欠片を払って副オプションを引き直す。
+   *
+   * ── なぜ厳選（reroll）と別に用意したか ──
+   * ひとつは終盤の受け皿。レベル上限を伸ばしきると星霜の欠片の使い道が消える。
+   * もうひとつは、全体の振り直しでは「4枠のうち3枠は当たりで1枠だけ外れ」を
+   * 直せないこと。当たりごと引き直すしかなく、厳選が進まなかった。
+   *
+   *   scope 'all' … 全部の枠を対象にする
+   *   scope 'one' … index の枠だけを対象にする
+   *   depth 'full'  … 種類ごと引き直す（他の枠と同じ種類は引かない）
+   *   depth 'value' … 種類は据え置きで、値だけ引き直す
+   *
+   * 'all' × 'full' はここでは扱わない。それは reroll()（ゴールドのみ）の仕事。
+   *
+   * **強化値は引き継ぐ。** 引き継がないと、強化を積んだ装備は怖くて触れず、
+   * 「素体を選んでから育てる」ではなく「育ててから祈る」になってしまう。
+   *
+   * @param {number} uid
+   * @param {{scope?: 'all'|'one', depth?: 'full'|'value', index?: number}} [opts]
+   * @returns {{ok: boolean, reason?: string, before?: number, after?: number, item?: any}}
+   */
+  function refine(uid, opts) {
+    const o = opts || {};
+    const scope = o.scope || 'all';
+    const depth = o.depth || 'value';
+    if (scope === 'all' && depth === 'full') {
+      return { ok: false, reason: '全体を種類ごと引き直すのは厳選（ゴールド）のほうです' };
+    }
+
+    const s = RPG.state.get();
+    const index = s.inventory.findIndex((/** @type {any} */ it) => it.uid === uid);
+    if (index < 0) return { ok: false, reason: '装備が見つかりません' };
+    const item = s.inventory[index];
+
+    if (item.unique) return { ok: false, reason: 'クエスト報酬の専用装備は再抽選できません' };
+    if (!item.boxId) return { ok: false, reason: 'この装備は再抽選できません' };
+    const box = RPG.data.boxes[item.boxId];
+    if (!box) return { ok: false, reason: 'この装備は再抽選できません' };
+
+    const rolls = RPG.gear.affixRollsOf(item);
+    if (!rolls.length) return { ok: false, reason: '引き直せる副オプションがありません' };
+
+    const slot = o.index === undefined ? 0 : o.index;
+    if (scope === 'one' && !(slot >= 0 && slot < rolls.length)) {
+      return { ok: false, reason: '引き直す枠が選ばれていません' };
+    }
+
+    const cost = refineCost(item, scope, depth);
+    const shards = RPG.state.itemCount(SHARD_ITEM);
+    if (shards < cost.shards) {
+      const name = (RPG.data.items[SHARD_ITEM] || {}).name || SHARD_ITEM;
+      return { ok: false, reason: `${name} が ${cost.shards - shards} 個足りません` };
+    }
+    if (s.gold < cost.gold) {
+      return { ok: false, reason: `ゴールドが ${(cost.gold - s.gold).toLocaleString()} 足りません` };
+    }
+
+    const before = RPG.gear.score(item);
+    RPG.state.addItem(SHARD_ITEM, -cost.shards);
+    RPG.state.addGold(-cost.gold);
+
+    const targets = scope === 'all' ? rolls.map((_, i) => i) : [slot];
+    /** @type {Array<{id: string, v: number}>} */
+    const next = rolls.map((r) => ({ id: r.id, v: r.v }));
+    for (const i of targets) {
+      let affix = RPG.gear.affixById(next[i].id);
+      if (depth === 'full') {
+        // 他の枠と同じ種類は引かない。重複しないという前提を崩さないため。
+        const taken = next.filter((_, j) => j !== i).map((r) => r.id);
+        const pool = RPG.data.affixes.filter((/** @type {any} */ a) => taken.indexOf(a.id) < 0);
+        affix = RPG.rng.weighted(pool);
+      }
+      if (!affix) continue;
+      next[i] = { id: affix.id, v: RPG.gear.rollAffixValue(affix, box) };
+    }
+
+    const plus = plusOf(item);
+    RPG.gear.applyAffixRolls(item, next);
+    item.plus = plus;
+    applyPlus(item);
+    RPG.state.persist();
+
+    return { ok: true, before, after: RPG.gear.score(item), item };
+  }
+
+  /**
    * 表示用に、その装備の強化状況をまとめる。
    * @param {any} item
    */
@@ -250,13 +372,24 @@
       rerollGold: rerollCost(item),
       // いま何倍になっているか
       rate: 1 + plusOf(item) * STAT_PER_PLUS,
+      // 再抽選 (§7.9)。枠ごとに引き直せるので、どの枠に何が乗っているかも返す。
+      refinable: !item.unique && !!item.boxId && !!RPG.data.boxes[item.boxId]
+        && RPG.gear.affixRollsOf(item).length > 0,
+      affixRolls: RPG.gear.affixRollsOf(item),
+      shards: RPG.state.itemCount(SHARD_ITEM),
+      refineCosts: {
+        allValue: refineCost(item, 'all', 'value'),
+        oneFull: refineCost(item, 'one', 'full'),
+        oneValue: refineCost(item, 'one', 'value'),
+      },
     };
   }
 
   RPG.enhance = {
     MAX_PLUS, STAT_PER_PLUS, MATERIAL_VALUE, COST_BY_RARITY,
-    grade, plusOf, materialValue, enhanceCost, rerollCost, applyPlus,
+    REFINE_SHARDS, SHARD_ITEM,
+    grade, plusOf, materialValue, enhanceCost, rerollCost, refineCost, applyPlus,
     usableAsMaterial, materialCandidates, autoPickMaterials,
-    enhance, reroll, info,
+    enhance, reroll, refine, info,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

@@ -581,17 +581,31 @@
    * つまり「これ以上は絶対に出ない」線。厳選の目標として使う。
    */
   (function buildIdealEntry() {
+    // 再抽選の費用。src/core/enhance.js の REFINE_SHARDS と同じ値。
+    // data/ は src/ より先に読まれるので参照できない。ずれていないかは
+    // 検証テストが突き合わせている（実装と食い違う説明は、説明が無いより悪い）。
+    const REFINE_SHARDS = { all_value: 2, one_full: 2, one_value: 1 };
+
     const boxes = RPG.data.boxes || {};
     const rarities = RPG.data.equipRarities || {};
     const affixes = RPG.data.affixes || [];
     const bases = RPG.data.equipBases || {};
     if (!Object.keys(boxes).length || !rarities.LEGEND) return;
 
-    // いちばん stat_mult が高い宝箱を「最良」とする
+    // いちばん stat_mult が高い宝箱を「最良」とする。
+    //
+    // ただし **星辰の宝箱は数えない**。あそこからは 100% ユニーク装備が出る作りで
+    // (data/uniques.js の uniqueDropChance)、ユニークは系統タグ倍率も
+    // クリティカルも上限突破も持たない。ここで扱う「副オプションの理想値」は
+    // 星辰からは一生出ないので、混ぜると届かない数字を目標として示すことになる。
+    const uniqueOnly = (/** @type {string} */ id) =>
+      id === 'box_astral' && (RPG.data.uniqueDropChance || 0) >= 1;
     let bestBox = null;
     for (const id of Object.keys(boxes)) {
+      if (uniqueOnly(id)) continue;
       if (!bestBox || boxes[id].stat_mult > boxes[bestBox].stat_mult) bestBox = id;
     }
+    if (!bestBox) return;
     const sm = boxes[bestBox].stat_mult;
 
     // gear.js と同じ式。ここがずれると表示だけ嘘になるので、
@@ -630,8 +644,12 @@
       body: [
         '装備の数字は **宝箱のグレード × レアリティ × 強化 × 抽選の運** で決まります。'
           + 'ここに出しているのは、そのすべてが最良に振れたときの値です。',
-        '前提は ' + boxes[bestBox].name + '（いちばん強い宝箱）・LEGEND・強化+10。'
+        '前提は ' + boxes[bestBox].name + '・LEGEND・強化+10。'
           + 'LEGEND は副オプションが ' + rarities.LEGEND.affixes + 'つ付きます。',
+        '星辰の宝箱はここに出てきません。あそこから出るのはユニーク装備だけで、'
+          + 'ユニークは系統タグ倍率もクリティカル率も上限突破も持たない代わりに、'
+          + '戦い方そのものを変える固有効果を持ちます。**数字を極めるなら'
+          + boxes[bestBox].name + '、戦い方を変えるなら星辰**という住み分けです。',
         '**主ステータスの上限**',
       ].concat(mainLines).concat([
         '**副オプションの上限（1つあたり）**',
@@ -642,7 +660,29 @@
           + '（グレードの差をそのまま掛けると、レベルではなく宝箱で強さが決まってしまうため）。'
           + 'そのぶん**平坦なステータスほどグレード差が効きます**。',
       ]),
-      see: ['gl_tag'],
+      see: ['gl_tag', 'gl_refine'],
+    };
+
+    RPG.data.glossary.gl_refine = {
+      group: 'build',
+      term: '再抽選',
+      short: '星霜の欠片で、副オプションを枠ごとに引き直す。',
+      body: [
+        '理想値が分かっても、装備は**引くまで分かりません**。鍛冶では引き直せます。'
+          + '引き直し方は3つあり、狙いを絞るほど星霜の欠片が少なく済みます。',
+        '　**厳選**（ゴールドのみ）… 主ステータスも副オプションも全部引き直す',
+        '　**選んだ枠を引き直す**（欠片' + REFINE_SHARDS.one_full + '）… その枠だけ、種類ごと引き直す',
+        '　**選んだ枠の値だけ**（欠片' + REFINE_SHARDS.one_value + '）… 種類は動かさず、値だけ引き直す',
+        '　**全部の値だけ**（欠片' + REFINE_SHARDS.all_value + '）… 種類は動かさず、全部の値を引き直す',
+        '**強化値はどれでも残ります。** 育ててから引き直しても損はしません。',
+        'いちばん安く済むのは、**宝箱を数多く開けて欲しい種類が揃った素体を見つけ、'
+          + 'そこから値だけ伸ばす**やり方です。種類を引き当てる仕事を宝箱に任せるほど、欠片が減りません。',
+        '種類ごと引き直すときは、同じ装備に付いている他の種類は引きません'
+          + '（副オプションは重複しない決まりのため）。',
+        '星霜の欠片はレベル上限を伸ばす道具でもあります。上限を伸ばしきるまでは'
+          + '**レベルを取るか装備を取るか**の選択になり、伸ばしきったあとはここが使い道になります。',
+      ],
+      see: ['gl_equip_ideal'],
     };
   })();
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
