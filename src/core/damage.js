@@ -206,6 +206,7 @@
    * @property {number} [lowPowerBoost] 小技だけの底上げ (§4.3)
    * @property {number} [highPowerBoost] 大技だけの底上げ (§5.8)
    * @property {number} [midPowerCrit]   中技だけの会心率加算 (§5.8)
+   * @property {number} [highPowerCap]   大技だけの上限突破加算 (§5.16)
    * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
    * @property {boolean} [ignoreCap]   ダメージ上限の減衰を通さない (§12 破壊者)
    * @property {number} [chargeRatio]   溜めの威力倍率 (§9.1)。1で溜め無し
@@ -485,7 +486,8 @@
     // 破壊者を選ぶ理由が「数値が少し大きい」から「規則が違う」に変わる。
     const capped = options.ignoreCap
       ? raw
-      : applyCap(raw, (attacker.capBreak || 0) + (options.chargeCapBreak || 0));
+      : applyCap(raw, (attacker.capBreak || 0) + (options.chargeCapBreak || 0)
+          + (options.highPowerCap || 0));   // 大技だけの上限突破 (§5.16)
 
     return {
       // 軽減が100%に達したときだけ0を許し、それ以外は最低1ダメージを保証する

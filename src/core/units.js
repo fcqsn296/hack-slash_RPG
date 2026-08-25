@@ -467,6 +467,7 @@
       // §5.8
       critExecute: s.critExecute || 0,
       fullHpFoePower: s.fullHpFoePower || 0,
+      highPowerCap: s.highPowerCap || 0,   // 大技だけの上限突破 (§5.16)
       // 相手の「巨獣への備え」判定に使う。敵ユニットだけが true になる。
       isBoss: !!unit.isBoss,
       elementMods: unit.elementMods || {},

@@ -128,6 +128,15 @@ RPG.data.effectKinds = {
   heal_on_kill: { to: 'passives', shape: 'add', uniq: 'healOnKill', route: 'passives', key: 'healOnKill', label: '撃破時に回復', fmt: 'pct' },
   heal_power: { to: 'passives', shape: 'add', uniq: 'healPower', route: 'passives', key: 'healPower', label: '与える回復量', fmt: 'pct' },
   high_hp_power: { to: 'situational', shape: 'add', uniq: null, key: 'highHpPower', label: 'HPが高いほど火力', fmt: 'pct' },
+  // 大技だけの上限突破 (§5.16)。
+  //
+  // 終盤は上限(50万×(1+cap_break))が全部の技を同じ高さに押し込めるので、
+  // **威力180と威力520の最終ダメージがほぼ同じ**になっていた（実測 1.68M 対 1.81M、差7%）。
+  // 威力2.9倍の差が消えるので、大技を選ぶ意味が終盤で無くなる。
+  //
+  // 上限突破は「上限が削っていたぶん」しか取り戻せず、素の計算値を超えては伸びない。
+  // つまり青天井にはならない。大技だけに配れば、帯の identity が終盤まで残る。
+  high_power_cap: { to: 'situational', shape: 'add', uniq: 'highPowerCap', route: 'situational', key: 'highPowerCap', label: '大技のダメージ上限突破', fmt: 'pct' },
   high_power_boost: { to: 'situational', shape: 'add', uniq: 'highPowerBoost', route: 'situational', key: 'highPowerBoost', label: '大技の火力', fmt: 'pct' },
   hit_stack: { to: 'passives', shape: 'add', uniq: null, key: 'hitStack', label: '被弾するほど火力', fmt: 'pct' },
   hp_to_atk: { to: 'passives', shape: 'add', uniq: null, key: 'hpToAtk', label: '最大HPをATKへ上乗せ', fmt: 'pct' },

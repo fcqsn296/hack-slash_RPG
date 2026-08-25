@@ -91,7 +91,7 @@ RPG.data.nodeCategories = [
     kinds: [
       'low_power_boost', 'auto_low_skill', 'low_power_spread', 'low_power_repeat',
       'mid_power_status', 'mid_power_combo', 'mid_power_crit',
-      'high_power_boost', 'repeat_power', 'variety_power',
+      'high_power_boost', 'high_power_cap', 'repeat_power', 'variety_power',
     ],
   },
   {

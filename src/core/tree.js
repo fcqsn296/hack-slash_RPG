@@ -253,6 +253,7 @@
     'counter', 'counter_all',
     'crit_overflow', 'mid_power_crit',
     'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
+    'high_power_cap',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
     'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
     'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
@@ -456,6 +457,7 @@
       critPierce: 0,          // 会心のときだけ防御を無視する割合
       // §5.8
       highPowerBoost: 0,      // 威力の大きい技だけを底上げする
+      highPowerCap: 0,        // 威力の大きい技だけ上限を押し上げる (§5.16)
       critExecute: 0,         // 会心したときだけ追い打ちが強くなる
       fullHpFoePower: 0,      // HPが減っていない敵への火力（追い打ちの裏返し）
       bossGuard: 0,           // ボスから受けるダメージを減らす
@@ -671,6 +673,7 @@
           case 'repeat_power': passives.repeatPower += amount; break;
           case 'variety_power': passives.varietyPower += amount; break;
           case 'high_power_boost': situational.highPowerBoost += amount; break;
+          case 'high_power_cap': situational.highPowerCap += amount; break;
           // --- 生存・戦況 (§5.8) ---
           case 'damage_share': passives.damageShare += amount; break;
           case 'wave_revive': passives.waveRevive = capped(passives.waveRevive, amount); break;
