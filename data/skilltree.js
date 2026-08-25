@@ -843,7 +843,7 @@ RPG.data.skillTree = [
   {
     id: 'tr_thorns_hi', tier: 'high', name: '鉄条の鎧', cost: 3, maxLevel: 3,
     effects: [{ kind: 'thorns', value: 0.05 }],
-    desc: '被弾するたび、相手に自分の最大HPの5%のダメージ',
+    desc: '被弾するたび、相手の最大HPの5%のダメージ',
   },
   {
     id: 'tr_grant_sacrifice', tier: 'high', name: '生命代償', cost: 5, maxLevel: 1,

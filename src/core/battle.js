@@ -24,6 +24,10 @@
   /** かけるバフの効果量の上限 (§5.12)。素の 2.0 倍まで。 */
   const BUFF_POWER_CAP = 1.0;
 
+  // 反射の相手レベル倍率 (§5.17)。Lv270 で ×14.5。
+  // 味方HPスケールに縛られる反射を、敵HPスケールへ引き上げるための係数。
+  const REFLECT_LEVEL_RATE = 0.05;
+
   /* ============================ 弱点コンボ (§10.6) ============================ */
 
   /**
@@ -1727,7 +1731,22 @@
     // ダメージ表示より後に置いてあるのは、ログが「殴られた → 返した」の順に読めるようにするため。
     const reflect = (defender.passives && defender.passives.reflect) || 0;
     if (reflect > 0 && result.damage > 0 && attacker.alive) {
-      const back = Math.max(1, Math.floor(result.damage * reflect));
+      // 相手のレベルに応じた倍率 (§5.17)。
+      //
+      // ── なぜ要るのか ──
+      // 反射は「受けたダメージ × 率」なので、**味方のHPスケールに縛られる**。
+      // 終盤の味方HPは35,724なのに、闘技場ボスは736,710〜4,760,600。20〜133倍の開きがある。
+      // 受けきれる量しか返せない以上、率を何倍にしても敵のHPスケールには届かない。
+      // 実測で反射は敵総HPの 0.1〜1.4% しか削れていなかった。
+      //
+      // 棘(thorns)が `attacker.maxHp × 率` で**敵スケール**を基準にしているのに対し、
+      // 反射だけが味方スケールのままだった。ここを相手のレベルで引き上げて揃える。
+      //
+      // 1 + Lv×係数 にしてあるのは、序盤で 1 を下回らせないため。
+      // レベルを持たない相手（レベル0）には倍率をかけない。
+      const lv = attacker.level || 0;
+      const scale = lv > 0 ? 1 + lv * REFLECT_LEVEL_RATE : 1;
+      const back = Math.max(1, Math.floor(result.damage * reflect * scale));
       attacker.hp = Math.max(0, attacker.hp - back);
       pushLog(battle, `${attacker.name} に ${back.toLocaleString()} が跳ね返った`, 'damage');
       pushEvent(battle, { type: 'damage', key: attacker.key, from: defender.key, amount: back });
