@@ -1957,6 +1957,66 @@
         plain.length ? plain.join(' / ') : '全レジェンドが固有の仕掛けを持つ');
     }
 
+    /* ===== キャラ固有の会心が届くか (§8 / §5.8) ===== */
+    {
+      // ── なぜこの検査が要るのか ──
+      // 会心率と会心倍率は **passives ではなくユニットの素の値** として持っている
+      // （damage.js が attacker.critRate / attacker.critDamage を直接読むため）。
+      // ところがキャラの固有能力は def.passives に書く決まりなので、
+      // units.js が innate から橋渡ししないと **書いたのに何も起きない**。
+      // エラーも警告も出ないので、ここでしか気付けない。
+      const declared = [];
+      for (const id of Object.keys(RPG.data.characters)) {
+        const c = RPG.data.characters[id];
+        const p = c.passives || {};
+        if (p.critRate || p.critDamage) declared.push({ id, name: c.name, p });
+      }
+      assertTrue('§8 固有の会心を宣言したキャラがいる', declared.length > 0,
+        declared.map((d) => d.name).join('、'));
+
+      const broken = [];
+      for (const d of declared) {
+        const save = RPG.state.createCharacter(d.id);
+        save.level = 100;
+        const u = RPG.units.buildCharacterUnit(save, []);
+        if (d.p.critRate && Math.abs((u.baseCritRate || 0) - d.p.critRate) > 1e-9) {
+          broken.push(`${d.name} 率 ${d.p.critRate} → ${u.baseCritRate}`);
+        }
+        if (d.p.critDamage && Math.abs((u.critDamage || 0) - d.p.critDamage) > 1e-9) {
+          broken.push(`${d.name} 倍率 ${d.p.critDamage} → ${u.critDamage}`);
+        }
+        // 橋渡しした値が passives にも残っていると、読み口が無いのに
+        // 「効いている」ように見えてしまう。
+        if ((u.passives || {}).critRate !== undefined
+            || (u.passives || {}).critDamage !== undefined) {
+          broken.push(`${d.name} passives に残っている`);
+        }
+      }
+      assertTrue('§8 固有の会心がユニットの素の値まで届く', broken.length === 0,
+        broken.join(' / '));
+
+      // 実際にダメージが変わることまで見る。値が入っていても
+      // damage.js が読まなければ意味がない。
+      {
+        const d = declared.find((x) => x.p.critDamage) || declared[0];
+        const save = RPG.state.createCharacter(d.id);
+        save.level = 100;
+        const unit = RPG.units.buildCharacterUnit(save, []);
+        const attacker = RPG.units.toAttacker(unit);
+        const skill = RPG.data.skills[unit.skills[0]];
+        const defender = RPG.autoequip.referenceDefender(100);
+        const opts = { random: 1 };
+        const critOn = RPG.damage.calc({
+          attacker, defender, skill, options: Object.assign({ crit: true }, opts) }).damage;
+        const plainHit = RPG.damage.calc({
+          attacker, defender, skill, options: Object.assign({ crit: false }, opts) }).damage;
+        const expected = 1.5 + (unit.critDamage || 0);
+        assertTrue('§8 固有の会心倍率がダメージに乗る',
+          Math.abs(critOn / plainHit - expected) < 0.02,
+          `${d.name}: ×${(critOn / plainHit).toFixed(2)}（想定 ×${expected.toFixed(2)}）`);
+      }
+    }
+
     /* ===== 自動装備 ===== */
     {
       const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);

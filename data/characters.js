@@ -929,6 +929,107 @@ RPG.data.characters = {
     desc: '【支援】味方にかけるバフの効果量+35%。バフをかけた相手に最大HPの12%の障壁と' +
       '10%の回復がつく。撒くほど陣形が固くなる。',
   },
+
+  // ── 会心の3人 (§5.8) ────────────────────────────
+  //
+  // 会心の枝は27ノード230SPあるが、埋まっていたのは**会心が起きた後**の
+  // 広がりだけだった（シャンタルが波及・連鎖・貫通・追撃、ヴィオラがコンボ、
+  // アルヴィナが確定会心）。肝心の **率そのもの・倍率そのもの・
+  // 100%を超えた余りの行き先（極点）** は誰も持っていない。
+  //
+  // 3人でその3つを分けてある:
+  //   ヴェルナ … 率を満たして、あふれたぶんを倍率へ流す（極点の器）
+  //   ディアナ … 一撃の重さそのもの
+  //   サヤ     … 中技を刻んで会心を稼ぐ（中技帯の穴も埋める）
+  //
+  // critRate と critDamage は passives ではなく**ユニットの素の値**なので、
+  // units.js が innate から橋渡ししている。あちらを消すとここが黙って効かなくなる。
+  ch_lg_verna: {
+    name: 'ヴェルナ', title: '零れる極点', rarity: 'LEGEND', element: 'fire',
+    base: { hp: 700, atk: 150, def: 50, magi_power: 60 },
+    growth: { hp: 46, atk: 12.2, def: 3.2, magi_power: 3.6 },
+    unique_skills: ['sk_lg_zenith_arrow'],
+    common_skills: ['sk_fire_bolt', 'sk_double_strike', 'sk_focus'],
+    // 【会心】素で55%。固有技は確定会心なので、素の55%がまるごと
+    // 100%超過ぶんになり、極点が即座に働く（§3.2 ステップ6：技の会心率は
+    // attacker.critRate と足し算される）。
+    passives: {
+      critRate: 0.55,
+      critOverflow: 0.35,
+    },
+    color: '#ff9d5c', accent: '#4a2210', glyph: '極',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'ponytail', expression: 'cool', accessory: 'visor',
+      hairColor: '#ff9d5c', hairLight: '#ffd0a8', hairDark: '#a04d1c',
+      eye: '#ffe066', eyeLight: '#fff4b8',
+      outfit: '#3a1c10', outfitLight: '#5e3018', outfitTrim: '#ff9d5c',
+      accentColor: '#ffc47a',
+    },
+    artPrompt: 'burning orange high ponytail, sharp golden eyes behind a slim marksman visor, ' +
+      'fitted ember-red archer coat, longbow of glowing embers, calm focused aim',
+    desc: '【会心】会心率+55%。100%を超えたぶんの35%が会心倍率へ回る。' +
+      '固有技は確定会心なので、積んだ率がまるごと倍率に化ける。',
+  },
+
+  ch_lg_diana: {
+    name: 'ディアナ', title: '一撃の秤', rarity: 'LEGEND', element: 'dark',
+    base: { hp: 660, atk: 158, def: 46, magi_power: 58 },
+    growth: { hp: 44, atk: 12.6, def: 3.0, magi_power: 3.4 },
+    unique_skills: ['sk_lg_ruin_scale'],
+    common_skills: ['sk_heavy_slash', 'sk_armor_break', 'sk_focus'],
+    // 【会心】倍率そのもの。素の会心倍率 1.5 が 2.35 になる。
+    // ツリーの「痛打」を満額(0.75)積んだのとほぼ同じぶんを最初から持つ。
+    passives: {
+      critRate: 0.20,
+      critDamage: 0.85,
+    },
+    color: '#c58cff', accent: '#2c1740', glyph: '秤',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'cool', accessory: 'none',
+      hairColor: '#b07ce8', hairLight: '#e0c0ff', hairDark: '#5a3080',
+      eye: '#e8b0ff', eyeLight: '#f8e0ff',
+      outfit: '#241436', outfitLight: '#3c2450', outfitTrim: '#c58cff',
+      accentColor: '#e8b0ff',
+    },
+    artPrompt: 'long violet hair falling straight, pale lavender eyes, ' +
+      'dark executioner coat with silver chain, enormous single-edged greatsword held low, ' +
+      'unblinking cold stare',
+    desc: '【会心】会心倍率+0.85（1.5倍 → 2.35倍）。会心率+20%。' +
+      '当たれば重い、一撃の質に全部を寄せた型。',
+  },
+
+  ch_lg_saya: {
+    name: 'サヤ', title: '刻みの技巧', rarity: 'LEGEND', element: 'earth',
+    base: { hp: 720, atk: 142, def: 56, magi_power: 66 },
+    growth: { hp: 48, atk: 11.0, def: 3.6, magi_power: 4.0 },
+    unique_skills: ['sk_lg_kizami'],
+    common_skills: ['sk_double_strike', 'sk_stone_press', 'sk_focus'],
+    // 【会心】中技だけに乗る会心率 (§5.8)。ツリーの「技巧」満額(0.30)より大きい。
+    // 固有技は1発ずつが中技帯に収まるので、2回とも高い確率で会心する。
+    passives: {
+      midPowerCrit: 0.40,
+      critRate: 0.15,
+    },
+    color: '#d8c39a', accent: '#3a3020', glyph: '刻',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'bob', expression: 'calm', accessory: 'hairpin',
+      hairColor: '#4a3f34', hairLight: '#7a6a58', hairDark: '#241d16',
+      eye: '#d8c39a', eyeLight: '#f4e8cc',
+      outfit: '#2e2a20', outfitLight: '#4a4434', outfitTrim: '#d8c39a',
+      accentColor: '#e8d8b0',
+    },
+    artPrompt: 'dark brown short bob with wooden hairpin, calm sand-gold eyes, ' +
+      'earth-toned short kimono over practical leggings, two slim blades reversed in her hands, ' +
+      'quiet unhurried stance',
+    desc: '【会心】中技の会心率+40%（中技にだけ乗る）。会心率+15%。' +
+      '固有技は1発ずつが中技帯に収まる、刻んで当てる型。',
+  },
 };
 
 /**
