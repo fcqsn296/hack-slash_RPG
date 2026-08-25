@@ -3405,6 +3405,150 @@
           RPG.enhance.enhanceCost(unique) !== null, '');
       }
 
+      /* ----- 再抽選 (§7.9) ----- */
+      {
+        const shardId = RPG.enhance.SHARD_ITEM;
+        /** @param {any} it */
+        const kinds = (it) => it.affixLines.map((/** @type {any} */ l) => l.label).join('|');
+        /** @param {any} it */
+        const values = (it) => it.affixLines.map((/** @type {any} */ l) => l.value).join('|');
+
+        const target = save.inventory.find((/** @type {any} */ it) =>
+          it.uid === good.uid);
+        save.gold = 5000000;
+        RPG.state.addItem(shardId, 300);
+
+        // --- 値だけ: 種類は動かず、値だけが動く ---
+        {
+          const kindBefore = kinds(target);
+          const mainBefore = JSON.stringify(RPG.gear.mainStatsOf(target));
+          let moved = false;
+          let failed = '';
+          for (let i = 0; i < 8 && !moved; i++) {
+            const v = values(target);
+            const res = RPG.enhance.refine(target.uid, { scope: 'all', depth: 'value' });
+            if (!res.ok) { failed = res.reason || '失敗'; break; }
+            moved = values(target) !== v;
+          }
+          assertTrue('再抽選: 全部の値だけを引き直せる', failed === '', failed);
+          assertTrue('再抽選: 値だけなら副オプションの種類は変わらない',
+            kinds(target) === kindBefore, kinds(target));
+          assertTrue('再抽選: 値だけなら主ステータスは変わらない',
+            JSON.stringify(RPG.gear.mainStatsOf(target)) === mainBefore, '');
+          assertTrue('再抽選: 値は実際に動く', moved,
+            moved ? values(target) : '8回引いても動かなかった');
+        }
+
+        // --- 枠を選ぶ: 選んでいない枠は触らない ---
+        {
+          // レアリティ次第で枠は1〜4。無い枠を指すと測れないので実数から選ぶ
+          const pick = target.affixRolls.length > 1 ? 1 : 0;
+          const lines = target.affixLines.map((/** @type {any} */ l) => l.label + l.value);
+          let changed = -1;
+          for (let i = 0; i < 8 && changed < 0; i++) {
+            RPG.enhance.refine(target.uid, { scope: 'one', depth: 'value', index: pick });
+            const now = target.affixLines.map((/** @type {any} */ l) => l.label + l.value);
+            for (let j = 0; j < now.length; j++) if (now[j] !== lines[j]) changed = j;
+          }
+          assertTrue('再抽選: 選んだ枠だけが動く', changed === pick, `動いたのは ${changed} 番目`);
+        }
+
+        // --- 種類ごと: 他の枠と同じ種類は引かない ---
+        {
+          for (let i = 0; i < 12; i++) {
+            RPG.enhance.refine(target.uid, { scope: 'one', depth: 'full', index: 0 });
+            const ids = target.affixRolls.map((/** @type {any} */ r) => r.id);
+            if (new Set(ids).size !== ids.length) {
+              assertTrue('再抽選: 種類ごと引き直しても重複しない', false, ids.join(','));
+              break;
+            }
+            if (i === 11) assertTrue('再抽選: 種類ごと引き直しても重複しない', true, '');
+          }
+        }
+
+        // --- 費用 ---
+        {
+          const cost = RPG.enhance.refineCost(target, 'one', 'value');
+          const goldBefore = save.gold;
+          const shardBefore = RPG.state.itemCount(shardId);
+          RPG.enhance.refine(target.uid, { scope: 'one', depth: 'value', index: 0 });
+          assertTrue('再抽選: 欠片とゴールドを払う',
+            RPG.state.itemCount(shardId) === shardBefore - cost.shards &&
+            save.gold === goldBefore - cost.gold,
+            `欠片 ${cost.shards} / ${cost.gold.toLocaleString()} G`);
+          assertTrue('再抽選: 枠を絞るほど欠片が少ない',
+            RPG.enhance.refineCost(target, 'one', 'value').shards <
+            RPG.enhance.refineCost(target, 'one', 'full').shards, '');
+        }
+
+        // --- 強化値は引き継ぐ ---
+        {
+          assertTrue('再抽選: 強化値は残る',
+            RPG.enhance.plusOf(target) === RPG.enhance.MAX_PLUS, `+${target.plus}`);
+          const expected = 1 + RPG.enhance.MAX_PLUS * RPG.enhance.STAT_PER_PLUS;
+          const key = Object.keys(target.baseStats)[0];
+          assertTrue('再抽選: 強化値がステータスへ乗り直す',
+            Math.abs(target.stats[key] / target.baseStats[key] - expected) < 0.02,
+            `×${(target.stats[key] / target.baseStats[key]).toFixed(3)}`);
+        }
+
+        // --- 足りなければ断る。断ったときは何も減らない ---
+        {
+          const shardBefore = RPG.state.itemCount(shardId);
+          RPG.state.addItem(shardId, -shardBefore);
+          const goldBefore = save.gold;
+          const snapshot = JSON.stringify(target.affixRolls);
+          const res = RPG.enhance.refine(target.uid, { scope: 'all', depth: 'value' });
+          assertTrue('再抽選: 欠片が足りなければ断る',
+            res.ok === false && /足りません/.test(res.reason || ''), res.reason || '');
+          assertTrue('再抽選: 断られたときは何も減らない',
+            save.gold === goldBefore &&
+            JSON.stringify(target.affixRolls) === snapshot, '');
+          RPG.state.addItem(shardId, shardBefore);
+        }
+
+        // --- 全体×種類ごとは厳選（ゴールド）の担当 ---
+        {
+          const res = RPG.enhance.refine(target.uid, { scope: 'all', depth: 'full' });
+          assertTrue('再抽選: 全体を種類ごと引き直すのは受け付けない',
+            res.ok === false, res.reason || '');
+        }
+
+        // --- 記録を持たない古い装備からも枠を復元できる ---
+        {
+          const legacy = save.inventory.find((/** @type {any} */ it) =>
+            it.uid === good.uid);
+          const wanted = JSON.stringify(legacy.affixRolls);
+          const statsBefore = JSON.stringify(legacy.stats);
+          delete legacy.affixRolls;
+          delete legacy.mainStats;
+
+          const back = RPG.gear.affixRollsOf(legacy);
+          assertTrue('再抽選: 記録の無い装備でも副オプションを引き当てられる',
+            back.map((/** @type {any} */ r) => r.id).join(',') ===
+            JSON.parse(wanted).map((/** @type {any} */ r) => r.id).join(','),
+            back.map((/** @type {any} */ r) => r.id).join(','));
+
+          const plus = RPG.enhance.plusOf(legacy);
+          RPG.gear.applyAffixRolls(legacy, back);
+          legacy.plus = plus;
+          RPG.enhance.applyPlus(legacy);
+          assertTrue('再抽選: 復元しても性能が変わらない',
+            JSON.stringify(legacy.stats) === statsBefore,
+            `${JSON.stringify(legacy.stats)} / ${statsBefore}`);
+        }
+
+        // --- 専用装備は対象外 ---
+        {
+          const only = RPG.gear.forge(
+            RPG.data.quests.q_beyond_end.reward.equip, RPG.state.nextUid());
+          save.inventory.push(only);
+          const res = RPG.enhance.refine(only.uid, { scope: 'all', depth: 'value' });
+          assertTrue('再抽選: クエスト報酬の専用装備は対象外',
+            res.ok === false && !!res.reason, res.reason || '');
+        }
+      }
+
       if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
       else localStorage.setItem(RPG.state.STORAGE_KEY, before);
       RPG.state.load();
@@ -8745,6 +8889,23 @@
       mentions('gl_power_tier', String(RPG.battle.LOW_POWER), '小技のしきい値が実装と一致');
       mentions('gl_power_tier', String(RPG.battle.HIGH_POWER), '大技のしきい値が実装と一致');
       mentions('gl_wave', String(RPG.data.bossStatMultiplier), 'ボス補正が実装と一致');
+      // 再抽選 (§7.9)。data/ は src/ より先に読まれるので本文は定数を写している。
+      // 写し間違いと直し忘れは、ここでしか捕まらない。
+      mentions('gl_refine', `欠片${RPG.enhance.REFINE_SHARDS.one_full}`,
+        '枠ごと引き直す費用が実装と一致');
+      mentions('gl_refine', `欠片${RPG.enhance.REFINE_SHARDS.one_value}`,
+        '値だけ引き直す費用が実装と一致');
+      mentions('gl_refine', `欠片${RPG.enhance.REFINE_SHARDS.all_value}`,
+        '全部の値を引き直す費用が実装と一致');
+      // 理想値の前提が「実際に副オプションが出る宝箱」であること。
+      // 星辰は 100% ユニークなので、あそこを前提にすると届かない数字を示すことになる。
+      {
+        const body = (gl.gl_equip_ideal ? gl.gl_equip_ideal.body.join(' ') : '');
+        const astralIsUnique = (RPG.data.uniqueDropChance || 0) >= 1;
+        assertTrue('用語「装備の理想値」: 前提の宝箱からは副オプション付きの装備が出る',
+          !astralIsUnique || body.indexOf('前提は 星辰の宝箱') < 0,
+          '星辰の宝箱からはユニーク装備しか出ない');
+      }
 
       // 属性倍率は定数として公開していないので、実際に計算させて突き合わせる。
       const adv = RPG.damage.elementMultiplier('fire', 'wind');

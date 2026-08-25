@@ -37,6 +37,8 @@
   let dispatchTimer = 0;
   /** @type {number|null} 鍛冶で選んでいる装備 */
   let forgeTarget = null;
+  /** 再抽選でいま選んでいる副オプションの枠。装備を替えたら外す。 */
+  let forgeSlot = 0;
 
   /** 図鑑の表示状態 */
   const codexView = {
@@ -1738,7 +1740,7 @@
           ? h('p.empty', { text: '装備がありません。' })
           : h('div.forge-list', list.map((/** @type {any} */ item) =>
               h('button.forge-row' + (forgeTarget === item.uid ? '.is-active' : ''), {
-                onClick: () => { forgeTarget = item.uid; render(root); },
+                onClick: () => { forgeTarget = item.uid; forgeSlot = 0; render(root); },
               },
                 h('span.forge-row-name', {
                   style: { color: RPG.data.rarities[item.rarity].color },
@@ -1847,9 +1849,86 @@
             )
       ),
 
+      // --- 再抽選 (§7.9) ---
+      refineBlock(root, item, info, save),
+
       h('p.hint.hint-sm', {
         text: `強化で伸びるのは平坦ステータスだけです。系統タグ倍率・クリティカル率・` +
           `上限突破・軽減は伸びません（ダメージ曲線を宝箱のグレードで決めてしまわないため）。`,
+      })
+    );
+  }
+
+  /**
+   * 再抽選 (§7.9)。星霜の欠片を払って副オプションを枠ごとに引き直す。
+   *
+   * 厳選（全体・ゴールド）と分けてあるのは、あちらでは
+   * 「4枠のうち3枠は当たりで1枠だけ外れ」を直せないため。
+   * 枠を選べるほど欠片が安いので、宝箱を開けて種類を揃えてから
+   * ここへ持ち込むほど得になる。
+   *
+   * @param {HTMLElement} root
+   * @param {any} item
+   * @param {any} info
+   * @param {any} save
+   */
+  function refineBlock(root, item, info, save) {
+    const shardDef = RPG.data.items[RPG.enhance.SHARD_ITEM];
+    const head = h('div.forge-block-head',
+      h('h4', { text: '再抽選' }),
+      h('span.hint.hint-sm', { text: `${shardDef.name} ×${info.shards}` })
+    );
+    if (!info.refinable) {
+      return h('div.forge-block', head,
+        h('p.hint.hint-sm', { text: 'この装備は再抽選できません。' }));
+    }
+
+    const rolls = info.affixRolls;
+    if (forgeSlot >= rolls.length) forgeSlot = 0;
+
+    /**
+     * 1回ぶんのボタン。払えないときは押せない形で理由が見えるようにする。
+     * @param {string} label
+     * @param {{shards: number, gold: number}} cost
+     * @param {'all'|'one'} scope
+     * @param {'full'|'value'} depth
+     */
+    const act = (label, cost, scope, depth) => {
+      const ok = info.shards >= cost.shards && save.gold >= cost.gold;
+      return W.button(label, () => {
+        const res = RPG.enhance.refine(item.uid, { scope, depth, index: forgeSlot });
+        if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+        const diff = res.after - res.before;
+        RPG.app.toast(`スコア ${res.before} → ${res.after}（${diff >= 0 ? '+' : ''}${diff}）`);
+        RPG.app.refreshTopbar();
+        render(root);
+      }, {
+        variant: ok ? 'primary' : 'ghost',
+        disabled: !ok,
+        sub: `${shardDef.icon}${cost.shards} / ${cost.gold.toLocaleString()} G`,
+      });
+    };
+
+    return h('div.forge-block', head,
+      h('p.hint.hint-sm', { text: '引き直す枠を選んでください。強化値は残ります。' }),
+      h('div.refine-slots', rolls.map((/** @type {any} */ r, /** @type {number} */ i) => {
+        const affix = RPG.gear.affixById(r.id);
+        const line = item.affixLines[i] || { label: affix ? affix.name : '?', value: '' };
+        return h('button.refine-slot' + (forgeSlot === i ? '.is-active' : ''), {
+          onClick: () => { forgeSlot = i; render(root); },
+        },
+          h('span.refine-slot-name', { text: line.label }),
+          h('span.refine-slot-value', { text: line.value })
+        );
+      })),
+      h('div.forge-actions',
+        act('選んだ枠を引き直す', info.refineCosts.oneFull, 'one', 'full'),
+        act('選んだ枠の値だけ', info.refineCosts.oneValue, 'one', 'value'),
+        act('全部の値だけ', info.refineCosts.allValue, 'all', 'value')
+      ),
+      h('p.hint.hint-sm', {
+        text: '「値だけ」は副オプションの種類を変えません。' +
+          '欲しい種類が揃った素体を宝箱から探しておくほど、欠片が少なく済みます。',
       })
     );
   }
