@@ -391,7 +391,7 @@
         const partyIndex = save.party.indexOf(id);
         return h('button.char-row' + (selectedChar === id ? '.is-active' : '') +
                  (partyIndex >= 0 ? '.is-party' : ''), {
-          onClick: () => { selectedChar = id; render(root); },
+          onClick: () => { selectedChar = id; charListOpen = false; render(root); },
         },
           W.portrait(def, 'sm'),
           h('div.char-row-info',
@@ -406,8 +406,42 @@
     function paintAll() { paintPills(); paintList(); }
     paintAll();
 
-    return h('div.char-selector', h('div.char-search-row', search), pillBox, listBox);
+    // 狭い画面では、選んでいる1人だけを出して残りは畳む。
+    //
+    // ── なぜ要るか ──
+    // 縦1列に落ちる幅（860px以下）では、キャラクター20人ぶんの行が
+    // スキルツリーや装備欄の**上に丸ごと積まれる**。実測で 1,000px 以上あり、
+    // ビルドを触るたびにそのぶんスクロールすることになっていた。
+    // 開く操作は1回で済むうえ、選べば自動で閉じるので手間は増えない。
+    //
+    // 広い画面では左右に並ぶので畳む理由が無い。出し分けはCSSに任せ、
+    // ここでは常に両方を組み立てておく。
+    const cur = RPG.data.characters[selectedChar];
+    const curSave = RPG.state.get().characters[selectedChar];
+    return h('div.char-selector' + (charListOpen ? '.is-open' : ''),
+      h('button.char-current', {
+        onClick: () => { charListOpen = !charListOpen; render(root); },
+        'aria-expanded': charListOpen ? 'true' : 'false',
+      },
+        W.portrait(cur, 'sm'),
+        h('div.char-row-info',
+          h('span.name', { text: RPG.state.charName(selectedChar) }),
+          h('span.sub', {
+            text: `Lv${curSave.level} / SP ${RPG.state.availableSp(selectedChar)}`
+              + `／${RPG.state.totalSp(selectedChar)}`,
+          })
+        ),
+        h('span.char-current-mark', { text: charListOpen ? '▲' : '▼ 他のキャラ' })
+      ),
+      h('div.char-body', h('div.char-search-row', search), pillBox, listBox)
+    );
   }
+
+  /**
+   * 狭い画面でキャラクター一覧を開いているか。
+   * 選ぶと閉じる（選んだ先を見たいのに、一覧が居座ると意味が無い）。
+   */
+  let charListOpen = false;
 
   /* ============================ 出撃 ============================ */
 
@@ -3151,8 +3185,22 @@ ${nextCost.toLocaleString()} G
     const changeCost = RPG.data.classChangeCost || 0;
     const respecCost = Math.floor(changeCost / 2);
 
-    return h('section.class-panel.panel-cut',
-      h('div.class-panel-head',
+    // ── なぜ既定で畳むのか ──
+    // 共通枝＋派生3つを全部並べると、この1枚だけで 4,369px（実測）ある。
+    // スキルツリーはその下なので、ビルドを触るたびに画面4〜5枚ぶん
+    // スクロールして通り抜けることになっていた。
+    //
+    // 畳んでも「やることがある」ことは分かる。見出しに **残りCP** を
+    // 出したままにしてあるので、振れるポイントがあれば数字で目に入る。
+    // スキルツリーの分類を既定で畳んでいるのと同じ考え方。
+    const open = classTreeOpen === null ? false : classTreeOpen;
+
+    return h('section.class-panel.panel-cut' + (open ? '' : '.is-collapsed'),
+      h('button.class-panel-head', {
+        onClick: () => { classTreeOpen = !open; render(root); },
+        'aria-expanded': open ? 'true' : 'false',
+      },
+        h('span.cat-mark', { text: open ? '▼' : '▶' }),
         h('h3', { text: 'クラス' }),
         h('span.class-badge', { style: `--cls: ${cur.color}` },
           W.icon(cur.icon), h('b', { text: cur.name })),
@@ -3162,19 +3210,19 @@ ${nextCost.toLocaleString()} G
           h('span.cp-label', { text: `残りCP（消費 ${sum.spent} / ${sum.total}）` })
         )
       ),
-      h('p.class-flavor', { text: cur.flavor }),
+      open ? h('p.class-flavor', { text: cur.flavor }) : null,
 
       // 共通枝。どの派生を選んでも取れる。
-      h('div.class-nodes',
+      open ? h('div.class-nodes',
         cur.nodes.filter((/** @type {any} */ n) => !n.branch)
-          .map((n) => classNodeCard(root, charSave, n, cur))),
+          .map((n) => classNodeCard(root, charSave, n, cur))) : null,
 
       // 派生 (§12)。3つのうち1つしか選べないので、
       // **選ぶ前に3つとも中身が見える** ようにしてある。
       // 見えないまま1つ振ったら他が消えた、という驚き方をさせないため。
-      classBranches(root, charSave, cur),
+      open ? classBranches(root, charSave, cur) : null,
 
-      h('div.class-actions',
+      open ? h('div.class-actions',
         W.button('クラスポイントを振り直す', () => {
           if (!confirm(`${respecCost.toLocaleString()} G を消費してクラスポイントを振り直しますか？`)) return;
           const res = RPG.state.resetClassTree(selectedChar);
@@ -3187,9 +3235,9 @@ ${nextCost.toLocaleString()} G
           classChangeOpen = !classChangeOpen;
           render(root);
         }, { variant: 'ghost', sub: `${changeCost.toLocaleString()} G` })
-      ),
+      ) : null,
 
-      classChangeOpen
+      open && classChangeOpen
         ? h('div.class-change',
             h('p.hint.hint-sm', {
               text: `転職すると振ったクラスポイントは全て戻る。所持: ${save.gold.toLocaleString()} G`,
@@ -3204,6 +3252,13 @@ ${nextCost.toLocaleString()} G
 
   /** 転職パネルを開いているか */
   let classChangeOpen = false;
+
+  /**
+   * クラスの枝を開いているか。null は「まだ触っていない」。
+   * 触るまでは、振れるCPがあるかどうかで決める。
+   */
+  /** @type {boolean|null} */
+  let classTreeOpen = null;
 
   /** コマンドの並び替えを開いているか */
   let skillOrderOpen = false;

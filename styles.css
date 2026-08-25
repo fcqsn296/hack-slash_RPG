@@ -718,6 +718,9 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 }
 
 .char-selector { display: grid; gap: 8px; }
+.char-body { display: grid; gap: 8px; }
+/* 広い画面では左右に並ぶので畳む理由が無い。既定では出さない。 */
+.char-current { display: none; }
 .char-search-row { display: grid; }
 .char-search {
   width: 100%;
@@ -1645,7 +1648,17 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .class-panel-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
   margin-bottom: 8px;
+  /* 畳めるようにボタンにしたので、見出しに見えるところまで戻す */
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.class-panel.is-collapsed .class-panel-head { margin-bottom: 0; }
 .class-panel-head h3 { margin: 0; font-size: 15px; }
 .class-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -2397,6 +2410,31 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
 @media (max-width: 860px) {
   .pane-split { grid-template-columns: 1fr; }
+
+  /* 縦1列に落ちる幅では、キャラクター20人ぶんの行がスキルツリーや装備欄の
+     上に丸ごと積まれる（実測 1,000px 超）。選んでいる1人だけを出して畳む。 */
+  .char-current {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg-panel);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .char-current-mark {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .char-selector:not(.is-open) .char-body { display: none; }
   .slot-row { grid-template-columns: 1fr; }
   .party-slots { grid-template-columns: repeat(2, 1fr); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
