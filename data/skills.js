@@ -169,6 +169,33 @@ RPG.data.skills = {
     power: 175, crit_rate: 0.05,
     desc: '【固有】光属性の貫通魔法。闇属性の敵に有利。',
   },
+  // ── 会心のレジェンド3人 (§5.8) ──────────────────────
+  //
+  // 技の crit_rate は attacker.critRate と**足し算**される (§3.2 ステップ6)。
+  // つまり確定会心の技を持たせると、素の会心率がまるごと 100% 超過ぶんになり、
+  // 極点（critOverflow）が即座に働く。ヴェルナの一射はそれを狙っている。
+  sk_lg_zenith_arrow: {
+    name: '極点の一射', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'fire',
+    power: 235, crit_rate: 1.0,
+    desc: '【固有】必ず会心する一射。威力235%。超過した会心率は会心倍率へ回る。',
+  },
+  sk_lg_ruin_scale: {
+    name: '一撃の秤', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 265, crit_rate: 0.25,
+    desc: '【固有】渾身の一撃。威力265%、会心率+25%。',
+  },
+  sk_lg_kizami: {
+    name: '刻み断ち', kind: 'active', plugin: 'multi_hit', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    // 1発の威力は必ず中技帯（100 < power < 200）に収める。
+    // ここを外すと midPowerCrit が乗らず、サヤの固有能力が看板技に効かない。
+    power: 115, crit_rate: 0.15,
+    params: { hits: 2 },
+    desc: '【固有】威力115%で2回斬る。1発ずつが中技帯に収まる。',
+  },
+
   // ── 支援のレジェンド3人 (§5.9) ──────────────────────
   //
   // どれも unique_buff / tag_buff にしてある。この2つだけが

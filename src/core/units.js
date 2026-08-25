@@ -213,6 +213,25 @@
     // passives へ流しても届かない。ここで足しておく。
     if (setFx.critRate) critRate += setFx.critRate;
     if (setFx.critDamage) tree.critDamage = (tree.critDamage || 0) + setFx.critDamage;
+
+    // キャラクター固有の会心 (§8)。装備セットとまったく同じ理由でここに要る。
+    //
+    // レジェンドの固有能力は def.passives に書く決まりだが、会心率と会心倍率は
+    // **passives ではなくユニットの素の値**として持っている（damage.js が
+    // attacker.critRate / attacker.critDamage を直接読むため）。
+    // 橋渡しが無いと、def.passives に critRate と書いても何も起きない。
+    // 実際、会心を軸にしたレジェンドを作ろうとしてここで詰まった。
+    //
+    // 足すのは innate（そのキャラ自身の宣言）であって passives ではない。
+    // passives にはツリーぶんが合流しているので、そちらを足すと二重になる。
+    if (innate.critRate) {
+      critRate += innate.critRate;
+      delete passives.critRate;   // 読み口が無いので、残すと「効いている」ように見える
+    }
+    if (innate.critDamage) {
+      tree.critDamage = (tree.critDamage || 0) + innate.critDamage;
+      delete passives.critDamage;
+    }
     // situational 側のキーはまとめて流す (§7.8)。
     // toAttacker が unit.situational から読むので、passives へ入れると届かない。
     for (const key of SITUATIONAL_KEYS) {
