@@ -62,7 +62,7 @@ RPG.data.nodeCategories = [
       'reduction', 'revive', 'last_stand', 'regen', 'wave_heal', 'thorns',
       'guard_ally', 'overheal_shield', 'start_shield', 'shield_regen',
       'low_hp_guard', 'damage_share', 'wave_revive', 'back_guard',
-      'boss_guard', 'reflect', 'heal_power', 'heal_on_kill', 'lifesteal',
+      'boss_guard', 'reflect', 'heal_power', 'ally_heal_lock', 'heal_on_kill', 'lifesteal',
       // 狙い (§5.9)。「受けない」ではなく「受けに行く」枝だが、
       // 反撃・棘・庇うと組ませて初めて意味が出るので、生存の側に並べる。
       'taunt', 'stealth',
@@ -119,7 +119,7 @@ RPG.data.nodeCategories = [
       // かける側のバフ強化 (§5.9 / §5.10)。受け手の buff_duration と並べる。
       'buff_power', 'buff_extend', 'support_stack', 'buff_shield', 'buff_heal', 'round_buff',
       // 対象による分岐 (§5.12)。自分に厚く／味方に厚く、の排他。
-      'self_buff_power', 'ally_buff_power',
+      'self_buff_power', 'solo_buff', 'self_buff_lock', 'buff_cap', 'ally_buff_power',
     ],
   },
   {

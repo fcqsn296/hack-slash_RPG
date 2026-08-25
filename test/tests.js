@@ -1040,6 +1040,8 @@
         // 中技の使い道 (§5.8)
         'mid_power_status', 'mid_power_combo', 'mid_power_crit',
         'crit_overflow',
+        // 支援の【極】の代償側 (§5.14)
+        'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
         'crit_stack', 'crit_spread', 'crit_execute',
         'counter_power', 'counter_all', 'chain_power',
         'boss_guard', 'full_hp_foe_power', 'wave_power',
@@ -6765,6 +6767,10 @@
         const PROBES = {
           critDamage: (/** @type {any} */ r) => r.attacker.critDamage,
           critOverflow: (r) => r.attacker.critOverflow,
+          soloBuff: (r) => ((r.unit.setEffects || {}).soloBuff || 0),
+          noSelfBuff: (r) => r.unit.passives.noSelfBuff,
+          buffCapBonus: (r) => r.unit.passives.buffCapBonus,
+          noAllyHeal: (r) => r.unit.passives.noAllyHeal,
           midPowerCrit: (r) => r.unit.passives.midPowerCrit,
           critPierce: (r) => r.attacker.critPierce,
           execute: (r) => r.attacker.execute,

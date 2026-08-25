@@ -252,6 +252,7 @@
     'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
     'counter', 'counter_all',
     'crit_overflow', 'mid_power_crit',
+    'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
     'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
     'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
@@ -331,6 +332,11 @@
       // 弱体・コンボが「属性有利か弱体中」を要求するのに対し、会心は相手を選ばない。
       // これが着火点になって crit_combo → midPowerCombo へ繋がる。
       midPowerCrit: 0,     // 中技のときだけ会心率に加算する
+      // 支援の【極】の代償側 (§5.14)。0より大きければ遮断する。
+      buffCapBonus: 0,     // バフ効果量の上限を押し上げる
+      soloBuff: 0,         // 味方へかけたバフが通らなくなる
+      noSelfBuff: 0,       // 自分へかけたバフが通らなくなる
+      noAllyHeal: 0,       // 味方を回復できなくなる（自分は回復できる）
       // 会心率が100%を超えたぶんを会心ダメージへ回す割合 (§5.8)。
       // 元から会心率1.00の技（終焉の一撃・二閃）では、会心率の投資が
       // まるごと捨てられていた。それを受け皿へ流す。
@@ -542,6 +548,10 @@
           case 'mid_power_status': passives.midPowerStatus += amount; break;
           case 'mid_power_combo': passives.midPowerCombo += amount; break;
           case 'mid_power_crit': passives.midPowerCrit += amount; break;
+          case 'buff_cap': passives.buffCapBonus += amount; break;
+          case 'solo_buff': passives.soloBuff += amount; break;
+          case 'self_buff_lock': passives.noSelfBuff += amount; break;
+          case 'ally_heal_lock': passives.noAllyHeal += amount; break;
           case 'crit_overflow': passives.critOverflow += amount; break;
           // 小技の使い道 (§4.3)
           case 'low_power_boost': passives.lowPowerBoost += amount; break;
