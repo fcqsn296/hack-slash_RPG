@@ -50,7 +50,14 @@ from import_images import ROOT, DATA, load_targets, install, check_size  # noqa:
 
 API_URL = "https://image.novelai.net/ai/generate-image"
 #: 契約の確認用。画像を作らないので Anlas を消費しない。
-SUBSCRIPTION_URL = "https://api.novelai.net/user/subscription"
+# 契約情報も **画像側のホスト** から取る。
+#
+# api.novelai.net だと 400 で
+#   "Please refresh NovelAI.net. If using a third-party tool, update to the image URL."
+# が返る。文面は画像URLの話に見えるが、user 系のパスでも同じ扱いになっている。
+# 経路そのものは生きていて（認証を外すと 401、存在しないパスは 404）、
+# ホストを image.novelai.net に替えるだけで 200 が返る。
+SUBSCRIPTION_URL = "https://image.novelai.net/user/subscription"
 MODEL = "nai-diffusion-4-5-full"
 
 #: これを外すと必ず失敗する。
