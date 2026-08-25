@@ -172,12 +172,91 @@
   }
 
   /**
+   * HPを減らす唯一の口 (§17.3)。
+   *
+   * ── なぜ関数に集約するのか ──
+   * 「1ラウンドに認める傷の上限」を applyDamage の中だけで抑えようとして
+   * **5回作り直し、そのたびに漏れた**。出血・残響・波及・棘・反射・継続ダメージなど、
+   * HPを減らす道が10箇所ある。個別に塞ぐ限り必ずどれかが残る。
+   *
+   * ここを通さずにHPを書き換えないこと。
+   *
+   * @param {any} battle
+   * @param {any} unit
+   * @param {number} amount
+   * @returns {number} 実際に減らした量
+   */
+  function hurt(battle, unit, amount) {
+    let dealt = Math.max(0, Math.floor(amount));
+    if (dealt <= 0) return 0;
+
+    // 闘技場ボスは、1ラウンドに受ける傷に上限を持つことがある。
+    //
+    // ── 引き算ではなく天井であること ──
+    // 上限に届かないビルドは1ダメージも失わない。
+    // 「1ヒットごとに一定量を引く」形にすると、
+    // 一撃の軽い多段型だけが全部0になってしまう。ここでは総量の頭だけを押さえる。
+    if (battle && battle.arena && unit && unit.arenaBoss) {
+      const ratio = (battle.arena.gimmicks || {}).maxRoundDamageRatio;
+      if (ratio > 0) {
+        const budget = Math.floor(unit.maxHp * ratio);
+        const used = battle.arena.damageThisRound || 0;
+        const left = Math.max(0, budget - used);
+        if (dealt > left) {
+          // ── 溢れた分は捨てずに繰り越す (§17.3) ──
+          //
+          // 切り捨てにすると **大きく殴るほど損** になる。
+          //   一撃型: 40M の一撃 → 30M に切られ 10M が消える
+          //   多段型: 50万 × 64発 → 30M をぴったり埋めて損失ゼロ
+          // 上限は「速すぎる決着を止める」ためのものであって、
+          // 一撃型と中技を潰すためのものではない。
+          //
+          // 繰り越せば、総量はどの型でも変わらず、
+          // 「何ラウンドかかるか」だけが揃う。
+          battle.arena.carryOver = (battle.arena.carryOver || 0) + (dealt - left);
+          dealt = left;
+          if (left <= 0 && !battle.arena.flooredNoticed) {
+            battle.arena.flooredNoticed = true;
+            pushLog(battle, `${unit.name} はこのラウンドの傷を数え終えている（次へ持ち越す）`, 'sub');
+          }
+        }
+        battle.arena.damageThisRound = used + dealt;
+      }
+    }
+
+    unit.hp = Math.max(0, unit.hp - dealt);
+    return dealt;
+  }
+
+  /**
    * ラウンドの変わり目にギミックの数え直しと、時間制限の裁きを行う (§17)。
    * @param {any} battle
    */
   function arenaRoundTick(battle) {
     if (!battle.arena) return;
     battle.arena.hitsThisRound = 0;
+    // このラウンドに認める傷の予算を戻す (§17.3)
+    battle.arena.damageThisRound = 0;
+    battle.arena.flooredNoticed = false;
+
+    // 前のラウンドで溢れたぶんを、新しい予算から先に払う (§17.3)。
+    // hurt() を通すので、払いきれなければまた繰り越される。
+    const carry = battle.arena.carryOver || 0;
+    if (carry > 0) {
+      battle.arena.carryOver = 0;
+      const boss = battle.enemies.find((/** @type {any} */ u) => u.arenaBoss && u.alive);
+      if (boss) {
+        const paid = hurt(battle, boss, carry);
+        if (paid > 0) {
+          pushLog(battle, `${boss.name} が数え終えた傷を負う（${paid.toLocaleString()}）`, 'damage');
+          if (boss.hp === 0) {
+            boss.alive = false;
+            pushLog(battle, `${boss.name} は力尽きた`, 'defeat');
+            pushEvent(battle, { type: 'down', key: boss.key, side: boss.side });
+          }
+        }
+      }
+    }
 
     const g = battle.arena.gimmicks || {};
     if (!g.enrageRound || battle.round < g.enrageRound) return;
@@ -735,7 +814,7 @@
       if (!target || echo.amount <= 0) continue;
 
       const damage = Math.max(1, Math.floor(echo.amount));
-      target.hp = Math.max(0, target.hp - damage);
+      hurt(battle, target, damage);
       pushLog(battle, `残響が ${target.name} に ${damage.toLocaleString()} のダメージ`, 'damage');
       pushEvent(battle, { type: 'damage', key: target.key, amount: damage, tag: '残響' });
       if (target.hp === 0 && target.alive) {
@@ -1165,8 +1244,9 @@
    */
   function directDamage(battle, unit, amount, text) {
     if (!unit.alive || amount <= 0) return 0;
-    const dealt = Math.min(unit.hp, Math.max(1, Math.floor(amount)));
-    unit.hp -= dealt;
+    // hurt() を通す (§17.3)。ここも闘技場の上限の対象。
+    const dealt = hurt(battle, unit, Math.min(unit.hp, Math.max(1, Math.floor(amount))));
+    if (dealt <= 0) return 0;
     pushLog(battle, text.replace('{n}', dealt.toLocaleString()), 'damage');
     pushEvent(battle, { type: 'damage', key: unit.key, amount: dealt });
     if (unit.hp === 0) {
@@ -1582,7 +1662,7 @@
         const others = livingEnemies(battle).filter((/** @type {any} */ u) => u !== defender);
         for (const other of others) {
           const splash = Math.max(1, Math.floor(result.damage * critSpread));
-          other.hp = Math.max(0, other.hp - splash);
+          hurt(battle, other, splash);
           pushLog(battle, `会心の余波が ${other.name} に ${splash.toLocaleString()}`, 'sub');
           if (other.hp === 0) {
             other.alive = false;
@@ -1682,7 +1762,7 @@
       if (carry > 0 && result.damage > defender.hp && defender.hp > 0) {
         attacker.carryDamage = (attacker.carryDamage || 0) + (result.damage - defender.hp) * carry;
       }
-      defender.hp = Math.max(0, defender.hp - result.damage);
+      result.damage = hurt(battle, defender, result.damage);
     }
     if (defender.hp === 0) defender.alive = false;
 
@@ -1694,7 +1774,7 @@
     const bleeding = statusRatio(defender, 'bleed');
     if (bleeding > 0 && result.damage > 0 && defender.alive) {
       const extra = Math.max(1, Math.floor(result.damage * bleeding));
-      defender.hp = Math.max(0, defender.hp - extra);
+      hurt(battle, defender, extra);
       pushLog(battle, `${defender.name} の傷口が開いた（${extra.toLocaleString()}）`, 'damage');
       if (defender.hp === 0) {
         defender.alive = false;
@@ -1783,7 +1863,7 @@
       const reflCap = (defender.maxHp || 0) * REFLECT_CAP_RATIO;
       const rawRefl = weight * reflect * scale;
       const back = Math.max(1, Math.floor(reflCap > 0 ? Math.min(rawRefl, reflCap) : rawRefl));
-      attacker.hp = Math.max(0, attacker.hp - back);
+      hurt(battle, attacker, back);
       pushLog(battle, `${attacker.name} に ${back.toLocaleString()} が跳ね返った`, 'damage');
       pushEvent(battle, { type: 'damage', key: attacker.key, from: defender.key, amount: back });
       if (attacker.hp === 0) {
@@ -1872,7 +1952,7 @@
       const cap = (defender.maxHp || 0) * THORNS_CAP_RATIO;
       const rawThorns = attacker.maxHp * thorns;
       const back = Math.max(1, Math.floor(cap > 0 ? Math.min(rawThorns, cap) : rawThorns));
-      attacker.hp = Math.max(0, attacker.hp - back);
+      hurt(battle, attacker, back);
       pushLog(battle, `${attacker.name} は棘で ${back.toLocaleString()} のダメージ`, 'damage');
       pushEvent(battle, { type: 'damage', key: attacker.key, amount: back, crit: false, element: 1, reduction: 0, execute: 1 });
       if (attacker.hp === 0) {
@@ -2427,7 +2507,7 @@
     const burning = statusRatio(actor, 'burn');
     if (burning > 0 && attackSkill && actor.alive) {
       const burn = Math.max(1, Math.floor(actor.maxHp * burning));
-      actor.hp = Math.max(0, actor.hp - burn);
+      hurt(battle, actor, burn);
       pushLog(battle, `${actor.name} は火傷で ${burn.toLocaleString()} のダメージ`, 'damage');
       if (actor.hp === 0) {
         actor.alive = false;

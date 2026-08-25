@@ -182,7 +182,7 @@
       (hard && def.hard && def.hard.gimmicks) || {});
 
     battle.arena = {
-      id: def.id, def, hard, gimmicks, hitsThisRound: 0,
+      id: def.id, def, hard, gimmicks, hitsThisRound: 0, damageThisRound: 0, flooredNoticed: false, carryOver: 0,
       // 実効値。ハードはここで上書きし、battle.js はこちらを見る。
       actionsPerRound: (def.actionsPerRound || 1) + (hard ? HARD_ACTIONS : 0),
       maxHitRatio: Math.min(0.95, def.maxHitRatio * (hard ? HARD_HIT_RATIO : 1)),
