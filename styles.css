@@ -1579,6 +1579,16 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .chip-passive { color: #9ad8ff; border-color: #9ad8ff55; }
 .chip-granted { color: var(--gold); border-color: var(--gold-dim); background: rgba(240, 193, 75, 0.10); }
 .chip-active { color: #ffd0a0; border-color: #ffd0a055; }
+/* ノードの軸タグ。押すとその軸だけに絞れるので、押せることが分かる形にする */
+.chip-cat {
+  color: #cbb8ff;
+  border-color: #cbb8ff55;
+  background: rgba(203, 184, 255, 0.08);
+  font-family: inherit;
+  cursor: pointer;
+}
+.chip-cat:hover { border-color: #cbb8ff; color: #e6dcff; }
+.chip-tier { color: var(--text-dim); border-color: var(--line); }
 
 .granted-skills {
   display: grid;
@@ -1782,6 +1792,31 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 }
 .filter-chip:hover { border-color: var(--accent); color: var(--text); }
 .filter-chip.is-on { border-color: var(--gold); color: var(--gold); }
+
+/* 軸（分類）で絞るチップ (§5.9)。件数つきで、押すとその軸だけになる */
+.tree-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.cat-chip {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.cat-chip:hover { border-color: var(--accent); color: var(--text); }
+.cat-chip.is-on {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(240, 193, 75, 0.10);
+}
 
 .tier-locked-note {
   display: flex; align-items: center; gap: 8px;

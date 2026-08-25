@@ -5884,6 +5884,74 @@
     }
 
     // ---------------------------------------------------------------
+    // ノードの検索 (§5.9)
+    //
+    // 「クリティカル率で完成するツリーを見たい」が、名前を覚えていなくても
+    // できること。ノードの説明文は「会心するたび」としか書いておらず、
+    // 効果種別 crit / crit_damage には登録簿の label が無い（route が unit）。
+    // 分類の言い換え語 (terms) が無いと、この検索は空振りする。
+    // ---------------------------------------------------------------
+    {
+      const cats = RPG.data.nodeCategories || [];
+      const noTerms = cats.filter((/** @type {any} */ c) =>
+        !Array.isArray(c.terms) || c.terms.length === 0);
+      assertTrue('ノード検索: すべての分類に言い換え語がある',
+        noTerms.length === 0, noTerms.map((/** @type {any} */ c) => c.id).join(', '));
+
+      /** @param {string} q */
+      const found = (q) => RPG.tree.nodes()
+        .filter((/** @type {any} */ n) => RPG.tree.searchText(n).includes(q.toLowerCase()));
+
+      // 分類の言い換え語は、その分類のノードを必ず引き当てる。
+      // 引き当てないなら、その語はどこにもかからない死んだ語。
+      const deadTerms = [];
+      for (const c of cats) {
+        const mine = RPG.tree.nodes().filter((/** @type {any} */ n) =>
+          RPG.tree.category(n).id === c.id);
+        if (!mine.length) continue;
+        for (const t of c.terms) {
+          if (!mine.some((/** @type {any} */ n) => RPG.tree.searchText(n).includes(t.toLowerCase()))) {
+            deadTerms.push(`${c.id}:${t}`);
+          }
+        }
+      }
+      assertTrue('ノード検索: 言い換え語がどれも空振りしない',
+        deadTerms.length === 0, deadTerms.join(', '));
+
+      // 実際の引き（利用者がそう打つ言葉で確かめる）
+      const crit = found('クリティカル率');
+      const critNodes = RPG.tree.nodes().filter((/** @type {any} */ n) =>
+        RPG.tree.category(n).id === 'crit');
+      assertTrue('ノード検索: 「クリティカル率」で会心の枝が全部出る',
+        critNodes.length > 0 && critNodes.every((/** @type {any} */ n) => crit.indexOf(n) >= 0),
+        `会心 ${critNodes.length}件 / ヒット ${crit.length}件`);
+
+      assertTrue('ノード検索: 「毒」で状態異常の枝が出る', found('毒').length > 0,
+        `${found('毒').length}件`);
+      assertTrue('ノード検索: 「上限突破」で威力帯の枝が出る', found('上限突破').length > 0,
+        `${found('上限突破').length}件`);
+      assertTrue('ノード検索: ノード名そのものでも引ける',
+        found(RPG.tree.nodes()[0].name).length > 0, RPG.tree.nodes()[0].name);
+
+      // ティアを跨いで並べられること。軸は初級から上級まで続いているので、
+      // ティア内でしか見られないと「完成形」が見えない。
+      const all = RPG.tree.byCategory(null, (/** @type {any} */ n) =>
+        RPG.tree.category(n).id === 'crit');
+      const tiers = new Set();
+      for (const g of all) for (const n of g.nodes) tiers.add(n.tier);
+      assertTrue('ノード検索: ティアを跨いで1つの軸を並べられる',
+        tiers.size > 1 && all.length === 1,
+        `${[...tiers].join('+')} / 分類 ${all.length}件`);
+
+      // ティアを指定したときは、そのティアだけであること（跨ぎが既定にならない）
+      const one = RPG.tree.byCategory('basic', null);
+      const leaked = [];
+      for (const g of one) for (const n of g.nodes) if (n.tier !== 'basic') leaked.push(n.id);
+      assertTrue('ノード検索: ティアを指定すればそのティアだけ',
+        leaked.length === 0, leaked.join(', '));
+    }
+
+    // ---------------------------------------------------------------
     // 起爆 (§5.8)
     //
     // 継続ダメージは1刻みが相手の最大HPの数%あり、数字としては弱くない。

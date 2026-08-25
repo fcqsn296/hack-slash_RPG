@@ -53,10 +53,52 @@
   }
 
   /**
+   * そのノードが検索でひっかかる言葉をぜんぶ繋げた文字列 (§5.9)。
+   *
+   * ── なぜ名前と説明文だけでは足りないか ──
+   * 「クリティカル率」で会心の枝を丸ごと出したいのに、ノードの説明文は
+   * 「会心するたび」「会心の追撃」としか書いていない。効果種別のほうにも
+   * 表示名が無いものがある（crit / crit_damage は route が unit なので
+   * 登録簿に label を持たない）。そこで **分類の言い換え語 (terms)** と
+   * **効果種別の表示名** も検索対象に混ぜる。
+   *
+   * ノード側には何も書かせない。ノードを足しても、使っている効果種別から
+   * 自動で正しい語がつく。
+   *
+   * @param {any} node
+   * @returns {string} 小文字に揃えた検索用の文字列
+   */
+  const searchCache = new Map();
+  function searchText(node) {
+    const hit = searchCache.get(node.id);
+    if (hit !== undefined) return hit;
+
+    const parts = [node.name || '', node.desc || ''];
+    const cat = category(node);
+    if (cat) {
+      parts.push(cat.label || '');
+      for (const t of cat.terms || []) parts.push(t);
+    }
+    const reg = RPG.data.effectKinds || {};
+    for (const e of node.effects || []) {
+      const d = reg[e.kind];
+      if (d && d.label) parts.push(d.label);
+      // 効果種別そのものの名前でも引けるようにしておく（開発時に効く）
+      parts.push(e.kind);
+    }
+    const text = parts.join(' ').toLowerCase();
+    searchCache.set(node.id, text);
+    return text;
+  }
+
+  /**
    * ティア内をさらに分類ごとにまとめる (§5.9)。
    * 252ノードを1つのグリッドに並べると探せないので、画面はこの単位で畳む。
    *
-   * @param {string} tier
+   * tier に null を渡すと**ティアを跨いで**まとめる。1つの軸（会心など）を
+   * 端から端まで見たいときに使う。分類で畳む単位はそのまま。
+   *
+   * @param {string|null} tier
    * @param {(node: any) => boolean} [filter] 通ったノードだけを残す
    * @returns {Array<{cat: any, nodes: any[]}>}
    */
@@ -64,7 +106,7 @@
     /** @type {Map<string, {cat: any, nodes: any[]}>} */
     const map = new Map();
     for (const n of nodes()) {
-      if (n.tier !== tier) continue;
+      if (tier !== null && n.tier !== tier) continue;
       if (filter && !filter(n)) continue;
       const cat = category(n);
       if (!map.has(cat.id)) map.set(cat.id, { cat, nodes: [] });
@@ -860,7 +902,7 @@
   }
 
   RPG.tree = {
-    nodes, node, grouped, category, byCategory,
+    nodes, node, grouped, category, byCategory, searchText,
     investedLevels, tierUnlocked, tierRemaining,
     spentSp, canInvest, canRefund, effects, effectsOf, mergeEffects, resetCost, refundCost,
     KNOWN_EFFECT_KINDS,

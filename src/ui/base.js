@@ -3364,6 +3364,16 @@ ${nextCost.toLocaleString()} G
   let treeQuery = '';
   /** 'all' | 'available' | 'invested' */
   let treeFilter = 'all';
+  /**
+   * 絞り込んでいる軸（分類）のID。null なら全部。
+   *
+   * 「クリティカル率で完成するツリーを見たい」ときは、ここに 'crit' を入れて
+   * ティアを ALL_TIERS にすると、基礎から極まで通しで並ぶ。
+   */
+  /** @type {string|null} */
+  let treeCat = null;
+  /** ティアを跨いで見るときの合図。実在のティアIDと衝突しない名前にしてある。 */
+  const ALL_TIERS = '*all*';
   /** 畳んでいる分類のID */
   /**
    * 畳んでいる分類。
@@ -3391,60 +3401,144 @@ ${nextCost.toLocaleString()} G
    */
   function treeBrowser(root, charSave) {
     const tree = charSave.tree || {};
+    const allTiers = treeTier === ALL_TIERS;
 
-    /** 検索と絞り込みを1つの述語にまとめる */
-    const q = treeQuery.trim().toLowerCase();
-    const match = (/** @type {any} */ n) => {
-      if (q && !(n.name.toLowerCase().includes(q) || (n.desc || '').toLowerCase().includes(q))) {
-        return false;
-      }
+    // 入れ物は使い回して、中身だけ差し替える。
+    //
+    // ── なぜそうするか（実機で「検索が打てない」不具合になっていた）──
+    // 以前はキーを叩くたびに .tree-browser ごと作り直し、そのあと input へ
+    // フォーカスを当て直していた。PCでは辛うじて動くが、スマートフォンでは
+    // 入力中の要素が消えるたびに IME の変換中の文字が失われ、
+    // ソフトキーボードも閉じるため**一文字も打てない**。
+    // 検索欄そのものには触れず、結果の枝だけを差し替える。
+    const resultBox = h('div.tree-results');
+    const catBox = h('div.tree-cats');
+
+    /** 検索語と絞り込み（分類は別に見る。分類チップの件数を出すため） */
+    const matchBase = (/** @type {any} */ n) => {
+      const q = treeQuery.trim().toLowerCase();
+      if (q && !RPG.tree.searchText(n).includes(q)) return false;
       const level = tree[n.id] || 0;
       if (treeFilter === 'invested') return level > 0;
       if (treeFilter === 'available') return RPG.tree.canInvest(charSave, n.id).ok;
       return true;
     };
+    const match = (/** @type {any} */ n) =>
+      matchBase(n) && (!treeCat || RPG.tree.category(n).id === treeCat);
 
-    const unlocked = RPG.tree.tierUnlocked(tree, treeTier);
-    const remaining = RPG.tree.tierRemaining(tree, treeTier);
-    const tierDef = RPG.data.skillTreeTiers[treeTier];
-    const from = tierDef.countsFrom
-      .map((/** @type {string} */ t) => RPG.data.skillTreeTiers[t].label).join('＋');
+    const tierDef = allTiers ? null : RPG.data.skillTreeTiers[treeTier];
+    const unlocked = allTiers ? true : RPG.tree.tierUnlocked(tree, treeTier);
+    const remaining = allTiers ? 0 : RPG.tree.tierRemaining(tree, treeTier);
+    const from = tierDef
+      ? tierDef.countsFrom.map((/** @type {string} */ t) => RPG.data.skillTreeTiers[t].label).join('＋')
+      : '';
 
-    const groups = RPG.tree.byCategory(treeTier, match);
-    const shown = groups.reduce((s, g) => s + g.nodes.length, 0);
+    /** 分類チップ。いま何件かかっているかを添える（0件の軸を押しても空振りするため） */
+    function paintCats() {
+      const pool = RPG.tree.nodes().filter((/** @type {any} */ n) =>
+        (allTiers || n.tier === treeTier) && matchBase(n));
+      /** @type {Map<string, number>} */
+      const counts = new Map();
+      for (const n of pool) {
+        const id = RPG.tree.category(n).id;
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+      const cats = (RPG.data.nodeCategories || [])
+        .filter((/** @type {any} */ c) => counts.get(c.id));
+      replace(catBox,
+        h('button.cat-chip' + (treeCat ? '' : '.is-on'), {
+          text: `すべて (${pool.length})`,
+          onClick: () => { treeCat = null; paint(); },
+        }),
+        ...cats.map((/** @type {any} */ c) =>
+          h('button.cat-chip' + (treeCat === c.id ? '.is-on' : ''), {
+            text: `${c.label} (${counts.get(c.id)})`,
+            title: c.desc,
+            onClick: () => { treeCat = treeCat === c.id ? null : c.id; paint(); },
+          }))
+      );
+    }
+
+    /** 結果の本体 */
+    function paint() {
+      paintCats();
+      const groups = RPG.tree.byCategory(allTiers ? null : treeTier, match);
+      const shown = groups.reduce((s, g) => s + g.nodes.length, 0);
+
+      if (shown === 0) {
+        replace(resultBox, h('p.empty-note', {
+          text: '条件に合うノードがありません。検索語や絞り込みを変えてみてください。',
+        }));
+        return;
+      }
+      replace(resultBox, h('div.cat-list', groups.map((g) => {
+        // 軸を1つに絞って見ているときは、畳んでいると何も見えない。
+        // 検索語や分類で狭めた結果は開いた状態で出す。
+        const narrowed = !!treeQuery.trim() || !!treeCat;
+        const collapsed = !narrowed && ensureCollapsed().has(g.cat.id);
+        const invested = g.nodes.filter((/** @type {any} */ n) => (tree[n.id] || 0) > 0).length;
+        return h('section.cat' + (collapsed ? '.is-collapsed' : ''),
+          h('button.cat-head', {
+            onClick: () => {
+              if (collapsed) treeCollapsed.delete(g.cat.id); else treeCollapsed.add(g.cat.id);
+              paint();
+            },
+          },
+            h('span.cat-mark', { text: collapsed ? '▶' : '▼' }),
+            h('span.cat-label', { text: g.cat.label }),
+            h('span.cat-count', { text: `${invested} / ${g.nodes.length}` }),
+            h('span.cat-desc', { text: g.cat.desc })
+          ),
+          collapsed
+            ? null
+            : h('div.node-grid', g.nodes.map((n) =>
+                nodeCard(root, charSave, n,
+                  allTiers ? RPG.tree.tierUnlocked(tree, n.tier) : unlocked,
+                  allTiers, paint)))
+        );
+      })));
+    }
+
+    paint();
 
     return h('div.tree-browser',
       // --- ティアの切り替え ---
-      h('div.tier-tabs', RPG.tree.grouped().map((g) => {
-        const open = RPG.tree.tierUnlocked(tree, g.tier);
-        const invested = RPG.data.skillTree
-          .filter((/** @type {any} */ n) => n.tier === g.tier && (tree[n.id] || 0) > 0).length;
-        const total = RPG.data.skillTree.filter((/** @type {any} */ n) => n.tier === g.tier).length;
-        return h('button.tier-tab' + (g.tier === treeTier ? '.is-on' : '') + (open ? '' : '.is-locked'), {
-          onclick: () => { treeTier = g.tier; render(root); },
+      h('div.tier-tabs',
+        // 軸を端から端まで見るための「すべて」。
+        // 会心なら会心だけを、基礎から極まで通しで並べられる。
+        h('button.tier-tab' + (allTiers ? '.is-on' : ''), {
+          onClick: () => { treeTier = ALL_TIERS; render(root); },
         },
-          h('span.tier-tab-name', { text: g.label }),
-          h('span.tier-tab-count', { text: `${invested} / ${total}` }),
-          open ? null : W.icon('lock')
-        );
-      })),
+          h('span.tier-tab-name', { text: 'すべて' }),
+          h('span.tier-tab-count', {
+            text: `${RPG.tree.nodes().filter((/** @type {any} */ n) => (tree[n.id] || 0) > 0).length}`
+              + ` / ${RPG.tree.nodes().length}`,
+          })
+        ),
+        ...RPG.tree.grouped().map((g) => {
+          const open = RPG.tree.tierUnlocked(tree, g.tier);
+          const invested = RPG.data.skillTree
+            .filter((/** @type {any} */ n) => n.tier === g.tier && (tree[n.id] || 0) > 0).length;
+          const total = RPG.data.skillTree.filter((/** @type {any} */ n) => n.tier === g.tier).length;
+          return h('button.tier-tab' + (g.tier === treeTier ? '.is-on' : '') + (open ? '' : '.is-locked'), {
+            onClick: () => { treeTier = g.tier; render(root); },
+          },
+            h('span.tier-tab-name', { text: g.label }),
+            h('span.tier-tab-count', { text: `${invested} / ${total}` }),
+            open ? null : W.icon('lock')
+          );
+        })
+      ),
 
       // --- 絞り込み ---
       h('div.tree-tools',
         h('input.tree-search', {
           type: 'search',
-          placeholder: 'ノード名・効果で検索（例: 会心、毒、全体）',
+          placeholder: 'ノード名・効果で検索（例: クリティカル率、毒、上限突破）',
           value: treeQuery,
-          oninput: (/** @type {any} */ e) => {
+          onInput: (/** @type {any} */ e) => {
             treeQuery = e.target.value;
-            // 入力のたびに再描画するとフォーカスが飛ぶので、この枝だけ差し替える
-            const host = root.querySelector('.tree-browser');
-            if (host && host.parentNode) {
-              const next = treeBrowser(root, charSave);
-              host.parentNode.replaceChild(next, host);
-              const input = /** @type {any} */ (next.querySelector('.tree-search'));
-              if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
-            }
+            paint();
           },
         }),
         h('div.tree-filters', [
@@ -3454,10 +3548,13 @@ ${nextCost.toLocaleString()} G
         ].map((f) =>
           h('button.filter-chip' + (treeFilter === f.id ? '.is-on' : ''), {
             text: f.label,
-            onclick: () => { treeFilter = f.id; render(root); },
+            onClick: () => { treeFilter = f.id; render(root); },
           })
         ))
       ),
+
+      // --- 軸（分類）で絞る ---
+      catBox,
 
       // --- ティアの状態 ---
       unlocked
@@ -3465,32 +3562,9 @@ ${nextCost.toLocaleString()} G
         : h('p.tier-locked-note', W.icon('lock'),
             h('span', { text: `${from}に あと${remaining}レベル 投資すると解放される` })),
 
-      // --- 分類ごとの本体 ---
-      shown === 0
-        ? h('p.empty-note', { text: '条件に合うノードがありません。検索語や絞り込みを変えてみてください。' })
-        : h('div.cat-list', groups.map((g) => {
-            const collapsed = ensureCollapsed().has(g.cat.id);
-            const invested = g.nodes.filter((/** @type {any} */ n) => (tree[n.id] || 0) > 0).length;
-            return h('section.cat' + (collapsed ? '.is-collapsed' : ''),
-              h('button.cat-head', {
-                onclick: () => {
-                  if (collapsed) treeCollapsed.delete(g.cat.id); else treeCollapsed.add(g.cat.id);
-                  render(root);
-                },
-              },
-                h('span.cat-mark', { text: collapsed ? '▶' : '▼' }),
-                h('span.cat-label', { text: g.cat.label }),
-                h('span.cat-count', { text: `${invested} / ${g.nodes.length}` }),
-                h('span.cat-desc', { text: g.cat.desc })
-              ),
-              collapsed
-                ? null
-                : h('div.node-grid', g.nodes.map((n) => nodeCard(root, charSave, n, unlocked)))
-            );
-          }))
+      resultBox
     );
   }
-
   /**
    * ツリーの投資結果を要約して見せる。ビルドの効き目を数値で確認できるようにする。
    * @param {any} unit
@@ -3631,17 +3705,17 @@ ${nextCost.toLocaleString()} G
    * @param {any} n
    * @param {boolean} tierUnlocked
    */
-  function nodeCard(root, charSave, n, tierUnlocked) {
+  function nodeCard(root, charSave, n, tierUnlocked, showTier, repaint) {
     const level = (charSave.tree || {})[n.id] || 0;
     const maxed = level >= n.maxLevel;
     const check = RPG.tree.canInvest(charSave, n.id);
     const refund = RPG.tree.canRefund(charSave, n.id);
     const isSlot = n.effects.some((/** @type {any} */ e) => e.kind === 'slot');
-    const isStrategy = n.effects.some((/** @type {any} */ e) =>
-      e.kind === 'element_adapt' || e.kind === 'element_mastery' || e.kind === 'chaos');
     const isActive = n.effects.some((/** @type {any} */ e) => e.kind === 'grant_skill');
-    const isDefensive = n.effects.some((/** @type {any} */ e) =>
-      e.kind === 'reduction' || e.kind === 'revive' || e.kind === 'regen' || e.kind === 'counter');
+    // 属性戦略・生存の札は、軸のタグ（分類）と同じことを言うので出さない。
+    // 同じ意味の札が2枚並ぶと、狭い画面では本文が押し出されて読めなくなる。
+    const cat = RPG.tree.category(n);
+    const tierLabel = (RPG.data.skillTreeTiers[n.tier] || {}).label || n.tier;
 
     return h('div.node' + (level > 0 ? '.is-invested' : '') + (maxed ? '.is-maxed' : '') + (tierUnlocked ? '' : '.is-locked'),
       h('div.node-head',
@@ -3654,10 +3728,16 @@ ${nextCost.toLocaleString()} G
       )),
       h('div.node-foot',
         h('span.node-cost', { text: `${n.cost} SP` }),
+        // 軸のタグ。押すとその軸だけに絞り込める (§5.9)。
+        // 「この効果と同じ系統のものを全部見たい」が、名前を思い出さなくてもできる。
+        h('button.chip.chip-cat', {
+          text: cat.label,
+          title: `「${cat.label}」の枝だけを見る`,
+          onClick: () => { treeCat = cat.id; if (repaint) repaint(); else render(root); },
+        }),
+        showTier ? h('span.chip.chip-tier', { text: tierLabel }) : null,
         isSlot ? h('span.chip.chip-slot', { text: '装備枠' }) : null,
-        isStrategy ? h('span.chip.chip-strategy', { text: '属性戦略' }) : null,
         isActive ? h('span.chip.chip-active', { text: 'アクティブ技' }) : null,
-        isDefensive ? h('span.chip.chip-passive', { text: '生存' }) : null,
         // 1レベルだけ戻す (§5.5)。振ってあるときだけ出す。
         // 終盤は250点近いSPを1点ずつ振るので、全体リセットしか無いと
         // 「1か所試したいだけ」でも全部消える。それでは組み替えて遊べない。
