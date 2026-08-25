@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v105';
+const CACHE_VERSION = 'v106';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -180,18 +180,28 @@ const PRECACHE = [
   './assets/characters/ch_lg_aurora.webp',
   './assets/characters/ch_lg_carmina.webp',
   './assets/characters/ch_lg_chantal.webp',
+  './assets/characters/ch_lg_diana.webp',
   './assets/characters/ch_lg_ember.webp',
   './assets/characters/ch_lg_frisia.webp',
   './assets/characters/ch_lg_ignis.webp',
   './assets/characters/ch_lg_iris.webp',
   './assets/characters/ch_lg_licorice.webp',
+  './assets/characters/ch_lg_lieve.webp',
+  './assets/characters/ch_lg_litania.webp',
   './assets/characters/ch_lg_lumen.webp',
   './assets/characters/ch_lg_mireille.webp',
+  './assets/characters/ch_lg_nadia.webp',
   './assets/characters/ch_lg_nefeli.webp',
+  './assets/characters/ch_lg_noel.webp',
   './assets/characters/ch_lg_nox.webp',
+  './assets/characters/ch_lg_saya.webp',
   './assets/characters/ch_lg_serafina.webp',
+  './assets/characters/ch_lg_solveig.webp',
   './assets/characters/ch_lg_theodora.webp',
+  './assets/characters/ch_lg_tsubaki.webp',
   './assets/characters/ch_lg_valkyria.webp',
+  './assets/characters/ch_lg_verna.webp',
+  './assets/characters/ch_lg_vesta.webp',
   './assets/characters/ch_lg_viola.webp',
   './assets/characters/ch_lg_zero.webp',
   './assets/characters/ch_mia.webp',

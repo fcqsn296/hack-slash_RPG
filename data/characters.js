@@ -862,8 +862,8 @@ RPG.data.characters = {
     },
     color: '#ffe9a8', accent: '#4a3c14', glyph: '禱',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.529, y: 0.114, size: 0.357 },
       gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
       hairColor: '#f2e2b4', hairLight: '#fff8dc', hairDark: '#a89058',
       eye: '#ffd166', eyeLight: '#fff0c0',
@@ -891,8 +891,8 @@ RPG.data.characters = {
     },
     color: '#b8f0d8', accent: '#16443a', glyph: '雷',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.511, y: 0.108, size: 0.358 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'circlet',
       hairColor: '#9fe8c8', hairLight: '#d8fff0', hairDark: '#3e8870',
       eye: '#7ef0ff', eyeLight: '#c8faff',
@@ -920,8 +920,8 @@ RPG.data.characters = {
     },
     color: '#8ec4ff', accent: '#16304e', glyph: '織',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.495, y: 0.126, size: 0.346 },
       gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'ribbon',
       hairColor: '#7fa8e0', hairLight: '#c0dcff', hairDark: '#3a5c88',
       eye: '#a8d8ff', eyeLight: '#dcf0ff',
@@ -965,14 +965,17 @@ RPG.data.characters = {
     color: '#ff9d5c', accent: '#4a2210', glyph: '極',
     art: {
       // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      face: { x: 0.47, y: 0.145, size: 0.35 },
       gender: 'female', hair: 'ponytail', expression: 'cool', accessory: 'visor',
       hairColor: '#ff9d5c', hairLight: '#ffd0a8', hairDark: '#a04d1c',
       eye: '#ffe066', eyeLight: '#fff4b8',
       outfit: '#3a1c10', outfitLight: '#5e3018', outfitTrim: '#ff9d5c',
       accentColor: '#ffc47a',
     },
-    artPrompt: 'burning orange high ponytail, sharp golden eyes behind a slim marksman visor, ' +
+    // バイザーを「目の前」に置くと顔全体を覆った絵が返ってきて、顔アイコンが
+    // 切り出せなかった。額へ上げた形に言い換えて目を出している。
+    artPrompt: 'burning orange high ponytail, sharp golden eyes clearly visible, ' +
+      'thin marksman visor pushed up onto her forehead, '  +
       'fitted ember-red archer coat, longbow of glowing embers, calm focused aim',
     desc: '【会心】会心率+55%。100%を超えたぶんの35%が会心倍率へ回る。' +
       '固有技は確定会心なので、積んだ率がまるごと倍率に化ける。',
@@ -992,8 +995,8 @@ RPG.data.characters = {
     },
     color: '#c58cff', accent: '#2c1740', glyph: '秤',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.429, y: 0.154, size: 0.339 },
       gender: 'female', hair: 'long', expression: 'cool', accessory: 'none',
       hairColor: '#b07ce8', hairLight: '#e0c0ff', hairDark: '#5a3080',
       eye: '#e8b0ff', eyeLight: '#f8e0ff',
@@ -1021,8 +1024,8 @@ RPG.data.characters = {
     },
     color: '#d8c39a', accent: '#3a3020', glyph: '刻',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.499, y: 0.126, size: 0.354 },
       gender: 'female', hair: 'bob', expression: 'calm', accessory: 'hairpin',
       hairColor: '#4a3f34', hairLight: '#7a6a58', hairDark: '#241d16',
       eye: '#d8c39a', eyeLight: '#f4e8cc',
@@ -1059,8 +1062,8 @@ RPG.data.characters = {
     },
     color: '#6fd3c8', accent: '#123c3a', glyph: '浸',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.494, y: 0.164, size: 0.32 },
       gender: 'female', hair: 'long', expression: 'calm', accessory: 'none',
       hairColor: '#5cc0b4', hairLight: '#a8ebe2', hairDark: '#2a6d66',
       eye: '#8ae0d4', eyeLight: '#d0f6f0',
@@ -1088,8 +1091,8 @@ RPG.data.characters = {
     },
     color: '#a8e6b0', accent: '#1c3e24', glyph: '環',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.488, y: 0.122, size: 0.351 },
       gender: 'female', hair: 'twin', expression: 'smug', accessory: 'ribbon',
       hairColor: '#3e4a3c', hairLight: '#6e7c68', hairDark: '#1e2620',
       eye: '#a8e6b0', eyeLight: '#dcf6de',
@@ -1123,8 +1126,8 @@ RPG.data.characters = {
     },
     color: '#cfd6e0', accent: '#2c3340', glyph: '中',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.489, y: 0.147, size: 0.336 },
       gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
       hairColor: '#b8c0cc', hairLight: '#e8eef6', hairDark: '#6a7280',
       eye: '#8fa4bc', eyeLight: '#cfdcec',
@@ -1154,8 +1157,8 @@ RPG.data.characters = {
     },
     color: '#ffe6b8', accent: '#4a3a1c', glyph: '際',
     art: {
-      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.5, y: 0.11, size: 0.36 },
+      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
+      face: { x: 0.514, y: 0.135, size: 0.347 },
       gender: 'female', hair: 'bob', expression: 'fierce', accessory: 'circlet',
       hairColor: '#f0dcae', hairLight: '#fff4d8', hairDark: '#a08c58',
       eye: '#ffd070', eyeLight: '#fff0c4',
