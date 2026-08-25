@@ -1996,4 +1996,80 @@ RPG.data.skillTree = [
     ],
     desc: 'ダメージの振れ幅が消え、被ダメージ -15%、DEF +40%。ただし会心率 -100%',
   },
+
+  /* ── 支援・回復の【極】 (§5.14) ──
+   *
+   * 攻撃側と違い、**下位ロールごとに1つずつ**置いてある。
+   * 1枚にまとめると必ずどれかが割を食う。純ヒーラーに効く代償は
+   * 神官戦士を締め出し、神官戦士が払える代償は純ヒーラーには無料になる。
+   *
+   * 「与ダメージ上限を削る」は採らなかった。上限は500,000で、
+   * 純ヒーラーは一生その線に触れないので支払いにならない。
+   * 効く強さまで下げると神官戦士と反転が締め出される。中間が無い。
+   *
+   * 代償は遮断フラグで作ってある。負の値では組めない
+   * （buffAmount は power<=0 で素の値を返し、heal_power を下げると
+   *   heal_to_power 経由で神官戦士の火力まで消える）。
+   */
+  {
+    // 純ヒーラー。癒しに全部を注ぐので、自分の身が保たない。
+    // 代償に遮断を使っていないのは、この役の通貨が「生き残って撒き続けること」だから。
+    id: 'tr_x_devotion', tier: 'high', name: '【極】献身', cost: 10, maxLevel: 1,
+    effects: [
+      { kind: 'heal_power', value: 1.1 },
+      { kind: 'heal_spread', value: 0.45 },
+      { kind: 'triage', value: 0.6 },
+      { kind: 'stat_pct', stat: 'hp', value: -0.35 },
+      { kind: 'stat_pct', stat: 'atk', value: -0.9 },
+    ],
+    desc: '与える回復量 +110%、回復が他の味方へ45%及ぶ、瀕死への回復 +60%。'
+      + 'ただし素の最大HP -35%、素のATK -90%',
+  },
+  {
+    // 神官戦士。自分で立ち続けるが、隊列の回復役は務まらなくなる。
+    id: 'tr_x_solitary', tier: 'high', name: '【極】独行', cost: 10, maxLevel: 1,
+    effects: [
+      { kind: 'heal_to_power', value: 0.35 },
+      { kind: 'regen', value: 0.07 },
+      { kind: 'mend_power', value: 0.5 },
+      { kind: 'ally_heal_lock', value: 1 },
+    ],
+    desc: '「与える回復量」の伸びの35%が火力に乗り、毎ラウンド最大HPの7%回復、'
+      + '受けた回復量ぶん火力 +50%。ただし味方を一切回復できなくなる',
+  },
+  {
+    // 反転。自分を癒した余波だけで敵を焼く。味方には一滴も回らない。
+    id: 'tr_x_stigma', tier: 'high', name: '【極】灼身', cost: 10, maxLevel: 1,
+    effects: [
+      { kind: 'smite', value: 0.9 },
+      { kind: 'heal_power', value: 0.6 },
+      { kind: 'ally_heal_lock', value: 1 },
+    ],
+    desc: '回復した量の90%が敵へ、与える回復量 +60%。'
+      + 'ただし味方を一切回復できなくなる（自分を癒した余波だけが敵へ飛ぶ）',
+  },
+  {
+    // 万軍。旗を振る者には何も起きない。
+    id: 'tr_x_banner', tier: 'high', name: '【極】旗手', cost: 10, maxLevel: 1,
+    effects: [
+      { kind: 'buff_cap', value: 1 },
+      { kind: 'ally_buff_power', value: 1.4 },
+      { kind: 'buff_extend', value: 2 },
+      { kind: 'self_buff_lock', value: 1 },
+    ],
+    desc: 'バフ効果量の上限 +100%、味方にかけるバフの効果量 +140%、持続 +2ターン。'
+      + 'ただし自分でかけたバフは自分に乗らなくなる（味方からのバフは受けられる）',
+  },
+  {
+    // 孤影。戴く頭は一つでよい。
+    id: 'tr_x_sovereign', tier: 'high', name: '【極】独尊', cost: 10, maxLevel: 1,
+    effects: [
+      { kind: 'buff_cap', value: 1 },
+      { kind: 'self_buff_power', value: 1.6 },
+      { kind: 'support_stack', value: 0.12 },
+      { kind: 'solo_buff', value: 1 },
+    ],
+    desc: 'バフ効果量の上限 +100%、自分にかけるバフの効果量 +160%、バフをかけるたび +12%。'
+      + 'ただし自分がかけたバフは味方に一切通らなくなる',
+  },
 ];

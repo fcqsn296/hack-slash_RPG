@@ -1006,10 +1006,17 @@
     // 追加のルールを置かずに選択が生まれる。
     const toSelf = target != null && target === caster;
 
-    // 「孤影」セットの代償 (§7.7)。味方へのバフが丸ごと通らなくなる。
-    // 自己特化を極めるほど、隊列の他の3人には何も配れなくなるという取引。
+    // 「孤影」セットの代償 (§7.7) と、支援の【極】の代償 (§5.14)。
+    //
+    // ── なぜ独立したフラグなのか ──
+    // self_buff_power / ally_buff_power を負にしても打ち消せない。
+    // この関数の最後が `power > 0 ? value * (1 + power) : value` で、
+    // 上乗せが無くなるだけで**素の値は残る**ため。遮断は別の口が要る。
+    //
+    // セット側(setEffects)とツリー側(passives)の両方から来る。
     const fx = (caster && caster.setEffects) || {};
-    if (!toSelf && target != null && fx.soloBuff) return 0;
+    if (!toSelf && target != null && (fx.soloBuff || p.soloBuff)) return 0;
+    if (toSelf && p.noSelfBuff) return 0;
 
     const side = toSelf ? (p.selfBuffPower || 0) : (p.allyBuffPower || 0);
 
@@ -1021,7 +1028,9 @@
     //
     // 頭を打たせるのは、投資が無駄になるからではなく、
     // **どれを選ぶか**を意味のある問いにするため。上限に届いたら別の軸へ回す。
-    const power = Math.min(BUFF_POWER_CAP, (p.buffPower || 0) + stack + side);
+    // 【極】だけが天井を押し上げられる (§5.14)。
+    const cap = BUFF_POWER_CAP + (p.buffCapBonus || 0);
+    const power = Math.min(cap, (p.buffPower || 0) + stack + side);
     return power > 0 ? value * (1 + power) : value;
   }
 
@@ -1902,6 +1911,12 @@
       /** @param {any} target @param {number} amount */
       heal: (target, amount, opts) => {
         if (!target.alive) return 0;
+        // 神官戦士・反転の【極】の代償 (§5.14)。味方を癒せなくなる。
+        //
+        // heal_power を負にする手は使えない。heal_to_power が
+        // `healToPower * healPower` の形なので、下げると神官戦士の火力ごと消える。
+        // 自分への回復は残すので、リジェネと自己回復で立ち続ける形になる。
+        if (target !== actor && (actor.passives || {}).noAllyHeal) return 0;
         const before = target.hp;
         // 「癒しの手」— 自分が行う回復すべてを底上げする (§5.7)。
         const power = (actor.passives && actor.passives.healPower) || 0;
@@ -2003,6 +2018,12 @@
         // 効果量のほうは **かけた側** を見る (§5.9)。
         // 弱体には「与える量」の軸があるのに、バフ側は受け手の持続しか無かった。
         value = buffAmount(actor, value, stackAtCast, target);
+        // 遮断された（孤影・旗手・独尊の代償側）なら、積まずに終わる (§5.14)。
+        //
+        // 値0のまま積むと2つ困る。ログに「+0%」が並ぶのと、
+        // **countSupport が回ってしまう**こと。後者は独尊（support_stack を持つ）で
+        // 「通らないバフを味方へ撒いて自分のバフだけ積む」抜け道になる。
+        if (!(value > 0)) return;
         // 持続も「かける側」で伸ばせる (§5.10)。受け手の buffDuration とは別枠。
         const extend = (actor.passives && actor.passives.buffExtend) || 0;
         target.buffUnique.push({ value, turns: buffTurns(target, turns) + extend, label });
@@ -2018,6 +2039,7 @@
        */
       addTagBuff: (target, tag, value, turns, label) => {
         value = buffAmount(actor, value, stackAtCast, target);
+        if (!(value > 0)) return;   // 遮断されたら積まない (§5.14)
         const extendTag = (actor.passives && actor.passives.buffExtend) || 0;
         target.buffTags.push({
           tag, value, turns: buffTurns(target, turns) + extendTag, label, matchType: null,
@@ -2547,8 +2569,13 @@
         const p2 = u.passives || {};
         const side = ally === u ? (p2.selfBuffPower || 0) : (p2.allyBuffPower || 0);
         const fx2 = u.setEffects || {};
-        if (ally !== u && fx2.soloBuff) continue;
-        const value = rb * (1 + Math.min(BUFF_POWER_CAP, side) * 0.5);
+        // 遮断はセット側(setEffects)とツリー側(passives)の両方から来る (§5.14)
+        if (ally !== u && (fx2.soloBuff || p2.soloBuff)) continue;
+        if (ally === u && p2.noSelfBuff) continue;
+        // 号令側も同じ天井を使う (§5.14)。片方だけ据え置くと、
+        // 【極】で上限を破ったのに号令だけ効かない、という食い違いになる。
+        const cap2 = BUFF_POWER_CAP + (p2.buffCapBonus || 0);
+        const value = rb * (1 + Math.min(cap2, side) * 0.5);
         ally.buffUnique.push({ value, turns: buffTurns(ally, 1), label: '号令' });
         pushEvent(battle, { type: 'buff', key: ally.key, label: '号令' });
         shown = Math.max(shown, value);

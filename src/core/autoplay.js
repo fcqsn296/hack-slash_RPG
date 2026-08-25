@@ -97,11 +97,19 @@
     // --- 1. 回復を優先する ---
     const heals = skills.filter((s) => s.def.plugin === 'heal');
     if (heals.length) {
-      const hurt = allies
+      // 味方を回復できない者は、自分だけを候補にする (§5.14)。
+      //
+      // バフ側とまったく同じ罠。遮断された回復は相手のHPを動かさないので、
+      // 「傷ついた味方がいる → 回復する → 治らない」を**毎ターン繰り返す**。
+      // 手番が全部溶ける。実測で神官戦士の勝率が 99% → 88% まで落ちていた。
+      const noAllyHeal = !!(actor.passives && actor.passives.noAllyHeal);
+      const healable = noAllyHeal ? allies.filter((u) => u === actor) : allies;
+      const hurt = healable
         .filter((u) => u.hp / u.maxHp < HEAL_THRESHOLD)
         .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp);
       if (hurt.length) {
-        const partyHeal = heals.find((s) => s.def.params && s.def.params.party);
+        const partyHeal = noAllyHeal
+          ? null : heals.find((s) => s.def.params && s.def.params.party);
         if (hurt.length >= HEAL_PARTY_COUNT && partyHeal) {
           return { skillId: partyHeal.id, targets: [] };
         }
@@ -115,7 +123,22 @@
     const remaining = foes.reduce((s, e) => s + e.hp, 0);
     const totalMax = foes.reduce((s, e) => s + e.maxHp, 0);
     if (remaining > totalMax * 0.35) {
-      const buff = skills.find((s) => BUFF_PLUGINS.includes(s.def.plugin) && !buffActive(actor, s.def));
+      // 遮断されているバフは撃たない (§5.14)。
+      //
+      // 【極】旗手は「自分にかけたバフが自分に乗らない」。乗らないバフは
+      // battle.js が積まないので buffActive が**永久に false を返し**、
+      // オートが同じバフを毎ターン撃ち続けて手番を全部溶かす。
+      // 実測では旗手を着けた支援の勝率が 97% → 89% まで落ちていた。
+      // 自分を対象に取るバフだけが該当する（全体バフは targetKind が 'none'）。
+      // 自分にしか乗らないバフか、味方にも配るバフかは **params.party** が決める
+      // （buffs.js の resolveTargets が `params.party ? allies() : [actor]`）。
+      // targetKind は unique_buff/tag_buff/def_buff のどれも常に 'none' を返すので、
+      // そちらで判別しようとすると**一度も引っかからない**。実際それで外した。
+      const noSelf = !!(actor.passives && actor.passives.noSelfBuff);
+      const selfOnly = (/** @type {any} */ def) => !(def.params && def.params.party);
+      const buff = skills.find((s) => BUFF_PLUGINS.includes(s.def.plugin)
+        && !buffActive(actor, s.def)
+        && !(noSelf && selfOnly(s.def)));
       if (buff) return { skillId: buff.id, targets: RPG.battle.targetKind(buff.def) === 'none' ? [] : [actor] };
     }
 

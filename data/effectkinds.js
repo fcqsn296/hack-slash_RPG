@@ -45,6 +45,21 @@ RPG.data.effectKinds = {
   buff_extend: { to: 'passives', shape: 'add', uniq: 'buffExtend', route: 'passives', key: 'buffExtend', label: '自分がかけるバフの持続', fmt: 'turn' },
   self_buff_power: { to: 'passives', shape: 'add', uniq: 'selfBuffPower', route: 'passives', key: 'selfBuffPower', label: '自分にかけるバフだけ効果量', fmt: 'pct' },
   ally_buff_power: { to: 'passives', shape: 'add', uniq: 'allyBuffPower', route: 'passives', key: 'allyBuffPower', label: '味方にかけるバフだけ効果量', fmt: 'pct' },
+  // ── 遮断フラグ (§5.14) ──
+  // 支援の【極】の代償側。負の値では組めないので独立した種別にしてある
+  // （buffAmount は power<=0 のとき素の値を返すため、負値は打ち消しにならない。
+  //   heal_power を下げる手も heal_to_power 経由で神官戦士の火力を消してしまう）。
+  // uniq は持たせない。同名の soloBuff が effectKeysSetOnly（装備セット専用）に
+  // 既にあり、ユニーク装備のキーとして両方を登録すると経路が食い違う。
+  // battle.js は fx.soloBuff と p.soloBuff の両方を見るので、ツリー側はこれで届く。
+  // バフ効果量の上限そのものを押し上げる (§5.14)。
+  // 上限(BUFF_POWER_CAP=1.0)は「全部足せば全部乗る」を止めるために置いてある。
+  // 【極】は代償を払って**その天井を破る**場所なので、ここでだけ上限を動かす。
+  // これが無いと、既に上限へ張り付いた支援ビルドには +140% が1ミリも効かない。
+  buff_cap: { to: 'passives', shape: 'add', uniq: 'buffCapBonus', route: 'passives', key: 'buffCapBonus', label: 'バフ効果量の上限', fmt: 'pct' },
+  solo_buff: { to: 'passives', shape: 'add', uniq: null, route: 'passives', key: 'soloBuff', label: '味方へのバフが通らなくなる', fmt: 'pct' },
+  self_buff_lock: { to: 'passives', shape: 'add', uniq: 'noSelfBuff', route: 'passives', key: 'noSelfBuff', label: '自分へのバフが通らなくなる', fmt: 'pct' },
+  ally_heal_lock: { to: 'passives', shape: 'add', uniq: 'noAllyHeal', route: 'passives', key: 'noAllyHeal', label: '味方を回復できなくなる', fmt: 'pct' },
   support_stack: { to: 'passives', shape: 'add', uniq: 'supportStack', route: 'passives', key: 'supportStack', label: '支援するほど自分のバフが強くなる', fmt: 'pct' },
   buff_shield: { to: 'passives', shape: 'add', uniq: 'buffShield', route: 'passives', key: 'buffShield', label: 'バフをかけた相手に障壁', fmt: 'pct' },
   buff_heal: { to: 'passives', shape: 'add', uniq: 'buffHeal', route: 'passives', key: 'buffHeal', label: 'バフをかけた相手を回復', fmt: 'pct' },
