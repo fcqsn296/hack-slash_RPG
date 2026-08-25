@@ -567,4 +567,82 @@
       see: ['gl_combo', 'gl_formation'],
     },
   };
+
+  /**
+   * 装備の理想値の項目を、**データから組み立てて**足す (§7.9)。
+   *
+   * ── なぜ直書きしないのか ──
+   * 宝箱の倍率・レアリティ倍率・強化の刻み・副オプションの範囲は、
+   * どれも調整で動く。数字を本文に書くと、動かしたときに必ずずれる。
+   * ここで計算しておけば、`data/equipment.js` を直すだけで表示も追随する。
+   *
+   * ── 何を「理想値」と呼ぶか ──
+   * いちばん良い宝箱 × 最高レアリティ × 強化上限 × 抽選範囲の上端。
+   * つまり「これ以上は絶対に出ない」線。厳選の目標として使う。
+   */
+  (function buildIdealEntry() {
+    const boxes = RPG.data.boxes || {};
+    const rarities = RPG.data.equipRarities || {};
+    const affixes = RPG.data.affixes || [];
+    const bases = RPG.data.equipBases || {};
+    if (!Object.keys(boxes).length || !rarities.LEGEND) return;
+
+    // いちばん stat_mult が高い宝箱を「最良」とする
+    let bestBox = null;
+    for (const id of Object.keys(boxes)) {
+      if (!bestBox || boxes[id].stat_mult > boxes[bestBox].stat_mult) bestBox = id;
+    }
+    const sm = boxes[bestBox].stat_mult;
+
+    // gear.js と同じ式。ここがずれると表示だけ嘘になるので、
+    // 係数(0.10)と強化の刻み(0.06 × 10段)は向こうに合わせてある。
+    const soft = 1 + (sm - 1) * 0.10;
+    const plus = 1 + 10 * 0.06;
+    const mainMult = rarities.LEGEND.main_mult;
+
+    const pct = (v) => '+' + (v * 100).toFixed(1) + '%';
+    // units.js の STAT_LABEL と同じ。data/ の読み込み時点では
+    // src/ がまだ走っていないことがあるので、ここで持っておく。
+    const STAT_LABEL = { hp: 'HP', atk: 'ATK', def: 'DEF', magi_power: '魔力' };
+
+    const mainLines = Object.keys(bases).map((id) => {
+      const b = bases[id];
+      const parts = Object.keys(b.main).map((k) => {
+        const hi = b.main[k][1];
+        const label = STAT_LABEL[k] || k;
+        return label + ' ' + Math.floor(hi * sm * mainMult * plus);
+      });
+      return '　' + b.name + '　' + parts.join(' / ');
+    });
+
+    const affixLines = affixes.map((a) => {
+      const hi = a.range[1];
+      const v = a.kind === 'stat'
+        ? '+' + Math.floor(hi * sm * plus)
+        : pct(hi * soft);
+      return '　' + a.name + '　' + v;
+    });
+
+    RPG.data.glossary.gl_equip_ideal = {
+      group: 'build',
+      term: '装備の理想値',
+      short: '「これ以上は出ない」線。厳選の目標に使う。',
+      body: [
+        '装備の数字は **宝箱のグレード × レアリティ × 強化 × 抽選の運** で決まります。'
+          + 'ここに出しているのは、そのすべてが最良に振れたときの値です。',
+        '前提は ' + boxes[bestBox].name + '（いちばん強い宝箱）・LEGEND・強化+10。'
+          + 'LEGEND は副オプションが ' + rarities.LEGEND.affixes + 'つ付きます。',
+        '**主ステータスの上限**',
+      ].concat(mainLines).concat([
+        '**副オプションの上限（1つあたり）**',
+      ]).concat(affixLines).concat([
+        '主ステータスと「攻撃力」「魔力」などの平坦な副オプションは強化(+10)で1.6倍まで伸びます。'
+          + '系統タグ・クリティカル率・上限突破・軽減は**強化では伸びません**。抽選の値がそのまま最後まで残ります。',
+        'また系統タグなどの割合系は、宝箱のグレードが上がっても伸び方が緩やかです'
+          + '（グレードの差をそのまま掛けると、レベルではなく宝箱で強さが決まってしまうため）。'
+          + 'そのぶん**平坦なステータスほどグレード差が効きます**。',
+      ]),
+      see: ['gl_tag'],
+    };
+  })();
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
