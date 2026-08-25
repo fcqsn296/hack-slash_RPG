@@ -96,12 +96,20 @@ RPG.content.add('六姫の協奏曲', {
     ch_hr_serena: {
       name: 'セレナ',
       title: '深碧の風守り',
-      rarity: 'RARE',
+      rarity: 'LEGEND',
       element: 'wind',
       base:   { hp: 750, atk: 90, def: 55, magi_power: 60 },
       growth: { hp: 50, atk: 6.2, def: 3.8, magi_power: 4.0 },
       unique_skills: ['sk_hr_zephyr_shield'],
       common_skills: ['sk_gale_edge', 'sk_double_strike', 'sk_focus'],
+      // 纏った風が、突かれた弱点を受け流す。
+      //
+      // 味方を庇う系（guardAlly / damageShare / backGuard）はテオドラの領分で、
+      // 同じ鍵を持たせても battle.js は**先に見つけた1人しか庇わせない**ので、
+      // 並べると片方が黙って働かなくなる。守りの方向をずらしてある。
+      situational: {
+        weakGuard: 0.35,
+      },
       color: '#52a67d',
       accent: '#1b3827',
       glyph: '風',
@@ -128,12 +136,17 @@ RPG.content.add('六姫の協奏曲', {
     ch_hr_kagura: {
       name: 'カグラ',
       title: '紅蓮の舞姫',
-      rarity: 'SUPER_RARE',
+      rarity: 'LEGEND',
       element: 'fire',
       base:   { hp: 640, atk: 125, def: 42, magi_power: 95 },
       growth: { hp: 44, atk: 8.6, def: 2.8, magi_power: 6.5 },
       unique_skills: ['sk_hr_flame_dance'],
       common_skills: ['sk_fire_bolt', 'sk_slash', 'sk_armor_break'],
+      // 舞うたびに焼く。ルーナの vsStatusPower（火傷中の敵への火力）とは別で、
+      // こちらは火傷そのものを撒く側。組ませると噛み合う。
+      passives: {
+        statusOnHitKind: { burn: 0.30 },
+      },
       color: '#e8453c',
       accent: '#3d1210',
       glyph: '舞',

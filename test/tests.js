@@ -394,6 +394,19 @@
       assertTrue('§8.1 主人公はガチャ排出プールに含まれない', !charCounts['ch_hero'],
         `${N.toLocaleString()}回の抽選でアルトの排出 ${charCounts['ch_hero'] || 0} 回`);
 
+      // どのレアリティにも候補が残っていること。
+      //
+      // effectiveWeights() は候補が0人のレアリティを**黙って外す**。
+      // 外れても排出率のテストは通ってしまうので、ここでしか気付けない。
+      // キャラのレアリティを付け替えたときに、片方の棚を空にしてしまう事故を防ぐ。
+      // （実際、拡張パックの2人をレジェンドへ上げたときに残りを数え直した）
+      const emptyRarity = Object.keys(RPG.data.gacha.rarityWeights).filter((/** @type {string} */ k) =>
+        RPG.data.gacha.rarityWeights[k] > 0
+        && !Object.keys(RPG.data.characters).some((id) =>
+          id !== 'ch_hero' && RPG.data.characters[id].rarity === k));
+      assertTrue('§6.2 どのレアリティにも排出候補がいる',
+        emptyRarity.length === 0, emptyRarity.join(', '));
+
       RPG.rng.seed(null);
     }
 
