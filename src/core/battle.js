@@ -1574,8 +1574,20 @@
     const atkMods = (attacker && attacker.elementMods) || {};
     const effectiveElement = atkMods.chaos ? 'none'
       : (atkMods.convert || skill.element || attacker.element);
+    //
+    // ── 全属性適応2も「有利」として数える (§17.4) ──
+    // `adapt >= 2` は damage.js:349 で **全攻撃を有利化** する。
+    // 素の属性表しか見ていなかったので、適応2を取ると
+    // 「有利倍率は得たまま吸収だけ回避」できていた。体感どおりギミックが働いていない。
+    //
+    // 素の属性に限定していたのは「全部吸収されて逃げ道が消える」ためだったが、
+    // 吸収が割合(0.8)になった今は2割が通るので、行き止まりにはならない。
+    // 適応2は属性の悩みを丸ごと消す強力な枝なので、
+    // **それを咎える相手が1体いる**のはむしろ健全。
+    const adapted = (atkMods.adapt || 0) >= 2;
     const rawAdvantage = isArenaBoss(battle, defender)
-      && RPG.damage.elementMultiplier(effectiveElement, defender.element) > 1;
+      && (adapted
+        || RPG.damage.elementMultiplier(effectiveElement, defender.element) > 1);
 
     if (rawAdvantage && (battle.arena.gimmicks || {}).elementAbsorb && result.damage > 0) {
       // 喰らう割合 (§17.4)。既定は 1（全部喰う＝従来どおり）。
