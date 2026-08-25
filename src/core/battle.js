@@ -24,6 +24,10 @@
   /** かけるバフの効果量の上限 (§5.12)。素の 2.0 倍まで。 */
   const BUFF_POWER_CAP = 1.0;
 
+  // 棘1発の上限 (§5.18)。自分の最大HPの何倍まで返せるか。
+  // 率は割合のまま（インフレ耐性）で、頭だけを自分のスケールで押さえる。
+  const THORNS_CAP_RATIO = 30;
+
   // 反射の相手レベル倍率 (§5.17)。Lv270 で ×28。
   // 味方HPスケールに縛られる反射を、敵HPスケールへ引き上げるための係数。
   const REFLECT_LEVEL_RATE = 0.1;
@@ -1823,7 +1827,19 @@
     // --- パッシブ: 棘（被弾しただけで相手に固定割合のダメージ）---
     const thorns = (defender.passives && defender.passives.thorns) || 0;
     if (!opts.isCounter && thorns > 0 && attacker.alive && result.damage > 0) {
-      const back = Math.max(1, Math.floor(attacker.maxHp * thorns));
+      // 棘は「相手の最大HPの割合」なので、敵のHPが伸びるほど自動で強くなる。
+      // 敵インフレへの備えとしてそう作ってあるが、**上限が無かった**。
+      //
+      // 闘技場ハードの終刻の審判者はHP 39,981,600。棘0.29だと
+      // **1発 11,594,664**、3.5回被弾するだけで削り切ってしまう。しかも13SPで。
+      //
+      // 割合の利点は残したいので率そのものは触らず、
+      // 「自分の最大HPの何倍まで」で頭を押さえる。
+      // 通常フィールドの棘は1発あたり自分のHPの1倍程度なので、
+      // そちらにはまったく当たらない。効くのは桁違いの相手のときだけ。
+      const cap = (defender.maxHp || 0) * THORNS_CAP_RATIO;
+      const rawThorns = attacker.maxHp * thorns;
+      const back = Math.max(1, Math.floor(cap > 0 ? Math.min(rawThorns, cap) : rawThorns));
       attacker.hp = Math.max(0, attacker.hp - back);
       pushLog(battle, `${attacker.name} は棘で ${back.toLocaleString()} のダメージ`, 'damage');
       pushEvent(battle, { type: 'damage', key: attacker.key, amount: back, crit: false, element: 1, reduction: 0, execute: 1 });
