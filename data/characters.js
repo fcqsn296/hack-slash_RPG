@@ -785,6 +785,11 @@ RPG.data.characters = {
     passives: {
       repeatPower: 0.25,
       stableDamage: 0.70,
+    },
+    // neutralPower は situational 経路（damage.js が attacker.neutralPower を
+    // 読み、それは unit.situational から来る）。passives に置いてあったので
+    // **ずっと効いていなかった**。検証テストの経路照合で見つかった。
+    situational: {
       neutralPower: 0.30,
     },
     color: '#b0b8c8', accent: '#2c3240', glyph: '一',
@@ -1029,6 +1034,139 @@ RPG.data.characters = {
       'quiet unhurried stance',
     desc: '【会心】中技の会心率+40%（中技にだけ乗る）。会心率+15%。' +
       '固有技は1発ずつが中技帯に収まる、刻んで当てる型。',
+  },
+
+  // ── 中技帯の4人 (§5.16) ──────────────────────────
+  //
+  // 中技は「小技の手数」にも「大技の威力」にも負ける帯だった。
+  // 原因は枝の中身にある。小技には lowPowerBoost、大技には
+  // highPowerBoost と highPowerCap があるのに、**中技には素直に強くする手が
+  // 1つも無かった**（会心・弱体・コンボという搦手だけ）。
+  // mid_power_boost と mid_power_cap を足して帯の格を揃え、
+  // 中技の4つの鍵を1人ずつに配ってある。
+  //
+  // 固有技の威力は全員 101〜199。外すと固有能力が看板技に効かない。
+  ch_lg_lieve: {
+    name: 'リーヴェ', title: '浸みる刃', rarity: 'LEGEND', element: 'water',
+    base: { hp: 730, atk: 78, def: 54, magi_power: 138 },
+    growth: { hp: 50, atk: 4.2, def: 3.6, magi_power: 11.2 },
+    unique_skills: ['sk_lg_seep'],
+    common_skills: ['sk_magic_blade', 'sk_noa_tide', 'sk_focus'],
+    // 【中技】弱体の付与率が中技のときだけ跳ね上がる。持続も1ラウンド長い。
+    passives: {
+      midPowerStatus: 0.55,
+      debuffDuration: 1,
+    },
+    color: '#6fd3c8', accent: '#123c3a', glyph: '浸',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'calm', accessory: 'none',
+      hairColor: '#5cc0b4', hairLight: '#a8ebe2', hairDark: '#2a6d66',
+      eye: '#8ae0d4', eyeLight: '#d0f6f0',
+      outfit: '#17383a', outfitLight: '#265a5c', outfitTrim: '#6fd3c8',
+      accentColor: '#8ae0d4',
+    },
+    artPrompt: 'long teal hair falling loose, calm pale green eyes, ' +
+      'sleeveless dark green tunic with wrapped forearms, thin needle-like blade dripping, ' +
+      'unhurried patient look',
+    desc: '【中技】中技で弱体が付く確率+55%。与えた弱体の持続が+1ラウンド。' +
+      '毒や麻痺を確実に通す、搦手の中核。',
+  },
+
+  ch_lg_tsubaki: {
+    name: 'ツバキ', title: '連環の型', rarity: 'LEGEND', element: 'wind',
+    base: { hp: 700, atk: 148, def: 52, magi_power: 62 },
+    growth: { hp: 47, atk: 12.0, def: 3.4, magi_power: 3.6 },
+    unique_skills: ['sk_lg_renkan'],
+    common_skills: ['sk_gale_edge', 'sk_double_strike', 'sk_focus'],
+    // 【中技】中技を当てるとコンボが1段多く積む。ヴィオラが「コンボそのもの」の
+    // 専門家なのに対し、こちらは中技からコンボへ橋を架ける役。
+    passives: {
+      midPowerCombo: 1,
+      comboPower: 0.03,
+    },
+    color: '#a8e6b0', accent: '#1c3e24', glyph: '環',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'twin', expression: 'smug', accessory: 'ribbon',
+      hairColor: '#3e4a3c', hairLight: '#6e7c68', hairDark: '#1e2620',
+      eye: '#a8e6b0', eyeLight: '#dcf6de',
+      outfit: '#24402c', outfitLight: '#3a6442', outfitTrim: '#a8e6b0',
+      accentColor: '#c8f0cc',
+    },
+    artPrompt: 'dark green twin braids tied with pale ribbons, bright leaf-green eyes, ' +
+      'short battle kimono with wide sleeves, twin ring-blades linked by a chain, ' +
+      'playful confident smirk',
+    desc: '【中技】中技を当てると弱点コンボが1段多く積む。コンボ1段あたりの倍率+3%。' +
+      '中技からコンボへ橋を架ける型。',
+  },
+
+  ch_lg_nadia: {
+    name: 'ナディア', title: '中段の理', rarity: 'LEGEND', element: 'none',
+    base: { hp: 760, atk: 152, def: 60, magi_power: 64 },
+    growth: { hp: 50, atk: 11.6, def: 3.8, magi_power: 3.6 },
+    unique_skills: ['sk_lg_center_guard'],
+    common_skills: ['sk_heavy_slash', 'sk_stone_press', 'sk_focus'],
+    // 【中技】帯そのものの火力。搦手を経由せず、中技を素直に強くする。
+    // 守りごと断つので、硬い相手にも数字が素通りする。
+    //
+    // midPowerBoost は **situational 経路**（登録簿の to が situational）。
+    // passives に書くと unit.passives へ入るだけで、battle.js は
+    // attacker.situational を見るので**黙って効かない**。実際そう書いて外した。
+    passives: {
+      guardBreak: 0.30,
+    },
+    situational: {
+      midPowerBoost: 0.50,
+    },
+    color: '#cfd6e0', accent: '#2c3340', glyph: '中',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
+      hairColor: '#b8c0cc', hairLight: '#e8eef6', hairDark: '#6a7280',
+      eye: '#8fa4bc', eyeLight: '#cfdcec',
+      outfit: '#2a303c', outfitLight: '#444c5c', outfitTrim: '#cfd6e0',
+      accentColor: '#aebccc',
+    },
+    artPrompt: 'ash grey cropped hair, steady slate blue eyes, ' +
+      'plain grey drill uniform with rolled sleeves, single straight sword held at mid guard, ' +
+      'no ornament, composed veteran stance',
+    desc: '【中技】中技の火力+50%。守りを30%無視して攻撃する。' +
+      '搦手を通さず、中技を素直に強くする帯の中核。',
+  },
+
+  ch_lg_noel: {
+    name: 'ノエル', title: '際を断つ者', rarity: 'LEGEND', element: 'light',
+    base: { hp: 690, atk: 150, def: 50, magi_power: 68 },
+    growth: { hp: 46, atk: 12.0, def: 3.3, magi_power: 3.8 },
+    unique_skills: ['sk_lg_verge_cut'],
+    common_skills: ['sk_selen_ray', 'sk_double_strike', 'sk_focus'],
+    // 【中技】終盤は中技もダメージ上限に潰される。大技には「極大」があるのに
+    // 中技には無かった。そこを一人で背負う枠。
+    // midPowerCap / midPowerBoost はどちらも situational 経路。
+    // passives に置くと届かない（ナディアの注記を参照）。
+    situational: {
+      midPowerCap: 0.85,
+      midPowerBoost: 0.15,
+    },
+    color: '#ffe6b8', accent: '#4a3a1c', glyph: '際',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'bob', expression: 'fierce', accessory: 'circlet',
+      hairColor: '#f0dcae', hairLight: '#fff4d8', hairDark: '#a08c58',
+      eye: '#ffd070', eyeLight: '#fff0c4',
+      outfit: '#3c3420', outfitLight: '#5e5434', outfitTrim: '#ffe6b8',
+      accentColor: '#ffd070',
+    },
+    artPrompt: 'pale blonde sharp bob, burning gold eyes, thin silver circlet, ' +
+      'white and gold duelist coat with a high collar, slender longsword raised to the edge, ' +
+      'fierce narrowed gaze',
+    desc: '【中技】中技のダメージ上限突破+85%。中技の火力+15%。' +
+      '上限に潰されていた中技を、大技と同じ土俵まで押し上げる。',
   },
 };
 

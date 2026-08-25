@@ -107,7 +107,7 @@ RPG.data.nodeCategories = [
       + '小技は手数、中技は効果を通す役、大技は上限を破って一撃で沈める役。',
     kinds: [
       'low_power_boost', 'auto_low_skill', 'low_power_spread', 'low_power_repeat',
-      'mid_power_status', 'mid_power_combo', 'mid_power_crit',
+      'mid_power_status', 'mid_power_boost', 'mid_power_cap', 'mid_power_combo', 'mid_power_crit',
       'high_power_boost', 'high_power_cap', 'repeat_power', 'variety_power',
     ],
   },

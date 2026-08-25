@@ -207,6 +207,8 @@
    * @property {number} [highPowerBoost] 大技だけの底上げ (§5.8)
    * @property {number} [midPowerCrit]   中技だけの会心率加算 (§5.8)
    * @property {number} [highPowerCap]   大技だけの上限突破加算 (§5.16)
+   * @property {number} [midPowerBoost]  中技だけの底上げ (§5.16)
+   * @property {number} [midPowerCap]    中技だけの上限突破加算 (§5.16)
    * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
    * @property {boolean} [ignoreCap]   ダメージ上限の減衰を通さない (§12 破壊者)
    * @property {number} [chargeRatio]   溜めの威力倍率 (§9.1)。1で溜め無し
@@ -457,6 +459,8 @@
     if (options.lowPowerBoost) situational *= 1 + options.lowPowerBoost;
     // 大技だけの底上げ (§5.8)。小技側とちょうど対になっていて、両取りはできない。
     if (options.highPowerBoost) situational *= 1 + options.highPowerBoost;
+    // 中技だけの底上げ (§5.16)。小技・大技とは威力帯で排他になる。
+    if (options.midPowerBoost) situational *= 1 + options.midPowerBoost;
     // 「不意打ち」— まだ削られていない相手に強い。追い打ちのちょうど裏返し (§5.8)。
     if (attacker.fullHpFoePower) situational *= 1 + attacker.fullHpFoePower * hpRatio;
     // 「巨獣への備え」— ボスから受けるダメージを減らす (§5.8)。受ける側の値を見る。
@@ -487,7 +491,8 @@
     const capped = options.ignoreCap
       ? raw
       : applyCap(raw, (attacker.capBreak || 0) + (options.chargeCapBreak || 0)
-          + (options.highPowerCap || 0));   // 大技だけの上限突破 (§5.16)
+          + (options.highPowerCap || 0)     // 大技だけの上限突破 (§5.16)
+          + (options.midPowerCap || 0));    // 中技だけの上限突破 (§5.16)
 
     return {
       // 軽減が100%に達したときだけ0を許し、それ以外は最低1ダメージを保証する

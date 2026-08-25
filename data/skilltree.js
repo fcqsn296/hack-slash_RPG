@@ -257,6 +257,27 @@ RPG.data.skillTree = [
     desc: 'クリティカル倍率 +0.15（1.5倍 → 最大2.25倍）',
   },
   {
+    // 中技帯の火力 (§5.16)。
+    //
+    // 小技には「手数の心得」、大技には「大技の心得／極意／覇道」があるのに、
+    // 中技には**素直に威力を上げる枝が1つも無かった**。あるのは会心・弱体・
+    // コンボという搦手だけで、どれも「相手を選ぶ」か「積み上げが要る」。
+    // そのため中技は、手数でも威力でも上を取れない帯になっていた。
+    id: 'tr_mid_boost', tier: 'basic', name: '中段の心得', cost: 2, maxLevel: 4,
+    effects: [{ kind: 'mid_power_boost', value: 0.07 }],
+    desc: '中技の火力 +7%',
+  },
+  {
+    id: 'tr_mid_boost_mid', tier: 'mid', name: '中段の極意', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'mid_power_boost', value: 0.12 }],
+    desc: '中技の火力 +12%',
+  },
+  {
+    id: 'tr_mid_cap', tier: 'high', name: '中庸を破る', cost: 4, maxLevel: 4,
+    effects: [{ kind: 'mid_power_cap', value: 0.4 }],
+    desc: '中技のダメージ上限突破 +40%',
+  },
+  {
     // 中技に無条件で効く唯一の支援 (§5.8)。
     // この帯の他の2つ（弱体・コンボ）は「属性有利か弱体中」を要求するので、
     // 相手を選ばずに効くものが1つも無かった。

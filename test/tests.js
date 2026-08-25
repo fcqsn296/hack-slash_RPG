@@ -1052,6 +1052,7 @@
         'hp_to_def',
         // 中技の使い道 (§5.8)
         'mid_power_status', 'mid_power_combo', 'mid_power_crit',
+        'mid_power_boost', 'mid_power_cap',
         'crit_overflow',
         // 支援の【極】の代償側 (§5.14)
         'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
@@ -1955,6 +1956,38 @@
       }
       assertTrue('§8 レジェンドは特殊パッシブか特殊技を持つ', plain.length === 0,
         plain.length ? plain.join(' / ') : '全レジェンドが固有の仕掛けを持つ');
+    }
+
+    /* ===== キャラの固有能力が正しい経路に書かれているか (§8) ===== */
+    {
+      // ── なぜこの検査が要るのか ──
+      // 効果には3つの届き先がある（passives / situational / 素の値）。
+      // キャラ定義は passives と situational を別々の塊で書くので、
+      // **登録簿の to と食い違う塊に書いても、エラーも警告も出ない**。
+      // 値はユニットに載るが、読む側が別の場所を見ているので黙って無効になる。
+      //
+      // 実際 midPowerBoost を passives に書いて外した。中技の火力が
+      // まったく乗らないまま、画面上は何も異常が無かった。
+      const reg = RPG.data.effectKinds || {};
+      /** 効果キー → 登録簿が指す届き先 */
+      const routeOf = {};
+      for (const kind of Object.keys(reg)) {
+        const d = reg[kind];
+        if (d && d.key && d.to) routeOf[d.key] = d.to;
+      }
+
+      const misplaced = [];
+      for (const id of Object.keys(RPG.data.characters)) {
+        const c = RPG.data.characters[id];
+        for (const k of Object.keys(c.passives || {})) {
+          if (routeOf[k] === 'situational') misplaced.push(`${c.name}: ${k} は situational`);
+        }
+        for (const k of Object.keys(c.situational || {})) {
+          if (routeOf[k] === 'passives') misplaced.push(`${c.name}: ${k} は passives`);
+        }
+      }
+      assertTrue('§8 固有能力が登録簿どおりの塊に書かれている',
+        misplaced.length === 0, misplaced.join(' / '));
     }
 
     /* ===== キャラ固有の会心が届くか (§8 / §5.8) ===== */
@@ -5163,7 +5196,8 @@
         hasKinds(['low_power_boost', 'low_power_spread', 'low_power_repeat', 'auto_low_skill']),
         `${low} 技`);
       assertTrue('威力帯: 中技を伸ばす手段がある',
-        hasKinds(['mid_power_status', 'mid_power_combo', 'mid_power_crit']), `${mid} 技`);
+        hasKinds(['mid_power_status', 'mid_power_combo', 'mid_power_crit',
+          'mid_power_boost', 'mid_power_cap']), `${mid} 技`);
       assertTrue('威力帯: 大技を伸ばす手段がある',
         hasKinds(['cap_break', 'high_power_boost', 'high_power_cap']), `${high} 技`);
 
@@ -7058,6 +7092,8 @@
           buffCapBonus: (r) => r.unit.passives.buffCapBonus,
           noAllyHeal: (r) => r.unit.passives.noAllyHeal,
           midPowerCrit: (r) => r.unit.passives.midPowerCrit,
+          midPowerBoost: (r) => (r.unit.situational || {}).midPowerBoost,
+          midPowerCap: (r) => (r.unit.situational || {}).midPowerCap,
           critPierce: (r) => r.attacker.critPierce,
           execute: (r) => r.attacker.execute,
           bossSlayer: (r) => r.attacker.bossSlayer,

@@ -169,6 +169,38 @@ RPG.data.skills = {
     power: 175, crit_rate: 0.05,
     desc: '【固有】光属性の貫通魔法。闇属性の敵に有利。',
   },
+  // ── 中技帯のレジェンド4人 (§5.16) ────────────────────
+  //
+  // 固有技の威力は全員 **101〜199** に収めてある。ここを外すと
+  // midPowerBoost / midPowerCap / midPowerStatus / midPowerCombo が
+  // どれも乗らず、4人とも固有能力が看板技に効かなくなる。
+  sk_lg_seep: {
+    name: '浸みる一閃', kind: 'active', plugin: 'status', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
+    power: 150, crit_rate: 0.05,
+    params: { status: 'poison', turns: 4, ratio: 0.09 },
+    desc: '【固有】威力150%。毒を付与し、ラウンドごとに削る。',
+  },
+  sk_lg_renkan: {
+    name: '連環斬', kind: 'active', plugin: 'multi_hit', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 125, crit_rate: 0.08,
+    params: { hits: 2 },
+    desc: '【固有】威力125%で2回斬る。1発ずつが中技帯に収まる。',
+  },
+  sk_lg_center_guard: {
+    name: '中段返し', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 180, crit_rate: 0.1,
+    desc: '【固有】威力180%。中技帯でいちばん重い一撃。',
+  },
+  sk_lg_verge_cut: {
+    name: '際断ち', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'light',
+    power: 195, crit_rate: 0.1,
+    desc: '【固有】威力195%。中技帯の際いっぱいを断つ。',
+  },
+
   // ── 会心のレジェンド3人 (§5.8) ──────────────────────
   //
   // 技の crit_rate は attacker.critRate と**足し算**される (§3.2 ステップ6)。

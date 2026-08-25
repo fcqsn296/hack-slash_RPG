@@ -1520,6 +1520,16 @@
         // 大技だけ上限を押し上げる (§5.16)。小技側とは排他で、同じ技には両方乗らない。
         highPowerCap: isHighPower(skill)
           ? ((attacker.situational && attacker.situational.highPowerCap) || 0) : 0,
+        // 中技だけを底上げする／上限を押し上げる (§5.16)。
+        //
+        // 小技には lowPowerBoost、大技には highPowerBoost/Cap があるのに、
+        // 中技には**素直に強くする手が1つも無かった**（会心・弱体・コンボという
+        // 搦手だけ）。そのため中技は「小技の手数にも大技の威力にも負ける帯」に
+        // なっていた。威力帯で排他になるので、3つが同じ技に乗ることはない。
+        midPowerBoost: isMidPower(skill)
+          ? ((attacker.situational && attacker.situational.midPowerBoost) || 0) : 0,
+        midPowerCap: isMidPower(skill)
+          ? ((attacker.situational && attacker.situational.midPowerCap) || 0) : 0,
         // 破壊者の「終焉の一撃」だけがダメージ上限の外に出る (§12)。
         ignoreCap: !!(skill && skill.ignoreCap),
         // 溜め (§9.1)。威力・会心・上限突破の3つに同時に効く。
