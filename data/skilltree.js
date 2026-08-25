@@ -263,14 +263,28 @@ RPG.data.skillTree = [
     // 中技には**素直に威力を上げる枝が1つも無かった**。あるのは会心・弱体・
     // コンボという搦手だけで、どれも「相手を選ぶ」か「積み上げが要る」。
     // そのため中技は、手数でも威力でも上を取れない帯になっていた。
-    id: 'tr_mid_boost', tier: 'basic', name: '中段の心得', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'mid_power_boost', value: 0.07 }],
-    desc: '中技の火力 +7%',
+    // ── 増量した経緯 (§5.16) ──
+    // 足した直後に実測したら、同じ装備・同じ土台で1手あたり
+    //   中技 19,246 / 多段 43,644 / 大技 93,738
+    // だった。1SPあたりでも中技は多段の1/3、大技の1/4しかない。
+    // 原因は4つあり、そのうち「ツリーの火力が薄い(+76%)」と
+    // 「高位の枝と【極】が無い」の2つをここで埋める。
+    // （技そのものの威力総量が最低なのは別の話で、そこは触っていない）
+    id: 'tr_mid_boost', tier: 'basic', name: '中段の心得', cost: 2, maxLevel: 5,
+    effects: [{ kind: 'mid_power_boost', value: 0.10 }],
+    desc: '中技の火力 +10%',
   },
   {
     id: 'tr_mid_boost_mid', tier: 'mid', name: '中段の極意', cost: 3, maxLevel: 4,
-    effects: [{ kind: 'mid_power_boost', value: 0.12 }],
-    desc: '中技の火力 +12%',
+    effects: [{ kind: 'mid_power_boost', value: 0.18 }],
+    desc: '中技の火力 +18%',
+  },
+
+  {
+    // 大技の「覇道」に対応する高位の枝。中技だけここが空いていた。
+    id: 'tr_mid_boost_hi', tier: 'high', name: '中段の極み', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'mid_power_boost', value: 0.28 }],
+    desc: '中技の火力 +28%',
   },
   {
     id: 'tr_mid_cap', tier: 'high', name: '中庸を破る', cost: 4, maxLevel: 4,
@@ -2042,6 +2056,23 @@ RPG.data.skillTree = [
       { kind: 'high_power_boost', value: -0.8 },
     ],
     desc: '小技の火力 +110%、小技が50%で敵全体に及ぶ。ただし大技の火力 -80%',
+  },
+  {
+    // 中段だけに構える極 (§5.16)。剛撃(大技)・乱撃(小技)と三すくみになる。
+    //
+    // 中技には【極】が無かった。上下の帯にはあるのに、真ん中だけ空いていて
+    // 「中技に全部賭ける」という選び方そのものが存在しなかった。
+    //
+    // 代償を**両側**に置いてあるのは、中段が上下どちらへも振れる位置にあるため。
+    // 剛撃は小技だけ、乱撃は大技だけを捨てるが、こちらは両方を捨てる。
+    // そのぶん本体の伸びは3つの中でいちばん大きい。
+    id: 'tr_x_reach', tier: 'high', name: '【極】間合', cost: 10, maxLevel: 1,
+    effects: [
+      { kind: 'mid_power_boost', value: 1.3 },
+      { kind: 'low_power_boost', value: -0.6 },
+      { kind: 'high_power_boost', value: -0.6 },
+    ],
+    desc: '中技の火力 +130%。ただし小技と大技の火力がそれぞれ -60%',
   },
   {
     // 安定側の極 (§5.13)。一閃のちょうど裏返しで、会心を丸ごと捨てる。
