@@ -24,6 +24,16 @@
   /** かけるバフの効果量の上限 (§5.12)。素の 2.0 倍まで。 */
   const BUFF_POWER_CAP = 1.0;
 
+  // 棘1発の上限 (§5.18)。自分の最大HPの何倍まで返せるか。
+  // 率は割合のまま（インフレ耐性）で、頭だけを自分のスケールで押さえる。
+  const THORNS_CAP_RATIO = 30;
+
+  // 反射1発の上限 (§5.19)。自分の最大HPの何倍まで返せるか。
+  // 棘(×30)より高いのは、反射の性格を闘技場でも残すため。
+  // 両方を同じ倍率にすると、桁違いの相手ではどちらも上限に張り付いて
+  // まったく同じ数字になり、「重い一撃に強い」という差が消える。
+  const REFLECT_CAP_RATIO = 40;
+
   // 反射の相手レベル倍率 (§5.17)。Lv270 で ×28。
   // 味方HPスケールに縛られる反射を、敵HPスケールへ引き上げるための係数。
   const REFLECT_LEVEL_RATE = 0.1;
@@ -1488,7 +1498,15 @@
       const cap = battle.arena.maxHitRatio != null ? battle.arena.maxHitRatio : battle.arena.def.maxHitRatio;
       if (cap) {
         const limit = Math.max(1, Math.floor(defender.maxHp * cap));
-        if (result.damage > limit) result.damage = limit;
+        // 反射は「受けた一撃の重さ」を返すものなので、
+        // **緩和される前の値**を控えておく (§5.19)。
+        // maxHitRatio はプレイヤーを一撃死から守るための緩和で、
+        // 実測ではボスの一撃 675,932 が 12,192 まで（55.4倍）削られていた。
+        // 削られた後を返していたので、闘技場では反射がボスHPの2.3%にしかならなかった。
+        if (result.damage > limit) {
+          result.preMercyDamage = result.damage;
+          result.damage = limit;
+        }
       }
     }
 
@@ -1746,7 +1764,13 @@
       // レベルを持たない相手（レベル0）には倍率をかけない。
       const lv = attacker.level || 0;
       const scale = lv > 0 ? 1 + lv * REFLECT_LEVEL_RATE : 1;
-      const back = Math.max(1, Math.floor(result.damage * reflect * scale));
+      // 闘技場の緩和(maxHitRatio)が入っていたら、緩和前の重さを使う (§5.19)。
+      const weight = result.preMercyDamage || result.damage;
+      // 頭は自分の最大HPで押さえる。棘と同じ考え方 (§5.18)。
+      // 緩和前をそのまま返すと1発13.8Mになり、今度は反射だけで闘技場が終わる。
+      const reflCap = (defender.maxHp || 0) * REFLECT_CAP_RATIO;
+      const rawRefl = weight * reflect * scale;
+      const back = Math.max(1, Math.floor(reflCap > 0 ? Math.min(rawRefl, reflCap) : rawRefl));
       attacker.hp = Math.max(0, attacker.hp - back);
       pushLog(battle, `${attacker.name} に ${back.toLocaleString()} が跳ね返った`, 'damage');
       pushEvent(battle, { type: 'damage', key: attacker.key, from: defender.key, amount: back });
@@ -1823,7 +1847,19 @@
     // --- パッシブ: 棘（被弾しただけで相手に固定割合のダメージ）---
     const thorns = (defender.passives && defender.passives.thorns) || 0;
     if (!opts.isCounter && thorns > 0 && attacker.alive && result.damage > 0) {
-      const back = Math.max(1, Math.floor(attacker.maxHp * thorns));
+      // 棘は「相手の最大HPの割合」なので、敵のHPが伸びるほど自動で強くなる。
+      // 敵インフレへの備えとしてそう作ってあるが、**上限が無かった**。
+      //
+      // 闘技場ハードの終刻の審判者はHP 39,981,600。棘0.29だと
+      // **1発 11,594,664**、3.5回被弾するだけで削り切ってしまう。しかも13SPで。
+      //
+      // 割合の利点は残したいので率そのものは触らず、
+      // 「自分の最大HPの何倍まで」で頭を押さえる。
+      // 通常フィールドの棘は1発あたり自分のHPの1倍程度なので、
+      // そちらにはまったく当たらない。効くのは桁違いの相手のときだけ。
+      const cap = (defender.maxHp || 0) * THORNS_CAP_RATIO;
+      const rawThorns = attacker.maxHp * thorns;
+      const back = Math.max(1, Math.floor(cap > 0 ? Math.min(rawThorns, cap) : rawThorns));
       attacker.hp = Math.max(0, attacker.hp - back);
       pushLog(battle, `${attacker.name} は棘で ${back.toLocaleString()} のダメージ`, 'damage');
       pushEvent(battle, { type: 'damage', key: attacker.key, amount: back, crit: false, element: 1, reduction: 0, execute: 1 });
