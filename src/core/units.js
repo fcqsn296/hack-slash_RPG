@@ -251,6 +251,14 @@
       tree.critDamage = (tree.critDamage || 0) + innate.critDamage;
       delete passives.critDamage;
     }
+    // 上限突破も同じ。ツリー・装備・セットからは足しているのに、
+    // **キャラ定義からの経路だけ無かった**。
+    // フィリアの capBreak: 0.25 が実装当初から効いておらず、
+    // 説明文の「ダメージ上限を25%突破」だけが独り歩きしていた。
+    if (innate.capBreak) {
+      capBreak += innate.capBreak;
+      delete passives.capBreak;
+    }
     // situational 側のキーはまとめて流す (§7.8)。
     // toAttacker が unit.situational から読むので、passives へ入れると届かない。
     for (const key of SITUATIONAL_KEYS) {
