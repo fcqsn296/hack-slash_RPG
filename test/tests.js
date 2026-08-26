@@ -2802,7 +2802,11 @@
       {
         const hasPrompt = (/** @type {string} */ id) =>
           !!P.enemies[id] || !!(RPG.data.enemies[id] && RPG.data.enemies[id].artPrompt);
-        const uncovered = Object.keys(RPG.data.enemies).filter((id) => !hasPrompt(id));
+        // noArt は「固有の姿を持たない」と宣言したもの (§10.8)。
+        // 回廊の雑魚は出るたびに別の敵の姿を借りるので、自分の絵を持つと矛盾する。
+        // ここを免除しないと、絵を作らない設計が検査に押し戻される。
+        const uncovered = Object.keys(RPG.data.enemies)
+          .filter((id) => !RPG.data.enemies[id].noArt && !hasPrompt(id));
         assertTrue('プロンプト: 全ての敵に個別の指定がある',
           uncovered.length === 0,
           uncovered.length ? uncovered.join('、') + '（自動合成にフォールバックする）'
@@ -3184,6 +3188,59 @@
         .filter((id) => RPG.data.fields[id].exp_mult == null || RPG.data.fields[id].gold_mult == null);
       assertTrue('全フィールドに gold_mult と exp_mult がある',
         missing.length === 0, missing.length ? missing.join('、') : `${Object.keys(RPG.data.fields).length} 件`);
+
+      /* ===== 姿を借りる敵 (§10.8) ===== */
+      {
+        const F = RPG.data.fields.fl_endless;
+        assertTrue('回廊は姿を借りるフィールドとして宣言されている',
+          F.borrowShapes === true, String(F.borrowShapes));
+
+        // 借りる相手の一覧。自分の雑魚とボスが混ざっていないこと。
+        const shapes = RPG.battle.shapePool(F);
+        const ownInPool = shapes.filter((/** @type {string} */ id) => F.pool.indexOf(id) >= 0);
+        assertTrue('借りる姿に自分自身は入らない', ownInPool.length === 0, ownInPool.join('、'));
+        const bossInPool = shapes.filter((/** @type {string} */ id) => RPG.data.enemies[id].boss);
+        // ボスの姿を雑魚が着ると、次のウェーブに出る本物と見分けが付かなくなる。
+        assertTrue('借りる姿にボスは入らない', bossInPool.length === 0, bossInPool.join('、'));
+        assertTrue('借りられる姿が十分にある', shapes.length >= 10, `${shapes.length} 通り`);
+
+        // 借りた姿に絵があること。無い相手を着ると紋様タイルに落ちて意味が消える。
+        const noArt = shapes.filter((/** @type {string} */ id) => RPG.data.enemies[id].noArt);
+        assertTrue('借りる姿は全部が固有の絵を持つ', noArt.length === 0, noArt.join('、'));
+
+        // wearShape が入れ替えるのは見た目と属性だけで、数値と技は動かさない。
+        const before = RPG.units.buildEnemyUnit('em_corridor_hulk', 100, false, 0, null);
+        const after = RPG.units.wearShape(
+          RPG.units.buildEnemyUnit('em_corridor_hulk', 100, false, 0, null), 'em_slime');
+        assertTrue('姿を借りても名前は自分のまま',
+          after.name === before.name, `${before.name} → ${after.name}`);
+        assertTrue('姿を借りてもステータスは動かない',
+          after.stats.hp === before.stats.hp && after.stats.atk === before.stats.atk,
+          `HP ${before.stats.hp} → ${after.stats.hp}`);
+        assertTrue('姿を借りても技は自分のまま',
+          after.skills.join(',') === before.skills.join(','), after.skills.join(','));
+        assertTrue('姿を借りても報酬は自分のまま',
+          after.gold === before.gold && after.exp === before.exp, `${after.gold}G`);
+        assertTrue('姿を借りると属性が入れ替わる',
+          after.element === RPG.data.enemies.em_slime.element &&
+          before.element !== after.element, `${before.element} → ${after.element}`);
+        assertTrue('姿を借りると絵の参照先が入れ替わる',
+          after.artId === 'em_slime', String(after.artId));
+
+        // 絵の解決が artId を見ているか。ここが繋がっていないと、
+        // 属性だけ変わって見た目が変わらない、という半端な状態になる。
+        assertTrue('絵の候補は借りた姿のIDで引かれる',
+          RPG.artSource.enemyCandidates(after).every(
+            (/** @type {string} */ path) => path.indexOf('em_slime') >= 0),
+          RPG.artSource.enemyCandidates(after).join('、'));
+
+        // wearShape は規則の側にある。定義の id は UI が後から書き込むだけなので、
+        // それを当てにすると UI を読まない経路で静かに壊れる。
+        const byId = RPG.units.wearShape(
+          RPG.units.buildEnemyUnit('em_corridor_hulk', 100, false, 0, null), 'em_wolf');
+        assertTrue('姿はIDで指定できる（定義の id に依存しない）',
+          byId.artId === 'em_wolf', String(byId.artId));
+      }
 
       // box_mult は省略できる調整つまみ。書くなら正の数であること。
       // 0 や負を書くと宝箱が一切落ちないフィールドが黙ってできあがる。

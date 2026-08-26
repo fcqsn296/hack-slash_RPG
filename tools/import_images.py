@@ -105,6 +105,10 @@ def load_targets():
     targets = []
     for label, entries, rel_dir in groups:
         for entry in entries:
+            # 固有の絵を持たないと宣言されたものは対象にしない (§10.8)。
+            # 外しておかないと「未生成」に出続けて、作る必要が無いのに毎回目に入る。
+            if contentscan.has_no_art(entry):
+                continue
             cid, name = entry["id"], entry["name"]
             existing = None
             for ext in cfg["extensions"]:

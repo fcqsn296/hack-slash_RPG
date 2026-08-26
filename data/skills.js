@@ -1127,6 +1127,20 @@ RPG.data.skills = {
     scaling_stat: 'atk', damage_type: 'phys', element: 'none',
     power: 165, crit_rate: 0.08, desc: '',
   },
+  // ── 終わりなき回廊の雑魚が使う技 (§10.8) ──
+  // 無属性で揃えてある。回廊の雑魚は出るたびに別の姿を借りて属性もそれに従うので、
+  // 技まで属性を持たせると「水の獣の絵なのに炎を吐く」という食い違いが出る。
+  // 借りた属性は「こちらが何で殴ると通るか」だけに効かせ、向こうの攻撃は無色にする。
+  sk_enemy_shape_rend: {
+    name: '借りた爪', kind: 'active', plugin: 'multi_hit',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 95, crit_rate: 0.08, params: { hits: 3 }, desc: '',
+  },
+  sk_enemy_oblivion: {
+    name: '忘却の一撃', kind: 'active', plugin: null,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'none',
+    power: 245, crit_rate: 0.12, desc: '',
+  },
   sk_enemy_frost: {
     name: '氷結波', kind: 'active', plugin: null,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',

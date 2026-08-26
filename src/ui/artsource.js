@@ -80,9 +80,12 @@
   function enemyCandidates(e) {
     if (e.art && e.art.image) return [e.art.image];
 
+    // artId は「別の敵の姿を借りている」ときに入る (§10.8)。
+    // 無ければ今までどおり自分の id で探す。
+    const id = e.artId || e.id;
     const cfg = RPG.data.artConfig;
-    if (!cfg.autoDiscover || !e.id || !cfg.enemyDir) return [];
-    return cfg.extensions.map((/** @type {string} */ ext) => (cfg.basePath || '') + cfg.enemyDir + e.id + ext);
+    if (!cfg.autoDiscover || !id || !cfg.enemyDir) return [];
+    return cfg.extensions.map((/** @type {string} */ ext) => (cfg.basePath || '') + cfg.enemyDir + id + ext);
   }
 
   /**
@@ -91,7 +94,7 @@
    * @returns {Promise<string|null>}
    */
   function enemy(e) {
-    const key = 'enemy:' + (e.id || '?');
+    const key = 'enemy:' + (e.artId || e.id || '?');
     if (!resolved[key]) resolved[key] = probe(enemyCandidates(e));
     return resolved[key];
   }
