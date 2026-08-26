@@ -131,6 +131,8 @@ RPG.content.add('六姫の協奏曲', {
         accentColor: '#52a67d',
       },
       artPrompt: 'emerald green high ponytail, gentle green eyes, silver light armor with dark green mantle, gold circlet, gentle determined smile',
+      desc: '【特殊】弱点を突かれたときの被ダメージ-35%。' +
+        '纏った風が不利属性の一撃を受け流す。味方全体の被ダメージ軽減と合わせて、崩れない前線を作る。',
     },
 
     ch_hr_kagura: {
@@ -168,6 +170,8 @@ RPG.content.add('六姫の協奏曲', {
         accentColor: '#e8453c',
       },
       artPrompt: 'black hime cut with red gradient tips, sharp crimson eyes, ornamental red and gold dancer kimono, floral hairpin, smug confident smirk',
+      desc: '【特殊】攻撃するたびに30%で火傷を付与する。' +
+        '舞うほど相手が焼ける。火傷中の敵への火力を持つルーナと組ませると噛み合う。',
     },
 
     ch_hr_elena: {

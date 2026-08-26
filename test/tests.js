@@ -1941,21 +1941,47 @@
 
       assertTrue('§8 レジェンドが複数いる', legends.length >= 5, `${legends.length}体: ${legends.join('、')}`);
 
-      // レジェンドは特殊パッシブか特殊技を持つ
-      const plain = [];
+      /* ── レジェンドの仕様 (§8) ──
+       *
+       * レジェンドは **固有パッシブと固有技の両方** を持つ。片方だけは認めない。
+       *
+       * ── なぜ「どちらか」ではなく「両方」なのか ──
+       * 以前は「どちらか一方」で通していた。その結果、固有技しか持たない
+       * レジェンドが生まれても検査を素通りし、**画面上は他のレジェンドと
+       * 同じ枠に並ぶのに、常時効く固有能力だけが無い**という状態になった。
+       * 実際、拡張パックのセレナとカグラをレジェンドへ格上げしたときに
+       * この形になりかけた。
+       *
+       * さらに desc も要る。固有能力は**ビルド画面の「固有」欄に desc を出す**
+       * ことでしか伝わらない。書き忘れると、実装されていても
+       * プレイヤーからは「無い」のと同じになる。実際その状態で公開していた。
+       */
+      const missing = [];
       for (const id of Object.keys(RPG.data.characters)) {
         const c = RPG.data.characters[id];
         if (c.rarity !== 'LEGEND' || c.fixed) continue;
-        const hasPassive = c.passives && Object.keys(c.passives).length > 0;
-        const hasSituational = c.situational && Object.keys(c.situational).length > 0;
-        const hasSpecialSkill = (c.unique_skills || []).some((/** @type {string} */ s) => {
-          const sk = RPG.data.skills[s];
-          return sk && ['multi_debuff', 'hp_cost', 'all_enemies'].includes(sk.plugin);
-        });
-        if (!hasPassive && !hasSituational && !hasSpecialSkill) plain.push(c.name);
+        const lacks = [];
+        const hasPassive = (c.passives && Object.keys(c.passives).length > 0)
+          || (c.situational && Object.keys(c.situational).length > 0)
+          || (c.elementMods && Object.keys(c.elementMods).length > 0);
+        if (!hasPassive) lacks.push('固有パッシブ');
+        if (!(c.unique_skills || []).length) lacks.push('固有技');
+        if (!c.desc) lacks.push('desc');
+        if (lacks.length) missing.push(`${c.name}(${lacks.join('・')})`);
       }
-      assertTrue('§8 レジェンドは特殊パッシブか特殊技を持つ', plain.length === 0,
-        plain.length ? plain.join(' / ') : '全レジェンドが固有の仕掛けを持つ');
+      assertTrue('§8 レジェンドは固有パッシブと固有技の両方と desc を持つ',
+        missing.length === 0,
+        missing.length ? missing.join(' / ') : `${legends.length}体すべてが揃っている`);
+
+      // 固有技が実在すること。ID を書き間違えても上の検査は通ってしまう。
+      const brokenSkill = [];
+      for (const id of Object.keys(RPG.data.characters)) {
+        const c = RPG.data.characters[id];
+        for (const sid of c.unique_skills || []) {
+          if (!RPG.data.skills[sid]) brokenSkill.push(`${c.name} → ${sid}`);
+        }
+      }
+      assertTrue('§8 固有技のIDが実在する', brokenSkill.length === 0, brokenSkill.join(' / '));
     }
 
     /* ===== ゴールドでレベルを上げる (§6.6) ===== */
