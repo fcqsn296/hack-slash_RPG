@@ -205,6 +205,9 @@
       id,
       level: 1,
       exp: 0,
+      // 今までに到達した最高レベル (§6.7)。setLevel はここまで無料で行き来できる。
+      // 新規の初期形にも置く。移行だけで補うと、作った形と読んだ形がずれる (§7)。
+      peak: 1,
       limitBreak: 0,
       // スキルツリーの投資内容 { ノードID: レベル } (§5)
       tree: {},
@@ -304,6 +307,14 @@
       const t = (/** @type {any} */ (c)).tree;
       if (!t) continue;
       for (const id of ['tr_slot_acc', 'tr_slot_armor', 'tr_slot_weapon']) delete t[id];
+    }
+
+    // 到達点 (§6.7)。旧セーブには無いので、今のレベルを到達点とみなす。
+    // 下げた先から上げ直せる範囲がここで決まる。
+    for (const c of Object.values(s.characters || {})) {
+      const ch = /** @type {any} */ (c);
+      if (typeof ch.peak !== 'number' || !isFinite(ch.peak)) ch.peak = ch.level || 1;
+      else ch.peak = Math.max(ch.peak, ch.level || 1);
     }
 
     if (!s.stats) s.stats = { battles: 0, wins: 0, identified: 0, pulls: 0 };
@@ -1033,6 +1044,7 @@
       gained++;
     }
     if (c.level >= cap) c.exp = 0;
+    if (gained > 0) c.peak = Math.max(c.peak || 0, c.level);
     return gained;
   }
 
@@ -1102,8 +1114,76 @@
     c.level = quote.target;
     // 半端な経験値は代金に織り込み済み。持ち越すと二重取りになる。
     c.exp = 0;
+    c.peak = Math.max(c.peak || 0, c.level);
     persist();
     return { ok: true, gold: quote.gold, levels: quote.levels, level: c.level };
+  }
+
+  /**
+   * そのキャラが今までに到達した最高レベル (§6.7)。
+   *
+   * setLevel はここまでを無料で行き来できる。**一度自分で登った高さ**なので、
+   * 下げても上げ直しても、稼いでいない経験値を得たことにはならない。
+   * @param {any} c
+   */
+  function peakLevel(c) {
+    return Math.max(c.peak || 0, c.level || 1);
+  }
+
+  /**
+   * レベルを直接決める (§6.7)。検証と縛りプレイのための機能。
+   *
+   * ── なぜ要るのか ──
+   * 闘技場の突破を「証明」しようとしても、主人公だけ255で仲間が70では
+   * **何を確かめたことになるのか分からない**。編成のレベルを揃えられないと、
+   * 実測そのものが成立しない。縛りプレイの入口にもなる。
+   *
+   * ── なぜ到達点までなのか ──
+   * 無制限にすると、ゴールドで買う仕組みが意味を失う。
+   * 下げっぱなしにすると、検証のたびに買い直す羽目になる。
+   * **一度登った高さの中でだけ自由**にすることで、どちらも壊さない。
+   *
+   * レベルを下げると、消費SPが配られるSPを追い越すことがある。そのときは
+   * ツリーとクラスツリーを戻す。黙って壊れた状態にするより、
+   * 何が起きるかを呼び出し側へ返して確認させる。
+   *
+   * @param {string} charId
+   * @param {number} level
+   * @param {{allowReset?: boolean}} [opts] ツリーを戻してよいか。既定は不可
+   * @returns {{ok: boolean, reason?: string, level?: number, needsReset?: boolean, reset?: boolean}}
+   */
+  function setLevel(charId, level, opts) {
+    const c = get().characters[charId];
+    if (!c) return { ok: false, reason: 'キャラクターがいません' };
+    const peak = peakLevel(c);
+    // 到達点の判定を先に置く。丸めてから比べると、Lv120で200を求めたときに
+    // 「同じレベルです」と返ってしまい、なぜ断られたのか分からなくなる。
+    if (Math.floor(level) > peak) {
+      return { ok: false, reason: `到達したことがあるのは Lv${peak} まで。それより上はゴールドで買ってください` };
+    }
+    const to = Math.max(1, Math.min(peak, Math.floor(level)));
+    if (to === c.level) return { ok: false, reason: '同じレベルです' };
+
+    // 下げるとSPが減る。消費が追い越すならツリーを戻すしかない。
+    const spentTree = RPG.tree.spentSp(c.tree || {});
+    const willHave = (to - 1) + (c.limitBreak || 0);
+    const needsReset = spentTree > willHave;
+    if (needsReset && !(opts && opts.allowReset)) {
+      return { ok: false, needsReset: true,
+        reason: `Lv${to} では配られるSPが ${willHave} で、いま ${spentTree} 消費しています。ツリーを戻す必要があります` };
+    }
+
+    c.level = to;
+    c.exp = 0;
+    if (needsReset) {
+      c.tree = {};
+      c.klassTree = {};
+    }
+    // 装備枠はレベルで決まる (§5.3)。下げると枠が減るので、はみ出した装備を外す。
+    // 上げる方向しか無かったころは要らなかった後始末で、ここで初めて必要になる。
+    afterTreeShrink(c);
+    persist();
+    return { ok: true, level: c.level, reset: needsReset };
   }
 
   /**
@@ -1518,7 +1598,7 @@
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
     presets, savePreset, applyPreset, deletePreset,
-    addExp, levelCap, GOLD_PER_EXP, levelUpCost, buyLevels, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
+    addExp, levelCap, GOLD_PER_EXP, levelUpCost, buyLevels, peakLevel, setLevel, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
     presetSlots, nextSlotCost, buyPresetSlot, presetApplyCost, checkBuildPreset,
     applyPartyPreset, partyPresetNames,
     mode, setMode, storyProfile, PROFILE_KEYS,
