@@ -396,4 +396,87 @@ RPG.data.enemies = {
             { box: 'box_astral', chance: 1.0, count: 1 }],
     color: '#e8e0ff', glyph: '創',
   },
+  /* ── 臨界の際 (§10.9) ──────────────────────────
+   *
+   * 傾斜を登りきる**寸前**で足踏みしているものたち。
+   * まだ形が残っているので、数で来る。
+   * 世界設定でいう「甲→丙」の途中、臨界点の手前にいる連中。
+   */
+  em_half_crossed: {
+    name: '渡りかけ', element: 'none',
+    base: { hp: 16000, atk: 600, def: 850, magi_power: 780 },
+    growth: { hp: 550, atk: 23, def: 30, magi_power: 28 },
+    skills: ['sk_enemy_crush', 'sk_enemy_rend'],
+    gold: 1000, exp: 5800,
+    drops: [{ box: 'box_dragon', chance: 0.92, count: 1 },
+            { box: 'box_astral', chance: 0.12, count: 1 }],
+    color: '#b9b3c8', glyph: '渡',
+    desc: '人の形へ寄りきれなかった何か。輪郭が定まらないまま歩いている。',
+  },
+
+  em_husk_choir: {
+    name: '名残の合唱', element: 'light',
+    base: { hp: 15200, atk: 585, def: 890, magi_power: 830 },
+    growth: { hp: 530, atk: 22, def: 32, magi_power: 30 },
+    skills: ['sk_enemy_judgment', 'sk_enemy_pulse'],
+    gold: 1000, exp: 5800,
+    drops: [{ box: 'box_dragon', chance: 0.92, count: 1 },
+            { box: 'box_astral', chance: 0.12, count: 1 }],
+    color: '#ffeec8', glyph: '唱',
+    desc: '幾人ぶんかの声が重なって鳴っている。誰の声かはもう分けられない。',
+  },
+
+  em_gradient_hound: {
+    name: '傾斜の猟犬', element: 'dark',
+    base: { hp: 15600, atk: 640, def: 820, magi_power: 720 },
+    growth: { hp: 540, atk: 25, def: 29, magi_power: 26 },
+    skills: ['sk_enemy_devour', 'sk_enemy_claw'],
+    gold: 1000, exp: 5800,
+    drops: [{ box: 'box_dragon', chance: 0.92, count: 1 },
+            { box: 'box_astral', chance: 0.12, count: 1 }],
+    color: '#7a6a9e', glyph: '猟',
+    desc: '獣が人型へ寄る途中で止まっている。四つ足のまま、手だけが人のもの。',
+  },
+
+  bs_verge_warden: {
+    name: '際の番', element: 'none', boss: true,
+    base: { hp: 70000, atk: 920, def: 1150, magi_power: 1020 },
+    growth: { hp: 1900, atk: 36, def: 42, magi_power: 39 },
+    skills: ['sk_enemy_apocalypse', 'sk_enemy_crush', 'sk_enemy_rend'],
+    gold: 11000, exp: 40000,
+    drops: [{ box: 'box_dragon', chance: 1.0, count: 7 },
+            { box: 'box_astral', chance: 1.0, count: 1 }],
+    color: '#d8d0e8', glyph: '際',
+    desc: '越えずに立ち続けている者。越えれば誰でもなくなると知っている。',
+  },
+
+  /* ── 還らぬ位相 (§10.9) ──────────────────────────
+   *
+   * 臨界点を**越えてしまった**もの。もう生物ではないので、数で来ない。
+   * 1体が桁違いに濃い。
+   */
+  em_pure_ether: {
+    name: '純度', element: 'none',
+    base: { hp: 30000, atk: 700, def: 900, magi_power: 850 },
+    growth: { hp: 1000, atk: 24, def: 30, magi_power: 28 },
+    skills: ['sk_enemy_apocalypse', 'sk_enemy_pulse', 'sk_enemy_devour'],
+    gold: 2600, exp: 15000,
+    drops: [{ box: 'box_dragon', chance: 1.0, count: 2 },
+            { box: 'box_astral', chance: 0.35, count: 1 }],
+    color: '#f0ecff', glyph: '純',
+    desc: '力と引き換えに、その人であることを手放したもの。もう誰でもない。',
+  },
+
+  bs_nameless_sovereign: {
+    name: '名を失くした帝', element: 'dark', boss: true,
+    base: { hp: 80000, atk: 980, def: 1220, magi_power: 1100 },
+    growth: { hp: 2150, atk: 38, def: 45, magi_power: 42 },
+    skills: ['sk_enemy_apocalypse', 'sk_enemy_devour', 'sk_enemy_judgment', 'sk_enemy_crush'],
+    gold: 16000, exp: 60000,
+    drops: [{ box: 'box_dragon', chance: 1.0, count: 8 },
+            { box: 'box_astral', chance: 1.0, count: 2 }],
+    color: '#9d7aff', glyph: '帝',
+    desc: '「帝」の字だけが残っている。人だったことの、それが唯一の証拠。',
+  },
+
 };
