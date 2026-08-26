@@ -2423,6 +2423,47 @@
     );
   }
 
+  /** 装備画面で自動売却の設定を開いているか。既定は閉じる。 */
+  let autoSellOpen = false;
+
+  /**
+   * 装備画面に置く自動売却 (§7.4)。
+   *
+   * ── なぜ装備画面にも要るか ──
+   * ここには「表示中をまとめて売却」があるが、あれは**絞り込みの結果を
+   * 無条件に売る**もので、ルールも「更新候補は残す」の安全装置も効かない。
+   * 掃除の判断が要るのは鑑定した直後だけではないので、
+   * ルールで売る側もここから使えるようにする。
+   *
+   * 中身は鑑定画面とまったく同じパネル。設定はセーブ側で1つなので、
+   * どちらで変えても揃う。
+   *
+   * 既定で畳んでおく。装備画面は所持装備の一覧が主役で、
+   * 設定を常時開いておくと一覧がそのぶん下へ押し出される。
+   * 見出しには対象の件数を出したままにするので、畳んでいても状況は分かる。
+   *
+   * @param {HTMLElement} root
+   */
+  function autoSellSection(root) {
+    const found = RPG.autosell.candidates();
+    return h('section.autosell-section' + (autoSellOpen ? '' : '.is-collapsed'),
+      h('button.dmg-break-head', {
+        onClick: () => { autoSellOpen = !autoSellOpen; render(root); },
+        'aria-expanded': autoSellOpen ? 'true' : 'false',
+      },
+        h('span.cat-mark', { text: autoSellOpen ? '▼' : '▶' }),
+        h('span.cat-label', { text: '自動売却ルール' }),
+        h('span.cat-count', {
+          text: found.items.length
+            ? `${found.items.length} 個 / ${found.gold.toLocaleString()} G`
+            : '対象なし',
+        }),
+        h('span.cat-desc', { text: 'ロック中・装備中は常に対象外' })
+      ),
+      autoSellOpen ? autoSellPanel(root) : null
+    );
+  }
+
   /**
    * 鑑定結果のレアリティ内訳。まとめて開けたときに一覧で把握できるようにする。
    * @param {any[]} items
@@ -2573,6 +2614,10 @@
           }
           return h('div.slot-group', h('h4', W.icon(W.SLOT_ICON[slot]), h('em', { text: RPG.units.SLOT_LABEL[slot] })), h('div.slot-cells', cells));
         })),
+        // ルールで売る側 (§7.4)。すぐ下の「表示中をまとめて売却」は
+        // 絞り込みの結果を無条件に売るので、性格が違う。
+        autoSellSection(root),
+
         h('div.section-head',
           h('h3', { text: `所持装備（${inventory.length} / ${save.inventory.length}）` }),
           bulkSellButton(root, inventory, owner)
