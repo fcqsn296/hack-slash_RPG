@@ -2402,6 +2402,38 @@
       }
       assertTrue('§8 固有能力が登録簿どおりの塊に書かれている',
         misplaced.length === 0, misplaced.join(' / '));
+
+      // ── 鍵の名前そのものが登録簿にあるか ──
+      //
+      // 上の検査は「どちらの塊か」しか見ない。**存在しない鍵を書いても素通りする。**
+      // キャラの passives はそのままユニットへ合流するので、値は載る。
+      // 載るのに誰も読まない、という形で静かに死ぬ。
+      //
+      // 実際 revive / counter と書いて外した（正しくは reviveHp / counterRate）。
+      // 効果種別の名前と、実際に読まれる鍵の名前は別物。
+      //
+      // 登録簿に key を持たないが、units.js / damage.js が **キャラ定義から直に**
+      // 読んでいるもの。ツリーからは配れないので登録簿に載っていないだけで、
+      // 書けば効く。消費している場所を確かめたうえで通している。
+      //
+      //   critRate / critDamage / capBreak … units.js が innate から素の値へ橋渡し
+      //   atkScale   … units.js で倍率として掛ける（合算しない）
+      //   levelPower … units.js → damage.js
+      //   mirrorStat … units.js
+      const BRIDGED = ['critRate', 'critDamage', 'capBreak', 'atkScale',
+        'levelPower', 'mirrorStat'];
+      const unknown = [];
+      for (const id of Object.keys(RPG.data.characters)) {
+        const c = RPG.data.characters[id];
+        for (const blk of ['passives', 'situational']) {
+          for (const k of Object.keys(c[blk] || {})) {
+            if (routeOf[k] === undefined && BRIDGED.indexOf(k) < 0) {
+              unknown.push(`${c.name}: ${k}`);
+            }
+          }
+        }
+      }
+      assertTrue('§8 固有能力の鍵が登録簿に実在する', unknown.length === 0, unknown.join(' / '));
     }
 
     /* ===== キャラ固有の会心が届くか (§8 / §5.8) ===== */
@@ -2441,6 +2473,30 @@
       }
       assertTrue('§8 固有の会心がユニットの素の値まで届く', broken.length === 0,
         broken.join(' / '));
+
+      // 素の値へ橋渡しするものは会心だけではない。上限突破も同じ経路で、
+      // **こちらは橋が無いまま公開していた**（フィリアの capBreak: 0.25 が
+      // 実装当初から効かず、説明文だけが独り歩きしていた）。
+      // 宣言 → ユニットの素の値、を通しで見る。
+      {
+        const brokenCap = [];
+        for (const id of Object.keys(RPG.data.characters)) {
+          const c = RPG.data.characters[id];
+          const want = (c.passives || {}).capBreak;
+          if (!want) continue;
+          const save = RPG.state.createCharacter(id);
+          save.level = 100;
+          const u = RPG.units.buildCharacterUnit(save, []);
+          if (Math.abs((u.capBreak || 0) - want) > 1e-9) {
+            brokenCap.push(`${c.name} ${want} → ${u.capBreak}`);
+          }
+          if ((u.passives || {}).capBreak !== undefined) {
+            brokenCap.push(`${c.name} passives に残っている`);
+          }
+        }
+        assertTrue('§8 固有の上限突破がユニットの素の値まで届く',
+          brokenCap.length === 0, brokenCap.join(' / '));
+      }
 
       // 実際にダメージが変わることまで見る。値が入っていても
       // damage.js が読まなければ意味がない。

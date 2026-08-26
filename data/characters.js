@@ -1171,6 +1171,388 @@ RPG.data.characters = {
     desc: '【中技】中技のダメージ上限突破+85%。中技の火力+15%。' +
       '上限に潰されていた中技を、大技と同じ土俵まで押し上げる。',
   },
+
+  /* ── 埋まっていなかった5軸 (§8) ────────────────────
+   *
+   * 回復の広がり／変換／反撃／狙われやすさ／HP依存。
+   * どれもツリーには枝があるのに、担い手が1人もいなかった軸。
+   * 3人ずつ置き、軸の中でも役が重ならないようにしてある。
+   *
+   * 経路に注意 (§2)。highHpPower と bossGuard は situational、
+   * それ以外は passives。取り違えると値は載るが誰も読まない。
+   */
+  ch_lg_marika: {
+    name: 'マリカ', title: '遍く手', rarity: 'LEGEND', element: 'light',
+    base: { hp: 790, atk: 60, def: 58, magi_power: 126 },
+    growth: { hp: 55, atk: 3.3, def: 4.1, magi_power: 9.5 },
+    unique_skills: ['sk_lg_wide_mercy'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      healSpread: 0.50,
+      healBuff: 0.30,
+    },
+    color: '#ffe0b0', accent: '#4a3a20', glyph: '遍',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
+      hairColor: '#f4dcae', hairLight: '#fff2d0', hairDark: '#a68c58',
+      eye: '#ffd08a', eyeLight: '#ffe8c8',
+      outfit: '#3e3420', outfitLight: '#5e5030', outfitTrim: '#ffe0b0',
+      accentColor: '#ffd08a',
+    },
+    artPrompt: 'warm cream long hair, soft amber eyes, wide-sleeved healer robe of ivory and gold, ring of light behind her, both palms open and raised, calm welcoming smile',
+    desc: '【回復】回復が他の味方へも50%及び、回復した相手に固有バフ+30%。1人を癒すと全員が整う。',
+  },
+
+  ch_lg_nevia: {
+    name: 'ネヴィア', title: '絶えぬ灯', rarity: 'LEGEND', element: 'water',
+    base: { hp: 830, atk: 58, def: 64, magi_power: 118 },
+    growth: { hp: 58, atk: 3.2, def: 4.4, magi_power: 9.0 },
+    unique_skills: ['sk_lg_ever_lamp'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      regen: 0.10,
+      lowHpHeal: 0.10,
+      waveHeal: 0.15,
+    },
+    color: '#8ed8e8', accent: '#153a44', glyph: '灯',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'circlet',
+      hairColor: '#7cc8dc', hairLight: '#c0eef8', hairDark: '#3a7e90',
+      eye: '#a8e8f0', eyeLight: '#dcf8fc',
+      outfit: '#173a44', outfitLight: '#28606e', outfitTrim: '#8ed8e8',
+      accentColor: '#a8e8f0',
+    },
+    artPrompt: 'pale cyan wavy hair, quiet blue eyes, layered water-blue vestment, small lantern hung at her waist, steady unhurried stance',
+    desc: '【回復】毎ラウンド最大HPの10%回復。ラウンド終了時に瀕死の味方を癒し、ウェーブ移行時にも15%回復する。切れ目が無い。',
+  },
+
+  ch_lg_agatha: {
+    name: 'アガタ', title: '還りの祈り', rarity: 'LEGEND', element: 'none',
+    base: { hp: 810, atk: 62, def: 60, magi_power: 122 },
+    growth: { hp: 57, atk: 3.4, def: 4.2, magi_power: 9.2 },
+    unique_skills: ['sk_lg_returning'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      reviveHp: 0.35,
+      waveRevive: 0.70,
+      cleanse: 0.80,
+    },
+    color: '#d8d0e0', accent: '#2e2a3a', glyph: '還',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'calm', accessory: 'none',
+      hairColor: '#c8c0d4', hairLight: '#eee8f4', hairDark: '#7a7288',
+      eye: '#cfc6dc', eyeLight: '#efe8f6',
+      outfit: '#2c2838', outfitLight: '#443e52', outfitTrim: '#d8d0e0',
+      accentColor: '#cfc6dc',
+    },
+    artPrompt: 'ash lavender long hair, colorless calm eyes, plain mourning robe with a long stole, hands folded over a closed book, still and quiet',
+    desc: '【回復】復活時のHP+35%。ウェーブ移行時に70%で倒れた味方が立ち上がり、回復のたびに弱体を1つ解く。',
+  },
+
+  ch_lg_garnet: {
+    name: 'ガーネット', title: '攻拓の盾', rarity: 'LEGEND', element: 'earth',
+    base: { hp: 880, atk: 118, def: 88, magi_power: 64 },
+    growth: { hp: 62, atk: 8.6, def: 6.0, magi_power: 3.6 },
+    unique_skills: ['sk_lg_shield_charge'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      atkToDef: 0.45,
+      healOnKill: 0.05,
+    },
+    color: '#e07a5a', accent: '#3e2018', glyph: '拓',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'none',
+      hairColor: '#c85a3c', hairLight: '#f09878', hairDark: '#8a3820',
+      eye: '#ffd0a0', eyeLight: '#ffe8d0',
+      outfit: '#3a2018', outfitLight: '#5e3428', outfitTrim: '#e07a5a',
+      accentColor: '#ff9c78',
+    },
+    artPrompt: 'burnt orange high ponytail, fierce copper eyes, heavy tower shield strapped to one arm, dented plate over a short tunic, forward-leaning stance',
+    desc: '【変換】ATKの45%がDEFに乗る。攻めるほど硬くなり、倒すたびに5%回復する。',
+  },
+
+  ch_lg_lucrezia: {
+    name: 'ルクレツィア', title: '鉄の血脈', rarity: 'LEGEND', element: 'dark',
+    base: { hp: 840, atk: 96, def: 104, magi_power: 62 },
+    growth: { hp: 59, atk: 7.0, def: 7.2, magi_power: 3.5 },
+    unique_skills: ['sk_lg_iron_blood'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      defToAtk: 0.80,
+    },
+    situational: {
+      bossGuard: 0.15,
+    },
+    color: '#9a8ab8', accent: '#241e34', glyph: '鉄',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'hime', expression: 'cool', accessory: 'none',
+      hairColor: '#8878a8', hairLight: '#c4b4dc', hairDark: '#4e4268',
+      eye: '#c8b8e0', eyeLight: '#e8dcf4',
+      outfit: '#221c30', outfitLight: '#3a3048', outfitTrim: '#9a8ab8',
+      accentColor: '#c8b8e0',
+    },
+    artPrompt: 'dark violet hime cut, cold pale eyes, full plate armor darkened with age, blood-red sash, greatsword resting point-down, unmoving posture',
+    desc: '【変換】DEFの80%がATKに乗る。ボスから受けるダメージ-15%。守りを固めるほど打撃が重くなる。',
+  },
+
+  ch_lg_johanna: {
+    name: 'ヨハンナ', title: '焦がす祈り', rarity: 'LEGEND', element: 'fire',
+    base: { hp: 760, atk: 64, def: 62, magi_power: 132 },
+    growth: { hp: 53, atk: 3.5, def: 4.3, magi_power: 9.9 },
+    unique_skills: ['sk_lg_searing_mercy'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      healToPower: 0.25,
+      smite: 0.75,
+    },
+    color: '#ff9a6a', accent: '#4a2416', glyph: '慈',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'bob', expression: 'cool', accessory: 'circlet',
+      hairColor: '#e8845a', hairLight: '#ffb894', hairDark: '#a04c28',
+      eye: '#ffd070', eyeLight: '#fff0c0',
+      outfit: '#3e2216', outfitLight: '#5e3624', outfitTrim: '#ff9a6a',
+      accentColor: '#ffc090',
+    },
+    artPrompt: 'ember orange bob, hard gold eyes, scorched white vestment with red trim, censer swinging in one hand, small flames rising around her feet',
+    desc: '【変換】回復量の伸びの25%が火力にも乗り、癒した量の75%が敵を焼く。慈悲がそのまま攻撃になる。',
+  },
+
+  ch_lg_echo: {
+    name: 'エコー', title: '返る音', rarity: 'LEGEND', element: 'wind',
+    base: { hp: 850, atk: 104, def: 92, magi_power: 68 },
+    growth: { hp: 60, atk: 7.6, def: 6.3, magi_power: 3.8 },
+    unique_skills: ['sk_lg_echo_guard'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      counterAll: 0.60,
+      counterPower: 0.25,
+    },
+    color: '#a8e0c8', accent: '#1e3c30', glyph: '響',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
+      hairColor: '#88c8ac', hairLight: '#c8f0dc', hairDark: '#48806a',
+      eye: '#b8f0d8', eyeLight: '#e0fbf0',
+      outfit: '#1c3a2e', outfitLight: '#2e5a48', outfitTrim: '#a8e0c8',
+      accentColor: '#b8f0d8',
+    },
+    artPrompt: 'mint short crop, sharp green eyes, light scout armor with open sides, two curved blades held reversed, weight shifted back and ready',
+    desc: '【反撃】反撃が60%で敵全体に及び、反撃の威力+25%。囲まれるほど返る音が増える。',
+  },
+
+  ch_lg_brigitta: {
+    name: 'ブリギッタ', title: '受け手', rarity: 'LEGEND', element: 'earth',
+    base: { hp: 900, atk: 100, def: 98, magi_power: 62 },
+    growth: { hp: 64, atk: 7.2, def: 6.8, magi_power: 3.5 },
+    unique_skills: ['sk_lg_bulwark_hand'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      counterRate: 0.32,
+      lowHpGuard: 0.12,
+    },
+    color: '#c8b088', accent: '#3a3020', glyph: '受',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'twin', expression: 'calm', accessory: 'ribbon',
+      hairColor: '#b09868', hairLight: '#e0cca0', hairDark: '#6e5c38',
+      eye: '#d8c090', eyeLight: '#f4e4c0',
+      outfit: '#38301e', outfitLight: '#54482e', outfitTrim: '#c8b088',
+      accentColor: '#d8c090',
+    },
+    artPrompt: 'wheat blonde twin braids, patient brown eyes, thick padded gambeson and bracers, no shield, open palms raised to receive a blow',
+    desc: '【反撃】32%で反撃する。瀕死ほど硬くなる（最大12%軽減）。受けることが攻めになる型。',
+  },
+
+  ch_lg_veronica: {
+    name: 'ヴェロニカ', title: '重き返礼', rarity: 'LEGEND', element: 'dark',
+    base: { hp: 820, atk: 112, def: 90, magi_power: 66 },
+    growth: { hp: 58, atk: 8.2, def: 6.1, magi_power: 3.7 },
+    unique_skills: ['sk_lg_heavy_return'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      counterPower: 0.40,
+      startShield: 0.15,
+    },
+    color: '#b06a9a', accent: '#341c2c', glyph: '礼',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'smug', accessory: 'none',
+      hairColor: '#9c5a88', hairLight: '#d090bc', hairDark: '#5e2e50',
+      eye: '#e0a0c8', eyeLight: '#f4d0e8',
+      outfit: '#301a2a', outfitLight: '#4a2a42', outfitTrim: '#b06a9a',
+      accentColor: '#e0a0c8',
+    },
+    artPrompt: 'plum long hair, half-lidded violet eyes, dark court dress over armored underlayer, enormous mace resting on her shoulder, unbothered posture',
+    desc: '【反撃】反撃の威力+40%。開幕から最大HPの15%の障壁を張っている。返す一撃が重い。',
+  },
+
+  ch_lg_olga: {
+    name: 'オルガ', title: '矢面に立つ者', rarity: 'LEGEND', element: 'fire',
+    base: { hp: 940, atk: 92, def: 106, magi_power: 60 },
+    growth: { hp: 68, atk: 6.6, def: 7.4, magi_power: 3.4 },
+    unique_skills: ['sk_lg_name_calling'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      taunt: 1.25,
+    },
+    situational: {
+      bossGuard: 0.15,
+    },
+    color: '#ff8060', accent: '#43201a', glyph: '矢',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'none',
+      hairColor: '#e05c3c', hairLight: '#ff9878', hairDark: '#943820',
+      eye: '#ffcc60', eyeLight: '#ffeeb0',
+      outfit: '#3e1e18', outfitLight: '#5e3026', outfitTrim: '#ff8060',
+      accentColor: '#ffa080',
+    },
+    artPrompt: 'flame red high ponytail, blazing orange eyes, scarred breastplate and a torn war banner on her back, one arm thrown wide in challenge, shouting',
+    desc: '【狙われやすさ】狙われやすさ+125%。ボスから受けるダメージ-15%。反射や棘を積む味方の代わりに、自分が矢面に立つ。',
+  },
+
+  ch_lg_shannon: {
+    name: 'シャノン', title: '消える影', rarity: 'LEGEND', element: 'dark',
+    base: { hp: 780, atk: 70, def: 60, magi_power: 124 },
+    growth: { hp: 54, atk: 3.9, def: 4.2, magi_power: 9.3 },
+    unique_skills: ['sk_lg_vanishing'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      stealth: 0.28,
+      triage: 0.75,
+    },
+    color: '#7a86a8', accent: '#1e2230', glyph: '影',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'bob', expression: 'calm', accessory: 'none',
+      hairColor: '#66728e', hairLight: '#a0acc8', hairDark: '#3a4258',
+      eye: '#98a4c0', eyeLight: '#d0d8e8',
+      outfit: '#1c2028', outfitLight: '#2e3644', outfitTrim: '#7a86a8',
+      accentColor: '#98a4c0',
+    },
+    artPrompt: 'slate blue bob, quiet grey eyes, dark hooded shawl over a plain field dress, satchel of bandages, standing slightly turned away',
+    desc: '【狙われやすさ】狙われにくさ+28%。瀕死の相手ほど回復量が増える（最大+75%）。狙われずに後ろから支える。',
+  },
+
+  ch_lg_fiona: {
+    name: 'フィオナ', title: '紙一重', rarity: 'LEGEND', element: 'wind',
+    base: { hp: 760, atk: 120, def: 76, magi_power: 64 },
+    growth: { hp: 53, atk: 8.8, def: 5.2, magi_power: 3.6 },
+    unique_skills: ['sk_lg_hairsbreadth'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      evade: 0.08,
+      lowHpGuard: 0.15,
+    },
+    color: '#a0e8f0', accent: '#1c3844', glyph: '紙',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'ponytail', expression: 'smug', accessory: 'none',
+      hairColor: '#7cd0dc', hairLight: '#c0f4fa', hairDark: '#3e7c8a',
+      eye: '#d0f8ff', eyeLight: '#f0fdff',
+      outfit: '#1a3440', outfitLight: '#2a5464', outfitTrim: '#a0e8f0',
+      accentColor: '#d0f8ff',
+    },
+    artPrompt: 'pale aqua high ponytail, playful cyan eyes, light leather vest and wrapped forearms, thin rapier held loose, weight on the back foot',
+    desc: '【狙われやすさ】8%で攻撃を回避する。瀕死ほど硬い（最大15%軽減）。当たらなければ痛くない、を積む型。',
+  },
+
+  ch_lg_belga: {
+    name: 'ベルガ', title: '血の刃', rarity: 'LEGEND', element: 'fire',
+    base: { hp: 980, atk: 110, def: 80, magi_power: 62 },
+    growth: { hp: 72, atk: 8.0, def: 5.4, magi_power: 3.5 },
+    unique_skills: ['sk_lg_blood_edge'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      hpToAtk: 0.06,
+    },
+    situational: {
+      highHpPower: 0.15,
+    },
+    color: '#e05858', accent: '#3e1818', glyph: '血',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'long', expression: 'fierce', accessory: 'none',
+      hairColor: '#c84040', hairLight: '#f08888', hairDark: '#8a2424',
+      eye: '#ff8080', eyeLight: '#ffc0c0',
+      outfit: '#3a1616', outfitLight: '#5a2626', outfitTrim: '#e05858',
+      accentColor: '#ff8080',
+    },
+    artPrompt: 'deep crimson long hair, burning red eyes, sleeveless red battle wrap, bare muscular arms, huge cleaver held one-handed, blood-slick grip',
+    desc: '【HP依存】最大HPの6%がATKに乗る。HPが高いほど火力+15%。体そのものが武器になる型。',
+  },
+
+  ch_lg_irma: {
+    name: 'イルマ', title: '動かぬ壁', rarity: 'LEGEND', element: 'earth',
+    base: { hp: 1020, atk: 86, def: 110, magi_power: 58 },
+    growth: { hp: 76, atk: 6.2, def: 7.6, magi_power: 3.3 },
+    unique_skills: ['sk_lg_immovable'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      hpToDef: 0.16,
+    },
+    situational: {
+      highHpPower: 0.10,
+    },
+    color: '#b8a888', accent: '#3a3428', glyph: '壁',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'crop', expression: 'calm', accessory: 'none',
+      hairColor: '#a09070', hairLight: '#d0c0a0', hairDark: '#645840',
+      eye: '#c8b890', eyeLight: '#e8dcc0',
+      outfit: '#38321e', outfitLight: '#544c34', outfitTrim: '#b8a888',
+      accentColor: '#c8b890',
+    },
+    artPrompt: 'sand blonde short crop, steady hazel eyes, massive layered stone-grey armor, no weapon, arms crossed, planted immovably',
+    desc: '【HP依存】最大HPの16%がDEFに乗る。HPが高いほど火力+10%。硬さをHPから引き出す型。',
+  },
+
+  ch_lg_tanya: {
+    name: 'ターニャ', title: '満ちる器', rarity: 'LEGEND', element: 'water',
+    base: { hp: 1000, atk: 98, def: 96, magi_power: 62 },
+    growth: { hp: 74, atk: 7.0, def: 6.6, magi_power: 3.5 },
+    unique_skills: ['sk_lg_brimming'],
+    common_skills: ['sk_focus', 'sk_slash', 'sk_magic_blade'],
+    passives: {
+      startShield: 0.15,
+    },
+    situational: {
+      highHpPower: 0.20,
+    },
+    color: '#88b0e0', accent: '#1e2c44', glyph: '満',
+    art: {
+      // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
+      face: { x: 0.5, y: 0.11, size: 0.36 },
+      gender: 'female', hair: 'wavy', expression: 'cool', accessory: 'none',
+      hairColor: '#6c94c8', hairLight: '#a8c8ec', hairDark: '#3a5480',
+      eye: '#a0c8f0', eyeLight: '#d8e8fc',
+      outfit: '#1c2a40', outfitLight: '#2e4460', outfitTrim: '#88b0e0',
+      accentColor: '#a0c8f0',
+    },
+    artPrompt: 'deep blue wavy hair, calm steel eyes, heavy blue coat over reinforced mail, water-filled gourd at her hip, broad steady stance',
+    desc: '【HP依存】HPが高いほど火力+20%。開幕から最大HPの15%の障壁を張る。満ちているほど強い。',
+  },
+
 };
 
 /**

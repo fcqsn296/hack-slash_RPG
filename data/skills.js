@@ -169,6 +169,118 @@ RPG.data.skills = {
     power: 175, crit_rate: 0.05,
     desc: '【固有】光属性の貫通魔法。闇属性の敵に有利。',
   },
+  // ── 埋まっていなかった5軸のレジェンド15人 (§8) ──────────
+  //
+  // 回復の広がり／変換／反撃／狙われやすさ／HP依存。
+  // どれもツリーには枝があるのに、担い手が1人もいなかった軸。
+  sk_lg_wide_mercy: {
+    name: '遍く癒し', kind: 'active', plugin: 'heal', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+    power: 210, crit_rate: 0,
+    params: { party: true },
+    desc: '【固有】味方全員のHPを魔力の210%ぶん回復する。',
+  },
+  sk_lg_ever_lamp: {
+    name: '絶えぬ灯', kind: 'active', plugin: 'reduction_buff', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
+    power: 0, crit_rate: 0,
+    params: { value: 0.22, turns: 4, party: true, label: '灯' },
+    cooldown: 5,
+    desc: '【固有】4ターンの間、味方全体の被ダメージを22%軽減する。',
+  },
+  sk_lg_returning: {
+    name: '還りの祈り', kind: 'active', plugin: 'mass_revive', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'none',
+    power: 0, crit_rate: 0,
+    params: { hp: 0.5, healRatio: 0.6 },
+    readyRound: 3, cooldown: 6,
+    desc: '【固有】倒れた味方をすべて最大HPの50%で起こし、生存者も魔力の60%ぶん回復する。',
+  },
+  sk_lg_shield_charge: {
+    name: '攻拓の盾', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    power: 175, crit_rate: 0.08,
+    desc: '【固有】盾ごと踏み込む。威力175%。',
+  },
+  sk_lg_iron_blood: {
+    name: '鉄の血脈', kind: 'active', plugin: 'def_buff', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 0, crit_rate: 0,
+    params: { value: 0.9, turns: 3, party: true, label: '鉄血' },
+    desc: '【固有】3ターンの間、パーティ全体のDEFを1.9倍にする。',
+  },
+  sk_lg_searing_mercy: {
+    name: '焦がす祈り', kind: 'active', plugin: 'heal', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
+    power: 260, crit_rate: 0,
+    params: { party: false },
+    desc: '【固有】味方1人を魔力の260%ぶん回復する。癒した量の一部が敵を焼く。',
+  },
+  sk_lg_echo_guard: {
+    name: '返る音', kind: 'active', plugin: 'counter_stance', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 0, crit_rate: 0,
+    params: { turns: 3, reduction: 0.35 },
+    cooldown: 4,
+    desc: '【固有】3ターンの間、受けた攻撃に必ず反撃し、被ダメージを35%軽減する。',
+  },
+  sk_lg_bulwark_hand: {
+    name: '受け手', kind: 'active', plugin: 'def_buff', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    power: 0, crit_rate: 0,
+    params: { value: 1.1, turns: 3, party: false, label: '受け' },
+    desc: '【固有】3ターンの間、自分のDEFを2.1倍にする。',
+  },
+  sk_lg_heavy_return: {
+    name: '重き返礼', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 245, crit_rate: 0.1,
+    desc: '【固有】受けたぶんを返す一撃。威力245%。',
+  },
+  sk_lg_name_calling: {
+    name: '名乗り', kind: 'active', plugin: 'reduction_buff', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'fire',
+    power: 0, crit_rate: 0,
+    params: { value: 0.30, turns: 3, party: false, label: '名乗り' },
+    cooldown: 4,
+    desc: '【固有】名乗りを上げ、3ターンの間 自分の被ダメージを30%軽減する。',
+  },
+  sk_lg_vanishing: {
+    name: '消える影', kind: 'active', plugin: 'heal', unique: true,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 230, crit_rate: 0,
+    params: { party: true },
+    desc: '【固有】気配を殺したまま、味方全員を魔力の230%ぶん回復する。',
+  },
+  sk_lg_hairsbreadth: {
+    name: '紙一重', kind: 'active', plugin: 'multi_hit', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 95, crit_rate: 0.12,
+    params: { hits: 3 },
+    desc: '【固有】踏み込みざまに威力95%で3回斬る。',
+  },
+  sk_lg_blood_edge: {
+    name: '血の刃', kind: 'active', plugin: 'hp_cost', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'fire',
+    power: 150, crit_rate: 0.1,
+    params: { costRatio: 0.30, perHp: 0.0016, maxBonus: 3.2 },
+    desc: '【固有】現在HPの30%を刃に変える。払ったぶんだけ威力が伸びる。',
+  },
+  sk_lg_immovable: {
+    name: '動かぬ壁', kind: 'active', plugin: 'barrier', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    power: 0, crit_rate: 0,
+    params: { ratio: 0.45, scaling: 'hp', party: true },
+    cooldown: 4,
+    desc: '【固有】味方全員に、自分の最大HPの45%ぶんの障壁を張る。',
+  },
+  sk_lg_brimming: {
+    name: '満ちる器', kind: 'active', unique: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'water',
+    power: 190, crit_rate: 0.08,
+    desc: '【固有】満ちた力をそのまま叩きつける。威力190%。',
+  },
+
   // ── 中技帯のレジェンド4人 (§5.16) ────────────────────
   //
   // 固有技の威力は全員 **101〜199** に収めてある。ここを外すと
