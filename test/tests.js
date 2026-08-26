@@ -2793,6 +2793,36 @@
       assertTrue('プロンプト: 敵の主語は monster girl',
         /monster girl/.test(P.subject.enemy), P.subject.enemy);
 
+      // 人の姿をした敵の土台 (§10.8)。
+      //
+      // 怪物girl向けの土台には「普通の人間に見えない」ための語が入っている。
+      // 人として描きたい相手にそれが乗ると、何枚引いても人にならない
+      // （累なる貌を24枚生成して24枚とも目の光った巨躯になった）。
+      {
+        assertTrue('人の姿の敵用の土台がある',
+          typeof P.base.enemyHuman === 'string' && P.base.enemyHuman.length > 0, '');
+        const forbidden = ['glowing eyes', 'gigantic breasts', 'thick thighs',
+          'wide hips', 'skindentation', 'monster girl'];
+        const leaked = forbidden.filter((t) => P.base.enemyHuman.indexOf(t) >= 0);
+        assertTrue('人の土台に「人に見えない」ための語が残っていない',
+          leaked.length === 0, leaked.join('、'));
+        // 切り出しと画質の指定は落とさないこと。ここが抜けると透過に失敗する。
+        for (const need of ['solo', 'full body', 'white background']) {
+          assertTrue(`人の土台に "${need}" が残っている`,
+            P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
+        }
+        // 土台を選び分ける鍵は「個別が自分で 1girl / 1boy を名乗ったか」。
+        // 名乗っている敵だけが人の土台に載る（tools/novelai_gen.py と対）。
+        const declares = (/** @type {string} */ id) =>
+          /\b(1boy|1girl|male focus)\b/.test(P.enemies[id] || '');
+        assertTrue('累なる貌は人として名乗っている', declares('bs_myriad_visage'), '');
+        const others = Object.keys(P.enemies)
+          .filter((id) => id !== 'bs_myriad_visage' && declares(id));
+        // 名乗った瞬間に土台が変わるので、うっかり足すと絵柄が変わる。
+        assertTrue('他の敵は名乗っていない（うっかり土台が変わらない）',
+          others.length === 0, others.join('、'));
+      }
+
       // 全ての敵に個別プロンプトがある（無くても自動合成で動くが、質のために揃えておく）
       //
       // 置き場所が2つあることに注意。コアは data/artprompts.js に一覧で持ち、
