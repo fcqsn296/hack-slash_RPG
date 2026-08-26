@@ -2801,16 +2801,33 @@
       {
         assertTrue('人の姿の敵用の土台がある',
           typeof P.base.enemyHuman === 'string' && P.base.enemyHuman.length > 0, '');
-        const forbidden = ['glowing eyes', 'gigantic breasts', 'thick thighs',
-          'wide hips', 'skindentation', 'monster girl'];
+        // 抜いてよいのは「人ではない」と言っている語だけ。
+        const forbidden = ['glowing eyes', 'monster girl'];
         const leaked = forbidden.filter((t) => P.base.enemyHuman.indexOf(t) >= 0);
         assertTrue('人の土台に「人に見えない」ための語が残っていない',
           leaked.length === 0, leaked.join('、'));
+
+        // 逆に、**塗りと体積の語は落とさないこと**。
+        // 一度これを抜いたら、平坦で淡い、他の敵と並べられない絵になった。
+        // 肉の厚みと陰影は画面全体の揃え方であって、人か怪物かとは関係が無い。
+        for (const need of ['thick thighs', 'wide hips', 'skindentation',
+          'zenless zone zero']) {
+          assertTrue(`人の土台に塗りの指定 "${need}" が残っている`,
+            P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
+        }
+        // エフェクトを持てない相手が淡くならないよう、光を明示している。
+        assertTrue('人の土台に光の指定がある',
+          /rim light/.test(P.base.enemyHuman) && /shadow/.test(P.base.enemyHuman),
+          P.base.enemyHuman);
         // 切り出しと画質の指定は落とさないこと。ここが抜けると透過に失敗する。
         for (const need of ['solo', 'full body', 'white background']) {
           assertTrue(`人の土台に "${need}" が残っている`,
             P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
         }
+        // 塗りを潰す語を個別に書き戻さないための歯止め。
+        const flatteners = ['flat even lighting', 'matte finish', 'flat lighting'];
+        const flat = flatteners.filter((t) => (P.enemies.bs_myriad_visage || '').indexOf(t) >= 0);
+        assertTrue('凡庸さを塗りで書いていない', flat.length === 0, flat.join('、'));
         // 土台を選び分ける鍵は「個別が自分で 1girl / 1boy を名乗ったか」。
         // 名乗っている敵だけが人の土台に載る（tools/novelai_gen.py と対）。
         const declares = (/** @type {string} */ id) =>
