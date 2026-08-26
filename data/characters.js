@@ -870,8 +870,10 @@ RPG.data.characters = {
       outfit: '#3c3418', outfitLight: '#5e5228', outfitTrim: '#ffe9a8',
       accentColor: '#ffd166',
     },
-    artPrompt: 'pale gold long hair, warm amber eyes, white and gold liturgical robe, ' +
-      'floating halo of light, hands clasped in prayer, serene gentle smile',
+    artPrompt: 'radiant platinum blonde very long hair, glowing golden eyes, ' +
+      'white and gold liturgical dress with a deep chest cutout and long slit skirt, ' +
+      'floating golden halo, layered gold chain necklaces and arm rings, gilded thighhighs, ' +
+      'hands clasped in prayer, serene smile',
     desc: '【支援】ラウンド開始時、味方全体に固有バフ+10%（手番を使わない）。' +
       '自分がかけるバフの持続が+1ターン。撃たなくても働き続ける。',
   },
@@ -899,8 +901,9 @@ RPG.data.characters = {
       outfit: '#1c4038', outfitLight: '#2e6454', outfitTrim: '#b8f0d8',
       accentColor: '#7ef0ff',
     },
-    artPrompt: 'mint green high ponytail streaming upward, bright cyan eyes, ' +
-      'herald tabard with silver trim, wind-swept sash, war horn at her hip, fierce grin',
+    artPrompt: 'brilliant mint green high ponytail streaming upward, glowing cyan eyes, ' +
+      'emerald herald outfit with bare midriff and open shoulders, silver circlet, ' +
+      'jeweled sash and wind-swept ribbons, ornate war horn at her hip, fierce grin',
     desc: '【支援】自分がかけるバフの効果量+35%。さらにバフ効果量の上限を+50%して、' +
       '積み上げたぶんを捨てずに済む。撃つバフがいちばん大きい。',
   },
@@ -928,9 +931,10 @@ RPG.data.characters = {
       outfit: '#1e3450', outfitLight: '#32526f', outfitTrim: '#8ec4ff',
       accentColor: '#a8d8ff',
     },
-    artPrompt: 'deep blue wavy hair with pale ribbon, calm light blue eyes, ' +
-      'layered weaver robe with woven blue threads, spindle and shimmering thread in hand, ' +
-      'quiet composed expression',
+    artPrompt: 'deep sapphire blue wavy hair with silver ribbon, luminous ice blue eyes, ' +
+      'indigo weaver dress with woven gold threads, bare shoulders and high slit, ' +
+      'strands of shimmering thread wrapped around her arms like bracelets, ' +
+      'spindle of glowing light in hand, composed expression',
     desc: '【支援】味方にかけるバフの効果量+35%。バフをかけた相手に最大HPの12%の障壁と' +
       '10%の回復がつく。撒くほど陣形が固くなる。',
   },
@@ -974,9 +978,10 @@ RPG.data.characters = {
     },
     // バイザーを「目の前」に置くと顔全体を覆った絵が返ってきて、顔アイコンが
     // 切り出せなかった。額へ上げた形に言い換えて目を出している。
-    artPrompt: 'burning orange high ponytail, sharp golden eyes clearly visible, ' +
-      'thin marksman visor pushed up onto her forehead, '  +
-      'fitted ember-red archer coat, longbow of glowing embers, calm focused aim',
+    artPrompt: 'burning orange high ponytail, brilliant golden eyes clearly visible, ' +
+      'ornate marksman visor pushed up onto her forehead, ' +
+      'scarlet and black archer outfit with bare midriff and thigh straps, ' +
+      'gold ear cuffs and a jeweled quiver, longbow of glowing embers, focused aim',
     desc: '【会心】会心率+55%。100%を超えたぶんの35%が会心倍率へ回る。' +
       '固有技は確定会心なので、積んだ率がまるごと倍率に化ける。',
   },
@@ -1003,9 +1008,10 @@ RPG.data.characters = {
       outfit: '#241436', outfitLight: '#3c2450', outfitTrim: '#c58cff',
       accentColor: '#e8b0ff',
     },
-    artPrompt: 'long violet hair falling straight, pale lavender eyes, ' +
-      'dark executioner coat with silver chain, enormous single-edged greatsword held low, ' +
-      'unblinking cold stare',
+    artPrompt: 'vivid violet long hair falling straight, glowing lavender eyes, ' +
+      'black executioner dress with silver chains and a deep back cutout, ' +
+      'ornate silver gorget and layered belts, garter with hanging charms, ' +
+      'enormous single-edged greatsword held low, unblinking cold stare',
     desc: '【会心】会心倍率+0.85（1.5倍 → 2.35倍）。会心率+20%。' +
       '当たれば重い、一撃の質に全部を寄せた型。',
   },
@@ -1032,9 +1038,10 @@ RPG.data.characters = {
       outfit: '#2e2a20', outfitLight: '#4a4434', outfitTrim: '#d8c39a',
       accentColor: '#e8d8b0',
     },
-    artPrompt: 'dark brown short bob with wooden hairpin, calm sand-gold eyes, ' +
-      'earth-toned short kimono over practical leggings, two slim blades reversed in her hands, ' +
-      'quiet unhurried stance',
+    artPrompt: 'glossy black short bob with an ornate jade hairpin, brilliant amber eyes, ' +
+      'crimson and gold short kimono worn off one shoulder, bare thighs, ' +
+      'gold obi with hanging tassels and bell charms, two slim blades reversed in her hands, ' +
+      'unhurried stance',
     desc: '【会心】中技の会心率+40%（中技にだけ乗る）。会心率+15%。' +
       '固有技は1発ずつが中技帯に収まる、刻んで当てる型。',
   },
@@ -1070,9 +1077,10 @@ RPG.data.characters = {
       outfit: '#17383a', outfitLight: '#265a5c', outfitTrim: '#6fd3c8',
       accentColor: '#8ae0d4',
     },
-    artPrompt: 'long teal hair falling loose, calm pale green eyes, ' +
-      'sleeveless dark green tunic with wrapped forearms, thin needle-like blade dripping, ' +
-      'unhurried patient look',
+    artPrompt: 'vivid teal long hair with silver hair ornaments, glowing emerald eyes, ' +
+      'dark green sleeveless dress with a deep neckline and side slits, ' +
+      'venom vials on a jeweled hip belt, black arm wraps and anklets, ' +
+      'thin needle-like blade dripping, patient look',
     desc: '【中技】中技で弱体が付く確率+55%。与えた弱体の持続が+1ラウンド。' +
       '毒や麻痺を確実に通す、搦手の中核。',
   },
@@ -1099,9 +1107,9 @@ RPG.data.characters = {
       outfit: '#24402c', outfitLight: '#3a6442', outfitTrim: '#a8e6b0',
       accentColor: '#c8f0cc',
     },
-    artPrompt: 'dark green twin braids tied with pale ribbons, bright leaf-green eyes, ' +
-      'short battle kimono with wide sleeves, twin ring-blades linked by a chain, ' +
-      'playful confident smirk',
+    artPrompt: 'deep green twin braids tied with crimson ribbons, brilliant leaf-green eyes, ' +
+      'short battle kimono with wide sleeves worn open at the chest, bare thighs, ' +
+      'gold chain linking twin ring-blades, floral hair ornaments, playful smirk',
     desc: '【中技】中技を当てると弱点コンボが1段多く積む。コンボ1段あたりの倍率+3%。' +
       '中技からコンボへ橋を架ける型。',
   },
@@ -1134,9 +1142,10 @@ RPG.data.characters = {
       outfit: '#2a303c', outfitLight: '#444c5c', outfitTrim: '#cfd6e0',
       accentColor: '#aebccc',
     },
-    artPrompt: 'ash grey cropped hair, steady slate blue eyes, ' +
-      'plain grey drill uniform with rolled sleeves, single straight sword held at mid guard, ' +
-      'no ornament, composed veteran stance',
+    artPrompt: 'silver white short crop, glowing steel blue eyes, ' +
+      'dark navy drill uniform with a bare midriff and unbuttoned collar, ' +
+      'ornate silver epaulettes and medal chains, thigh-high boots, ' +
+      'single straight sword held at mid guard, composed veteran stance',
     desc: '【中技】中技の火力+50%。守りを30%無視して攻撃する。' +
       '搦手を通さず、中技を素直に強くする帯の中核。',
   },
@@ -1165,9 +1174,10 @@ RPG.data.characters = {
       outfit: '#3c3420', outfitLight: '#5e5434', outfitTrim: '#ffe6b8',
       accentColor: '#ffd070',
     },
-    artPrompt: 'pale blonde sharp bob, burning gold eyes, thin silver circlet, ' +
-      'white and gold duelist coat with a high collar, slender longsword raised to the edge, ' +
-      'fierce narrowed gaze',
+    artPrompt: 'radiant platinum blonde sharp bob, burning gold eyes, ornate silver circlet, ' +
+      'white and gold duelist coat with a deep chest cutout and high slit, ' +
+      'gold shoulder ornaments and a jeweled belt, gilded thighhighs, ' +
+      'slender longsword raised to the edge, fierce narrowed gaze',
     desc: '【中技】中技のダメージ上限突破+85%。中技の火力+15%。' +
       '上限に潰されていた中技を、大技と同じ土俵まで押し上げる。',
   },
@@ -1201,7 +1211,10 @@ RPG.data.characters = {
       outfit: '#3e3420', outfitLight: '#5e5030', outfitTrim: '#ffe0b0',
       accentColor: '#ffd08a',
     },
-    artPrompt: 'warm cream long hair, soft amber eyes, wide-sleeved healer robe of ivory and gold, ring of light behind her, both palms open and raised, calm welcoming smile',
+    artPrompt: 'radiant golden long hair, glowing amber eyes, ' +
+      'ivory and gold healer dress with a deep neckline and long slit skirt, ' +
+      'ring of light behind her, layered gold necklaces and arm rings, ' +
+      'both palms open and raised, welcoming smile',
     desc: '【回復】回復が他の味方へも50%及び、回復した相手に固有バフ+30%。1人を癒すと全員が整う。',
   },
 
@@ -1226,7 +1239,10 @@ RPG.data.characters = {
       outfit: '#173a44', outfitLight: '#28606e', outfitTrim: '#8ed8e8',
       accentColor: '#a8e8f0',
     },
-    artPrompt: 'pale cyan wavy hair, quiet blue eyes, layered water-blue vestment, small lantern hung at her waist, steady unhurried stance',
+    artPrompt: 'brilliant cyan wavy hair, glowing blue eyes, silver circlet, ' +
+      'deep water-blue vestment with bare shoulders and a high slit, ' +
+      'ornate lantern of blue flame hung from a jeweled chain, gold anklets, ' +
+      'unhurried stance',
     desc: '【回復】毎ラウンド最大HPの10%回復。ラウンド終了時に瀕死の味方を癒し、ウェーブ移行時にも15%回復する。切れ目が無い。',
   },
 
@@ -1251,7 +1267,10 @@ RPG.data.characters = {
       outfit: '#2c2838', outfitLight: '#443e52', outfitTrim: '#d8d0e0',
       accentColor: '#cfc6dc',
     },
-    artPrompt: 'ash lavender long hair, colorless calm eyes, plain mourning robe with a long stole, hands folded over a closed book, still and quiet',
+    artPrompt: 'silver white long hair, glowing violet eyes, ' +
+      'black and silver mourning dress with a bare back and long slit, ' +
+      'ornate silver stole clasps and a rosary of pale gems, sheer black thighhighs, ' +
+      'hands folded over a glowing closed book, still and quiet',
     desc: '【回復】復活時のHP+35%。ウェーブ移行時に70%で倒れた味方が立ち上がり、回復のたびに弱体を1つ解く。',
   },
 
@@ -1275,7 +1294,10 @@ RPG.data.characters = {
       outfit: '#3a2018', outfitLight: '#5e3428', outfitTrim: '#e07a5a',
       accentColor: '#ff9c78',
     },
-    artPrompt: 'burnt orange high ponytail, fierce copper eyes, heavy tower shield strapped to one arm, dented plate over a short tunic, forward-leaning stance',
+    artPrompt: 'brilliant copper red high ponytail, burning orange eyes, ' +
+      'crimson battle dress with a bare midriff and one bare shoulder, ' +
+      'ornate gold shoulder guard and a jeweled tower shield, thigh straps, ' +
+      'forward-leaning stance',
     desc: '【変換】ATKの45%がDEFに乗る。攻めるほど硬くなり、倒すたびに5%回復する。',
   },
 
@@ -1301,7 +1323,10 @@ RPG.data.characters = {
       outfit: '#221c30', outfitLight: '#3a3048', outfitTrim: '#9a8ab8',
       accentColor: '#c8b8e0',
     },
-    artPrompt: 'dark violet hime cut, cold pale eyes, full plate armor darkened with age, blood-red sash, greatsword resting point-down, unmoving posture',
+    artPrompt: 'vivid violet hime cut, glowing pale eyes, ' +
+      'black and silver armored dress with a deep chest cutout and high slit, ' +
+      'ornate gorget and blood-red jeweled sash, sheer black thighhighs, ' +
+      'greatsword resting point-down, unmoving posture',
     desc: '【変換】DEFの80%がATKに乗る。ボスから受けるダメージ-15%。守りを固めるほど打撃が重くなる。',
   },
 
@@ -1325,7 +1350,10 @@ RPG.data.characters = {
       outfit: '#3e2216', outfitLight: '#5e3624', outfitTrim: '#ff9a6a',
       accentColor: '#ffc090',
     },
-    artPrompt: 'ember orange bob, hard gold eyes, scorched white vestment with red trim, censer swinging in one hand, small flames rising around her feet',
+    artPrompt: 'burning ember orange bob, glowing gold eyes, ornate gold circlet, ' +
+      'scorched white and scarlet vestment with a bare midriff and long slit, ' +
+      'gold censer swinging from a jeweled chain, gilded arm rings, ' +
+      'small flames rising around her feet',
     desc: '【変換】回復量の伸びの25%が火力にも乗り、癒した量の75%が敵を焼く。慈悲がそのまま攻撃になる。',
   },
 
@@ -1349,7 +1377,10 @@ RPG.data.characters = {
       outfit: '#1c3a2e', outfitLight: '#2e5a48', outfitTrim: '#a8e0c8',
       accentColor: '#b8f0d8',
     },
-    artPrompt: 'mint short crop, sharp green eyes, light scout armor with open sides, two curved blades held reversed, weight shifted back and ready',
+    artPrompt: 'brilliant mint green short crop, glowing emerald eyes, ' +
+      'teal scout outfit with a bare midriff and open sides, ' +
+      'ornate silver ear cuffs and a jeweled waist chain, thigh straps, ' +
+      'two curved blades held reversed, ready stance',
     desc: '【反撃】反撃が60%で敵全体に及び、反撃の威力+25%。囲まれるほど返る音が増える。',
   },
 
@@ -1373,7 +1404,9 @@ RPG.data.characters = {
       outfit: '#38301e', outfitLight: '#54482e', outfitTrim: '#c8b088',
       accentColor: '#d8c090',
     },
-    artPrompt: 'wheat blonde twin braids, patient brown eyes, thick padded gambeson and bracers, no shield, open palms raised to receive a blow',
+    artPrompt: 'radiant honey blonde twin braids with gold ribbons, glowing amber eyes, ' +
+      'golden brown gambeson worn open over a bare midriff, ' +
+      'ornate bracers and a jeweled belt, thighhighs, open palms raised to receive a blow',
     desc: '【反撃】32%で反撃する。瀕死ほど硬くなる（最大12%軽減）。受けることが攻めになる型。',
   },
 
@@ -1397,7 +1430,10 @@ RPG.data.characters = {
       outfit: '#301a2a', outfitLight: '#4a2a42', outfitTrim: '#b06a9a',
       accentColor: '#e0a0c8',
     },
-    artPrompt: 'plum long hair, half-lidded violet eyes, dark court dress over armored underlayer, enormous mace resting on her shoulder, unbothered posture',
+    artPrompt: 'vivid plum long hair, glowing violet eyes, ' +
+      'black and magenta court dress with a deep chest cutout and high slit, ' +
+      'ornate choker and layered jewel pendants, sheer thighhighs, ' +
+      'enormous mace resting on her shoulder, unbothered posture',
     desc: '【反撃】反撃の威力+40%。開幕から最大HPの15%の障壁を張っている。返す一撃が重い。',
   },
 
@@ -1423,7 +1459,10 @@ RPG.data.characters = {
       outfit: '#3e1e18', outfitLight: '#5e3026', outfitTrim: '#ff8060',
       accentColor: '#ffa080',
     },
-    artPrompt: 'flame red high ponytail, blazing orange eyes, scarred breastplate and a torn war banner on her back, one arm thrown wide in challenge, shouting',
+    artPrompt: 'brilliant flame red high ponytail, burning orange eyes, ' +
+      'scarlet and gold breastplate over a bare midriff, one bare shoulder, ' +
+      'ornate gold pauldron and a torn war banner, jeweled thigh straps, ' +
+      'one arm thrown wide in challenge, shouting',
     desc: '【狙われやすさ】狙われやすさ+125%。ボスから受けるダメージ-15%。反射や棘を積む味方の代わりに、自分が矢面に立つ。',
   },
 
@@ -1447,7 +1486,10 @@ RPG.data.characters = {
       outfit: '#1c2028', outfitLight: '#2e3644', outfitTrim: '#7a86a8',
       accentColor: '#98a4c0',
     },
-    artPrompt: 'slate blue bob, quiet grey eyes, dark hooded shawl over a plain field dress, satchel of bandages, standing slightly turned away',
+    artPrompt: 'deep indigo blue bob, glowing violet eyes, ' +
+      'black hooded shawl over a dark dress with a bare back and high slit, ' +
+      'ornate silver chains and a jeweled satchel clasp, sheer thighhighs, ' +
+      'standing slightly turned away',
     desc: '【狙われやすさ】狙われにくさ+28%。瀕死の相手ほど回復量が増える（最大+75%）。狙われずに後ろから支える。',
   },
 
@@ -1471,7 +1513,10 @@ RPG.data.characters = {
       outfit: '#1a3440', outfitLight: '#2a5464', outfitTrim: '#a0e8f0',
       accentColor: '#d0f8ff',
     },
-    artPrompt: 'pale aqua high ponytail, playful cyan eyes, light leather vest and wrapped forearms, thin rapier held loose, weight on the back foot',
+    artPrompt: 'brilliant aqua high ponytail, glowing cyan eyes, ' +
+      'turquoise duelist outfit with a bare midriff and open shoulders, ' +
+      'ornate ear cuffs and a jeweled rapier guard, thigh straps, weight on the back foot, ' +
+      'playful smirk',
     desc: '【狙われやすさ】8%で攻撃を回避する。瀕死ほど硬い（最大15%軽減）。当たらなければ痛くない、を積む型。',
   },
 
@@ -1497,7 +1542,10 @@ RPG.data.characters = {
       outfit: '#3a1616', outfitLight: '#5a2626', outfitTrim: '#e05858',
       accentColor: '#ff8080',
     },
-    artPrompt: 'deep crimson long hair, burning red eyes, sleeveless red battle wrap, bare muscular arms, huge cleaver held one-handed, blood-slick grip',
+    artPrompt: 'vivid crimson long hair, burning red eyes, ' +
+      'scarlet battle wrap with a bare midriff and bare shoulders, ' +
+      'ornate gold arm rings and a jeweled hip chain, thigh straps, ' +
+      'huge cleaver held one-handed, fierce grin',
     desc: '【HP依存】最大HPの6%がATKに乗る。HPが高いほど火力+15%。体そのものが武器になる型。',
   },
 
@@ -1523,7 +1571,10 @@ RPG.data.characters = {
       outfit: '#38321e', outfitLight: '#544c34', outfitTrim: '#b8a888',
       accentColor: '#c8b890',
     },
-    artPrompt: 'sand blonde short crop, steady hazel eyes, massive layered stone-grey armor, no weapon, arms crossed, planted immovably',
+    artPrompt: 'radiant golden blonde short crop, glowing hazel eyes, ' +
+      'bronze and gold layered armor with a bare midriff and one bare shoulder, ' +
+      'ornate shoulder guards and a jeweled belt, thighhighs, arms crossed, ' +
+      'planted immovably',
     desc: '【HP依存】最大HPの16%がDEFに乗る。HPが高いほど火力+10%。硬さをHPから引き出す型。',
   },
 
@@ -1549,7 +1600,9 @@ RPG.data.characters = {
       outfit: '#1c2a40', outfitLight: '#2e4460', outfitTrim: '#88b0e0',
       accentColor: '#a0c8f0',
     },
-    artPrompt: 'deep blue wavy hair, calm steel eyes, heavy blue coat over reinforced mail, water-filled gourd at her hip, broad steady stance',
+    artPrompt: 'brilliant sapphire wavy hair, glowing blue eyes, ' +
+      'deep blue coat worn open over a bare midriff, high slit skirt, ' +
+      'ornate silver clasps and a jeweled gourd at her hip, thighhighs, broad steady stance',
     desc: '【HP依存】HPが高いほど火力+20%。開幕から最大HPの15%の障壁を張る。満ちているほど強い。',
   },
 
