@@ -2941,9 +2941,20 @@
       battle.rewards.gold += Math.floor(enemy.gold * battle.field.gold_mult);
       battle.rewards.exp += Math.floor(enemy.exp * (battle.field.exp_mult == null ? 1 : battle.field.exp_mult));
       // 戦闘中は「宝箱ID + 個数」のフラグ加算のみ (§2.2)
+      //
+      // box_mult は gold_mult の宝箱版で、フィールド側の調整つまみ。
+      // 敵の drops を直に触らないのは、創世の残響と終わりなき回廊のように
+      // **同じ敵を共有しているフィールドがある** ため。敵を動かすと両方が動く。
+      const boxMult = battle.field.box_mult == null ? 1 : battle.field.box_mult;
       for (const drop of enemy.drops) {
-        if (RPG.rng.chance(drop.chance)) {
-          battle.rewards.boxes[drop.box] = (battle.rewards.boxes[drop.box] || 0) + drop.count;
+        // 1回ぶんを超えたところは確定として数え、端数だけを抽選に回す。
+        // 抽選の回数は倍率によらず drops の数と一致するので、乱数の並びは崩れない。
+        const times = drop.chance * boxMult;
+        const sure = Math.floor(times);
+        const count = sure + (RPG.rng.chance(times - sure) ? 1 : 0);
+        if (count > 0) {
+          battle.rewards.boxes[drop.box] =
+            (battle.rewards.boxes[drop.box] || 0) + drop.count * count;
         }
       }
     }
@@ -2994,6 +3005,6 @@
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX,
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
-    executeSkill, applyDamage,
+    executeSkill, applyDamage, checkWaveCleared,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
