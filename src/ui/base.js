@@ -1959,6 +1959,32 @@
       });
     };
 
+    const peak = RPG.state.peakLevel(charSave);
+
+    /**
+     * 到達点までの範囲でレベルを決め直す (§6.7)。無料。
+     * @param {string} label
+     * @param {number} target
+     */
+    const setTo = (label, target) => {
+      const to = Math.max(1, Math.min(peak, target));
+      if (to === charSave.level) return null;
+      return W.button(label, () => {
+        const dry = RPG.state.setLevel(selectedChar, to);
+        if (!dry.ok && !dry.needsReset) { RPG.app.toast(dry.reason || '失敗'); return; }
+        if (dry.needsReset && !confirm(
+          `${dry.reason}
+
+スキルツリーとクラスツリーを戻して Lv${to} にしますか？`
+        )) return;
+        const res = RPG.state.setLevel(selectedChar, to, { allowReset: true });
+        if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+        RPG.app.toast(`Lv${res.level} にした` + (res.reset ? '（ツリーを戻した）' : ''));
+        RPG.app.refreshTopbar();
+        render(root);
+      }, { variant: 'ghost' });
+    };
+
     return h('div.level-shop',
       h('div.level-shop-head',
         h('span.level-shop-value', { text: `Lv${charSave.level}` }),
@@ -1973,6 +1999,20 @@
         buy('+10', charSave.level + 10),
         buy('上限まで', cap)
       ),
+
+      // 到達点までの行き来 (§6.7)。検証と縛りプレイのため。
+      //
+      // 一度登った高さの中でだけ無料にしてある。無制限だとゴールドで買う
+      // 仕組みが意味を失い、一方通行だと検証のたびに買い直すことになる。
+      peak > 1 ? h('div.level-shop-set',
+        h('span.hint.hint-sm', { text: `到達 Lv${peak} まで無料で行き来できます` }),
+        h('div.level-shop-actions',
+          setTo('-10', charSave.level - 10),
+          setTo('-1', charSave.level - 1),
+          setTo('Lv1', 1),
+          setTo(`到達点 Lv${peak}`, peak)
+        )
+      ) : null,
       atMax ? null : h('p.hint.hint-sm', {
         text: `1経験値あたり ${RPG.state.GOLD_PER_EXP} G。周回で同時に入る額のおよそ2倍なので、`
           + `出撃して稼ぐほうが得です。貯まっている経験値のぶんは差し引かれます。`,

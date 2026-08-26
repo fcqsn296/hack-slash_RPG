@@ -2131,6 +2131,99 @@
       RPG.state.load();
     }
 
+    /* ===== レベルを決め直す（検証・縛りプレイ用）(§6.7) ===== */
+    {
+      // ── なぜ要るのか ──
+      // 闘技場の突破を確かめようにも、主人公だけ255で仲間が70では
+      // 何を確かめたことになるのか分からない。編成のレベルを揃えられないと
+      // 実測そのものが成立しない。
+      //
+      // ── なぜ「到達点まで」なのか ──
+      // 無制限にするとゴールドで買う仕組みが意味を失い、一方通行にすると
+      // 検証のたびに買い直すことになる。一度登った高さの中でだけ自由にする。
+      const before = localStorage.getItem(RPG.state.STORAGE_KEY);
+      RPG.state.reset();
+      const save = RPG.state.get();
+      save.levelCapBonus = 110;
+      const c = save.characters.ch_hero;
+
+      c.level = 120; c.peak = 120; c.tree = { tr_atk: 5, tr_def: 5, tr_hp: 5 };
+
+      // --- 到達点の中は自由 ---
+      {
+        const r = RPG.state.setLevel('ch_hero', 70);
+        assertTrue('レベル調整: 到達点より下へは自由に下げられる',
+          r.ok === true && c.level === 70 && r.reset === false, r.reason || `Lv${c.level}`);
+        const back = RPG.state.setLevel('ch_hero', 120);
+        assertTrue('レベル調整: 到達点までは無料で戻せる',
+          back.ok === true && c.level === 120, back.reason || `Lv${c.level}`);
+      }
+
+      // --- 到達点より上は断る ---
+      {
+        const r = RPG.state.setLevel('ch_hero', 200);
+        assertTrue('レベル調整: 到達点より上へは上げられない',
+          r.ok === false && /到達/.test(r.reason || ''), r.reason || '');
+        assertTrue('レベル調整: 断られてもレベルは動かない', c.level === 120, `Lv${c.level}`);
+      }
+
+      // --- 消費SPが収まらないときは確認を求める ---
+      {
+        const dry = RPG.state.setLevel('ch_hero', 15);
+        assertTrue('レベル調整: SPが収まらないと、そのままでは下げない',
+          dry.ok === false && dry.needsReset === true, dry.reason || '');
+        assertTrue('レベル調整: 確認前はツリーを壊さない',
+          Object.keys(c.tree).length > 0 && c.level === 120, JSON.stringify(c.tree));
+
+        const done = RPG.state.setLevel('ch_hero', 15, { allowReset: true });
+        assertTrue('レベル調整: 了承すればツリーを戻して下げる',
+          done.ok === true && done.reset === true && c.level === 15
+          && Object.keys(c.tree).length === 0, done.reason || '');
+        assertTrue('レベル調整: 下げたあと消費SPが配られるSPを超えない',
+          RPG.tree.spentSp(c.tree) <= RPG.state.totalSp('ch_hero'),
+          `${RPG.tree.spentSp(c.tree)} / ${RPG.state.totalSp('ch_hero')}`);
+      }
+
+      // --- 枠が減ったら、はみ出した装備を外す ---
+      {
+        RPG.state.setLevel('ch_hero', 120);
+        RPG.rng.seed(55);
+        for (let i = 0; i < 20; i++) save.inventory.push(RPG.gear.identify('box_gold', RPG.state.nextUid()));
+        RPG.rng.seed(null);
+        RPG.autoequip.forCharacter('ch_hero');
+        const wide = RPG.units.slotCounts(c);
+        assertTrue('レベル調整: 下げる前は枠がひろい', wide.weapon === 2, `武器${wide.weapon}`);
+
+        RPG.state.setLevel('ch_hero', 8, { allowReset: true });
+        const narrow = RPG.units.slotCounts(c);
+        assertTrue('レベル調整: 下げると枠も戻る', narrow.weapon === 1, `武器${narrow.weapon}`);
+        assertTrue('レベル調整: 枠からはみ出した装備は外れる',
+          ['weapon', 'armor', 'accessory'].every((k) => c.equipped[k].length <= narrow[k]),
+          Object.keys(narrow).map((k) => `${k} ${c.equipped[k].length}/${narrow[k]}`).join(' '));
+      }
+
+      // --- 経験値で上がると到達点も伸びる ---
+      {
+        RPG.state.setLevel('ch_hero', 120);
+        const peakBefore = RPG.state.peakLevel(c);
+        RPG.state.addExp('ch_hero', RPG.units.expToNext(120) * 3);
+        assertTrue('レベル調整: 経験値で上がれば到達点も伸びる',
+          RPG.state.peakLevel(c) > peakBefore && RPG.state.peakLevel(c) === c.level,
+          `${peakBefore} → ${RPG.state.peakLevel(c)}（Lv${c.level}）`);
+      }
+
+      // --- 新規キャラの初期形にも peak がある (§7) ---
+      {
+        const fresh = RPG.state.createCharacter('ch_hero');
+        assertTrue('レベル調整: 新規作成の初期形にも到達点がある',
+          typeof fresh.peak === 'number', JSON.stringify(fresh.peak));
+      }
+
+      if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+      else localStorage.setItem(RPG.state.STORAGE_KEY, before);
+      RPG.state.load();
+    }
+
     /* ===== 装備枠はレベルで自動的に増える (§5.3) ===== */
     {
       // ── なぜツリーから外したか ──
