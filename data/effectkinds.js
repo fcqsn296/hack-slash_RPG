@@ -171,7 +171,6 @@ RPG.data.effectKinds = {
   self_curse_power: { to: 'passives', shape: 'add', uniq: 'selfCursePower', route: 'passives', key: 'selfCursePower', label: '自分の弱体1つにつき火力', fmt: 'pct' },
   shield_regen: { to: 'passives', shape: 'add', uniq: 'shieldRegen', route: 'passives', key: 'shieldRegen', label: '毎ラウンド障壁を張り直す', fmt: 'pct' },
   sigil_burst: { to: 'passives', shape: 'add', uniq: 'sigilBurst', route: 'passives', key: 'sigilBurst', label: '刻印の炸裂', fmt: 'pct' },
-  slot: { to: 'build', shape: 'keyed', needs: ["slot"], uniq: null },
   solo_power: { to: 'passives', shape: 'add', uniq: 'soloPower', route: 'passives', key: 'soloPower', label: '単騎のときの火力', fmt: 'pct' },
   stable_damage: { to: 'passives', shape: 'add', uniq: null, key: 'stableDamage', label: 'ダメージの振れ幅を抑える', fmt: 'pct' },
   start_shield: { to: 'passives', shape: 'add', uniq: null, key: 'startShield', label: '開幕の障壁', fmt: 'pct' },
