@@ -137,6 +137,11 @@
    * @returns {{ok: boolean, reason?: string}}
    */
   function start(floor) {
+    // レベルで解禁する (§10.7)
+    {
+      const gate = canChallenge();
+      if (!gate.ok) return { ok: false, reason: gate.reason || '' };
+    }
     const s = RPG.state.get();
     if (s.party.length === 0) return { ok: false, reason: 'パーティが空です' };
     const from = Math.max(1, Math.floor(floor || 1));
@@ -340,7 +345,23 @@
     };
   }
 
+  /**
+   * 塔に挑めるか (§10.7)。闘技場と同じく**主人公のレベル**だけで見る。
+   * 装備や編成で門前払いにすると、何を直せばいいのか分からなくなる。
+   * @returns {{ok: boolean, reason?: string, need: number}}
+   */
+  function canChallenge() {
+    const need = RPG.data.tower.unlockLevel || 0;
+    const hero = RPG.state.get().characters.ch_hero;
+    const level = hero ? hero.level : 1;
+    if (level < need) {
+      return { ok: false, need, reason: `主人公のレベル${need}から挑戦できる（現在 ${level}）` };
+    }
+    return { ok: true, need };
+  }
+
   RPG.tower = {
+    canChallenge,
     store, best, run, status,
     tierOf, isBossFloor, floorSpec, battleConfig, boxFor, nextMilestone,
     startPoints, canStartAt,

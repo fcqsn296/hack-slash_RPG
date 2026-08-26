@@ -1349,6 +1349,11 @@
     if (!RPG.data.classes[classId]) return { ok: false, reason: '不明なクラス' };
     if (c.klass === classId) return { ok: false, reason: '既にそのクラスに就いている' };
 
+    // レベルで解禁する (§12)。転職も同じ条件を通すが、
+    // 就任済みなら canTakeClass が true を返すので妨げにならない。
+    const gate = RPG.klass.canTakeClass(c);
+    if (!gate.ok) return { ok: false, reason: gate.reason || '' };
+
     // 未就任からの就任は無料。ここで金を取ると、そもそも触ってもらえない。
     const cost = c.klass ? (RPG.data.classChangeCost || 0) : 0;
     if (s.gold < cost) {

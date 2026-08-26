@@ -588,6 +588,13 @@
     // レベル購入の相場。src/core/state.js の GOLD_PER_EXP と同じ値。
     // data/ は src/ より先に読まれるので参照できない。検証テストが突き合わせている。
     const GOLD_PER_EXP = 0.44;
+    // 節目のレベル。src/core/units.js の SLOT_LEVELS と各データの解禁値と同じ。
+    // data/ は src/ より先に読まれるので参照できない。検証テストが突き合わせている。
+    const slotL = { accessory: 5, armor: 10, weapon: 20 };
+    const classL = (RPG.data.classUnlockLevel || 30);
+    const towerL = ((RPG.data.tower || {}).unlockLevel || 40);
+    const forgeL = (RPG.data.forgeUnlockLevel || 50);
+    const arenaL = ((RPG.data.arena || {}).unlockLevel || 60);
 
     const boxes = RPG.data.boxes || {};
     const rarities = RPG.data.equipRarities || {};
@@ -664,6 +671,30 @@
           + 'そのぶん**平坦なステータスほどグレード差が効きます**。',
       ]),
       see: ['gl_tag', 'gl_refine'],
+    };
+
+    RPG.data.glossary.gl_milestones = {
+      group: 'build',
+      term: 'レベルの節目',
+      short: 'レベルを上げると、決まった段で新しい遊び方が開く。',
+      body: [
+        'レベルはSPとステータスが毎回伸びるほかに、**決まった段で新しいものが開きます**。',
+        '　**Lv' + slotL.accessory + '** … アクセサリー枠が2つに',
+        '　**Lv' + slotL.armor + '** … 防具枠が2つに',
+        '　**Lv' + slotL.weapon + '** … 武器枠が2つに（実質の二刀流）',
+        '　**Lv' + classL + '** … クラスに就ける',
+        '　**Lv' + towerL + '** … エンドレスタワーに挑める',
+        '　**Lv' + forgeL + '** … 鍛冶（強化・厳選・再抽選）が使える',
+        '　**Lv' + arenaL + '** … 闘技場に挑める',
+        '装備枠とクラスは**そのキャラ自身のレベル**で開きます。'
+          + '塔・鍛冶・闘技場は**主人公のレベル**です（装備も挑戦記録もアカウントで共有するため）。',
+        '鍛冶がLv' + forgeL + 'なのは、それより前は数フィールドごとに装備を丸ごと'
+          + '乗り換えるからです。強化に払っても次の宝箱で捨てることになります。',
+        'クラスがLv' + classL + 'なのは、**1人につき一度きりの選択**だからです。'
+          + '始めた直後に、何も分からないまま6つから1つを選ばされるのを避けています。'
+          + '中身は解禁前から見られます。',
+      ],
+      see: ['gl_level_buy'],
     };
 
     RPG.data.glossary.gl_level_buy = {

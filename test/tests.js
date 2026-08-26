@@ -1993,6 +1993,84 @@
       assertTrue('§8 固有技のIDが実在する', brokenSkill.length === 0, brokenSkill.join(' / '));
     }
 
+    /* ===== レベルの節目で開くもの (§7.6 / §10.7 / §12) ===== */
+    {
+      // ── なぜ検査するのか ──
+      // 解禁はデータ側の数値1つで動くので、**画面だけ塞いで入口を塞ぎ忘れる**
+      // ことが起きやすい。ここでは実際に呼んで断られるところまで見る。
+      const before = localStorage.getItem(RPG.state.STORAGE_KEY);
+      RPG.state.reset();
+      const save = RPG.state.get();
+      const hero = save.characters.ch_hero;
+      save.gold = 99999999;
+
+      const steps = [
+        ['クラス', RPG.data.classUnlockLevel],
+        ['塔', RPG.data.tower.unlockLevel],
+        ['鍛冶', RPG.data.forgeUnlockLevel],
+        ['闘技場', RPG.data.arena.unlockLevel],
+      ];
+      assertTrue('節目: 解禁レベルが順番に並んでいる',
+        steps.every((x, i) => i === 0 || x[1] > steps[i - 1][1]),
+        steps.map((x) => `${x[0]}${x[1]}`).join(' → '));
+
+      // --- クラス（そのキャラのレベルで見る）---
+      {
+        hero.level = RPG.data.classUnlockLevel - 1;
+        const no = RPG.state.setClass('ch_hero', RPG.klass.all()[0].id);
+        assertTrue('節目: クラスは解禁レベル未満だと就けない',
+          no.ok === false && !!no.reason, no.reason || '');
+        assertTrue('節目: 断られたらクラスは付かない', !hero.klass, String(hero.klass));
+
+        hero.level = RPG.data.classUnlockLevel;
+        const yes = RPG.state.setClass('ch_hero', RPG.klass.all()[0].id);
+        assertTrue('節目: 解禁レベルで就ける', yes.ok === true, yes.reason || '');
+
+        // 就任済みなら、後から条件を厳しくしても操作を奪わない
+        hero.level = 1;
+        assertTrue('節目: 就任済みなら低レベルでも締め出さない',
+          RPG.klass.canTakeClass(hero).ok === true, '');
+        hero.klass = null;
+      }
+
+      // --- 塔（主人公のレベル）---
+      {
+        hero.level = RPG.data.tower.unlockLevel - 1;
+        const no = RPG.tower.start(1);
+        assertTrue('節目: 塔は解禁レベル未満だと始められない',
+          no.ok === false && !!no.reason, no.reason || '');
+        hero.level = RPG.data.tower.unlockLevel;
+        assertTrue('節目: 解禁レベルで塔に挑める', RPG.tower.canChallenge().ok === true, '');
+      }
+
+      // --- 鍛冶（主人公のレベル）---
+      {
+        RPG.rng.seed(31);
+        const item = RPG.gear.identify('box_silver', RPG.state.nextUid());
+        RPG.rng.seed(null);
+        save.inventory.push(item);
+
+        hero.level = RPG.data.forgeUnlockLevel - 1;
+        assertTrue('節目: 鍛冶は解禁レベル未満だと使えない',
+          RPG.enhance.canForge().ok === false, '');
+        const denied = [
+          RPG.enhance.enhance(item.uid, []),
+          RPG.enhance.reroll(item.uid),
+          RPG.enhance.refine(item.uid, { scope: 'all', depth: 'value' }),
+        ];
+        assertTrue('節目: 強化・厳選・再抽選のどれも入口で断られる',
+          denied.every((r) => r.ok === false && !!r.reason),
+          denied.map((r) => r.reason || 'ok').join(' / '));
+
+        hero.level = RPG.data.forgeUnlockLevel;
+        assertTrue('節目: 解禁レベルで鍛冶が使える', RPG.enhance.canForge().ok === true, '');
+      }
+
+      if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+      else localStorage.setItem(RPG.state.STORAGE_KEY, before);
+      RPG.state.load();
+    }
+
     /* ===== 装備枠はレベルで自動的に増える (§5.3) ===== */
     {
       // ── なぜツリーから外したか ──
@@ -3532,6 +3610,9 @@
       RPG.state.reset();
       const save = RPG.state.get();
       save.gold = 5000000;
+      // 鍛冶はレベルで解禁する (§7.6)。ここは鍛冶そのものを見る場所なので、
+      // 解禁済みの状態から始める。解禁の検査は「レベルの節目」側で行う。
+      save.characters.ch_hero.level = RPG.data.forgeUnlockLevel;
 
       RPG.rng.seed(1234);
       /** @param {string} boxId @param {number} n */
@@ -9265,6 +9346,17 @@
         '全部の値を引き直す費用が実装と一致');
       mentions('gl_level_buy', `${RPG.state.GOLD_PER_EXP} G`,
         'レベル購入の相場が実装と一致');
+      for (const [what, lv] of [
+        ['アクセサリー枠', RPG.units.SLOT_LEVELS.accessory],
+        ['防具枠', RPG.units.SLOT_LEVELS.armor],
+        ['武器枠', RPG.units.SLOT_LEVELS.weapon],
+        ['クラス', RPG.data.classUnlockLevel],
+        ['塔', RPG.data.tower.unlockLevel],
+        ['鍛冶', RPG.data.forgeUnlockLevel],
+        ['闘技場', RPG.data.arena.unlockLevel],
+      ]) {
+        mentions('gl_milestones', `Lv${lv}`, `${what}の解禁レベルが実装と一致`);
+      }
       // 理想値の前提が「実際に副オプションが出る宝箱」であること。
       // 星辰は 100% ユニークなので、あそこを前提にすると届かない数字を示すことになる。
       {

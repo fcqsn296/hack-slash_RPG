@@ -1627,7 +1627,12 @@
         })
       ),
 
-      st.active ? towerRunPanel(root, st) : towerStartPanel(root, st),
+      (() => {
+        const gate = RPG.tower.canChallenge();
+        // 解禁前でも階層表は見せる。何が待っているかは分かってよい。
+        if (gate.ok) return st.active ? towerRunPanel(root, st) : towerStartPanel(root, st);
+        return h('p.tier-locked-note', W.icon('lock'), h('span', { text: gate.reason }));
+      })(),
       towerTierTable(st)
     );
   }
@@ -1750,6 +1755,23 @@
    */
   function renderForge(root) {
     const save = RPG.state.get();
+
+    // レベルで解禁する (§7.6)。序盤は数フィールドごとに装備を丸ごと
+    // 乗り換えるので、強化に払っても次の宝箱で捨てることになる。
+    {
+      const gate = RPG.enhance.canForge();
+      if (!gate.ok) {
+        return h('div.pane',
+          W.heading('鍛冶', '装備を強化して伸ばし、副オプションを振り直す。'),
+          h('p.tier-locked-note', W.icon('lock'), h('span', { text: gate.reason })),
+          h('p.hint.hint-sm', {
+            text: 'それまでは拾った装備がどんどん上書きされていきます。'
+              + '乗り換えが落ち着くころに開きます。',
+          })
+        );
+      }
+    }
+
     const owner = /** @type {Record<number, string>} */ ({});
     for (const id of Object.keys(save.characters)) {
       const c = save.characters[id];
@@ -3250,6 +3272,7 @@ ${nextCost.toLocaleString()} G
 
     // --- まだクラスに就いていない ---
     if (!cur) {
+      const gate = RPG.klass.canTakeClass(charSave);
       return h('section.class-panel.is-empty.panel-cut',
         h('div.class-panel-head',
           h('h3', { text: 'クラス' }),
@@ -3259,6 +3282,9 @@ ${nextCost.toLocaleString()} G
           text: 'クラスは1人につき1つだけ。ポイントは少ないが、1つ1つがスキルツリーより重い。' +
             'クラス技には「解禁ラウンド」と「クールタイム」があり、手動で戦うほど活きる。',
         }),
+        // 解禁前でも6つの中身は見せる。何が待っているか分からないまま
+        // レベルを上げさせるより、選ぶ準備ができるほうがよい。
+        gate.ok ? null : h('p.tier-locked-note', W.icon('lock'), h('span', { text: gate.reason })),
         h('div.class-choices', RPG.klass.all().map((c) => classChoice(root, charSave, c, false)))
       );
     }
@@ -3398,8 +3424,12 @@ ${nextCost.toLocaleString()} G
         render(root);
       }, {
         variant: 'primary',
-        sub: cost ? `${cost.toLocaleString()} G` : undefined,
-        disabled: paid && save.gold < cost,
+        sub: (() => {
+          const g = RPG.klass.canTakeClass(charSave);
+          if (!g.ok) return `Lv${g.need} から`;
+          return cost ? `${cost.toLocaleString()} G` : undefined;
+        })(),
+        disabled: (paid && save.gold < cost) || !RPG.klass.canTakeClass(charSave).ok,
       }) : null
     );
   }

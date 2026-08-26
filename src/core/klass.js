@@ -34,6 +34,28 @@
   }
 
   /**
+   * そのキャラがクラスに就けるか (§12)。
+   *
+   * **そのキャラ自身のレベル**で見る。闘技場や塔と違って、クラスは
+   * 1人ずつの選択なので、主人公の到達で他の全員が開くのはおかしい。
+   *
+   * 既に就いている場合は無条件で true。条件を後から足したときに、
+   * 就任済みのキャラが操作できなくなるのを避けるため。
+   *
+   * @param {any} charSave
+   * @returns {{ok: boolean, reason?: string, need: number}}
+   */
+  function canTakeClass(charSave) {
+    const need = RPG.data.classUnlockLevel || 0;
+    if (charSave && charSave.klass) return { ok: true, need };
+    const level = (charSave && charSave.level) || 1;
+    if (level < need) {
+      return { ok: false, need, reason: `Lv${need} からクラスに就ける（現在 Lv${level}）` };
+    }
+    return { ok: true, need };
+  }
+
+  /**
    * 配られるクラスポイントの総数 (§12)。
    * スキルポイントが「レベル-1 + 凸」なのに対し、こちらは数レベルに1つ。
    * @param {any} charSave
@@ -216,6 +238,7 @@
   }
 
   RPG.klass = {
+    canTakeClass,
     def, all, node, totalPoints, spentPoints, availablePoints,
     canInvest, canRefund, refundCost, effects, summary,
     chosenBranch, branchAvailable, branches,
