@@ -446,10 +446,21 @@ def candidate_meta(png_path):
 
 # ---------------------------------------------------------------- 実行
 
+KIND_LABEL = {"enemy": "エネミー", "character": "キャラクター"}
+
+
 def resolve_targets(args, targets):
     if args.missing:
-        kind = {"enemy": "エネミー", "character": "キャラクター"}.get(args.missing)
+        kind = KIND_LABEL.get(args.missing)
         return [t for t in targets if not t["existing"] and (not kind or t["kind"] == kind)]
+    # --missing のちょうど裏返し。**既に絵が入っているもの**をまとめて対象にする。
+    #
+    # ── なぜ要るのか ──
+    # 絵柄の方針を変えたとき、直すべきは「まだ絵が無いもの」ではなく
+    # 「もう入っているもの」のほう。IDを一列に並べて打つしかなかった。
+    if args.redo:
+        kind = KIND_LABEL.get(args.redo)
+        return [t for t in targets if t["existing"] and (not kind or t["kind"] == kind)]
     picked = []
     for tid in args.ids:
         found = next((t for t in targets if t["id"] == tid), None)
@@ -466,9 +477,10 @@ def run_generation(args, targets, cfg):
     chosen = resolve_targets(args, targets)
 
     if not chosen:
-        print("対象がありません。IDを指定するか --missing enemy を使ってください。")
+        print("対象がありません。IDを指定するか、--missing enemy / --redo character を使ってください。")
         return 1
 
+    replaced_ids = []
     total = len(chosen) * args.count
     if total > MAX_REQUESTS and not args.dry_run:
         print("一度に %d 枚は多すぎます（上限 %d 枚）。--count を減らすか対象を絞ってください。"
@@ -521,8 +533,12 @@ def run_generation(args, targets, cfg):
             print("  %d/%d 保存: %s" % (i + 1, args.count, os.path.relpath(path, ROOT)))
 
             if args.install and i == 0:
+                replaced = bool(t["existing"])
                 dest = install(t, path, cfg)
-                print("       → %s へ適用しました" % os.path.relpath(dest, ROOT))
+                print("       → %s へ適用しました%s"
+                      % (os.path.relpath(dest, ROOT), "（差し替え）" if replaced else ""))
+                if replaced:
+                    replaced_ids.append(t)
         if args.save and not args.dry_run:
             save_override(t["id"], prompt)
             print("  プロンプトを prompt_overrides.json に保存しました")
@@ -531,6 +547,27 @@ def run_generation(args, targets, cfg):
     if not args.dry_run:
         print("%d 枚を生成しました。" % made)
         print("候補から選ぶには:  python tools/novelai_gen.py --pick <ID>")
+
+    # 差し替えたときだけ出す注意 (§1.3)。
+    #
+    # ── なぜここで言うのか ──
+    # 絵を入れ替えると頭の位置が変わるので、顔アイコンの切り抜きは必ずずれる。
+    # ところが detect_faces.py の --write は **既に face がある対象を触らない**
+    # （作者が意図して決めた値とみなすため）。つまり差し替えでは
+    # 「測り直したつもりで何も書かれていない」が起きる。実際そうなった。
+    if replaced_ids and not args.dry_run:
+        chars = [t for t in replaced_ids if t["kind"] == "キャラクター"]
+        print()
+        print("差し替えたので、続けて加工が要ります:")
+        print("  python tools/prepare_release.py --apply     透過 → メタデータ除去 → WebP")
+        if chars:
+            print()
+            print("  ※ 味方は **顔の位置を必ず測り直してください**。")
+            print("     絵が変われば頭の位置も変わりますが、detect_faces.py --write は")
+            print("     既に face がある対象を触りません（手動指定とみなすため）。")
+            print("     python tools/detect_faces.py --sheet   で見てから、")
+            print("     data/characters.js の face を手で入れ替えること。")
+            print("     対象: " + "、".join(t["id"] for t in chars))
     return 0
 
 
@@ -889,6 +926,8 @@ def main():
     parser.add_argument("--size", help="画像サイズ。例 1216x832（既定は立ち絵と同じ縦長）")
     parser.add_argument("--save", action="store_true",
                         help="使ったプロンプトを prompt_overrides.json に保存する")
+    parser.add_argument("--redo", choices=["enemy", "character", "all"],
+                        help="既に画像が入っているものをまとめて対象にする（差し替え用）")
     parser.add_argument("--install", action="store_true",
                         help="生成した1枚目をそのまま assets/ へ適用する")
     parser.add_argument("--pick", metavar="ID", help="候補から選ぶ画面を開く")
@@ -925,8 +964,12 @@ def main():
         args.missing = None
         args.ids = [t["id"] for t in targets if not t["existing"]]
 
+    if args.redo == "all":
+        args.redo = None
+        args.ids = [t["id"] for t in targets if t["existing"]]
+
     # 引数なし＝ダブルクリックで開かれた場合。一覧画面を出す。
-    if not args.ids and not args.missing:
+    if not args.ids and not args.missing and not args.redo:
         return run_launcher(targets, cfg, args)
 
     return run_generation(args, targets, cfg)
