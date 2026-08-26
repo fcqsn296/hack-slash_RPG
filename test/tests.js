@@ -2828,6 +2828,27 @@
         const flatteners = ['flat even lighting', 'matte finish', 'flat lighting'];
         const flat = flatteners.filter((t) => (P.enemies.bs_myriad_visage || '').indexOf(t) >= 0);
         assertTrue('凡庸さを塗りで書いていない', flat.length === 0, flat.join('、'));
+      }
+
+      /* ===== 実在作品の混入を防ぐ歯止め ===== */
+      {
+        // 画風タグに実在の作品名を使っている（土台の zenless zone zero）。
+        // その状態で「何かの形」としか書かない枠を残すと、**その作品の
+        // キャラクターで埋められる**。実際に元作品のマスコットが並んで出た。
+        //
+        // 第一の対策は「個別を具体的に書く」ことで、これは検査しづらい。
+        // ここでは実際に踏んだ地雷を再発防止として固定しておく。
+        const vague = ['half formed echoes', 'echoes of beasts', 'shapes of creatures',
+          'half formed shapes', 'silhouettes of other creatures'];
+        const hit = Object.keys(P.enemies)
+          .filter((id) => vague.some((v) => P.enemies[id].indexOf(v) >= 0));
+        assertTrue('「何かの形」で画面を埋めている敵がいない', hit.length === 0, hit.join('、'));
+
+        // 取りこぼしを拾う二段目。
+        for (const need of ['mascot', 'plush toy']) {
+          assertTrue(`除外に "${need}" が入っている`,
+            P.negative.indexOf(need) >= 0, P.negative);
+        }
         // 土台を選び分ける鍵は「個別が自分で 1girl / 1boy を名乗ったか」。
         // 名乗っている敵だけが人の土台に載る（tools/novelai_gen.py と対）。
         const declares = (/** @type {string} */ id) =>
