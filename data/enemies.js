@@ -231,6 +231,70 @@ RPG.data.enemies = {
   },
 
   /* ======================= 創世の残響（敵Lv170 / パーティ火力 約250,000） ======================= */
+  /* ── 終わりなき回廊の雑魚 (§10.8) ─────────────────────
+   *
+   * ── なぜ回廊専用にしたか ──
+   * 「既存の雑魚を全部レベルスケールさせて出す」も考えたが、成長曲線が
+   * レベル帯ごとに違うので伸ばした先で揃わない。実測すると Lv215 で
+   * HP が 10,190（坑道の鬼火）〜 244,000（純度）と **24倍** ひらいた。
+   * 同じウェーブに並ぶと片方は1発で消え、片方は削りきれない。
+   *
+   * そこで **ステータスは3タイプに絞り、姿だけを出るたびに借りる**。
+   * 借りるのは絵・色・紋様・属性の4つで、名前と数値と技はこちらのまま
+   * （units.wearShape / battle.nextWave）。
+   *
+   * ── なぜ姿を借りるのが設定に合うか ──
+   * この世界の敵は「エーテルが記憶した姿」で、だから元が人だったものは
+   * 衣ごと憶えられている。回廊が置いてきたものの姿を着るのは、その延長。
+   *
+   * ── 3つの合計は、共有をやめる前の3体の平均に揃えてある ──
+   * 経済（1周の収入・ラウンド数）を動かさないため。役割だけを振り分けている。
+   *   累ねの躯 … 硬い。手数は少ない
+   *   群れる残り火 … 柔らかい。多段で削る
+   *   研がれた記憶 … 一撃が重い。防御を抜く
+   *
+   * 絵は持たせない。姿を借りるものに固有の姿があるのは矛盾で、
+   * 図鑑では紋様タイルに落ちる（そのほうが「決まった形が無い」ことが伝わる）。
+   */
+  em_corridor_hulk: {
+    name: '累ねの躯', element: 'none',
+    base: { hp: 26000, atk: 520, def: 1050, magi_power: 620 },
+    growth: { hp: 940, atk: 22, def: 41, magi_power: 24 },
+    skills: ['sk_enemy_crush', 'sk_enemy_pulse'],
+    gold: 920, exp: 5300,
+    drops: [{ box: 'box_dragon', chance: 0.92, count: 1 },
+            { box: 'box_astral', chance: 0.11, count: 1 }],
+    color: '#8d93a6', glyph: '累',
+    // 姿を借りるものに固有の姿は無い (§10.8)。図鑑では紋様タイルに落ちる。
+    noArt: true,
+  },
+
+  em_corridor_swarm: {
+    name: '群れる残り火', element: 'none',
+    base: { hp: 13000, atk: 640, def: 760, magi_power: 700 },
+    growth: { hp: 470, atk: 27, def: 30, magi_power: 27 },
+    skills: ['sk_enemy_shape_rend', 'sk_enemy_claw'],
+    gold: 920, exp: 5300,
+    drops: [{ box: 'box_dragon', chance: 0.92, count: 1 },
+            { box: 'box_astral', chance: 0.11, count: 1 }],
+    color: '#c9a06a', glyph: '群',
+    // 姿を借りるものに固有の姿は無い (§10.8)。図鑑では紋様タイルに落ちる。
+    noArt: true,
+  },
+
+  em_corridor_edge: {
+    name: '研がれた記憶', element: 'none',
+    base: { hp: 18000, atk: 690, def: 900, magi_power: 890 },
+    growth: { hp: 640, atk: 29, def: 34, magi_power: 35 },
+    skills: ['sk_enemy_oblivion', 'sk_enemy_rend'],
+    gold: 920, exp: 5300,
+    drops: [{ box: 'box_dragon', chance: 0.92, count: 1 },
+            { box: 'box_astral', chance: 0.11, count: 1 }],
+    color: '#b8c4d8', glyph: '研',
+    // 姿を借りるものに固有の姿は無い (§10.8)。図鑑では紋様タイルに落ちる。
+    noArt: true,
+  },
+
   em_first_flame: {
     name: '原初の焔', element: 'fire',
     base: { hp: 17000, atk: 620, def: 880, magi_power: 800 },
@@ -384,6 +448,27 @@ RPG.data.enemies = {
     color: '#c9d4e0', glyph: '弐',
     desc: '一番機の次に作られた機体。命令の写しを預かっていたが、'
       + '写した相手が黙ったので、写しのほうを本物として守っている。',
+  },
+
+  /**
+   * 終わりなき回廊のボス (§10.8)。
+   *
+   * 創世の残響と共有していたのをやめた。回廊は「置いていくことができない」
+   * 場所として作ってあるのに、待っている相手が手前の狩場と同じでは締まらない。
+   *
+   * 数値は創世の残響と同じにしてある。回廊の経済（1周の収入）を動かさずに
+   * 相手だけを差し替えるため。違うのは技で、こちらは全部無属性にした。
+   * 累なった貌に属性が1つ決まっているのはおかしいので。
+   */
+  bs_myriad_visage: {
+    name: '累なる貌', element: 'none', boss: true,
+    base: { hp: 68000, atk: 900, def: 1150, magi_power: 1000 },
+    growth: { hp: 2000, atk: 40, def: 46, magi_power: 42 },
+    skills: ['sk_enemy_oblivion', 'sk_enemy_shape_rend', 'sk_enemy_rend'],
+    gold: 9000, exp: 34000,
+    drops: [{ box: 'box_dragon', chance: 1.0, count: 6 },
+            { box: 'box_astral', chance: 1.0, count: 1 }],
+    color: '#cbb8d8', glyph: '貌',
   },
 
   bs_genesis_echo: {

@@ -240,6 +240,19 @@ def build_prompt(target, catalog, overrides, extra=""):
     declares_subject = re.search(r"\b(1boy|1girl|male focus)\b", detail)
     subject = "" if declares_subject else catalog["subject"].get(kind, "")
 
+    # 人の姿をした敵は、怪物girl向けの土台を使わない。
+    #
+    # ── なぜ「自分で名乗ったか」で切り替えるのか ──
+    # 敵の土台には glowing eyes と体型の指定が入っていて、これは
+    # **「普通の人間に見えない」ための語**。人として描きたい相手には邪魔になる。
+    # 判定を新しい旗で増やさず、既にある「自分で 1girl / 1boy を名乗ったか」に
+    # 相乗りさせている。名乗るということは「怪物girl ではない」と言うことなので、
+    # 土台の選択と意味がそのまま重なる。
+    # 既存の敵43件はどれも名乗っていないので、この規則では1件も動かない。
+    base_key = kind
+    if is_enemy and declares_subject and catalog["base"].get("enemyHuman"):
+        base_key = "enemyHuman"
+
     # レアリティごとの味付け (§1.3)。高レアほど華やかになるようにする。
     #
     # ── なぜ土台に置かず、ここで足すのか ──
@@ -251,7 +264,7 @@ def build_prompt(target, catalog, overrides, extra=""):
         rarity = (_meta(target) or {}).get("rarity")
         rarity_tag = (catalog.get("rarityTags") or {}).get(rarity, "")
 
-    pieces = [p for p in (subject, catalog["base"].get(kind, ""), rarity_tag, detail, extra) if p]
+    pieces = [p for p in (subject, catalog["base"].get(base_key, ""), rarity_tag, detail, extra) if p]
     return ", ".join(pieces)
 
 

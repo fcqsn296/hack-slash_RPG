@@ -2793,6 +2793,74 @@
       assertTrue('プロンプト: 敵の主語は monster girl',
         /monster girl/.test(P.subject.enemy), P.subject.enemy);
 
+      // 人の姿をした敵の土台 (§10.8)。
+      //
+      // 怪物girl向けの土台には「普通の人間に見えない」ための語が入っている。
+      // 人として描きたい相手にそれが乗ると、何枚引いても人にならない
+      // （累なる貌を24枚生成して24枚とも目の光った巨躯になった）。
+      {
+        assertTrue('人の姿の敵用の土台がある',
+          typeof P.base.enemyHuman === 'string' && P.base.enemyHuman.length > 0, '');
+        // 抜いてよいのは「人ではない」と言っている語だけ。
+        const forbidden = ['glowing eyes', 'monster girl'];
+        const leaked = forbidden.filter((t) => P.base.enemyHuman.indexOf(t) >= 0);
+        assertTrue('人の土台に「人に見えない」ための語が残っていない',
+          leaked.length === 0, leaked.join('、'));
+
+        // 逆に、**塗りと体積の語は落とさないこと**。
+        // 一度これを抜いたら、平坦で淡い、他の敵と並べられない絵になった。
+        // 肉の厚みと陰影は画面全体の揃え方であって、人か怪物かとは関係が無い。
+        for (const need of ['thick thighs', 'wide hips', 'skindentation',
+          'zenless zone zero']) {
+          assertTrue(`人の土台に塗りの指定 "${need}" が残っている`,
+            P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
+        }
+        // エフェクトを持てない相手が淡くならないよう、光を明示している。
+        assertTrue('人の土台に光の指定がある',
+          /rim light/.test(P.base.enemyHuman) && /shadow/.test(P.base.enemyHuman),
+          P.base.enemyHuman);
+        // 切り出しと画質の指定は落とさないこと。ここが抜けると透過に失敗する。
+        for (const need of ['solo', 'full body', 'white background']) {
+          assertTrue(`人の土台に "${need}" が残っている`,
+            P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
+        }
+        // 塗りを潰す語を個別に書き戻さないための歯止め。
+        const flatteners = ['flat even lighting', 'matte finish', 'flat lighting'];
+        const flat = flatteners.filter((t) => (P.enemies.bs_myriad_visage || '').indexOf(t) >= 0);
+        assertTrue('凡庸さを塗りで書いていない', flat.length === 0, flat.join('、'));
+      }
+
+      /* ===== 実在作品の混入を防ぐ歯止め ===== */
+      {
+        // 画風タグに実在の作品名を使っている（土台の zenless zone zero）。
+        // その状態で「何かの形」としか書かない枠を残すと、**その作品の
+        // キャラクターで埋められる**。実際に元作品のマスコットが並んで出た。
+        //
+        // 第一の対策は「個別を具体的に書く」ことで、これは検査しづらい。
+        // ここでは実際に踏んだ地雷を再発防止として固定しておく。
+        const vague = ['half formed echoes', 'echoes of beasts', 'shapes of creatures',
+          'half formed shapes', 'silhouettes of other creatures'];
+        const hit = Object.keys(P.enemies)
+          .filter((id) => vague.some((v) => P.enemies[id].indexOf(v) >= 0));
+        assertTrue('「何かの形」で画面を埋めている敵がいない', hit.length === 0, hit.join('、'));
+
+        // 取りこぼしを拾う二段目。
+        for (const need of ['mascot', 'plush toy']) {
+          assertTrue(`除外に "${need}" が入っている`,
+            P.negative.indexOf(need) >= 0, P.negative);
+        }
+        // 土台を選び分ける鍵は「個別が自分で 1girl / 1boy を名乗ったか」。
+        // 名乗っている敵だけが人の土台に載る（tools/novelai_gen.py と対）。
+        const declares = (/** @type {string} */ id) =>
+          /\b(1boy|1girl|male focus)\b/.test(P.enemies[id] || '');
+        assertTrue('累なる貌は人として名乗っている', declares('bs_myriad_visage'), '');
+        const others = Object.keys(P.enemies)
+          .filter((id) => id !== 'bs_myriad_visage' && declares(id));
+        // 名乗った瞬間に土台が変わるので、うっかり足すと絵柄が変わる。
+        assertTrue('他の敵は名乗っていない（うっかり土台が変わらない）',
+          others.length === 0, others.join('、'));
+      }
+
       // 全ての敵に個別プロンプトがある（無くても自動合成で動くが、質のために揃えておく）
       //
       // 置き場所が2つあることに注意。コアは data/artprompts.js に一覧で持ち、
@@ -2802,7 +2870,11 @@
       {
         const hasPrompt = (/** @type {string} */ id) =>
           !!P.enemies[id] || !!(RPG.data.enemies[id] && RPG.data.enemies[id].artPrompt);
-        const uncovered = Object.keys(RPG.data.enemies).filter((id) => !hasPrompt(id));
+        // noArt は「固有の姿を持たない」と宣言したもの (§10.8)。
+        // 回廊の雑魚は出るたびに別の敵の姿を借りるので、自分の絵を持つと矛盾する。
+        // ここを免除しないと、絵を作らない設計が検査に押し戻される。
+        const uncovered = Object.keys(RPG.data.enemies)
+          .filter((id) => !RPG.data.enemies[id].noArt && !hasPrompt(id));
         assertTrue('プロンプト: 全ての敵に個別の指定がある',
           uncovered.length === 0,
           uncovered.length ? uncovered.join('、') + '（自動合成にフォールバックする）'
@@ -3184,6 +3256,59 @@
         .filter((id) => RPG.data.fields[id].exp_mult == null || RPG.data.fields[id].gold_mult == null);
       assertTrue('全フィールドに gold_mult と exp_mult がある',
         missing.length === 0, missing.length ? missing.join('、') : `${Object.keys(RPG.data.fields).length} 件`);
+
+      /* ===== 姿を借りる敵 (§10.8) ===== */
+      {
+        const F = RPG.data.fields.fl_endless;
+        assertTrue('回廊は姿を借りるフィールドとして宣言されている',
+          F.borrowShapes === true, String(F.borrowShapes));
+
+        // 借りる相手の一覧。自分の雑魚とボスが混ざっていないこと。
+        const shapes = RPG.battle.shapePool(F);
+        const ownInPool = shapes.filter((/** @type {string} */ id) => F.pool.indexOf(id) >= 0);
+        assertTrue('借りる姿に自分自身は入らない', ownInPool.length === 0, ownInPool.join('、'));
+        const bossInPool = shapes.filter((/** @type {string} */ id) => RPG.data.enemies[id].boss);
+        // ボスの姿を雑魚が着ると、次のウェーブに出る本物と見分けが付かなくなる。
+        assertTrue('借りる姿にボスは入らない', bossInPool.length === 0, bossInPool.join('、'));
+        assertTrue('借りられる姿が十分にある', shapes.length >= 10, `${shapes.length} 通り`);
+
+        // 借りた姿に絵があること。無い相手を着ると紋様タイルに落ちて意味が消える。
+        const noArt = shapes.filter((/** @type {string} */ id) => RPG.data.enemies[id].noArt);
+        assertTrue('借りる姿は全部が固有の絵を持つ', noArt.length === 0, noArt.join('、'));
+
+        // wearShape が入れ替えるのは見た目と属性だけで、数値と技は動かさない。
+        const before = RPG.units.buildEnemyUnit('em_corridor_hulk', 100, false, 0, null);
+        const after = RPG.units.wearShape(
+          RPG.units.buildEnemyUnit('em_corridor_hulk', 100, false, 0, null), 'em_slime');
+        assertTrue('姿を借りても名前は自分のまま',
+          after.name === before.name, `${before.name} → ${after.name}`);
+        assertTrue('姿を借りてもステータスは動かない',
+          after.stats.hp === before.stats.hp && after.stats.atk === before.stats.atk,
+          `HP ${before.stats.hp} → ${after.stats.hp}`);
+        assertTrue('姿を借りても技は自分のまま',
+          after.skills.join(',') === before.skills.join(','), after.skills.join(','));
+        assertTrue('姿を借りても報酬は自分のまま',
+          after.gold === before.gold && after.exp === before.exp, `${after.gold}G`);
+        assertTrue('姿を借りると属性が入れ替わる',
+          after.element === RPG.data.enemies.em_slime.element &&
+          before.element !== after.element, `${before.element} → ${after.element}`);
+        assertTrue('姿を借りると絵の参照先が入れ替わる',
+          after.artId === 'em_slime', String(after.artId));
+
+        // 絵の解決が artId を見ているか。ここが繋がっていないと、
+        // 属性だけ変わって見た目が変わらない、という半端な状態になる。
+        assertTrue('絵の候補は借りた姿のIDで引かれる',
+          RPG.artSource.enemyCandidates(after).every(
+            (/** @type {string} */ path) => path.indexOf('em_slime') >= 0),
+          RPG.artSource.enemyCandidates(after).join('、'));
+
+        // wearShape は規則の側にある。定義の id は UI が後から書き込むだけなので、
+        // それを当てにすると UI を読まない経路で静かに壊れる。
+        const byId = RPG.units.wearShape(
+          RPG.units.buildEnemyUnit('em_corridor_hulk', 100, false, 0, null), 'em_wolf');
+        assertTrue('姿はIDで指定できる（定義の id に依存しない）',
+          byId.artId === 'em_wolf', String(byId.artId));
+      }
 
       // box_mult は省略できる調整つまみ。書くなら正の数であること。
       // 0 や負を書くと宝箱が一切落ちないフィールドが黙ってできあがる。

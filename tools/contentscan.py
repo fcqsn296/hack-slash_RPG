@@ -136,6 +136,15 @@ def field_of(entry, key):
     return m.group(1) if m else None
 
 
+def has_no_art(entry):
+    """固有の絵を持たないと宣言されているか (§10.8)。
+
+    終わりなき回廊の雑魚は出るたびに別の敵の姿を借りるので、自分の絵を持たない。
+    生成の対象一覧から外さないと、作る必要のないものが毎回「未生成」に出続ける。
+    """
+    return 'noArt: true' in entry['chunk']
+
+
 def is_boss(entry):
     return 'boss: true' in entry['chunk'] or entry['id'].startswith('bs_')
 

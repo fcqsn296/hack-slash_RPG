@@ -964,6 +964,30 @@
     return battle;
   }
 
+  /** 姿の候補はフィールドごとに一度だけ数える。ウェーブごとに舐め直さない。 */
+  const shapeCache = /** @type {Record<string, string[]>} */ ({});
+
+  /**
+   * 借りられる姿の一覧 (§10.8)。
+   *
+   * **そのフィールド自身の雑魚を除いた、すべての雑魚**を候補にする。
+   * 一覧をデータに書かないのは、敵を1体足すたびに書き足す必要が出るため。
+   * 拡張 (§18) が足した敵もそのまま候補に入る。
+   *
+   * ボスは外す。ボスの姿を雑魚が着ると、次に出てくる本物と見分けが付かない。
+   * @param {any} field
+   * @returns {string[]}
+   */
+  function shapePool(field) {
+    const key = (field.pool || []).join(',');
+    if (!shapeCache[key]) {
+      const own = field.pool || [];
+      shapeCache[key] = Object.keys(RPG.data.enemies).filter((id) =>
+        id.indexOf('em_') === 0 && own.indexOf(id) < 0 && !RPG.data.enemies[id].boss);
+    }
+    return shapeCache[key];
+  }
+
   /**
    * 次のウェーブの敵を生成する。HPはパーティ側にそのまま引き継がれる (§10.1)。
    * @param {any} battle
@@ -983,8 +1007,16 @@
       enemies.push(RPG.units.buildEnemyUnit(field.boss, lv, true, 0, scale));
     } else {
       const count = RPG.rng.int(field.size[0], field.size[1]);
+      // 姿を借りるフィールドでは、雑魚1体ごとに別の敵の見た目と属性を着せる (§10.8)。
+      // borrowShapes を書いていないフィールドでは抽選そのものを回さないので、
+      // 既存フィールドの乱数の並びは1つも動かない。
+      const shapes = field.borrowShapes ? shapePool(field) : null;
       for (let i = 0; i < count; i++) {
-        enemies.push(RPG.units.buildEnemyUnit(RPG.rng.pick(field.pool), lv, false, i, scale));
+        const unit = RPG.units.buildEnemyUnit(RPG.rng.pick(field.pool), lv, false, i, scale);
+        if (shapes && shapes.length) {
+          RPG.units.wearShape(unit, RPG.rng.pick(shapes));
+        }
+        enemies.push(unit);
       }
     }
     enemies.forEach((e, i) => { e.key = 'e' + i; });
@@ -3005,6 +3037,6 @@
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX,
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
-    executeSkill, applyDamage, checkWaveCleared,
+    executeSkill, applyDamage, checkWaveCleared, shapePool,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

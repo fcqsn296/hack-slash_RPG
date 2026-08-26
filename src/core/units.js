@@ -464,6 +464,36 @@
   }
 
   /**
+   * 出来上がった敵ユニットに、別の敵の「姿」を着せる (§10.8)。
+   *
+   * 借りるのは **見た目と属性の4つだけ**。名前・数値・技・報酬はそのまま残す。
+   * 属性まで借りるのは、そうしないと絵が飾りで終わるため。借りた属性は
+   * 「こちらが何で殴ると通るか」に効くので、**絵がそのまま攻略情報になる**。
+   *
+   * 逆に、向こうの攻撃の属性は借りない（技は元のまま無属性）。
+   * 借りると「水の獣の絵なのに炎を吐く」という食い違いが出る。
+   *
+   * 相手を**ID で受ける**こと。定義の側の `id` は `src/ui/artsource.js` が
+   * 後から書き込んでいるだけなので、規則の側がそれを当てにすると
+   * 「UIを読み込まない経路では姿が着られない」という形で静かに壊れる。
+   *
+   * @param {any} unit buildEnemyUnit が返したもの
+   * @param {string} shapeId 姿を借りる相手の敵ID
+   */
+  function wearShape(unit, shapeId) {
+    const shapeDef = shapeId ? RPG.data.enemies[shapeId] : null;
+    if (!unit || !shapeDef) return unit;
+    // 絵の解決は artId を優先して見る（無ければ id）。
+    unit.artId = shapeId;
+    unit.element = shapeDef.element;
+    unit.color = shapeDef.color;
+    unit.glyph = shapeDef.glyph;
+    // 借りた姿の名前。画面には出さないが、記録と検査から何を着たか追えるようにする。
+    unit.shapeName = shapeDef.name;
+    return unit;
+  }
+
+  /**
    * 被ダメージ軽減の合計。装備・ツリーの恒常分と戦闘中バフを足す (§3.1-3)。
    * @param {any} unit
    */
@@ -544,6 +574,7 @@
   }
 
   RPG.units = {
+    wearShape,
     SLOT_LEVELS,
     UNIQUE_EFFECT_KEYS, PASSIVE_KEYS, BUILD_KEYS, BATTLE_KEYS,
     STAT_LABEL, SLOT_LABEL, DEFAULT_SLOTS,
