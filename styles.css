@@ -1509,6 +1509,22 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
 /* ---------------- 自動売却 ---------------- */
 
+/* 装備画面の自動売却。折りたたみの枠だけを持ち、中身は鑑定画面と同じパネル */
+.autosell-section {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-panel);
+}
+/* 枠が二重にならないよう、入れ子のパネル側の飾りを外す */
+.autosell-section .autosell {
+  margin-top: 0;
+  border: 0;
+  background: none;
+  padding-top: 0;
+}
+.autosell-section .autosell .section-head { display: none; }
+
 .autosell {
   display: grid;
   gap: 8px;

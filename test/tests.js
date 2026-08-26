@@ -1993,6 +1993,66 @@
       assertTrue('§8 固有技のIDが実在する', brokenSkill.length === 0, brokenSkill.join(' / '));
     }
 
+    /* ===== 自動売却は在庫全体にも掛けられる (§7.4) ===== */
+    {
+      // ── なぜ検査するのか ──
+      // 装備画面にも同じ仕組みを置いた。設定はセーブ側で1つなので、
+      // **どちらの画面で変えても揃う**ことと、在庫全体を対象にしても
+      // 安全装置（ロック・装備中・更新候補）が効くことを見る。
+      const before = localStorage.getItem(RPG.state.STORAGE_KEY);
+      RPG.state.reset();
+      const save = RPG.state.get();
+
+      RPG.rng.seed(2024);
+      for (let i = 0; i < 30; i++) {
+        save.inventory.push(RPG.gear.identify(i % 3 ? 'box_bronze' : 'box_silver', RPG.state.nextUid()));
+      }
+      RPG.rng.seed(null);
+      RPG.autosell.updateRules({
+        rarities: { COMMON: true, RARE: true, SUPER_RARE: false, LEGEND: false },
+        minScore: 0, protectUpgrades: true,
+      });
+      RPG.autoequip.forParty();
+
+      // ロックを1つ立てて、売られないことを見る
+      const locked = save.inventory.find((/** @type {any} */ it) =>
+        !RPG.state.isEquipped(it.uid) && RPG.autosell.judge(it, RPG.autosell.upgradeBar(), RPG.autosell.rules()).sell);
+      assertTrue('自動売却: 売却対象が見つかる', !!locked, `${save.inventory.length}個`);
+      if (locked) locked.locked = true;
+
+      const equippedUids = new Set(Object.keys(save.characters)
+        .flatMap((id) => Object.keys(save.characters[id].equipped)
+          .flatMap((sl) => save.characters[id].equipped[sl])));
+
+      const found = RPG.autosell.candidates();
+      assertTrue('自動売却: 在庫全体を対象にできる', found.items.length > 0,
+        `${found.items.length}個 / ${found.gold.toLocaleString()} G`);
+      assertTrue('自動売却: ロック中は候補に入らない',
+        !found.items.some((/** @type {any} */ it) => it.locked), '');
+      assertTrue('自動売却: 装備中は候補に入らない',
+        !found.items.some((/** @type {any} */ it) => equippedUids.has(it.uid)), '');
+
+      const res = RPG.autosell.run();
+      assertTrue('自動売却: 見積もりどおりの数を売る',
+        res.count === found.items.length && res.gold === found.gold,
+        `${res.count}個 / ${res.gold.toLocaleString()} G`);
+      assertTrue('自動売却: ロックした装備は残る',
+        !locked || save.inventory.some((/** @type {any} */ it) => it.uid === locked.uid), '');
+      assertTrue('自動売却: 装備中の装備は残る',
+        [...equippedUids].every((uid) => save.inventory.some((/** @type {any} */ it) => it.uid === uid)),
+        '');
+
+      // 設定はセーブ側で1つ。画面をまたいでも同じものを見ている。
+      RPG.autosell.updateRules({ minScore: 250 });
+      assertTrue('自動売却: 設定はどの画面からでも同じものを指す',
+        RPG.autosell.rules().minScore === 250 && RPG.state.get().autoSell.minScore === 250,
+        String(RPG.autosell.rules().minScore));
+
+      if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+      else localStorage.setItem(RPG.state.STORAGE_KEY, before);
+      RPG.state.load();
+    }
+
     /* ===== レベルの節目で開くもの (§7.6 / §10.7 / §12) ===== */
     {
       // ── なぜ検査するのか ──
