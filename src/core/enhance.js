@@ -179,6 +179,13 @@
    * @returns {{ok: boolean, reason?: string, plus?: number, spent?: {gold: number, points: number}}}
    */
   function enhance(uid, materialUids) {
+    // レベルで解禁する (§7.6)。画面側でも隠しているが、
+    // 入口を塞いでおかないと抜け道が残る。
+    {
+      const gate = canForge();
+      if (!gate.ok) return { ok: false, reason: gate.reason || '' };
+    }
+
     const s = RPG.state.get();
     const item = s.inventory.find((/** @type {any} */ it) => it.uid === uid);
     if (!item) return { ok: false, reason: '装備が見つかりません' };
@@ -225,6 +232,13 @@
    * @returns {{ok: boolean, reason?: string, before?: number, after?: number, item?: any}}
    */
   function reroll(uid) {
+    // レベルで解禁する (§7.6)。画面側でも隠しているが、
+    // 入口を塞いでおかないと抜け道が残る。
+    {
+      const gate = canForge();
+      if (!gate.ok) return { ok: false, reason: gate.reason || '' };
+    }
+
     const s = RPG.state.get();
     const index = s.inventory.findIndex((/** @type {any} */ it) => it.uid === uid);
     if (index < 0) return { ok: false, reason: '装備が見つかりません' };
@@ -295,6 +309,13 @@
    * @returns {{ok: boolean, reason?: string, before?: number, after?: number, item?: any}}
    */
   function refine(uid, opts) {
+    // レベルで解禁する (§7.6)。画面側でも隠しているが、
+    // 入口を塞いでおかないと抜け道が残る。
+    {
+      const gate = canForge();
+      if (!gate.ok) return { ok: false, reason: gate.reason || '' };
+    }
+
     const o = opts || {};
     const scope = o.scope || 'all';
     const depth = o.depth || 'value';
@@ -385,7 +406,23 @@
     };
   }
 
+  /**
+   * 鍛冶が使えるか (§7.6)。**主人公のレベル**で見る。
+   * 装備はキャラ間で共有するので、1人ずつ開けても意味がない。
+   * @returns {{ok: boolean, reason?: string, need: number}}
+   */
+  function canForge() {
+    const need = RPG.data.forgeUnlockLevel || 0;
+    const hero = RPG.state.get().characters.ch_hero;
+    const level = hero ? hero.level : 1;
+    if (level < need) {
+      return { ok: false, need, reason: `主人公のレベル${need}から鍛冶が使える（現在 ${level}）` };
+    }
+    return { ok: true, need };
+  }
+
   RPG.enhance = {
+    canForge,
     MAX_PLUS, STAT_PER_PLUS, MATERIAL_VALUE, COST_BY_RARITY,
     REFINE_SHARDS, SHARD_ITEM,
     grade, plusOf, materialValue, enhanceCost, rerollCost, refineCost, applyPlus,
