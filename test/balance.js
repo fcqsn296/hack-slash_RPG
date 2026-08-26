@@ -403,6 +403,8 @@
       totalGold,
       // 直接ドロップが総収入の何割か。ハクスラとしては宝箱側が主であってほしい。
       directShare: totalGold > 0 ? sim.gold / totalGold : 0,
+      // 時間あたりの実入り。宝箱の期待額を含むので、進む動機を見るのはこの値。
+      totalPerRound: sim.rounds > 0 ? totalGold / sim.rounds : 0,
       boxDetail: boxParts.join('、'),
       exp: sim.exp,
       expEach,

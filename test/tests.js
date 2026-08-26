@@ -3184,6 +3184,41 @@
         .filter((id) => RPG.data.fields[id].exp_mult == null || RPG.data.fields[id].gold_mult == null);
       assertTrue('全フィールドに gold_mult と exp_mult がある',
         missing.length === 0, missing.length ? missing.join('、') : `${Object.keys(RPG.data.fields).length} 件`);
+
+      // box_mult は省略できる調整つまみ。書くなら正の数であること。
+      // 0 や負を書くと宝箱が一切落ちないフィールドが黙ってできあがる。
+      const badBox = Object.keys(RPG.data.fields).filter((id) => {
+        const m = RPG.data.fields[id].box_mult;
+        return m != null && (typeof m !== 'number' || !(m > 0));
+      });
+      assertTrue('box_mult は書くなら正の数', badBox.length === 0, badBox.join('、'));
+
+      // 倍率が宝箱の期待値へ実際に乗っているか。
+      // ここが繋がっていないと、data 側に書いても何も起きないまま気付けない。
+      {
+        const enemy = { gold: 0, exp: 0, drops: [{ box: 'box_gold', chance: 0.5, count: 1 }] };
+        const tally = (mult) => {
+          RPG.rng.seed(20260826);
+          let total = 0;
+          for (let i = 0; i < 4000; i++) {
+            const battle = {
+              enemies: [enemy], wave: 1, totalWaves: 1,
+              field: { gold_mult: 0, exp_mult: 0, box_mult: mult },
+              rewards: { gold: 0, exp: 0, boxes: {} },
+              log: [], events: [],
+            };
+            RPG.battle.checkWaveCleared(battle);
+            total += battle.rewards.boxes.box_gold || 0;
+          }
+          return total / 4000;
+        };
+        const plain = tally(null);
+        const boosted = tally(1.5);
+        assertTrue('box_mult 未指定なら drops の確率どおり',
+          Math.abs(plain - 0.5) < 0.03, plain.toFixed(3));
+        assertTrue('box_mult が宝箱の期待値に乗る',
+          Math.abs(boosted - 0.75) < 0.03, `${plain.toFixed(3)} → ${boosted.toFixed(3)}`);
+      }
     }
 
     /* ===== 図鑑 (§13) ===== */

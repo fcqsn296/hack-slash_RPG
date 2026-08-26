@@ -303,11 +303,17 @@
     var byLevel = atRec.slice().sort(function (a, b) {
       return RPG.data.fields[a.fieldId].rec_level - RPG.data.fields[b.fieldId].rec_level;
     });
+    // ── 1ラウンドあたりの判定は「4. 経済バランス」へ移した ──
+    // ここは直接ドロップしか見ておらず、それは総収入の 32〜56% でしかない。
+    // 宝箱側を厚くして時間あたりの実入りを直しても、この列は 1G も動かないので
+    // 「直したのに落ちたまま」になる。時間あたりの話は宝箱の期待額が要る。
+    // ここに残すのは、直接ドロップだけで見ても順序が保たれているか（絶対額の逆転が
+    // 起きていないか）の確認に留める。
     var increasing = byLevel.every(function (r, i) {
-      return i === 0 || r.goldPerRound > byLevel[i - 1].goldPerRound;
+      return i === 0 || r.gold > byLevel[i - 1].gold;
     });
     verdict(document.getElementById('income-verdict'), [
-      { ok: increasing, text: '上位フィールドほど1ラウンドあたりの収益が高い — 進む動機がある' },
+      { ok: increasing, text: '上位フィールドほど1周の直接ゴールドが多い — 絶対額が逆転していない' },
       { ok: atRec[0].gold > 0 && RPG.data.gacha.cost / atRec[0].gold <= 30,
         text: '最初のフィールドでもガチャ1回分（' + RPG.data.gacha.cost.toLocaleString() + ' G）を ' +
           (RPG.data.gacha.cost / atRec[0].gold).toFixed(1) + ' 周で貯められる' },
@@ -337,7 +343,7 @@
 
   function finishEconomy(rows) {
     table(document.getElementById('econ'),
-      ['フィールド', '推奨Lv', '勝率', '直接G', '宝箱G', '合計G', '直接の比率',
+      ['フィールド', '推奨Lv', '勝率', '直接G', '宝箱G', '合計G', '合計G/R', '直接の比率',
        '宝箱の内訳', 'EXP(1人)', '必要EXP', '1レベルに何周', 'ガチャ何回/レベル'],
       rows.slice().sort(function (a, b) {
         return RPG.data.fields[a.fieldId].rec_level - RPG.data.fields[b.fieldId].rec_level;
@@ -349,6 +355,7 @@
         return [
           fieldLabel(r.fieldId), 'Lv' + r.level, pct(r.winRate),
           num(r.directGold), num(r.boxGold), num(r.totalGold),
+          num(r.totalPerRound),
           '<span class="' + shareCls + '">' + pct(r.directShare) + '</span>',
           r.boxDetail || '—',
           num(r.expEach), num(r.expNeeded),
@@ -407,6 +414,17 @@
           return i === 0 || r.totalGold > rowsSorted[i - 1].totalGold;
         }),
         text: '上位フィールドほど1周の総収入が多い' },
+      // ── 進む動機を見るのはこの1行 ──
+      // 「3. 収益効率」にあったときは直接ドロップしか見ておらず、総収入の
+      // 3〜5割しか映していなかった。1周の総収入が増えていても、戦闘が長い
+      // フィールドでは時間あたりが減ることがある（実際、封絶区画→創世の残響→
+      // 終わりなき回廊 が 4,882 → 4,677 → 4,375 と2段下がっていた）。
+      // 時間あたりで見るには宝箱の期待額が要るので、判定はこちらに置く。
+      { ok: rowsSorted.every(function (r, i) {
+          return i === 0 || r.totalPerRound > rowsSorted[i - 1].totalPerRound;
+        }),
+        text: '上位フィールドほど1ラウンドあたりの総収入が多い（宝箱の期待額を含む）'
+          + ' — 進む動機がある' },
     ]);
 
     progress.textContent = '完了';
