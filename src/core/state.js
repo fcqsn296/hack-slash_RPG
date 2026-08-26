@@ -297,6 +297,15 @@
    * @param {any} s
    */
   function migrate(s) {
+    // 装備枠の枝は撤去した (§5.3)。ツリーに残っていても効果は無いが、
+    // 同じIDのノードを将来足したときに「勝手に振ってある」状態になる。
+    // 消費SPは spentSp が実在するノードしか数えないので、消した時点で戻っている。
+    for (const c of Object.values(s.characters || {})) {
+      const t = (/** @type {any} */ (c)).tree;
+      if (!t) continue;
+      for (const id of ['tr_slot_acc', 'tr_slot_armor', 'tr_slot_weapon']) delete t[id];
+    }
+
     if (!s.stats) s.stats = { battles: 0, wins: 0, identified: 0, pulls: 0 };
     if (s.stats.pulls == null) s.stats.pulls = 0;
     if (!s.customNames) s.customNames = {};

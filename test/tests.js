@@ -506,22 +506,31 @@
         RPG.tree.spentSp({ tr_atk: 5, tr_phys2: 3 }), 5 * 1 + 3 * 2, 0);
     }
 
-    /* ===== §5.3 装備スロット拡張 ===== */
+    /* ===== §5.3 装備スロットはレベルで増える ===== */
     {
-      const slots = (/** @type {any} */ tree) => RPG.units.slotCounts({ tree });
-      const initial = slots({});
+      // 以前はツリーの枝（装飾の心得／重装の心得／二刀の極致）だったが、
+      // 全員が必ず取るので取捨選択が起きず、13SPを払う手続きになっていた。
+      const L = RPG.units.SLOT_LEVELS;
+      const slots = (/** @type {number} */ level) => RPG.units.slotCounts({ level, tree: {} });
+
+      const initial = slots(1);
       assertTrue('§5.3 初期スロットは 武器1・防具1・アクセ1',
         initial.weapon === 1 && initial.armor === 1 && initial.accessory === 1,
         `武器${initial.weapon} / 防具${initial.armor} / アクセ${initial.accessory}`);
 
-      const acc = slots({ tr_slot_acc: 1 });
-      assertTrue('§5.3 初級「装飾の心得」でアクセサリー枠が2に', acc.accessory === 2, `アクセ${acc.accessory}`);
+      assertTrue(`§5.3 Lv${L.accessory} でアクセサリー枠が2に`,
+        slots(L.accessory).accessory === 2, `アクセ${slots(L.accessory).accessory}`);
+      assertTrue(`§5.3 Lv${L.armor} で防具枠が2に`,
+        slots(L.armor).armor === 2, `防具${slots(L.armor).armor}`);
+      assertTrue(`§5.3 Lv${L.weapon} で武器枠が2に（実質二刀流）`,
+        slots(L.weapon).weapon === 2, `武器${slots(L.weapon).weapon}`);
 
-      const armor = slots({ tr_slot_armor: 1 });
-      assertTrue('§5.3 中級「重装の心得」で防具枠が2に', armor.armor === 2, `防具${armor.armor}`);
-
-      const weapon = slots({ tr_slot_weapon: 1 });
-      assertTrue('§5.3 上級「二刀の極致」で武器枠が2に（実質二刀流）', weapon.weapon === 2, `武器${weapon.weapon}`);
+      // ツリーには一切依存しない。振り直しても枠は動かない。
+      const withTree = RPG.units.slotCounts({ level: 30, tree: { tr_atk: 5, tr_def: 5 } });
+      const bare = slots(30);
+      assertTrue('§5.3 装備枠はツリーの中身に左右されない',
+        withTree.weapon === bare.weapon && withTree.armor === bare.armor
+        && withTree.accessory === bare.accessory, '');
     }
 
     /* ===== §5.4 属性戦略パターン ===== */
@@ -1021,7 +1030,7 @@
       // 効果種別が全て tree.js で処理されるか（未知の kind は静かに無視されるため明示的に確認する）
       const KNOWN = ['stat_pct', 'tag_bonus', 'tag_all', 'crit', 'crit_damage', 'cap_break',
         'execute', 'reduction', 'lifesteal', 'regen', 'counter', 'revive', 'extra_action',
-        'grant_skill', 'slot', 'element_adapt', 'element_mastery', 'chaos',
+        'grant_skill', 'element_adapt', 'element_mastery', 'chaos',
         // 特殊パッシブ
         'thorns', 'last_stand', 'wave_heal', 'chain', 'guard_break', 'double_hits', 'opening_buff',
         'low_hp_power', 'high_hp_power', 'boss_slayer', 'debuff_amp', 'first_round_power',
@@ -1984,6 +1993,72 @@
       assertTrue('§8 固有技のIDが実在する', brokenSkill.length === 0, brokenSkill.join(' / '));
     }
 
+    /* ===== 装備枠はレベルで自動的に増える (§5.3) ===== */
+    {
+      // ── なぜツリーから外したか ──
+      // 装備枠は全員が必ず取る枝で、取捨選択が起きなかった。
+      // 選ばせるつもりの場所に、選びようのないものが3つ混ざっていた。
+      //
+      // レベルで配ると単調に増えるので、**枠が減って装備がはみ出す**
+      // という状態が原理的に起きない。ティア解放に紐づけると、
+      // 基礎ノードを払い戻したときにティアが閉じ直して枠が消える。
+      const L = RPG.units.SLOT_LEVELS;
+      const at = (level) => {
+        const c = RPG.state.createCharacter('ch_hero');
+        c.level = level;
+        return RPG.units.slotCounts(c);
+      };
+
+      assertTrue('装備枠: ツリーに装備枠の枝が残っていない',
+        !RPG.data.skillTree.some((/** @type {any} */ n) =>
+          (n.effects || []).some((/** @type {any} */ e) => e.kind === 'slot')),
+        '');
+
+      const beforeAcc = at(L.accessory - 1), afterAcc = at(L.accessory);
+      assertTrue(`装備枠: Lv${L.accessory} で装飾が増える`,
+        afterAcc.accessory === beforeAcc.accessory + 1,
+        `${beforeAcc.accessory} → ${afterAcc.accessory}`);
+
+      const beforeArmor = at(L.armor - 1), afterArmor = at(L.armor);
+      assertTrue(`装備枠: Lv${L.armor} で防具が増える`,
+        afterArmor.armor === beforeArmor.armor + 1,
+        `${beforeArmor.armor} → ${afterArmor.armor}`);
+
+      const beforeWeapon = at(L.weapon - 1), afterWeapon = at(L.weapon);
+      assertTrue(`装備枠: Lv${L.weapon} で武器が増える`,
+        afterWeapon.weapon === beforeWeapon.weapon + 1,
+        `${beforeWeapon.weapon} → ${afterWeapon.weapon}`);
+
+      // 単調に増えること。どこかで減ると、はみ出した装備の後始末が要る。
+      let prev = at(1), shrink = '';
+      for (let lv = 2; lv <= 60 && !shrink; lv++) {
+        const now = at(lv);
+        for (const k of ['weapon', 'armor', 'accessory']) {
+          if (now[k] < prev[k]) shrink = `Lv${lv} で ${k} が ${prev[k]} → ${now[k]}`;
+        }
+        prev = now;
+      }
+      assertTrue('装備枠: レベルが上がって枠が減ることはない', shrink === '', shrink);
+
+      // 古いセーブに残った枝が掃除されること
+      {
+        const before = localStorage.getItem(RPG.state.STORAGE_KEY);
+        RPG.state.reset();
+        const sv = RPG.state.get();
+        sv.characters.ch_hero.tree.tr_slot_acc = 1;
+        sv.characters.ch_hero.tree.tr_slot_weapon = 1;
+        RPG.state.persist();
+        RPG.state.load();
+        const t = RPG.state.get().characters.ch_hero.tree;
+        assertTrue('装備枠: 古いセーブに残った枝は読み込み時に消える',
+          t.tr_slot_acc === undefined && t.tr_slot_weapon === undefined,
+          JSON.stringify(t));
+        if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+        else localStorage.setItem(RPG.state.STORAGE_KEY, before);
+        RPG.state.load();
+      }
+    }
+
     /* ===== ゴールドでレベルを上げる (§6.6) ===== */
     {
       const before = localStorage.getItem(RPG.state.STORAGE_KEY);
@@ -2175,9 +2250,13 @@
         const emptyScore = RPG.autoequip.loadoutScore(hero, save.inventory, hero.equipped);
 
         const r = RPG.autoequip.forCharacter('ch_hero');
+        // 枠の数はレベルで決まる (§5.3)。数字を直に書くと、枠の刻みを
+        // 動かしたときにここだけ取り残される。
+        const want = RPG.units.slotCounts(hero);
+        const wantTotal = want.weapon + want.armor + want.accessory;
         assertTrue('自動装備: 空きスロットが埋まる',
-          hero.equipped.weapon.length + hero.equipped.armor.length + hero.equipped.accessory.length === 3,
-          `武器${hero.equipped.weapon.length} / 防具${hero.equipped.armor.length} / アクセ${hero.equipped.accessory.length}`);
+          hero.equipped.weapon.length + hero.equipped.armor.length + hero.equipped.accessory.length === wantTotal,
+          `武器${hero.equipped.weapon.length}/${want.weapon} 防具${hero.equipped.armor.length}/${want.armor} アクセ${hero.equipped.accessory.length}/${want.accessory}`);
         assertTrue('自動装備: 総合力が上がる', r.after > emptyScore,
           `${Math.round(emptyScore).toLocaleString()} → ${Math.round(r.after).toLocaleString()}`);
 
@@ -6560,13 +6639,11 @@
           RPG.state.addBox('box_dragon', 60);
           RPG.state.identifyBoxes('box_dragon', 60);
 
-          const slotNode = RPG.data.skillTree.find((/** @type {any} */ n) =>
-            (n.effects || []).some((/** @type {any} */ e) => e.kind === 'slot'));
           let moved = true;
           let guard = 0;
           while (moved && guard++ < 40) {
             moved = false;
-            for (const id of ['tr_atk', 'tr_def', slotNode.id]) {
+            for (const id of ['tr_atk', 'tr_def']) {
               const before = c.tree[id] || 0;
               try { RPG.state.investNode('ch_hero', id); } catch (e) { /* SP切れ */ }
               if ((c.tree[id] || 0) > before) moved = true;
@@ -6576,12 +6653,16 @@
           const slotsBefore = RPG.units.slotCounts(c);
           const equippedBefore = c.equipped.accessory.length;
 
-          RPG.state.refundNode('ch_hero', slotNode.id);
+          RPG.state.refundNode('ch_hero', 'tr_atk');
           const slotsAfter = RPG.units.slotCounts(c);
 
-          assertTrue('払い戻し: 装備枠が減る',
-            slotsAfter.accessory < slotsBefore.accessory,
-            `${slotsBefore.accessory} → ${slotsAfter.accessory}`);
+          // 装備枠はレベルで決まるので、払い戻しでは減らない (§5.3)。
+          // 減らないことこそが狙いなので、そちらを見張る。
+          assertTrue('払い戻し: 装備枠は減らない（レベルで決まるため）',
+            slotsAfter.accessory === slotsBefore.accessory
+            && slotsAfter.armor === slotsBefore.armor
+            && slotsAfter.weapon === slotsBefore.weapon,
+            `${slotsBefore.accessory}/${slotsBefore.armor}/${slotsBefore.weapon}`);
           // 外し忘れると、枠が無いのに装備している状態が残る
           assertTrue('払い戻し: 枠からはみ出した装備は外れる',
             c.equipped.accessory.length <= slotsAfter.accessory,

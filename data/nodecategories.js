@@ -134,7 +134,7 @@ RPG.data.nodeCategories = [
       // クラス技の待ち時間を縮める。ルールを緩める側なのでここ。
       'cooldown_cut',
       'hp_to_atk', 'def_to_atk', 'atk_to_def', 'hp_to_def', 'stable_damage', 'cap_break',
-      'slot', 'opening_buff', 'buff_duration', 'buff_on_kill',
+      'opening_buff', 'buff_duration', 'buff_on_kill',
       // かける側のバフ強化 (§5.9 / §5.10)。受け手の buff_duration と並べる。
       'buff_power', 'buff_extend', 'support_stack', 'buff_shield', 'buff_heal', 'round_buff',
       // 対象による分岐 (§5.12)。自分に厚く／味方に厚く、の排他。

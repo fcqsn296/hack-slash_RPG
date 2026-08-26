@@ -178,11 +178,6 @@ RPG.data.skillTree = [
     desc: '[遺物]系統 +5%',
   },
   {
-    id: 'tr_slot_acc', tier: 'basic', name: '装飾の心得', cost: 3, maxLevel: 1,
-    effects: [{ kind: 'slot', slot: 'accessory', value: 1 }],
-    desc: 'アクセサリー枠 最大2',
-  },
-  {
     id: 'tr_regen', tier: 'basic', name: '治癒の心得', cost: 1, maxLevel: 5,
     effects: [{ kind: 'regen', value: 0.015 }],
     desc: 'ラウンド終了時に最大HPの1.5%を回復',
@@ -245,11 +240,6 @@ RPG.data.skillTree = [
     id: 'tr_crit', tier: 'mid', name: '一点集中', cost: 1, maxLevel: 5,
     effects: [{ kind: 'crit', value: 0.03 }],
     desc: 'クリティカル率 +3%',
-  },
-  {
-    id: 'tr_slot_armor', tier: 'mid', name: '重装の心得', cost: 4, maxLevel: 1,
-    effects: [{ kind: 'slot', slot: 'armor', value: 1 }],
-    desc: '防具枠 最大2',
   },
   {
     id: 'tr_crit_dmg', tier: 'mid', name: '痛打', cost: 2, maxLevel: 5,
@@ -451,11 +441,6 @@ RPG.data.skillTree = [
     id: 'tr_cap', tier: 'high', name: '限界超越', cost: 2, maxLevel: 12,
     effects: [{ kind: 'cap_break', value: 0.08 }],
     desc: 'ダメージ上限突破 +8%（大技ほど恩恵が大きい）',
-  },
-  {
-    id: 'tr_slot_weapon', tier: 'high', name: '二刀の極致', cost: 6, maxLevel: 1,
-    effects: [{ kind: 'slot', slot: 'weapon', value: 1 }],
-    desc: '武器枠 最大2（実質二刀流）',
   },
   /* ===== 状態異常・支援の入口 (§5.6) ===== */
   {

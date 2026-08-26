@@ -42,16 +42,35 @@
   }
 
   /**
+   * 装備枠が増えるレベル (§5.3)。
+   *
+   * ── なぜツリーから外したか ──
+   * 装備枠は **全員が必ず取る** 枝だった。取捨選択が起きない枝をツリーに置くと、
+   * 「13SPを払う手続き」でしかなくなる。選ばせるつもりの場所に、
+   * 選びようのないものが3つ混ざっていた。
+   *
+   * ── なぜレベルで配るのか ──
+   * ティア解放に紐づける案もあったが、ティアは**基礎ノードを払い戻すと
+   * 閉じ直す**。枠が消えて装備がはみ出す崖が新しく生まれてしまう。
+   * レベルは下がらないので、枠も減らない。
+   *
+   * 節目は、枝を置いていたときに実際に取れた時期に合わせてある
+   * （装飾 3SP≒Lv5／重装 中級＋4SP≒Lv10／二刀 上級＋6SP≒Lv20）。
+   * Lv1 の 1/1/1 はそのまま。始めた瞬間から枠が違うと、
+   * 既存の説明も初期の手触りも変わってしまう。
+   */
+  const SLOT_LEVELS = { accessory: 5, armor: 10, weapon: 20 };
+
+  /**
    * キャラクターが持つ装備スロット数を返す。
    * @param {any} charSave
    */
   function slotCounts(charSave) {
-    // 拡張はスキルツリー経由でのみ得られる (§5.3)
-    const slots = RPG.tree.effects(charSave.tree || {}).slots;
+    const level = (charSave && charSave.level) || 1;
     return {
-      weapon: DEFAULT_SLOTS.weapon + slots.weapon,
-      armor: DEFAULT_SLOTS.armor + slots.armor,
-      accessory: DEFAULT_SLOTS.accessory + slots.accessory,
+      weapon: DEFAULT_SLOTS.weapon + (level >= SLOT_LEVELS.weapon ? 1 : 0),
+      armor: DEFAULT_SLOTS.armor + (level >= SLOT_LEVELS.armor ? 1 : 0),
+      accessory: DEFAULT_SLOTS.accessory + (level >= SLOT_LEVELS.accessory ? 1 : 0),
     };
   }
 
@@ -517,6 +536,7 @@
   }
 
   RPG.units = {
+    SLOT_LEVELS,
     UNIQUE_EFFECT_KEYS, PASSIVE_KEYS, BUILD_KEYS, BATTLE_KEYS,
     STAT_LABEL, SLOT_LABEL, DEFAULT_SLOTS,
     expToNext, statsAtLevel, slotCounts, equippedItems, totalReduction,

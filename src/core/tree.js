@@ -314,7 +314,7 @@
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
-    'revive', 'round_stack', 'shield_regen', 'slot', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'revive', 'round_stack', 'shield_regen', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -339,7 +339,6 @@
     /** @type {Array<{tag: string, value: number, matchType: null}>} */
     const tagBonuses = [];
     /** @type {Record<string, number>} */
-    const slots = { weapon: 0, armor: 0, accessory: 0 };
     /** @type {Record<string, number>} */
     const mastery = {};
     /** @type {string[]} ツリーで習得したアクティブ技 (§5.1) */
@@ -752,7 +751,6 @@
           case 'grant_skill':
             if (!skills.includes(e.skill)) skills.push(e.skill);
             break;
-          case 'slot': slots[e.slot] += amount; break;
           case 'element_adapt': adapt += amount; break;
           case 'element_mastery':
             // 有利倍率 1.5 を起点に、極意の投資量ぶん引き上げる。
@@ -812,7 +810,7 @@
     passives.counterAll = Math.min(1, passives.counterAll);
 
     return {
-      statPct, tagBonuses, slots, crit, critDamage, capBreak,
+      statPct, tagBonuses, crit, critDamage, capBreak,
       execute, reduction, skills, passives, situational, elementMods,
     };
   }
@@ -841,7 +839,6 @@
     const out = {
       statPct: Object.assign({}, base.statPct),
       tagBonuses: base.tagBonuses.concat(add.tagBonuses),
-      slots: Object.assign({}, base.slots),
       crit: base.crit + add.crit,
       critDamage: base.critDamage + add.critDamage,
       capBreak: base.capBreak + add.capBreak,
@@ -855,9 +852,6 @@
 
     for (const k of Object.keys(add.statPct)) {
       out.statPct[k] = (out.statPct[k] || 0) + add.statPct[k];
-    }
-    for (const k of Object.keys(add.slots)) {
-      out.slots[k] = (out.slots[k] || 0) + add.slots[k];
     }
     for (const id of add.skills) {
       if (!out.skills.includes(id)) out.skills.push(id);

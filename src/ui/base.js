@@ -2502,6 +2502,21 @@
         ),
         h('div.section-head',
           h('h3', { text: '装備スロット' }),
+          // 次に枠が開くレベルを出す (§5.3)。
+          // 枠がツリーの枝だったころは「二刀の極致」が画面にあるだけで
+          // 2つ目の武器枠の存在が伝わっていた。自動化でその手掛かりが消えたので、
+          // ここで代わりに知らせる。
+          (() => {
+            const L = RPG.units.SLOT_LEVELS;
+            const next = Object.keys(L)
+              .filter((k) => charSave.level < L[k])
+              .sort((a, b) => L[a] - L[b])[0];
+            return next
+              ? h('span.hint.hint-sm', {
+                  text: `Lv${L[next]} で${RPG.units.SLOT_LABEL[next]}枠が1つ増えます`,
+                })
+              : null;
+          })(),
           h('div.auto-equip',
             W.button('自動装備', () => {
               const r = RPG.autoequip.forCharacter(selectedChar, { keepLocked: true });
@@ -3833,7 +3848,6 @@ ${nextCost.toLocaleString()} G
     const maxed = level >= n.maxLevel;
     const check = RPG.tree.canInvest(charSave, n.id);
     const refund = RPG.tree.canRefund(charSave, n.id);
-    const isSlot = n.effects.some((/** @type {any} */ e) => e.kind === 'slot');
     const isActive = n.effects.some((/** @type {any} */ e) => e.kind === 'grant_skill');
     // 属性戦略・生存の札は、軸のタグ（分類）と同じことを言うので出さない。
     // 同じ意味の札が2枚並ぶと、狭い画面では本文が押し出されて読めなくなる。
@@ -3859,7 +3873,6 @@ ${nextCost.toLocaleString()} G
           onClick: () => { treeCat = cat.id; if (repaint) repaint(); else render(root); },
         }),
         showTier ? h('span.chip.chip-tier', { text: tierLabel }) : null,
-        isSlot ? h('span.chip.chip-slot', { text: '装備枠' }) : null,
         isActive ? h('span.chip.chip-active', { text: 'アクティブ技' }) : null,
         // 1レベルだけ戻す (§5.5)。振ってあるときだけ出す。
         // 終盤は250点近いSPを1点ずつ振るので、全体リセットしか無いと
