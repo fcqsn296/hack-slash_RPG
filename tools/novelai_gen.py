@@ -131,6 +131,7 @@ def load_prompt_catalog():
         "subject": _parse_block(text, "subject"),
         "negative": _join_strings(negative.group(1)) if negative else "",
         "elementTags": _parse_block(text, "elementTags"),
+        "rarityTags": _parse_block(text, "rarityTags"),
         "bossTags": _join_strings(boss.group(1)) if boss else "",
         "enemies": _parse_block(text, "enemies"),
         "characters": _parse_block(text, "characters"),
@@ -170,11 +171,13 @@ def _meta(target):
     """
     entry = _entry(target)
     if not entry:
-        return {"element": "none", "boss": False, "hair": None}
+        return {"element": "none", "boss": False, "hair": None, "rarity": None}
     return {
         "element": contentscan.field_of(entry, "element") or "none",
         "boss": contentscan.is_boss(entry),
         "hair": contentscan.field_of(entry, "hair"),
+        # レアリティごとの味付け (§1.3) に使う。味方だけが持つ。
+        "rarity": contentscan.field_of(entry, "rarity"),
     }
 
 
@@ -237,7 +240,18 @@ def build_prompt(target, catalog, overrides, extra=""):
     declares_subject = re.search(r"\b(1boy|1girl|male focus)\b", detail)
     subject = "" if declares_subject else catalog["subject"].get(kind, "")
 
-    pieces = [p for p in (subject, catalog["base"].get(kind, ""), detail, extra) if p]
+    # レアリティごとの味付け (§1.3)。高レアほど華やかになるようにする。
+    #
+    # ── なぜ土台に置かず、ここで足すのか ──
+    # base.character に入れると主人公（男性）にも掛かる。
+    # レアリティは data/ から読めるので、ここで引いて足すのがいちばん薄い。
+    # 男性を名乗っているプロンプトには付けない。
+    rarity_tag = ""
+    if not is_enemy and not declares_subject:
+        rarity = (_meta(target) or {}).get("rarity")
+        rarity_tag = (catalog.get("rarityTags") or {}).get(rarity, "")
+
+    pieces = [p for p in (subject, catalog["base"].get(kind, ""), rarity_tag, detail, extra) if p]
     return ", ".join(pieces)
 
 
