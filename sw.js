@@ -235,6 +235,7 @@ const PRECACHE = [
   './assets/enemies/bs_genesis_echo.webp',
   './assets/enemies/bs_gnaw_king.webp',
   './assets/enemies/bs_mine_tyrant.webp',
+  './assets/enemies/bs_myriad_visage.webp',
   './assets/enemies/bs_nameless_sovereign.webp',
   './assets/enemies/bs_ruin_keeper.webp',
   './assets/enemies/bs_second_warden.webp',
