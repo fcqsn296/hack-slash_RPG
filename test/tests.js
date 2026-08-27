@@ -1883,6 +1883,38 @@
           b2.log.map((/** @type {any} */ l) => l.text).join(' / ').slice(0, 140));
       }
 
+      // --- 反射の上限 (§5.20) ---
+      //
+      // 反射は「受けた一撃の重さ × 率 × 相手レベル倍率」で、
+      // **重い一撃ほど痛い**のが性格。上限が低すぎると毎回そこへ張り付き、
+      // 一撃の重さもレベル倍率も効かなくなる（実測で毎回同じ数字が出ていた）。
+      //
+      // ここで見るのは「重い一撃と軽い一撃で返りが変わること」。
+      // 上限を下げ直したときに、また性格ごと消えるのを防ぐ。
+      {
+        const mirror = unitOf('ch_lg_aegis', { tr_reflect: 4, tr_reflect_hi: 3 });
+        const back = (/** @type {any} */ skillId) => {
+          const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
+            party: [mirror], bossFinale: false });
+          const enemy = b.enemies[0];
+          enemy.maxHp = 200000000; enemy.hp = enemy.maxHp;
+          b.log.length = 0;
+          RPG.rng.seed(2468);
+          RPG.battle.applyDamage(b, enemy, b.party[0], RPG.data.skills[skillId], { crit: false });
+          RPG.rng.seed(null);
+          const line = b.log.map((/** @type {any} */ l) => l.text)
+            .find((/** @type {string} */ t) => /跳ね返/.test(t)) || '';
+          return Number((/([\d,]+) が跳ね返った/.exec(line) || [0, '0'])[1].replace(/,/g, ''));
+        };
+        const light = back('sk_enemy_claw');    // 威力60の多段
+        const heavy = back('sk_enemy_crush');   // 威力165
+        assertTrue('反射: 重い一撃ほど返りが大きい（上限に張り付いていない）',
+          heavy > light, `軽 ${light.toLocaleString()} / 重 ${heavy.toLocaleString()}`);
+        assertTrue('反射: 棘より上限が高い（性格の差を残す）',
+          RPG.battle.REFLECT_CAP_RATIO > RPG.battle.THORNS_CAP_RATIO,
+          `反射 ${RPG.battle.REFLECT_CAP_RATIO} / 棘 ${RPG.battle.THORNS_CAP_RATIO}`);
+      }
+
       // --- 棘と軽減は食い合う (§5.20) ---
       //
       // 棘は「ダメージを受けたとき」に出る。軽減を100%まで積むと**1発も出ない**。
