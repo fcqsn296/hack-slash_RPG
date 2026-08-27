@@ -1883,6 +1883,35 @@
           b2.log.map((/** @type {any} */ l) => l.text).join(' / ').slice(0, 140));
       }
 
+      // --- 演出に要る情報がイベントに乗っているか (§14.3) ---
+      //
+      // 画面側は battle.events を見て演出を組み立てる。**乗っていない項目は
+      // 静かに無視されるだけ**なので、消えても誰も気付かない。
+      // 実際 element は「相性の倍率」しか持っておらず、炎で殴っても闇で殴っても
+      // 画面上は同じに見えていた。属性名・系統・重さの3つを固定しておく。
+      {
+        const hero = unitOf('ch_hero');
+        const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
+          party: [hero], bossFinale: false });
+        b.events.length = 0;
+        RPG.battle.applyDamage(b, hero, b.enemies[0], RPG.data.skills.sk_armor_break, {});
+        const ev = b.events.find((/** @type {any} */ e) => e.type === 'damage');
+        assertTrue('演出: ダメージのイベントに属性名が乗る',
+          !!ev && ev.elem === 'earth', ev ? String(ev.elem) : '(イベントが無い)');
+        assertTrue('演出: ダメージのイベントに系統が乗る',
+          !!ev && ev.kind === 'phys', ev ? String(ev.kind) : '(イベントが無い)');
+        // 重さは「相手の最大HPに対する割合」。生の数値だと桁が変わる終盤しか揺れない。
+        assertTrue('演出: 重さは最大HPに対する割合で入る',
+          !!ev && ev.weight > 0 && ev.weight <= 1, ev ? String(ev.weight) : '—');
+
+        b.events.length = 0;
+        RPG.battle.executeSkill(b, hero, 'sk_hero_slash', [b.enemies[0]]);
+        const act = b.events.find((/** @type {any} */ e) => e.type === 'action');
+        assertTrue('演出: 行動のイベントに技名と属性が乗る',
+          !!act && act.skill === '覇王斬' && typeof act.elem === 'string',
+          act ? `${act.skill} / ${act.elem}` : '(イベントが無い)');
+      }
+
       // --- 反射の上限 (§5.20) ---
       //
       // 反射は「受けた一撃の重さ × 率 × 相手レベル倍率」で、

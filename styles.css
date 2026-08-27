@@ -2025,6 +2025,97 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   100% { opacity: 0.28; transform: scale(0.94) rotate(-2deg); filter: grayscale(1); }
 }
 
+/* ── 手動戦闘の演出 (§14.3) ────────────────────────
+ *
+ * オートと高速では出さない。周回では邪魔にしかならないため、
+ * 出す・出さないの判断は src/ui/battle.js の rich() が持つ。
+ *
+ * 色は --fx にJS側から属性色を差し込む（widgets.js の ELEMENT_COLOR）。
+ * ここで属性ごとのクラスを並べないのは、属性が増えたときに
+ * CSSとJSの二重管理になるため。
+ */
+.fx-burst {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 96px;
+  height: 96px;
+  margin: -48px 0 0 -48px;
+  pointer-events: none;
+  z-index: 9;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--fx) 85%, #fff) 0%,
+    color-mix(in srgb, var(--fx) 60%, transparent) 42%,
+    transparent 70%);
+  animation: fx-burst 0.46s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+.fx-burst.is-heavy { width: 148px; height: 148px; margin: -74px 0 0 -74px;
+  animation-duration: 0.62s; }
+
+/* 系統で形を変える。物理は縦に裂け、魔術は丸く広がり、理は輪で締める。 */
+.fx-burst.is-phys { border-radius: 46% 54% 50% 50% / 8% 8% 92% 92%; }
+.fx-burst.is-reli {
+  background: none;
+  border: 3px solid var(--fx);
+  box-shadow: 0 0 18px var(--fx), inset 0 0 18px var(--fx);
+}
+
+@keyframes fx-burst {
+  0%   { opacity: 0; transform: scale(0.25) rotate(-8deg); }
+  22%  { opacity: 0.95; transform: scale(1.06) rotate(0deg); }
+  55%  { opacity: 0.7; transform: scale(1.18); }
+  100% { opacity: 0; transform: scale(1.36); }
+}
+
+/* 技名。ログにも出ているが、目はカードを見ているので届いていない。 */
+.skill-call {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 19;
+}
+.skill-call span {
+  padding: 5px 22px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--fx);
+  background: rgba(8, 10, 14, 0.78);
+  border: 1px solid color-mix(in srgb, var(--fx) 55%, transparent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--fx) 60%, transparent);
+  animation: skill-call 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+@keyframes skill-call {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.9); letter-spacing: 0.4em; }
+  20%  { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0.16em; }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+/* 画面の揺れ。重い一撃だけ。毎回揺らすと重さの差が伝わらない。 */
+.is-shake { animation: fx-shake 0.3s ease; }
+.is-shake-hard { animation: fx-shake-hard 0.46s ease; }
+@keyframes fx-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(-3px, 2px); }
+  55%      { transform: translate(3px, -2px); }
+  80%      { transform: translate(-2px, 1px); }
+}
+@keyframes fx-shake-hard {
+  0%, 100% { transform: translate(0, 0); }
+  12%      { transform: translate(-8px, 4px) rotate(-0.35deg); }
+  30%      { transform: translate(7px, -5px) rotate(0.3deg); }
+  50%      { transform: translate(-5px, 3px); }
+  72%      { transform: translate(4px, -2px); }
+  88%      { transform: translate(-2px, 1px); }
+}
+
 /* ウェーブ・勝敗のバナー */
 .battle-banner {
   position: absolute;
@@ -2058,6 +2149,9 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 /* 演出を控えたい人向け */
 @media (prefers-reduced-motion: reduce) {
   .pop, .battle-banner span { animation-duration: 0.01ms; }
+  /* 揺れは酔いに直結するので、短くするのではなく完全に止める。 */
+  .is-shake, .is-shake-hard { animation: none; }
+  .fx-burst, .skill-call span { animation-duration: 0.01ms; }
   .enemy-card, .party-card { animation: none !important; }
   .hpbar-ghost { transition: none; }
 }

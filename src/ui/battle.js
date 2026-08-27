@@ -375,6 +375,65 @@
   }
 
   /**
+   * 濃い演出を出してよい場面か (§14.3)。
+   *
+   * ── なぜオートと高速を外すのか ──
+   * 演出は「1回の戦闘を見せる」ためのもので、周回では邪魔にしかならない。
+   * オート周回は1戦が数秒で終わるので、そこに属性の爆ぜや画面の揺れを足すと
+   * 目が疲れるだけになる。**ストーリーと闘技場は手動で1戦ずつ戦う場所**なので、
+   * そこだけ濃くする。判定を新しい設定で増やさず、既にある2つに相乗りさせている。
+   */
+  function rich() {
+    const st = settings();
+    return !st.auto && !st.fast;
+  }
+
+  /**
+   * 対象カードの上で属性色に爆ぜる (§14.3)。
+   *
+   * 浮かぶ数字が「いくら入ったか」を伝えるのに対し、こちらは
+   * **「何で殴ったか」**を伝える。属性は相性の倍率としては既に効いているのに、
+   * 画面では弱点のときしか色が変わらず、炎で殴っても闇で殴っても同じに見えていた。
+   *
+   * @param {HTMLElement} card
+   * @param {string} elem
+   * @param {string} kind phys / magi / reli
+   * @param {boolean} heavy 会心や重い一撃か
+   */
+  function burst(card, elem, kind, heavy) {
+    const color = (RPG.widgets.ELEMENT_COLOR || {})[elem] || '#9aa3ad';
+    const el = h('span.fx-burst.is-' + (kind || 'phys') + (heavy ? '.is-heavy' : ''));
+    el.style.setProperty('--fx', color);
+    card.appendChild(el);
+    effectTimers.push(setTimeout(() => el.remove(), heavy ? 620 : 460));
+  }
+
+  /**
+   * 技名を短く提示する (§14.3)。
+   * ログにも出ているが、目はカードのほうを見ているので届いていない。
+   * @param {string} name
+   * @param {string} elem
+   */
+  function skillCall(name, elem) {
+    if (!root || !name) return;
+    const el = h('div.skill-call', h('span', { text: name }));
+    el.style.setProperty('--fx', (RPG.widgets.ELEMENT_COLOR || {})[elem] || '#9aa3ad');
+    root.appendChild(el);
+    effectTimers.push(setTimeout(() => el.remove(), 900));
+  }
+
+  /**
+   * 画面全体を揺らす (§14.3)。重さは「相手の最大HPに対する割合」で決める。
+   * 生の数値で決めると、桁が変わる終盤だけ揺れることになる。
+   * @param {number} weight 0〜1
+   */
+  function shake(weight) {
+    if (!root) return;
+    const cls = weight >= 0.25 ? 'is-shake-hard' : 'is-shake';
+    pulse(root, cls, weight >= 0.25 ? 460 : 300);
+  }
+
+  /**
    * 数字や短い文字を対象カードの上に浮かせる。
    * @param {HTMLElement} card
    * @param {string} text
@@ -422,6 +481,9 @@
     switch (ev.type) {
       case 'action':
         pulse(card, 'is-acting', fast ? 180 : 420);
+        // 手動のときだけ技名を出す。威力0（構えや自己バフ）にも出す——
+        // 「何もしていないように見える」手番がいちばん分かりにくいため。
+        if (rich()) skillCall(ev.skill, ev.elem);
         break;
 
       case 'damage': {
@@ -438,6 +500,12 @@
             () => floatText(card, tags.join(' '), 'is-tag', fast), fast ? 60 : 150));
         }
         pulse(card, ev.amount === 0 ? 'is-blocked' : (ev.crit ? 'is-hit-hard' : 'is-hit'), fast ? 200 : 420);
+        if (rich() && ev.amount > 0) {
+          const heavy = !!ev.crit || (ev.weight || 0) >= 0.12;
+          burst(card, ev.elem || 'none', ev.kind, heavy);
+          // 揺らすのは重い一撃だけ。毎回揺らすと、重さの差が伝わらなくなる。
+          if (heavy) shake(ev.weight || 0);
+        }
         break;
       }
 

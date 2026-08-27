@@ -1948,6 +1948,15 @@
       execute: result.breakdown.execute,
       capped: result.breakdown.capped,
       counter: !!opts.isCounter,
+      // 演出用 (§14.3)。**属性は「倍率」ではなく「名前」も要る。**
+      // element は相性の倍率(0.5/1/1.5)なので、炎か闇かが分からない。
+      // 手動戦闘の一撃を色で見せるために、技そのものの属性と系統を渡す。
+      // 画面側が無ければ無視するだけなので、既存の見た目は変わらない。
+      elem: (skill && skill.element) || attacker.element || 'none',
+      kind: (skill && skill.damage_type) || 'phys',
+      // 相手の残量に対する重さ。画面の揺れをこれで決める。
+      // 生の数値だとレベル帯で桁が変わり、序盤だけ揺れないことになる。
+      weight: defender.maxHp > 0 ? Math.min(1, result.damage / defender.maxHp) : 0,
     });
 
     if (!opts.silent) {
@@ -2554,7 +2563,12 @@
     if (actor.side === 'party') battle.pendingTag = skill.damage_type;
 
     pushLog(battle, `${actor.name} の ${skill.name}！`, 'action');
-    pushEvent(battle, { type: 'action', key: actor.key, side: actor.side, skill: skill.name });
+    pushEvent(battle, {
+      type: 'action', key: actor.key, side: actor.side, skill: skill.name,
+      // 技名を出すときの色づけに使う (§14.3)
+      elem: skill.element || actor.element || 'none',
+      power: skill.power || 0,
+    });
 
     const ctx = makeContext(battle, actor, skill, targets);
     const plugin = skill.plugin ? RPG.plugins[skill.plugin] : null;
