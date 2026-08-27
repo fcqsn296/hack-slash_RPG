@@ -1846,6 +1846,43 @@
           `${Math.round(back).toLocaleString()} / ${enemy.maxHp.toLocaleString()}`);
       }
 
+      // --- 庇う: 肩代わりぶんは庇う役の防御を通る (§5.21) ---
+      //
+      // 以前は生のHP引き算だったので、庇う役の軽減・障壁・棘・反射がどれも
+      // 通らなかった。実測で軽減44%が0%とまったく同じ量を受けていた。
+      // 「硬い人が前に出る」ではなく「誰でもいいから生で引き受ける」挙動で、
+      // **硬いほど損をする**という逆転になっていた。
+      {
+        const ally = unitOf('ch_shiki');
+        const soft = unitOf('ch_lg_aegis', { tr_guard_ally: 3, tr_guard_ally_hi: 2 });
+        const hard = unitOf('ch_lg_aegis',
+          { tr_guard_ally: 3, tr_guard_ally_hi: 2, tr_guard: 5, tr_fortress: 3 });
+        const took = (/** @type {any} */ guard) => {
+          const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
+            party: [ally, guard], bossFinale: false });
+          const g = b.party[1], a = b.party[0];
+          const hp = g.hp;
+          RPG.rng.seed(4321);
+          RPG.battle.applyDamage(b, b.enemies[0], a, RPG.data.skills.sk_enemy_bite, { crit: false });
+          RPG.rng.seed(null);
+          return hp - g.hp;
+        };
+        const softTook = took(soft), hardTook = took(hard);
+        assertTrue('庇う: 肩代わりぶんに庇う役の軽減が乗る',
+          hardTook < softTook, `軽減なし ${softTook} / 軽減あり ${hardTook}`);
+
+        // 棘を持って前に出たのに返せない、が起きないこと。
+        const thorny = unitOf('ch_lg_aegis',
+          { tr_guard_ally: 3, tr_guard_ally_hi: 2, tr_thorns: 4, tr_thorns_hi: 3 });
+        const b2 = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
+          party: [ally, thorny], bossFinale: false });
+        b2.log.length = 0;
+        RPG.battle.applyDamage(b2, b2.enemies[0], b2.party[0], RPG.data.skills.sk_enemy_bite, {});
+        assertTrue('庇う: 肩代わりぶんで棘が出る',
+          b2.log.some((/** @type {any} */ l) => /棘で/.test(l.text)),
+          b2.log.map((/** @type {any} */ l) => l.text).join(' / ').slice(0, 140));
+      }
+
       // --- 棘と軽減は食い合う (§5.20) ---
       //
       // 棘は「ダメージを受けたとき」に出る。軽減を100%まで積むと**1発も出ない**。

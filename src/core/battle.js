@@ -1484,7 +1484,7 @@
    * @param {any} attacker
    * @param {any} defender
    * @param {any} skill
-   * @param {{powerScale?: number, ignoreDefense?: boolean, silent?: boolean}} [opts]
+   * @param {{powerScale?: number, ignoreDefense?: boolean, silent?: boolean, guarded?: boolean, crit?: boolean, isCounter?: boolean}} [opts]
    */
   function applyDamage(battle, attacker, defender, skill, opts) {
     opts = opts || {};
@@ -1783,9 +1783,26 @@
       pushLog(battle, `${defender.name} の障壁が ${absorbed.toLocaleString()} を防いだ`, 'sub');
     }
 
-    // 「庇う」— 味方が受けるダメージの一部を肩代わりする (§5.6)。
+    // 「庇う」— 味方が受ける攻撃の一部を肩代わりする (§5.6)。
     // 前に出る役を作れるようにするための仕組み。
-    if (defender.side === 'party' && result.damage > 0) {
+    //
+    // ── 肩代わりぶんは「庇う役への攻撃」として通し直す (§5.21) ──
+    // 以前は `guard.hp -= taken` と生のHPから引いていた。そうすると
+    // **庇う役の防御が1つも通らない**。実測で、軽減44%を積んだ庇う役の
+    // 肩代わり量が軽減0%とまったく同じだった（56 対 53、差は乱数ぶん）。
+    //
+    // 通らなかったもの: 軽減・DEF・障壁・棘・反射・不屈・痛みの分配。
+    // つまり「硬い人が前に出る」ではなく「誰でもいいから生で引き受ける」
+    // という挙動で、**硬いほど損をする**逆転が起きていた。
+    // 前に出る手段として実際に機能していたのは狙われやすさだけだった。
+    //
+    // `hurt()` は「HPを減らす唯一の口」と決めてあるのに、ここだけが
+    // それを迂回していたのも同じ原因による。
+    //
+    // powerScale に share を掛けて applyDamage を通し直せば、庇う役の
+    // 防御も棘も反射も全部その経路に乗る。**同じ一撃**なので会心の有無は
+    // 引き継ぐ（引き継がないと「初手必中」を庇うだけで2回消費してしまう）。
+    if (!opts.guarded && defender.side === 'party' && result.damage > 0) {
       const guard = battle.party.find((/** @type {any} */ u) =>
         u !== defender && u.alive && u.passives && u.passives.guardAlly > 0);
       if (guard) {
@@ -1793,13 +1810,12 @@
         const taken = Math.floor(result.damage * share);
         if (taken > 0) {
           result.damage -= taken;
-          guard.hp = Math.max(0, guard.hp - taken);
-          pushLog(battle, `${guard.name} が ${defender.name} を庇った（${taken.toLocaleString()}）`, 'sub');
-          if (guard.hp === 0) {
-            guard.alive = false;
-            pushLog(battle, `${guard.name} は力尽きた`, 'defeat');
-            pushEvent(battle, { type: 'down', key: guard.key, side: guard.side });
-          }
+          pushLog(battle, `${guard.name} が ${defender.name} を庇った`, 'sub');
+          applyDamage(battle, attacker, guard, skill, Object.assign({}, opts, {
+            guarded: true,
+            powerScale: (opts.powerScale == null ? 1 : opts.powerScale) * share,
+            crit: result.crit,
+          }));
         }
       }
     }
