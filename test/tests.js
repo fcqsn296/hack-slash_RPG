@@ -1813,6 +1813,56 @@
           `${hpBefore.toLocaleString()} → ${enemy.hp.toLocaleString()}`);
       }
 
+      // --- 棘の上限 (§5.20) ---
+      //
+      // 棘は「相手の最大HP × 率」なので、相手のHPが伸びるほど自動で強くなる。
+      // 頭は自分の最大HPで押さえているが、**その倍率が小さすぎると機能しなくなる**。
+      // 実際 30 のときは闘技場ハード(HP 2億)で 185倍削られ、
+      // 200Mを削るのに111ラウンド（暴走は18）掛かっていた。
+      //
+      // ここで見るのは数値そのものではなく **「桁違いの相手でも上限で潰れていない」**
+      // という関係。上限を下げ直したときに、また静かに機能しなくなるのを防ぐ。
+      {
+        const thorny = unitOf('ch_lg_aegis', { tr_thorns: 4, tr_thorns_hi: 3 });
+        const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1, party: [thorny], bossFinale: false });
+        const enemy = b.enemies[0];
+        // 桁違いのHPを持つ相手を用意する（闘技場ハードと同じ規模）
+        enemy.maxHp = 200000000;
+        enemy.hp = enemy.maxHp;
+        b.log.length = 0;
+        RPG.battle.applyDamage(b, enemy, thorny, RPG.data.skills.sk_enemy_bite, {});
+        // 反撃など他の返しが混ざるので、棘の行だけを読む
+        const line = b.log.map((/** @type {any} */ l) => l.text)
+          .find((/** @type {string} */ t) => /棘で/.test(t)) || '';
+        const back = Number((/棘で ([\d,]+)/.exec(line) || [0, '0'])[1].replace(/,/g, ''));
+        const raw = enemy.maxHp * thorny.passives.thorns;
+        const cap = thorny.maxHp * RPG.battle.THORNS_CAP_RATIO;
+        assertTrue('棘: 上限は「自分の最大HP × 倍率」で決まる',
+          Math.abs(back - Math.min(raw, cap)) <= 1,
+          `返り ${Math.round(back).toLocaleString()} / 素 ${Math.round(raw).toLocaleString()} / 上限 ${Math.round(cap).toLocaleString()}`);
+        // 相手の最大HPの 1/1000 も返せないなら、その相手には棘が存在しないのと同じ。
+        assertTrue('棘: 桁違いの相手でも上限で潰れていない',
+          back >= enemy.maxHp / 1000,
+          `${Math.round(back).toLocaleString()} / ${enemy.maxHp.toLocaleString()}`);
+      }
+
+      // --- 棘と軽減は食い合う (§5.20) ---
+      //
+      // 棘は「ダメージを受けたとき」に出る。軽減を100%まで積むと**1発も出ない**。
+      // 耐久を積むほど火力が消えるという噛み合わせなので、忘れると
+      // 「硬くしたのに何も起きない」を再発させる。挙動として固定しておく。
+      {
+        const wall = unitOf('ch_lg_aegis', { tr_thorns: 4, tr_thorns_hi: 3 });
+        wall.baseReduction = 1;
+        const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1, party: [wall], bossFinale: false });
+        const enemy = b.enemies[0];
+        b.log.length = 0;
+        RPG.battle.applyDamage(b, enemy, wall, RPG.data.skills.sk_enemy_bite, {});
+        assertTrue('棘: 軽減100%だと発動しない（受けた傷が無いため）',
+          !b.log.some((/** @type {any} */ l) => /棘で/.test(l.text)),
+          b.log.map((/** @type {any} */ l) => l.text).join(' / ').slice(0, 120));
+      }
+
       // --- 不屈: 致死ダメージをHP1で耐える（1戦闘1回）---
       {
         const tough = unitOf('ch_gald', { tr_last_stand: 1 });
