@@ -1912,6 +1912,48 @@
           act ? `${act.skill} / ${act.elem}` : '(イベントが無い)');
       }
 
+      // --- 庇う役が複数いるとき (§5.22) ---
+      //
+      // 以前は先頭の1人しか働かず、誰が庇うかがパーティの並び順で決まっていた。
+      // 直したあとも「重ねて増える」形にはしない。2人で160%が動くと、
+      // 庇うほど総ダメージが増えるという逆転になる。
+      {
+        const ally = unitOf('ch_shiki');
+        const g1 = unitOf('ch_lg_aegis', { tr_guard_ally: 3, tr_guard_ally_hi: 2 });
+        const g2 = unitOf('ch_gald', { tr_guard_ally: 3, tr_guard_ally_hi: 2 });
+        const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
+          party: [ally, g1, g2], bossFinale: false });
+        b.log.length = 0;
+        RPG.battle.applyDamage(b, b.enemies[0], b.party[0], RPG.data.skills.sk_enemy_bite, {});
+        const lines = b.log.map((/** @type {any} */ l) => l.text);
+        assertTrue('庇う: 2人いれば2人とも働く',
+          lines.filter((/** @type {string} */ t) => /を庇った/.test(t)).length === 2,
+          lines.join(' / ').slice(0, 140));
+      }
+
+      // --- 棘と反射は取り巻きの守りを貫通する（仕様） (§17.5) ---
+      //
+      // `guardedByAdds` は「こちらから殴る」経路にしかない。棘・反射は hurt() を
+      // 直接呼ぶので、衛士が生きていても本体へ通る。**これは仕様として残す。**
+      // 殴ってきた相手にそのまま返すものなので、衛士の後ろにいるから
+      // 殴り返されない、というほうが理屈に合わない。
+      // うっかり塞がれたらここで気付けるようにしておく。
+      {
+        const thorny = unitOf('ch_lg_aegis', { tr_thorns: 4, tr_thorns_hi: 3 });
+        const before = RPG.state.get().party.slice();
+        const b = RPG.arena.start('ar_the_warden', {});
+        // 衛士を生かしたまま、本体に殴らせる
+        const boss = b.enemies.find((/** @type {any} */ e) => e.isBoss);
+        const adds = b.enemies.filter((/** @type {any} */ e) => !e.isBoss && e.alive);
+        b.party[0].passives.thorns = thorny.passives.thorns;
+        const hp = boss.hp;
+        RPG.battle.applyDamage(b, boss, b.party[0], RPG.data.skills.sk_enemy_bite, {});
+        assertTrue('棘: 衛士が生きていても本体へ返る（仕様）',
+          adds.length > 0 && boss.hp < hp,
+          `衛士 ${adds.length}体 / ボス ${hp.toLocaleString()} → ${boss.hp.toLocaleString()}`);
+        RPG.state.get().party = before;
+      }
+
       // --- 反射の上限 (§5.20) ---
       //
       // 反射は「受けた一撃の重さ × 率 × 相手レベル倍率」で、

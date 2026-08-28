@@ -1821,19 +1821,34 @@
     // 防御も棘も反射も全部その経路に乗る。**同じ一撃**なので会心の有無は
     // 引き継ぐ（引き継がないと「初手必中」を庇うだけで2回消費してしまう）。
     if (!opts.guarded && defender.side === 'party' && result.damage > 0) {
-      const guard = battle.party.find((/** @type {any} */ u) =>
+      // ── 庇う役が複数いるときは「分担」する (§5.22) ──
+      //
+      // 以前は `find` で**先頭の1人しか働かなかった**。2人目を庇う型にしても
+      // 何も起きず、しかも誰が働くかがパーティの並び順で決まっていた。
+      //
+      // 重ねて増やす形（各自が0.8ずつ肩代わり）にはしていない。
+      // それだと2人で160%が動き、庇うほど総ダメージが増える。
+      // **総量は0.8のまま**にして、それを持ち分で割る。
+      // 2人目の意味は「総量が増えること」ではなく「1人あたりの負担が減ること」。
+      const guards = battle.party.filter((/** @type {any} */ u) =>
         u !== defender && u.alive && u.passives && u.passives.guardAlly > 0);
-      if (guard) {
-        const share = Math.min(0.8, guard.passives.guardAlly);
+      if (guards.length) {
+        const sum = guards.reduce((/** @type {number} */ t, /** @type {any} */ g) =>
+          t + g.passives.guardAlly, 0);
+        const share = Math.min(0.8, sum);
         const taken = Math.floor(result.damage * share);
         if (taken > 0) {
           result.damage -= taken;
-          pushLog(battle, `${guard.name} が ${defender.name} を庇った`, 'sub');
-          applyDamage(battle, attacker, guard, skill, Object.assign({}, opts, {
-            guarded: true,
-            powerScale: (opts.powerScale == null ? 1 : opts.powerScale) * share,
-            crit: result.crit,
-          }));
+          const base = opts.powerScale == null ? 1 : opts.powerScale;
+          for (const g of guards) {
+            const part = share * (g.passives.guardAlly / sum);
+            pushLog(battle, `${g.name} が ${defender.name} を庇った`, 'sub');
+            applyDamage(battle, attacker, g, skill, Object.assign({}, opts, {
+              guarded: true,
+              powerScale: base * part,
+              crit: result.crit,
+            }));
+          }
         }
       }
     }
@@ -1980,6 +1995,13 @@
 
     // --- 「鏡面」— 受けたダメージの割合をそのまま突き返す (§5.7) ---
     // 棘（相手の最大HP割合）と違い、殴られた重さがそのまま返るので大技ほど痛い。
+    //
+    // ── 取り巻きの守りを貫通するのは仕様 (§17.5) ──
+    // `guardedByAdds` の判定は「こちらから殴る」経路 (applyDamage の入口) にしかない。
+    // 棘と反射は `hurt()` を直接呼ぶので、衛士が生きていても本体へ通る。
+    // **これは直さない。** 殴ってきた相手にそのまま返すという性質のものなので、
+    // 「衛士の後ろにいるから殴り返されない」ほうが理屈に合わない。
+    // 検査で固定してあるので、うっかり塞がないこと。
     // ダメージ表示より後に置いてあるのは、ログが「殴られた → 返した」の順に読めるようにするため。
     const reflect = (defender.passives && defender.passives.reflect) || 0;
     if (reflect > 0 && result.damage > 0 && attacker.alive) {
