@@ -152,9 +152,26 @@
     );
   }
 
+  /**
+   * 画面はいつも1つだけ (§20.7)。
+   *
+   * ── なぜ関数にするのか ──
+   * 「隠すほうを1行ずつ書く」形にしていたら、`showBase()` だけが
+   * **#screen-map を隠し忘れていた**。物語の探索中に「拠点へ戻る」を押すと
+   * 地図の上に拠点が重なり、装備も育成も触れない状態になっていた。
+   * 出したい画面を1つ渡すだけにして、隠し忘れが起きる余地を消す。
+   *
+   * @param {string} id
+   */
+  function showOnly(id) {
+    for (const s of ['screen-base', 'screen-battle', 'screen-map', 'screen-story']) {
+      const el = document.getElementById(s);
+      if (el) el.classList.toggle('hidden', s !== id);
+    }
+  }
+
   function showBase() {
-    $('#screen-battle').classList.add('hidden');
-    $('#screen-base').classList.remove('hidden');
+    showOnly('screen-base');
     RPG.ui.base.render($('#screen-base'));
     refreshTopbar();
   }
@@ -423,8 +440,7 @@
     RPG.state.rememberSortie({ fieldId, waves, bossFinale: bossFinale !== false });
     RPG.state.persist();
 
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.remove('hidden');
+    showOnly('screen-battle');
     RPG.ui.battle.mount($('#screen-battle'), currentBattle);
   }
 
@@ -454,8 +470,7 @@
     RPG.state.get().stats.battles++;
     RPG.state.persist();
 
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.remove('hidden');
+    showOnly('screen-battle');
     RPG.ui.battle.mount($('#screen-battle'), currentBattle);
   }
 
@@ -470,8 +485,7 @@
     RPG.state.get().stats.battles++;
     RPG.state.persist();
 
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.remove('hidden');
+    showOnly('screen-battle');
     RPG.ui.battle.mount($('#screen-battle'), currentBattle);
   }
 
@@ -494,10 +508,7 @@
     // まだ現在地が無いことがある。そのときだけ既定のマップへ落とす。
     if (!RPG.worldmap.current()) RPG.worldmap.enter('mp_forge');
 
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.add('hidden');
-    $('#screen-story').classList.add('hidden');
-    $('#screen-map').classList.remove('hidden');
+    showOnly('screen-map');
     refreshTopbar();
     RPG.ui.worldmap.mount($('#screen-map'));
   }
@@ -522,10 +533,7 @@
     if (!scene) return false;
 
     RPG.ui.worldmap.unmount();
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.add('hidden');
-    $('#screen-map').classList.add('hidden');
-    $('#screen-story').classList.remove('hidden');
+    showOnly('screen-story');
 
     RPG.ui.story.play($('#screen-story'), scene, () => {
       const res = RPG.story.finish(scene);
@@ -550,12 +558,9 @@
    */
   function replayScene(scene) {
     if (!scene) return;
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.add('hidden');
-    $('#screen-map').classList.add('hidden');
-    $('#screen-story').classList.remove('hidden');
+    showOnly('screen-story');
     RPG.ui.story.play($('#screen-story'), scene, () => {
-      $('#screen-story').classList.add('hidden');
+      // 隠すのは showBase() がまとめて行う (§20.7)
       // 読み終えたら図鑑へ返す。呼んだ場所へ戻らないと、探し直しになる。
       RPG.ui.base.activeTab = 'codex';
       showBase();
@@ -572,8 +577,7 @@
     RPG.ui.worldmap.unmount();
     RPG.ui.story.close();
     RPG.state.setMode('hack');
-    $('#screen-map').classList.add('hidden');
-    $('#screen-story').classList.add('hidden');
+    // 隠すのは showBase() 側でまとめて行う (§20.7)
     showBase();
   }
 
@@ -599,9 +603,7 @@
     RPG.state.get().stats.battles++;
     RPG.state.persist();
 
-    $('#screen-base').classList.add('hidden');
-    $('#screen-map').classList.add('hidden');
-    $('#screen-battle').classList.remove('hidden');
+    showOnly('screen-battle');
     RPG.ui.battle.mount($('#screen-battle'), currentBattle);
   }
 
@@ -624,8 +626,7 @@
     RPG.state.get().stats.battles++;
     RPG.state.persist();
 
-    $('#screen-base').classList.add('hidden');
-    $('#screen-battle').classList.remove('hidden');
+    showOnly('screen-battle');
     RPG.ui.battle.mount($('#screen-battle'), currentBattle);
   }
 
