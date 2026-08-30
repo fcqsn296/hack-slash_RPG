@@ -280,7 +280,11 @@ RPG.data.maps = {
       '#': 'wall', '.': 'floor', '=': 'road', '<': 'stair',
     },
     start: { x: 1, y: 6 },
-    encounter: { fieldId: 'fl_deep', waves: 2, bossFinale: false, rate: 0.11 },
+    encounter: {
+      fieldId: 'fl_deep', waves: 2, bossFinale: false, rate: 0.11,
+      // 道中はボスより2つ下。ここで少し育ってから締めへ向かう形にする。
+      enemyLv: 8,
+    },
     events: [
       // 戻り口は階段のマスそのものに置く（mp_vault で踏んだ罠と同じ）
       { x: 0, y: 6, kind: 'exit', to: 'mp_vault', at: { x: 14, y: 5 } },
@@ -299,7 +303,14 @@ RPG.data.maps = {
 
       // 二番機ドゥオ。索引を見てからでないと出てこない。
       { x: 13, y: 6, kind: 'battle', needs: 'deep_index', flag: 'duo_slain',
-        enc: { fieldId: 'fl_deep', waves: 1, bossFinale: true },
+        enc: {
+          fieldId: 'fl_deep', waves: 1, bossFinale: true,
+          // 章の締め。物語は Lv5〜6 でここへ着くので、周回用の rec_level 20 では
+          // 話にならない（装備なしの実測で Lv10 でも勝率0%、Lv15 で67%）。
+          // 敵 Lv10 なら装備なしで勝率79%・1.6人が倒れる。
+          // 一度負けても、装備を整え直せば越えられる重さ。
+          enemyLv: 10,
+        },
         text: '通路の中ほどに、道を塞ぐ形で機体が座っている。' },
 
       // アストラ。ドゥオを倒すまで開かない。

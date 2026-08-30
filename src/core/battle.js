@@ -976,7 +976,17 @@
       questId,
       rules,
       // 敵レベルと強化倍率。クエストが指定していなければフィールドの既定値。
-      enemyLv: quest && quest.enemyLv ? quest.enemyLv : scaledEnemyLv(field, config.party),
+      // config.enemyLv は物語が使う (§20.4)。
+      //
+      // 物語は周回用のフィールドを借りている。ところが借りる側の想定レベルが
+      // まるで違う——第三章は Lv5〜6 で終わるのに、封絶の浅層は rec_level 20。
+      // 実測では装備なしのドゥオ戦の勝率が Lv10 で 0%、Lv15 で 67% だった。
+      // 草原の稼ぎは1戦45経験値なので、Lv15 まで **359戦**かかる勘定になる。
+      //
+      // フィールドを物語用に複製すると敵とボスを二重に持つことになるので、
+      // **借りる側がレベルだけ指定できる**ようにした。章が増えても同じ手が使える。
+      enemyLv: (config.enemyLv || (quest && quest.enemyLv))
+        || scaledEnemyLv(field, config.party),
       enemyScale: quest && quest.enemyScale ? quest.enemyScale : 1,
       // 縛りを破ったときの理由。勝っても達成にならない。
       ruleBroken: /** @type {string|null} */ (null),
