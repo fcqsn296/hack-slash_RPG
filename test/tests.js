@@ -1912,33 +1912,46 @@
           act ? `${act.skill} / ${act.elem}` : '(イベントが無い)');
       }
 
-      // --- 火傷は1ラウンドに1回まで (§5.23) ---
+      // --- 異常の上限は「起点の頻度」で決める (§5.23) ---
       //
-      // 火傷は「攻撃技を振るうたび」に焼ける。闘技場のボスは手数で難しくして
-      // あるので、**難しくするほど火傷が強くなる**という掛け算になっていた。
-      // ハードの闘技場の主（1ラウンドに5回動く）で実測すると、状態異常特化が
-      // 2ラウンドで決着し、最速の攻撃型(7ラウンド)の3.5倍だった。
+      // 6種の異常は**効くタイミングが全部ずれている**のが設計の芯で、
+      // どれを撒くかがそのまま戦い方の選択になる（docs/拡張コンテンツの作り方）。
       //
-      // 回数で押さえるのは、**1手番しか動かない相手には影響が出ない**ため。
-      // 割合で削ると、手数の少ないボスに対しても火傷が弱くなってしまう。
+      // ところが `status_power` を積むと ratio が 4.7倍まで伸び、素の値が
+      // 0.06〜0.10 しかないので**全部が上限へ収束する**。上限が実質の値になる。
+      // つまり上限の置き方そのものが設計になっている。
+      //
+      // だから上限は「1ラウンドに何回起きるか」で割って決める。
+      //   毒   … ラウンド終了時に1回。確実に入るぶん、1回ぶんを厚く
+      //   火傷 … 相手が攻撃するたび。通常は1回、闘技場のボスは3〜5回
+      //
+      // 火傷の回数そのものは縛らない。縛ると「動くほど焼ける」という
+      // 火傷の個性が消えて、毒の色違いになる。
       {
+        const cap = RPG.battle.STATUS_CAP;
+        assertTrue('異常: 毒の上限は火傷より厚い（起点が1ラウンド1回なので）',
+          cap.poison > cap.burn, `毒 ${cap.poison} / 火傷 ${cap.burn}`);
+        // 闘技場のボスは最大5手番。火傷が毒を上回るのは、それだけ動く相手のとき。
+        const worstActions = Math.max.apply(null, RPG.data.arena.bosses
+          .map((/** @type {any} */ b) => (b.actionsPerRound || 1))) + 2;
+        assertTrue('異常: 手数の多い相手でだけ火傷が毒を上回る',
+          cap.burn * worstActions > cap.poison && cap.burn * 2 <= cap.poison,
+          `火傷 ${cap.burn}×${worstActions} = ${(cap.burn * worstActions).toFixed(2)} / 毒 ${cap.poison}`);
+
+        // 火傷は1手番につき1回焼ける。回数の上限は入れていない。
         const hero = unitOf('ch_hero');
         const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
           party: [hero], bossFinale: false });
         const foe = b.enemies[0];
         foe.statusEffects = [{ kind: 'burn', ratio: 0.2, turns: 5 }];
-        const burns = () => b.log.filter((/** @type {any} */ l) => /火傷で/.test(l.text)).length;
         b.log.length = 0;
-        // 同じラウンドのうちに3回攻撃させる
         for (let i = 0; i < 3; i++) {
           foe.hp = foe.maxHp;
           RPG.battle.executeSkill(b, foe, 'sk_enemy_bite', [b.party[0]]);
         }
-        assertTrue('火傷: 同じラウンドでは1回しか焼けない',
-          burns() === 1, `${burns()} 回`);
-        // 1手番しか動かない相手は、この上限に当たらない
-        assertTrue('火傷: 1手番なら今までどおり焼ける',
-          RPG.battle.BURN_ROUND_HITS >= 1, String(RPG.battle.BURN_ROUND_HITS));
+        const burns = b.log.filter((/** @type {any} */ l) => /火傷で/.test(l.text)).length;
+        assertTrue('火傷: 攻撃するたびに焼ける（回数は縛らない）',
+          burns === 3, `${burns} 回`);
       }
 
       // --- 庇う役が複数いるとき (§5.22) ---
