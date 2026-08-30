@@ -1912,6 +1912,35 @@
           act ? `${act.skill} / ${act.elem}` : '(イベントが無い)');
       }
 
+      // --- 火傷は1ラウンドに1回まで (§5.23) ---
+      //
+      // 火傷は「攻撃技を振るうたび」に焼ける。闘技場のボスは手数で難しくして
+      // あるので、**難しくするほど火傷が強くなる**という掛け算になっていた。
+      // ハードの闘技場の主（1ラウンドに5回動く）で実測すると、状態異常特化が
+      // 2ラウンドで決着し、最速の攻撃型(7ラウンド)の3.5倍だった。
+      //
+      // 回数で押さえるのは、**1手番しか動かない相手には影響が出ない**ため。
+      // 割合で削ると、手数の少ないボスに対しても火傷が弱くなってしまう。
+      {
+        const hero = unitOf('ch_hero');
+        const b = RPG.battle.start({ fieldId: 'fl_nest', waves: 1,
+          party: [hero], bossFinale: false });
+        const foe = b.enemies[0];
+        foe.statusEffects = [{ kind: 'burn', ratio: 0.2, turns: 5 }];
+        const burns = () => b.log.filter((/** @type {any} */ l) => /火傷で/.test(l.text)).length;
+        b.log.length = 0;
+        // 同じラウンドのうちに3回攻撃させる
+        for (let i = 0; i < 3; i++) {
+          foe.hp = foe.maxHp;
+          RPG.battle.executeSkill(b, foe, 'sk_enemy_bite', [b.party[0]]);
+        }
+        assertTrue('火傷: 同じラウンドでは1回しか焼けない',
+          burns() === 1, `${burns()} 回`);
+        // 1手番しか動かない相手は、この上限に当たらない
+        assertTrue('火傷: 1手番なら今までどおり焼ける',
+          RPG.battle.BURN_ROUND_HITS >= 1, String(RPG.battle.BURN_ROUND_HITS));
+      }
+
       // --- 庇う役が複数いるとき (§5.22) ---
       //
       // 以前は先頭の1人しか働かず、誰が庇うかがパーティの並び順で決まっていた。

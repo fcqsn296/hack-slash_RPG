@@ -70,6 +70,9 @@
   // 旧上限(約106万)にも届いていなかった。
   const REFLECT_CAP_RATIO = 400;
 
+  // 火傷が1ラウンドに焼ける回数の上限 (§5.23)。
+  const BURN_ROUND_HITS = 1;
+
   // 反射の相手レベル倍率 (§5.17)。Lv270 で ×28。
   // 味方HPスケールに縛られる反射を、敵HPスケールへ引き上げるための係数。
   const REFLECT_LEVEL_RATE = 0.1;
@@ -2675,13 +2678,17 @@
     // 毒と違って「動くと痛い」ので、多段や連射を積んだ相手ほど重くのしかかる。
     const burning = statusRatio(actor, 'burn');
     if (burning > 0 && attackSkill && actor.alive) {
+      // 1ラウンドに焼ける回数を押さえる (§5.23)
       const burn = Math.max(1, Math.floor(actor.maxHp * burning));
+      if ((actor.burntThisRound || 0) >= BURN_ROUND_HITS) { /* このラウンドはもう焼けない */ } else {
+      actor.burntThisRound = (actor.burntThisRound || 0) + 1;
       hurt(battle, actor, burn);
       pushLog(battle, `${actor.name} は火傷で ${burn.toLocaleString()} のダメージ`, 'damage');
       if (actor.hp === 0) {
         actor.alive = false;
         pushLog(battle, `${actor.name} は力尽きた`, 'defeat');
         pushEvent(battle, { type: 'down', key: actor.key, side: actor.side });
+      }
       }
     }
 
@@ -3012,6 +3019,8 @@
       return;
     }
 
+    // 火傷の「1ラウンドに焼ける量」を数え直す (§5.23)
+    for (const u of battle.party.concat(battle.enemies)) u.burntThisRound = 0;
     battle.round++;
     battle.totalRounds++;
 
@@ -3126,6 +3135,6 @@
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage, checkWaveCleared, shapePool,
-    THORNS_CAP_RATIO, REFLECT_CAP_RATIO, REFLECT_LEVEL_RATE,
+    THORNS_CAP_RATIO, REFLECT_CAP_RATIO, REFLECT_LEVEL_RATE, BURN_ROUND_HITS,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
