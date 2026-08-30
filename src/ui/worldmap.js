@@ -155,29 +155,44 @@
       message = { text };
       RPG.app.refreshTopbar();
     } else if (res.kind === 'talk') {
-      // 印を立てた結果、すぐシーンが始まるなら吹き出しは出さない。
-      //
-      // マスの文章とシーンの1行目が同じ内容になっている箇所が4つあり、
-      // 「閉じる → 同じことをもう一度読む」というテンポになっていた。
-      // 片方の文章を削って回るより、**続きがあるなら前置きを飛ばす**ほうが
-      // 章を足したときにも効く。話の中身はシーンの側にあるので、
-      // 落ちるのは前置きだけで済む。
-      if (RPG.story.pending()) return;
-      message = { text: res.text, who: res.who };
+      message = echoesNextScene(res.text) ? null : { text: res.text, who: res.who };
     } else if (res.kind === 'join') {
       const name = RPG.state.charName(res.who);
       RPG.app.refreshTopbar();
-      // 加入も同じ。直後に本人の登場シーンが来るなら、
-      // 一言目を2回読ませない。加入した事実だけは残す。
-      if (RPG.story.pending()) {
-        message = { text: `── ${name} が仲間になった。`, who: res.who };
-      } else {
-        message = { text: `${res.text}
-
-── ${name} が仲間になった。`, who: res.who };
-      }
+      const joined = `── ${name} が仲間になった。`;
+      message = echoesNextScene(res.text)
+        ? { text: joined, who: res.who }
+        : { text: `${res.text}\n\n${joined}`, who: res.who };
     }
     // exit は enter() が現在地を変えているので、描き直すだけでよい
+  }
+
+  /**
+   * このマスの文章が、直後に始まるシーンと同じことを言っているか。
+   *
+   * ── なぜ「pending があるか」で判定してはいけないか ──
+   * 最初そう書いたら、**重複していない台詞まで消えた**。
+   * リゼルの加入の一言と長老の一言は、たまたま直後にシーンが挟まるだけで
+   * 中身は別だった。飛ばすかどうかは「続きがあるか」ではなく
+   * **同じことを言っているか**で決めないと、書いた文章が黙って落ちる。
+   *
+   * 突き合わせは、記号と空白を落とした先頭の一文で行う。
+   * 完全一致にすると「——一つだけ、まだ薄く光っている。」と
+   * 「——一つだけ、まだ光の残っている箱があった。」を別物と見てしまう。
+   *
+   * @param {string} text
+   * @returns {boolean}
+   */
+  function echoesNextScene(text) {
+    const scene = RPG.story.pending();
+    if (!scene || !text) return false;
+    const first = (scene.lines && scene.lines[0] && scene.lines[0].text) || '';
+    /** @param {string} s */
+    const head = (s) => s.replace(/[\s—――…。、「」『』]/g, '').slice(0, 12);
+    const a = head(text);
+    const b = head(first);
+    if (!a || !b) return false;
+    return a.startsWith(b.slice(0, 8)) || b.startsWith(a.slice(0, 8));
   }
 
   /**
@@ -293,10 +308,10 @@
     // 縦も同じ理屈で寄せておく。今のマップは縦が収まっているが、
     // 増えたときに同じことが起きる。
     const view = root.querySelector('.wm-viewport');
-    const hero = root.querySelector('.wm-hero');
-    if (view && hero && view instanceof HTMLElement && hero instanceof HTMLElement) {
-      const cx = hero.offsetLeft + hero.offsetWidth / 2 - view.clientWidth / 2;
-      const cy = hero.offsetTop + hero.offsetHeight / 2 - view.clientHeight / 2;
+    const pawn = root.querySelector('.wm-hero');
+    if (view instanceof HTMLElement && pawn instanceof HTMLElement) {
+      const cx = pawn.offsetLeft + pawn.offsetWidth / 2 - view.clientWidth / 2;
+      const cy = pawn.offsetTop + pawn.offsetHeight / 2 - view.clientHeight / 2;
       view.scrollLeft = Math.max(0, Math.min(cx, view.scrollWidth - view.clientWidth));
       view.scrollTop = Math.max(0, Math.min(cy, view.scrollHeight - view.clientHeight));
     }

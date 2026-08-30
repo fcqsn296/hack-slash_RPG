@@ -6950,6 +6950,14 @@
             fieldId: 'fl_origin', waves: 1, bossFinale: false, party,
           });
           const foe = RPG.battle.livingEnemies(battle)[0];
+          // 起爆は相手の最大HPに比例するので、**相手を揃えないと比較にならない。**
+          // 揃えていなかったため、投資の有無ではなく「どの敵が湧いたか」で
+          // 値が動き、実行するたびに合否が変わっていた
+          // （実測 Lv0 26,303 → Lv3 28,716 で落ち、次の実行では
+          //   Lv0 20,824 → Lv3 36,271 で通る）。
+          // 揺れる検査は誤報を生み、本物の不具合を隠す。
+          foe.maxHp = 1000000;
+          foe.hp = foe.maxHp;
           RPG.battle.inflict(battle, party[0], foe, 'poison', 3, 0.06);
           RPG.battle.inflict(battle, party[0], foe, 'burn', 3, 0.05);
           return { battle, actor: party[0], foe };
@@ -10159,6 +10167,46 @@
       }).catch((e) => {
         check('画面: ソースを読めた', false, String(e && e.message));
       }))
+      // ── 本体が読む JS が全部、構文として通るか ──
+      //
+      // テストページは本体より6本少なく読んでいる（main.js と src/ui/ の5本）。
+      // そのため **worldmap.js に構文エラーを入れても 1365/1365 のまま通った**。
+      // 実際にはファイルが丸ごと評価されず RPG.ui.worldmap が未定義になり、
+      // 「物語」を押しても何も起きない状態だった。テストが緑なのに遊べない。
+      //
+      // 読み込む一覧は index.html から引く。手で持つと必ず古くなる
+      // （この検査自体が「一覧を手で持っていた」ことへの後始末）。
+      // new Function はコンパイルするだけで**実行はしない**ので、
+      // 画面を描き始めたり main.js が起動したりはしない。
+      .then(() => fetch('../index.html')
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error('index.html HTTP ' + r.status))))
+        .then((html) => {
+          const srcs = [];
+          const re = /<script[^>]+src="([^"]+\.js)"/g;
+          let m;
+          while ((m = re.exec(html))) {
+            if (!/^https?:/.test(m[1])) srcs.push(m[1]);
+          }
+          return Promise.all(srcs.map((f) => fetch('../' + f)
+            .then((r) => (r.ok ? r.text() : Promise.reject(new Error(f + ' HTTP ' + r.status))))
+            .then((text) => {
+              try {
+                // eslint-disable-next-line no-new-func
+                new Function(text);
+                return null;
+              } catch (e) {
+                return f + ': ' + String(e && e.message);
+              }
+            })));
+        })
+        .then((bad) => {
+          const errs = bad.filter((x) => !!x);
+          check('本体が読む JS が全て構文として通る', errs.length === 0,
+            errs.join(' / ') || (bad.length + ' ファイルを確認'));
+        })
+        .catch((e) => {
+          check('本体が読む JS を確認できた', false, String(e && e.message));
+        }))
       .then(() => onDone(results));
   }
 
