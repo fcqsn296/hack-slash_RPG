@@ -11,7 +11,14 @@
  *   statuses : string[]  複数まとめて付与する場合
  *   turns    : number    持続ターン（呪詛・精神耐性でここから増減する）
  *   ratio    : number    強さ。意味は種類ごとに違う（data/statuses.js 参照）
+ *   ratios   : object    種類ごとに強さを変えたいときの上書き表 { poison: 0.03, … }
  *   all      : boolean   true なら敵全体が対象
+ *
+ * ratios がある理由。ratio の意味は種類ごとにまるで違う——毒と火傷では
+ * 「最大HPの何割を削るか」だが、呪詛では「回復を何割塞ぐか」、麻痺では
+ * 「何割の確率で動けなくなるか」。1つの数で兼ねると、片方を調整したときに
+ * もう片方が巻き添えで壊れる。実際「呪縛の福音」は回復封じ60%が欲しくて
+ * ratio 0.60 を置いていたが、同時に撒く毒まで60%になっていた。
  */
 (function (RPG) {
   'use strict';
@@ -35,8 +42,9 @@
         for (const kind of kinds) {
           const def = (RPG.data.statuses || {})[kind];
           if (!def) continue;
+          const r = (p.ratios && p.ratios[kind] != null) ? p.ratios[kind] : (p.ratio || 0.05);
           ctx.addStatus(target, {
-            kind, label: def.label, turns: p.turns || 3, ratio: p.ratio || 0.05,
+            kind, label: def.label, turns: p.turns || 3, ratio: r,
             // 経過しない弱体 (§12 呪術師)。撒く技の側で明示したときだけ立つ。
             lasting: !!p.lasting,
           });

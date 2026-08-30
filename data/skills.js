@@ -78,8 +78,8 @@ RPG.data.skills = {
     name: '毒牙', kind: 'active', plugin: 'poison',
     scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
     power: 80, crit_rate: 0.05,
-    params: { turns: 3, ratio: 0.06 },
-    desc: '攻撃後、3ターンにわたり最大HPの6%の毒ダメージを与える。',
+    params: { turns: 3, ratio: 0.015 },
+    desc: '攻撃後、3ターンにわたり最大HPの3%の毒ダメージを与える。',
   },
   sk_focus: {
     name: '闘気集中', kind: 'active', plugin: 'unique_buff',
@@ -290,7 +290,7 @@ RPG.data.skills = {
     name: '浸みる一閃', kind: 'active', plugin: 'status', unique: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
     power: 150, crit_rate: 0.05,
-    params: { status: 'poison', turns: 4, ratio: 0.09 },
+    params: { status: 'poison', turns: 4, ratio: 0.018 },
     desc: '【固有】威力150%。毒を付与し、ラウンドごとに削る。',
   },
   sk_lg_renkan: {
@@ -430,7 +430,7 @@ RPG.data.skills = {
     name: '厄災の宣告', kind: 'active', plugin: 'multi_debuff', unique: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
     power: 95, crit_rate: 0.08,
-    params: { turns: 4, defIgnore: true, poison: 0.07, statuses: ['厄災', '衰弱'] },
+    params: { turns: 4, defIgnore: true, poison: 0.018, statuses: ['厄災', '衰弱'] },
     desc: '【固有】防御崩壊・毒・厄災・衰弱を一度に叩き込む。',
   },
   sk_lg_bloodpact: {
@@ -510,7 +510,7 @@ RPG.data.skills = {
     name: '腐蝕の霧', kind: 'active', plugin: 'poison', tree: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
     power: 60, crit_rate: 0.03,
-    params: { turns: 4, ratio: 0.06 },
+    params: { turns: 4, ratio: 0.015 },
     desc: '【ツリー】威力60%と強い毒。「毒の心得」「呪詛の心得」と噛み合う小技。',
   },
   sk_tree_detonate: {
@@ -571,7 +571,7 @@ RPG.data.skills = {
     name: '万呪', kind: 'active', plugin: 'multi_debuff', tree: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
     power: 70, crit_rate: 0.05,
-    params: { turns: 3, defIgnore: true, poison: 0.05, statuses: ['呪詛'] },
+    params: { turns: 3, defIgnore: true, poison: 0.012, statuses: ['呪詛'] },
     desc: '【ツリー】防御崩壊・毒・呪詛をまとめて付与する。「追い討ち」と噛み合う。',
   },
   sk_tree_sacrifice: {
@@ -608,7 +608,7 @@ RPG.data.skills = {
     name: '氷結の枷', kind: 'active', plugin: 'multi_debuff', tree: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
     power: 120, crit_rate: 0.05,
-    params: { turns: 3, defIgnore: true, poison: 0.03, statuses: ['凍結'] },
+    params: { turns: 3, defIgnore: true, poison: 0.008, statuses: ['凍結'] },
     desc: '【ツリー】威力120%。防御崩壊と凍結を同時に付ける。「疫病の広がり」で全体へ撒ける。',
   },
   sk_tree_chain_bolt: {
@@ -653,7 +653,7 @@ RPG.data.skills = {
     name: '燻り', kind: 'active', plugin: 'status', tree: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
     power: 80, crit_rate: 0.05,
-    params: { status: 'burn', turns: 4, ratio: 0.05 },
+    params: { status: 'burn', turns: 4, ratio: 0.006 },
     desc: '【ツリー】威力80%。火傷を付与し、相手が攻撃するたびに焼ける。',
   },
   sk_tree_gash: {
@@ -688,7 +688,10 @@ RPG.data.skills = {
     name: '万病', kind: 'active', plugin: 'status', tree: true,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
     power: 90, crit_rate: 0.05,
-    params: { statuses: ['poison', 'burn', 'bleed'], turns: 4, ratio: 0.05, all: true },
+    params: {
+        statuses: ['poison', 'burn', 'bleed'], turns: 4, ratio: 0.05, all: true,
+        ratios: { poison: 0.01, burn: 0.0035 },
+      },
     desc: '【ツリー】威力90%の全体攻撃。毒・火傷・出血をまとめて撒く。特効パッシブの土台。',
   },
   sk_tree_smash: {
@@ -770,6 +773,10 @@ RPG.data.skills = {
     params: {
       statuses: ['poison', 'burn', 'bleed', 'paralyze', 'freeze', 'curse'],
       turns: 4, ratio: 0.10, all: true, lasting: true,
+      // 削る2種だけ下げる。ratio 0.10 のままだと、この技を取るだけで
+      // 毒10% + 火傷10%×3手番 = 40%/ラウンドになり、投資が無意味になる。
+      // 制御の4種（出血・麻痺・凍結・呪詛）は意味が違うので 0.10 のまま。
+      ratios: { poison: 0.012, burn: 0.004 },
     },
     desc: '【クラス】敵全体に6種類すべての弱体を撒く。' +
       'ここで撒いた弱体は時間で消えない（そのウェーブのあいだ残り続ける）。' +
@@ -833,7 +840,10 @@ RPG.data.skills = {
     name: '呪縛の福音', kind: 'active', plugin: 'status', unique: true,
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'light',
     power: 140, crit_rate: 0.05,
-    params: { statuses: ['curse', 'poison'], turns: 5, ratio: 0.60, all: true },
+    params: {
+        statuses: ['curse', 'poison'], turns: 5, ratio: 0.60, all: true,
+        ratios: { poison: 0.015 },
+      },
     desc: '敵全体に威力140%。呪詛と毒を撒き、回復とHP吸収を60%封じる。',
   },
   sk_lg_crescendo: {
@@ -1103,7 +1113,7 @@ RPG.data.skills = {
   sk_enemy_shadow: {
     name: '影喰い', kind: 'active', plugin: 'poison',
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
-    power: 90, crit_rate: 0.05, params: { turns: 3, ratio: 0.04 }, desc: '',
+    power: 90, crit_rate: 0.05, params: { turns: 3, ratio: 0.01 }, desc: '',
   },
   sk_enemy_dragon_breath: {
     name: '竜炎吐息', kind: 'active', plugin: null,
@@ -1154,7 +1164,7 @@ RPG.data.skills = {
   sk_enemy_wither: {
     name: '枯死の呪', kind: 'active', plugin: 'poison',
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
-    power: 120, crit_rate: 0.05, params: { turns: 3, ratio: 0.05 }, desc: '',
+    power: 120, crit_rate: 0.05, params: { turns: 3, ratio: 0.012 }, desc: '',
   },
   sk_enemy_judgment: {
     name: '裁きの光', kind: 'active', plugin: null,
