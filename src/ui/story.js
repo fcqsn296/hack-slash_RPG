@@ -92,7 +92,7 @@
             who ? h('span.scene-who', {
               text: line.who === 'ch_hero' ? RPG.state.charName('ch_hero') : who.name,
             }) : null,
-            h('p.scene-text', { text: line.text })
+            h('p.scene-text', { text: RPG.story.fill(line.text) })
           )
         ),
         h('div.scene-foot',

@@ -97,7 +97,7 @@ RPG.data.maps = {
     // 草の上でだけ敵が出る。rate は1歩あたりの確率。
     encounter: { fieldId: 'fl_plain', waves: 2, bossFinale: false, rate: 0.12 },
     events: [
-      { x: 1, y: 5, kind: 'exit', to: 'mp_forge', at: { x: 12, y: 8 } },
+      { x: 0, y: 5, kind: 'exit', to: 'mp_forge', at: { x: 12, y: 8 } },
       { x: 5, y: 3, kind: 'chest', flag: 'ash_chest_1', gold: 500 },
       { x: 17, y: 8, kind: 'chest', flag: 'ash_chest_2', boxes: { box_silver: 1 } },
       // 東の端。人の住んでいる側へ抜ける。
@@ -143,7 +143,7 @@ RPG.data.maps = {
     // 人里では襲われない。襲撃は筋書きのほうで起こす。
     encounter: null,
     events: [
-      { x: 1, y: 5, kind: 'exit', to: 'mp_ashfield', at: { x: 18, y: 5 } },
+      { x: 0, y: 5, kind: 'exit', to: 'mp_ashfield', at: { x: 18, y: 5 } },
 
       // 村人。名前を持たないので who は無し（顔は出ない）。
       // 長老ひとりに全部言わせると講義になるので、断片を分けて置く。
@@ -292,7 +292,7 @@ RPG.data.maps = {
         boxes: { box_silver: 2 }, gold: 900 },
       { x: 3, y: 9, kind: 'chest', flag: 'deep_chest_2',
         equip: {
-          base: 'eq_relic_seal', rarity: 'EPIC', name: '写しの護符',
+          base: 'eq_relic_seal', rarity: 'SUPER_RARE', name: '写しの護符',
           stats: { magi_power: 62, hp: 210 },
           tagBonuses: [{ tag: 'reli', value: 0.14 }],
         } },

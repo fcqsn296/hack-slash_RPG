@@ -8737,6 +8737,18 @@
           assertTrue(`マップ: ${m.name} の出口は実在するマップを指す`, badExit.length === 0,
             badExit.map((/** @type {any} */ e) => e.to).join(' '));
 
+          // 宝箱が配る装備のレアリティが実在すること。
+          //
+          // 封絶の浅層の宝箱が 'EPIC' を持っていた。拾う瞬間は成功する
+          // （gear.forge はレアリティを検査しない）が、あとで装備タブを開くと
+          // widgets が undefined.color を掴んで落ち、**タブが黙って開かなくなる**。
+          // 症状が原因から遠いところに出るので、入口で止める。
+          const badRarity = (m.events || [])
+            .filter((/** @type {any} */ e) => e.equip && e.equip.rarity)
+            .filter((/** @type {any} */ e) => !RPG.data.rarities[e.equip.rarity]);
+          assertTrue(`マップ: ${m.name} の宝箱は実在するレアリティを配る`, badRarity.length === 0,
+            badRarity.map((/** @type {any} */ e) => `${e.equip.name}=${e.equip.rarity}`).join(' '));
+
           // イベントに歩いて辿り着けること (§20.5)。
           //
           // 出口を踏むと別のマップへ飛ぶので、**出口の向こう側にある

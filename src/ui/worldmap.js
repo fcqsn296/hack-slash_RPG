@@ -100,7 +100,12 @@
    * その結果として再生できるようになったシーンがここで流れる。
    */
   function dismiss() {
+    // 閉じたあとに続きがある吹き出し（戦闘の紹介文など）。
+    // 先に取り出してから message を空にする——then の中で画面を
+    // 明け渡すことがあるので、後始末を残したまま渡さない。
+    const then = message && message.then;
     message = null;
+    if (then) { then(); return; }
     if (afterEvent()) return;
     render();
   }
@@ -118,6 +123,16 @@
     const res = RPG.worldmap.resolve(ev);
     if (!res.ok) return;
     if (res.kind === 'battle') {
+      // 紹介文があるなら、先に見せてから戦わせる。
+      // data/maps.js には書いてあったのに `res.text` を捨てていて、
+      // マスに乗るといきなり戦闘が始まっていた（書いた文章が死んでいた）。
+      if (res.text && !message) {
+        message = { who: null, text: res.text, then: () => {
+          RPG.app.startStoryBattle(res.enc, { mapFlag: res.flag });
+        } };
+        render();
+        return;
+      }
       // 決まった相手との戦い。ここで画面を明け渡すので描き直さない。
       RPG.app.startStoryBattle(res.enc, { mapFlag: res.flag });
       return;
@@ -140,15 +155,66 @@
       message = { text };
       RPG.app.refreshTopbar();
     } else if (res.kind === 'talk') {
+      // 印を立てた結果、すぐシーンが始まるなら吹き出しは出さない。
+      //
+      // マスの文章とシーンの1行目が同じ内容になっている箇所が4つあり、
+      // 「閉じる → 同じことをもう一度読む」というテンポになっていた。
+      // 片方の文章を削って回るより、**続きがあるなら前置きを飛ばす**ほうが
+      // 章を足したときにも効く。話の中身はシーンの側にあるので、
+      // 落ちるのは前置きだけで済む。
+      if (RPG.story.pending()) return;
       message = { text: res.text, who: res.who };
     } else if (res.kind === 'join') {
       const name = RPG.state.charName(res.who);
-      message = { text: `${res.text}
+      RPG.app.refreshTopbar();
+      // 加入も同じ。直後に本人の登場シーンが来るなら、
+      // 一言目を2回読ませない。加入した事実だけは残す。
+      if (RPG.story.pending()) {
+        message = { text: `── ${name} が仲間になった。`, who: res.who };
+      } else {
+        message = { text: `${res.text}
 
 ── ${name} が仲間になった。`, who: res.who };
-      RPG.app.refreshTopbar();
+      }
     }
     // exit は enter() が現在地を変えているので、描き直すだけでよい
+  }
+
+  /**
+   * どこで敵が出るかの案内文を、**そのマップに実際にあるマス**から作る。
+   *
+   * 固定文で「草の上では敵が出る。道と階段は安全。」と書いていたが、
+   * 封絶の浅層には草が1マスも無く、敵が出るのは床だった。
+   * 案内が嘘になっていて、床が安全に見える。
+   *
+   * マスの種類は `encounter` を自分で宣言しているので、そこから引けば
+   * マップが増えても文章を書き直さなくて済む。
+   *
+   * @param {any} m
+   */
+  function encounterHint(m) {
+    if (!m.encounter) return 'ここでは敵は出ない。';
+    const kinds = RPG.data.tileKinds || {};
+    // 実際に置かれているマスの種類だけを見る。legend に書いてあっても
+    // 1マスも使われていない種類を数えると、また嘘の案内になる。
+    /** @type {Set<string>} */
+    const used = new Set();
+    for (const row of m.tiles || []) {
+      for (const ch of row) {
+        const kind = (m.legend || {})[ch];
+        if (kind && kinds[kind] && kinds[kind].walk) used.add(kind);
+      }
+    }
+    /** @param {boolean} want */
+    const labels = (want) => [...used]
+      .filter((k) => !!kinds[k].encounter === want)
+      .map((k) => kinds[k].label);
+
+    const risky = labels(true);
+    const safe = labels(false);
+    if (!risky.length) return 'ここでは敵は出ない。';
+    return `${risky.join('と')}の上では敵が出る。`
+      + (safe.length ? `${safe.join('と')}は安全。` : '');
   }
 
   function render() {
@@ -192,7 +258,7 @@
         h('h2', { text: m.name }),
         h('p.hint.hint-sm', { text: m.desc || '' }),
         h('p.hint.hint-sm', {
-          text: m.encounter ? '草の上では敵が出る。道と階段は安全。' : 'ここでは敵は出ない。',
+          text: encounterHint(m),
         })
       ),
       h('div.wm-viewport', grid),
@@ -216,6 +282,24 @@
       ),
     ];
     root.replaceChildren(...parts.filter((n) => !!n));
+
+    // 駒を見える位置へ寄せる。
+    //
+    // 横20マスのマップ（灰の野・集落・封絶の浅層）は、狭い画面だと
+    // 地図が横スクロール領域になる。**スクロールが駒を追わない**ので、
+    // 東へ歩くと自分が枠の外へ出たまま、どこにいるか分からず歩くことになる。
+    // 実測では x=17 で駒の左端 520px に対しビューポートの右端が 501px だった。
+    //
+    // 縦も同じ理屈で寄せておく。今のマップは縦が収まっているが、
+    // 増えたときに同じことが起きる。
+    const view = root.querySelector('.wm-viewport');
+    const hero = root.querySelector('.wm-hero');
+    if (view && hero && view instanceof HTMLElement && hero instanceof HTMLElement) {
+      const cx = hero.offsetLeft + hero.offsetWidth / 2 - view.clientWidth / 2;
+      const cy = hero.offsetTop + hero.offsetHeight / 2 - view.clientHeight / 2;
+      view.scrollLeft = Math.max(0, Math.min(cx, view.scrollWidth - view.clientWidth));
+      view.scrollTop = Math.max(0, Math.min(cy, view.scrollHeight - view.clientHeight));
+    }
   }
 
   /**
