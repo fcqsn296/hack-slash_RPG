@@ -25,9 +25,18 @@ MIN_DELAY 未満にはできない）。429 や 5xx が返ったら待ち時間�
     python tools/novelai_gen.py em_slime --add "cute, smiling"     タグを足して調整
     python tools/novelai_gen.py --pick em_slime        候補から選ぶ画面を開く
     python tools/novelai_gen.py em_slime --dry-run     送信せずプロンプトだけ確認
+    python tools/novelai_gen.py <ID> --opaque          透過させない（背景を作るとき）
 
 生成した画像は enemies_image/generated/<ID>/ に貯まる。
 気に入ったものを --pick か --install で assets/ へ入れる。
+
+── 透過について ──
+既定の V5 は **アルファ付きの PNG をそのまま出す**。土台の `white background` は
+置き換えられるので、cutout_background.py を通す必要がない
+（通しても既に透過済みなら素通りする）。
+
+背景（assets/bg/）を作るときだけ --opaque を付けること。
+空や地面を透過させても意味がなく、膜をかぶせる前提の圧縮とも噛み合わない。
 """
 import argparse
 
@@ -58,7 +67,30 @@ API_URL = "https://image.novelai.net/ai/generate-image"
 # 経路そのものは生きていて（認証を外すと 401、存在しないパスは 404）、
 # ホストを image.novelai.net に替えるだけで 200 が返る。
 SUBSCRIPTION_URL = "https://image.novelai.net/user/subscription"
-MODEL = "nai-diffusion-4-5-full"
+MODEL = "nai-diffusion-5-full"
+
+# 使えるモデル。既定は V5。
+#
+# ── 費用について ──
+# Opus の「Anlas を消費しない生成」は V4.5 以下に限られ、V5 は対象外。
+# 代わりに V5 は充電池式の使用量上限を持ち、**空になるまでは Anlas を消費しない**。
+# 荒野の狼で 3枚 生成して残量 8,017 のまま動かなかったのを実測で確認している。
+# 使い切ったあとは 1枚あたり 26 Anlas 前後（Normal サイズ）掛かる。
+# 消費は画素数に比例するので、節約するならステップ数より解像度を下げるほうが効く。
+#
+# ── なぜ V5 に寄せたか ──
+# **透過（アルファ付き PNG）を直接出せる。** これで cutout_background.py の
+# 塗りつぶし透過が要らなくなり、あれが暗い衣装を食う危険
+# （em_null_weaver で実際に衣装を11%削った）が構造的に消える。
+MODELS = {
+    "v4.5": "nai-diffusion-4-5-full",
+    "v5": "nai-diffusion-5-full",
+    "v5-curated": "nai-diffusion-5-curated",
+}
+
+# V5 で透過を出すための語。プロンプトの後ろに足し、同時に
+# 土台の white background を打ち消す（両方あると白地で塗られる）。
+TRANSPARENT_TAGS = "transparent background, has alpha, alpha transparency"
 
 #: これを外すと必ず失敗する。
 #:
@@ -268,6 +300,21 @@ def build_prompt(target, catalog, overrides, extra=""):
     return ", ".join(pieces)
 
 
+def make_transparent(prompt):
+    """透過で出すためにプロンプトを整える (V5 専用)。
+
+    **white background を残したまま transparent background を足しても効かない。**
+    土台の `simple background, white background` は「白で塗れ」という指示なので、
+    透過の指示と正面から喧嘩する。置き換えでないと意味がない。
+    """
+    out = prompt.replace("simple background, white background", "")
+    out = out.replace("white background", "")
+    out = ", ".join(p for p in (x.strip() for x in out.split(",")) if p)
+    if "has alpha" not in out:
+        out = out + ", " + TRANSPARENT_TAGS
+    return out
+
+
 # ---------------------------------------------------------------- API
 
 class RateLimiter:
@@ -286,7 +333,8 @@ class RateLimiter:
         self.last = time.time()
 
 
-def generate(token, prompt, negative, seed, limiter, width, height, steps, scale):
+def generate(token, prompt, negative, seed, limiter, width, height, steps, scale,
+             model=None):
     """1枚生成して PNG のバイト列を返す。"""
     parameters = {
         "params_version": 3,
@@ -314,7 +362,8 @@ def generate(token, prompt, negative, seed, limiter, width, height, steps, scale
         },
     }
     payload = json.dumps({
-        "input": prompt, "model": MODEL, "action": "generate", "parameters": parameters,
+        "input": prompt, "model": model or MODEL, "action": "generate",
+        "parameters": parameters,
     }).encode("utf-8")
 
     delay = limiter.delay
@@ -510,6 +559,8 @@ def run_generation(args, targets, cfg):
     limiter = RateLimiter(args.delay)
     print("対象 %d 件 × %d 枚 = %d 枚。%.0f 秒間隔で1件ずつ送ります。\n"
           % (len(chosen), args.count, total, limiter.delay))
+    clear = not args.opaque and args.model.startswith("v5")
+    print("  モデル: %s%s" % (MODELS[args.model], "（透過）" if clear else "（白背景）"))
 
     # 出力サイズ。既定は立ち絵と同じ縦長。背景では横長にしたいことがある。
     out_w, out_h = cfg["width"], cfg["height"]
@@ -524,6 +575,9 @@ def run_generation(args, targets, cfg):
     made = 0
     for t in chosen:
         prompt = args.prompt or build_prompt(t, catalog, overrides, args.add)
+        # 立ち絵は透過で出す。V4.5 には透過が無いので、その場合は白背景のまま。
+        if not args.opaque and args.model.startswith("v5"):
+            prompt = make_transparent(prompt)
         base_neg = args.negative if args.negative is not None else catalog["negative"]
         negative = base_neg + ((", " + args.negative_add) if args.negative_add else "")
 
@@ -537,7 +591,8 @@ def run_generation(args, targets, cfg):
             seed = args.seed if args.seed is not None else random.randint(1, 2 ** 31 - 1)
             try:
                 png = generate(token, prompt, negative, seed, limiter,
-                               out_w, out_h, args.steps, args.scale)
+                               out_w, out_h, args.steps, args.scale,
+                               model=MODELS[args.model])
             except RuntimeError as e:
                 print("  失敗: %s" % e)
                 break
@@ -947,6 +1002,12 @@ def main():
     parser.add_argument("--delay", type=float, default=DEFAULT_DELAY,
                         help="リクエストの間隔（秒・既定 %g・下限 %g）" % (DEFAULT_DELAY, MIN_DELAY))
     parser.add_argument("--steps", type=int, default=28, help="ステップ数（既定 28）")
+    # 既定を V4.5 から動かさないこと。Opus の無料生成は V4.5 以下に限られる。
+    parser.add_argument("--model", choices=sorted(MODELS), default="v5",
+                        help="使うモデル（既定 v5）")
+    # 背景（assets/bg/）を作るときは必ずこちら。透過した空を敷いても意味がない。
+    parser.add_argument("--opaque", action="store_true",
+                        help="透過させない（背景を作るときに使う）")
     parser.add_argument("--scale", type=float, default=5.0, help="プロンプトの効き（既定 5.0）")
     parser.add_argument("--dry-run", action="store_true", help="送信せずプロンプトだけ表示する")
     parser.add_argument("--list-prompts", action="store_true", help="全対象のプロンプトを表示する")
