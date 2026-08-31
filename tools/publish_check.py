@@ -187,7 +187,20 @@ def main():
     show('Windows絶対パス', winpath)
     show('利用者名', user)
 
-    ng = meta or opaque or brand or secret or email or winpath or user
+    # 世界設定文書の付録が実装から取り残されていないか。
+    #
+    # 一度「フィールド8・仲間41人」のまま放置され、実際は12・60人だった。
+    # 別の作業でその数字を前提にして初めて食い違いが出たので、
+    # 公開のたびに突き合わせる。
+    stale = False
+    try:
+        import count_content
+        stale = count_content.check() != 0
+    except Exception as exc:
+        print('付録の突き合わせを実行できませんでした:', exc)
+
+    ng = (meta or opaque or brand or secret or email or winpath or user
+          or stale)
     print('\n判定:', '要確認' if ng else 'すべて問題なし')
     return 1 if ng else 0
 
