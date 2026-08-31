@@ -6950,6 +6950,14 @@
             fieldId: 'fl_origin', waves: 1, bossFinale: false, party,
           });
           const foe = RPG.battle.livingEnemies(battle)[0];
+          // 起爆は相手の最大HPに比例するので、**相手を揃えないと比較にならない。**
+          // 揃えていなかったため、投資の有無ではなく「どの敵が湧いたか」で
+          // 値が動き、実行するたびに合否が変わっていた
+          // （実測 Lv0 26,303 → Lv3 28,716 で落ち、次の実行では
+          //   Lv0 20,824 → Lv3 36,271 で通る）。
+          // 揺れる検査は誤報を生み、本物の不具合を隠す。
+          foe.maxHp = 1000000;
+          foe.hp = foe.maxHp;
           RPG.battle.inflict(battle, party[0], foe, 'poison', 3, 0.06);
           RPG.battle.inflict(battle, party[0], foe, 'burn', 3, 0.05);
           return { battle, actor: party[0], foe };
@@ -8737,6 +8745,20 @@
           assertTrue(`マップ: ${m.name} の出口は実在するマップを指す`, badExit.length === 0,
             badExit.map((/** @type {any} */ e) => e.to).join(' '));
 
+          // ※ このブロックはマップごとの検査。測定道具の検査は §「測定道具」を見ること。
+
+          // 宝箱が配る装備のレアリティが実在すること。
+          //
+          // 封絶の浅層の宝箱が 'EPIC' を持っていた。拾う瞬間は成功する
+          // （gear.forge はレアリティを検査しない）が、あとで装備タブを開くと
+          // widgets が undefined.color を掴んで落ち、**タブが黙って開かなくなる**。
+          // 症状が原因から遠いところに出るので、入口で止める。
+          const badRarity = (m.events || [])
+            .filter((/** @type {any} */ e) => e.equip && e.equip.rarity)
+            .filter((/** @type {any} */ e) => !RPG.data.rarities[e.equip.rarity]);
+          assertTrue(`マップ: ${m.name} の宝箱は実在するレアリティを配る`, badRarity.length === 0,
+            badRarity.map((/** @type {any} */ e) => `${e.equip.name}=${e.equip.rarity}`).join(' '));
+
           // イベントに歩いて辿り着けること (§20.5)。
           //
           // 出口を踏むと別のマップへ飛ぶので、**出口の向こう側にある
@@ -10147,6 +10169,79 @@
       }).catch((e) => {
         check('画面: ソースを読めた', false, String(e && e.message));
       }))
+      // ── 測定道具そのものが正しいか ──
+      //
+      // バランスの数値は全部この道具の上で決めている。**道具が狂うと、
+      // その上で決めた値も全部狂う。** 実際、想定ビルドが 259SP のうち
+      // 135SP しか使っておらず（124SP・48%が余ったまま）、
+      // その状態でフィールド経済もダメージ曲線も測られていた。
+      // 原因は、装備枠がレベル開放へ変わったときに消えたノードIDが3つ
+      // 残っていたことと、一覧が Lv1〜100 の頃のまま伸びていなかったこと。
+      //
+      // 道具は本体から読まれないので、**壊れても遊びには出ない**。
+      // ここで見ておかないと、誰も気付かない。
+      .then(() => {
+        if (!RPG.balance) {
+          check('測定道具: balance.js が読めている', false, 'RPG.balance が無い');
+          return;
+        }
+        const known = new Set((RPG.data.skillTree || []).map((/** @type {any} */ n) => n.id));
+        const ghosts = RPG.balance.PRIORITY.filter((/** @type {string} */ id) => !known.has(id));
+        check('測定道具: 想定ビルドが実在するノードだけを指す', ghosts.length === 0,
+          ghosts.join(' / ') || `${RPG.balance.PRIORITY.length} 個を確認`);
+
+        // Lv255・凸5 は SP 259。振り切った人を測っているつもりなので、
+        // 使い残しが出るなら一覧か解放条件のどちらかが壊れている。
+        const save = {
+          id: 'ch_hero', level: 255, limitBreak: 5,
+          tree: {}, equipped: { weapon: [], armor: [], accessory: [] },
+        };
+        RPG.balance.investTree(save);
+        const spent = RPG.balance.spentSp(save);
+        const budget = 254 + 5;
+        check('測定道具: 想定ビルドが SP を使い切る', spent >= budget - 5,
+          `${spent} / ${budget} SP`);
+      })
+      // ── 本体が読む JS が全部、構文として通るか ──
+      //
+      // テストページは本体より6本少なく読んでいる（main.js と src/ui/ の5本）。
+      // そのため **worldmap.js に構文エラーを入れても 1365/1365 のまま通った**。
+      // 実際にはファイルが丸ごと評価されず RPG.ui.worldmap が未定義になり、
+      // 「物語」を押しても何も起きない状態だった。テストが緑なのに遊べない。
+      //
+      // 読み込む一覧は index.html から引く。手で持つと必ず古くなる
+      // （この検査自体が「一覧を手で持っていた」ことへの後始末）。
+      // new Function はコンパイルするだけで**実行はしない**ので、
+      // 画面を描き始めたり main.js が起動したりはしない。
+      .then(() => fetch('../index.html')
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error('index.html HTTP ' + r.status))))
+        .then((html) => {
+          const srcs = [];
+          const re = /<script[^>]+src="([^"]+\.js)"/g;
+          let m;
+          while ((m = re.exec(html))) {
+            if (!/^https?:/.test(m[1])) srcs.push(m[1]);
+          }
+          return Promise.all(srcs.map((f) => fetch('../' + f)
+            .then((r) => (r.ok ? r.text() : Promise.reject(new Error(f + ' HTTP ' + r.status))))
+            .then((text) => {
+              try {
+                // eslint-disable-next-line no-new-func
+                new Function(text);
+                return null;
+              } catch (e) {
+                return f + ': ' + String(e && e.message);
+              }
+            })));
+        })
+        .then((bad) => {
+          const errs = bad.filter((x) => !!x);
+          check('本体が読む JS が全て構文として通る', errs.length === 0,
+            errs.join(' / ') || (bad.length + ' ファイルを確認'));
+        })
+        .catch((e) => {
+          check('本体が読む JS を確認できた', false, String(e && e.message));
+        }))
       .then(() => onDone(results));
   }
 

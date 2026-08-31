@@ -100,7 +100,12 @@
    * その結果として再生できるようになったシーンがここで流れる。
    */
   function dismiss() {
+    // 閉じたあとに続きがある吹き出し（戦闘の紹介文など）。
+    // 先に取り出してから message を空にする——then の中で画面を
+    // 明け渡すことがあるので、後始末を残したまま渡さない。
+    const then = message && message.then;
     message = null;
+    if (then) { then(); return; }
     if (afterEvent()) return;
     render();
   }
@@ -118,6 +123,16 @@
     const res = RPG.worldmap.resolve(ev);
     if (!res.ok) return;
     if (res.kind === 'battle') {
+      // 紹介文があるなら、先に見せてから戦わせる。
+      // data/maps.js には書いてあったのに `res.text` を捨てていて、
+      // マスに乗るといきなり戦闘が始まっていた（書いた文章が死んでいた）。
+      if (res.text && !message) {
+        message = { who: null, text: res.text, then: () => {
+          RPG.app.startStoryBattle(res.enc, { mapFlag: res.flag });
+        } };
+        render();
+        return;
+      }
       // 決まった相手との戦い。ここで画面を明け渡すので描き直さない。
       RPG.app.startStoryBattle(res.enc, { mapFlag: res.flag });
       return;
@@ -140,15 +155,81 @@
       message = { text };
       RPG.app.refreshTopbar();
     } else if (res.kind === 'talk') {
-      message = { text: res.text, who: res.who };
+      message = echoesNextScene(res.text) ? null : { text: res.text, who: res.who };
     } else if (res.kind === 'join') {
       const name = RPG.state.charName(res.who);
-      message = { text: `${res.text}
-
-── ${name} が仲間になった。`, who: res.who };
       RPG.app.refreshTopbar();
+      const joined = `── ${name} が仲間になった。`;
+      message = echoesNextScene(res.text)
+        ? { text: joined, who: res.who }
+        : { text: `${res.text}\n\n${joined}`, who: res.who };
     }
     // exit は enter() が現在地を変えているので、描き直すだけでよい
+  }
+
+  /**
+   * このマスの文章が、直後に始まるシーンと同じことを言っているか。
+   *
+   * ── なぜ「pending があるか」で判定してはいけないか ──
+   * 最初そう書いたら、**重複していない台詞まで消えた**。
+   * リゼルの加入の一言と長老の一言は、たまたま直後にシーンが挟まるだけで
+   * 中身は別だった。飛ばすかどうかは「続きがあるか」ではなく
+   * **同じことを言っているか**で決めないと、書いた文章が黙って落ちる。
+   *
+   * 突き合わせは、記号と空白を落とした先頭の一文で行う。
+   * 完全一致にすると「——一つだけ、まだ薄く光っている。」と
+   * 「——一つだけ、まだ光の残っている箱があった。」を別物と見てしまう。
+   *
+   * @param {string} text
+   * @returns {boolean}
+   */
+  function echoesNextScene(text) {
+    const scene = RPG.story.pending();
+    if (!scene || !text) return false;
+    const first = (scene.lines && scene.lines[0] && scene.lines[0].text) || '';
+    /** @param {string} s */
+    const head = (s) => s.replace(/[\s—――…。、「」『』]/g, '').slice(0, 12);
+    const a = head(text);
+    const b = head(first);
+    if (!a || !b) return false;
+    return a.startsWith(b.slice(0, 8)) || b.startsWith(a.slice(0, 8));
+  }
+
+  /**
+   * どこで敵が出るかの案内文を、**そのマップに実際にあるマス**から作る。
+   *
+   * 固定文で「草の上では敵が出る。道と階段は安全。」と書いていたが、
+   * 封絶の浅層には草が1マスも無く、敵が出るのは床だった。
+   * 案内が嘘になっていて、床が安全に見える。
+   *
+   * マスの種類は `encounter` を自分で宣言しているので、そこから引けば
+   * マップが増えても文章を書き直さなくて済む。
+   *
+   * @param {any} m
+   */
+  function encounterHint(m) {
+    if (!m.encounter) return 'ここでは敵は出ない。';
+    const kinds = RPG.data.tileKinds || {};
+    // 実際に置かれているマスの種類だけを見る。legend に書いてあっても
+    // 1マスも使われていない種類を数えると、また嘘の案内になる。
+    /** @type {Set<string>} */
+    const used = new Set();
+    for (const row of m.tiles || []) {
+      for (const ch of row) {
+        const kind = (m.legend || {})[ch];
+        if (kind && kinds[kind] && kinds[kind].walk) used.add(kind);
+      }
+    }
+    /** @param {boolean} want */
+    const labels = (want) => [...used]
+      .filter((k) => !!kinds[k].encounter === want)
+      .map((k) => kinds[k].label);
+
+    const risky = labels(true);
+    const safe = labels(false);
+    if (!risky.length) return 'ここでは敵は出ない。';
+    return `${risky.join('と')}の上では敵が出る。`
+      + (safe.length ? `${safe.join('と')}は安全。` : '');
   }
 
   function render() {
@@ -192,7 +273,7 @@
         h('h2', { text: m.name }),
         h('p.hint.hint-sm', { text: m.desc || '' }),
         h('p.hint.hint-sm', {
-          text: m.encounter ? '草の上では敵が出る。道と階段は安全。' : 'ここでは敵は出ない。',
+          text: encounterHint(m),
         })
       ),
       h('div.wm-viewport', grid),
@@ -216,6 +297,24 @@
       ),
     ];
     root.replaceChildren(...parts.filter((n) => !!n));
+
+    // 駒を見える位置へ寄せる。
+    //
+    // 横20マスのマップ（灰の野・集落・封絶の浅層）は、狭い画面だと
+    // 地図が横スクロール領域になる。**スクロールが駒を追わない**ので、
+    // 東へ歩くと自分が枠の外へ出たまま、どこにいるか分からず歩くことになる。
+    // 実測では x=17 で駒の左端 520px に対しビューポートの右端が 501px だった。
+    //
+    // 縦も同じ理屈で寄せておく。今のマップは縦が収まっているが、
+    // 増えたときに同じことが起きる。
+    const view = root.querySelector('.wm-viewport');
+    const pawn = root.querySelector('.wm-hero');
+    if (view instanceof HTMLElement && pawn instanceof HTMLElement) {
+      const cx = pawn.offsetLeft + pawn.offsetWidth / 2 - view.clientWidth / 2;
+      const cy = pawn.offsetTop + pawn.offsetHeight / 2 - view.clientHeight / 2;
+      view.scrollLeft = Math.max(0, Math.min(cx, view.scrollWidth - view.clientWidth));
+      view.scrollTop = Math.max(0, Math.min(cy, view.scrollHeight - view.clientHeight));
+    }
   }
 
   /**

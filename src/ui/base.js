@@ -1009,7 +1009,12 @@
           h('button.glossary-head', {
             onClick: () => RPG.app.replayScene(scene),
           },
-            h('span.glossary-term', { text: who ? `${who}「${first.text}」` : first.text }),
+            // 本文と同じく差し込みを埋める。ここだけ生のまま出していて、
+            // 一覧に {主人公} と表示されていた（再生すると正しく名前になる）。
+            h('span.glossary-term', {
+              text: who ? `${who}「${RPG.story.fill(first.text)}」`
+                : RPG.story.fill(first.text),
+            }),
             h('span.glossary-short', { text: `${scene.lines.length}行` }),
             h('span.glossary-mark', { text: '▶' })
           )

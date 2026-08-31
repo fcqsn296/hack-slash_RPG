@@ -237,7 +237,13 @@
    */
   function itemCard(item, opts) {
     opts = opts || {};
-    const r = RPG.data.rarities[item.rarity];
+    // 知らないレアリティで**タブが丸ごと死ぬ**のを防ぐ。
+    // data/maps.js が 'EPIC'（存在しない）を持っていたとき、ここで undefined を掴んで
+    // renderGear が replaceChildren まで到達せず、装備タブが黙って開かなくなった。
+    // 拾った瞬間は成功する（gear.forge は検査しない）ので、原因が離れた場所に出る。
+    // 正しい値は data 側で持たせる——検証テストが突き合わせている——が、
+    // 拡張 (§18) が持ち込む余地は残るので、ここは落ちずに見た目だけ落とす。
+    const r = RPG.data.rarities[item.rarity] || RPG.data.rarities.COMMON;
     const statLines = Object.keys(item.stats).map((k) =>
       h('div.item-stat', h('span', { text: RPG.units.STAT_LABEL[k] }), h('b', { text: '+' + item.stats[k] }))
     );

@@ -177,8 +177,31 @@
     }).filter((x) => x.done > 0);
   }
 
+  /**
+   * 本文の差し込みを埋める。
+   *
+   * 地の文が「主人公」という語をそのまま使っていた。名前を付けさせているのに
+   * 台本のト書きがそのまま出ている状態で、**呼び名を決めた意味が消える**。
+   * かといって地の文から名前を消すと文が不自然になるので、差し込みにした。
+   *
+   *   {主人公}      … 主人公の名前（既定「アルト」）
+   *   {名前:ch_xxx} … その仲間の名前。改名に追従する
+   *
+   * 台詞にも同じ記法が効く。仲間が主人公を名前で呼ぶ場面で使える。
+   *
+   * @param {string} text
+   * @returns {string}
+   */
+  function fill(text) {
+    if (!text || text.indexOf('{') < 0) return text || '';
+    return text
+      .replace(/\{主人公\}/g, () => RPG.state.charName('ch_hero'))
+      .replace(/\{名前:(\w+)\}/g, (/** @type {string} */ _m, /** @type {string} */ id) =>
+        RPG.state.charName(id));
+  }
+
   RPG.story = {
     progress, chapters, chapterDef, current, start,
-    satisfied, played, pending, finish, isCleared, status, log,
+    satisfied, played, pending, finish, isCleared, status, log, fill,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

@@ -97,7 +97,7 @@ RPG.data.maps = {
     // 草の上でだけ敵が出る。rate は1歩あたりの確率。
     encounter: { fieldId: 'fl_plain', waves: 2, bossFinale: false, rate: 0.12 },
     events: [
-      { x: 1, y: 5, kind: 'exit', to: 'mp_forge', at: { x: 12, y: 8 } },
+      { x: 0, y: 5, kind: 'exit', to: 'mp_forge', at: { x: 12, y: 8 } },
       { x: 5, y: 3, kind: 'chest', flag: 'ash_chest_1', gold: 500 },
       { x: 17, y: 8, kind: 'chest', flag: 'ash_chest_2', boxes: { box_silver: 1 } },
       // 東の端。人の住んでいる側へ抜ける。
@@ -143,7 +143,7 @@ RPG.data.maps = {
     // 人里では襲われない。襲撃は筋書きのほうで起こす。
     encounter: null,
     events: [
-      { x: 1, y: 5, kind: 'exit', to: 'mp_ashfield', at: { x: 18, y: 5 } },
+      { x: 0, y: 5, kind: 'exit', to: 'mp_ashfield', at: { x: 18, y: 5 } },
 
       // 村人。名前を持たないので who は無し（顔は出ない）。
       // 長老ひとりに全部言わせると講義になるので、断片を分けて置く。
@@ -280,7 +280,13 @@ RPG.data.maps = {
       '#': 'wall', '.': 'floor', '=': 'road', '<': 'stair',
     },
     start: { x: 1, y: 6 },
-    encounter: { fieldId: 'fl_deep', waves: 2, bossFinale: false, rate: 0.11 },
+    encounter: {
+      fieldId: 'fl_deep', waves: 2, bossFinale: false, rate: 0.11,
+      // 道中はボスより下げる。実セーブでは Lv8〜14 のどこでも勝率100%・
+      // 戦闘不能0人だったので、締めへ向かう段として締めの手前に置く。
+      // 1戦およそ177経験値（草原の約4倍）。ここで育ってから締めへ向かう。
+      enemyLv: 12,
+    },
     events: [
       // 戻り口は階段のマスそのものに置く（mp_vault で踏んだ罠と同じ）
       { x: 0, y: 6, kind: 'exit', to: 'mp_vault', at: { x: 14, y: 5 } },
@@ -292,14 +298,29 @@ RPG.data.maps = {
         boxes: { box_silver: 2 }, gold: 900 },
       { x: 3, y: 9, kind: 'chest', flag: 'deep_chest_2',
         equip: {
-          base: 'eq_relic_seal', rarity: 'EPIC', name: '写しの護符',
+          base: 'eq_relic_seal', rarity: 'SUPER_RARE', name: '写しの護符',
           stats: { magi_power: 62, hp: 210 },
           tagBonuses: [{ tag: 'reli', value: 0.14 }],
         } },
 
       // 二番機ドゥオ。索引を見てからでないと出てこない。
       { x: 13, y: 6, kind: 'battle', needs: 'deep_index', flag: 'duo_slain',
-        enc: { fieldId: 'fl_deep', waves: 1, bossFinale: true },
+        enc: {
+          fieldId: 'fl_deep', waves: 1, bossFinale: true,
+          // 章の締め。物語は Lv5〜6 でここへ着くので、周回用の rec_level 20
+          // （敵Lv22）では重すぎた——実セーブでの勝率20%。
+          //
+          // ── 装備を外して測ってはいけない ──
+          // 最初 enemyLv 10 に置いた。装備なしの実測で勝率79%だったからだが、
+          // **実際のセーブで測ると100%・4ラウンド**だった。装備27点の差である。
+          // 序盤は装備がツリーより効く（docs/強いビルドの組み方.md）。
+          // 素の強さで測ると、遊ぶ人が実際に立っている場所から2段ずれる。
+          //
+          // 実セーブ（Lv6・3人・装備あり・オート）での勝率:
+          //   Lv13 100% / Lv16 90% / Lv18 75% / Lv20 45% / Lv22 20%
+          // 負けうるが、整えれば勝てる Lv18 を採る。手動ならもう少し楽になる。
+          enemyLv: 18,
+        },
         text: '通路の中ほどに、道を塞ぐ形で機体が座っている。' },
 
       // アストラ。ドゥオを倒すまで開かない。

@@ -310,6 +310,19 @@
   function evaluateChallenges(battle) {
     if (!battle || !battle.victory) return [];
 
+    // 依頼は周回側の仕組み。物語の戦闘では数えない。
+    //
+    // `quests` は PROFILE_KEYS に無いので**両モードで同じ棚**を使っている。
+    // そのため物語の戦闘で「格上狩り」が成立し、Lv4 のパーティが Lv22 の
+    // 浅層へ降りた瞬間に **6,000 G ＋ 金の宝箱3 ＋ オート+5 が物語側の財布へ**
+    // 入っていた（それまでの総収入 2,800 G が一撃で4倍）。
+    // しかも周回側では「達成済み・受取済み」になり、二度と取れなくなる。
+    //
+    // 棚を分ける手もあるが、そうすると物語側にも依頼の報酬が生まれて
+    // 章ごとの手応えが崩れる。物語は筋書きの側で難度を決める場所なので、
+    // **数えないほうが正しい**。
+    if (RPG.state.mode && RPG.state.mode() === 'story') return [];
+
     const partyTop = partyTopLevel();
     const enemyTop = topEnemyLevel(battle);
     const gap = enemyTop - partyTop;
