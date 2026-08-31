@@ -8745,6 +8745,8 @@
           assertTrue(`マップ: ${m.name} の出口は実在するマップを指す`, badExit.length === 0,
             badExit.map((/** @type {any} */ e) => e.to).join(' '));
 
+          // ※ このブロックはマップごとの検査。測定道具の検査は §「測定道具」を見ること。
+
           // 宝箱が配る装備のレアリティが実在すること。
           //
           // 封絶の浅層の宝箱が 'EPIC' を持っていた。拾う瞬間は成功する
@@ -10167,6 +10169,39 @@
       }).catch((e) => {
         check('画面: ソースを読めた', false, String(e && e.message));
       }))
+      // ── 測定道具そのものが正しいか ──
+      //
+      // バランスの数値は全部この道具の上で決めている。**道具が狂うと、
+      // その上で決めた値も全部狂う。** 実際、想定ビルドが 259SP のうち
+      // 135SP しか使っておらず（124SP・48%が余ったまま）、
+      // その状態でフィールド経済もダメージ曲線も測られていた。
+      // 原因は、装備枠がレベル開放へ変わったときに消えたノードIDが3つ
+      // 残っていたことと、一覧が Lv1〜100 の頃のまま伸びていなかったこと。
+      //
+      // 道具は本体から読まれないので、**壊れても遊びには出ない**。
+      // ここで見ておかないと、誰も気付かない。
+      .then(() => {
+        if (!RPG.balance) {
+          check('測定道具: balance.js が読めている', false, 'RPG.balance が無い');
+          return;
+        }
+        const known = new Set((RPG.data.skillTree || []).map((/** @type {any} */ n) => n.id));
+        const ghosts = RPG.balance.PRIORITY.filter((/** @type {string} */ id) => !known.has(id));
+        check('測定道具: 想定ビルドが実在するノードだけを指す', ghosts.length === 0,
+          ghosts.join(' / ') || `${RPG.balance.PRIORITY.length} 個を確認`);
+
+        // Lv255・凸5 は SP 259。振り切った人を測っているつもりなので、
+        // 使い残しが出るなら一覧か解放条件のどちらかが壊れている。
+        const save = {
+          id: 'ch_hero', level: 255, limitBreak: 5,
+          tree: {}, equipped: { weapon: [], armor: [], accessory: [] },
+        };
+        RPG.balance.investTree(save);
+        const spent = RPG.balance.spentSp(save);
+        const budget = 254 + 5;
+        check('測定道具: 想定ビルドが SP を使い切る', spent >= budget - 5,
+          `${spent} / ${budget} SP`);
+      })
       // ── 本体が読む JS が全部、構文として通るか ──
       //
       // テストページは本体より6本少なく読んでいる（main.js と src/ui/ の5本）。

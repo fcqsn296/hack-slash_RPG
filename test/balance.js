@@ -16,22 +16,50 @@
    * 上から順に、SPとティア解放が許す限り振っていく。
    */
   const PRIORITY = [
-    'tr_atk', 'tr_phys1', 'tr_hp',            // 初級（ここで中級が解放される）
-    'tr_phys2', 'tr_crit', 'tr_crit_dmg',     // 中級の火力
-    'tr_slot_acc', 'tr_slot_armor',           // 装備枠
-    'tr_all_tag', 'tr_slot_weapon',           // 上級の火力と二刀流
-    'tr_guard', 'tr_execute',
-    'tr_magi1', 'tr_reli1', 'tr_magi2', 'tr_reli2',
-    'tr_def', 'tr_regen', 'tr_lifesteal',
-    // 限界超越（上限突破）はいちばん最後。
+    // 三系統を平行に。**違う系統タグは掛け算になる**ので、
+    // 1本に集中するより散らすほうが強い（実測 Lv20 で 2.50R 対 2.17R）。
+    'tr_phys1', 'tr_magi1', 'tr_reli1',
+    // 「1ラウンド目を厚くする」。序盤の戦闘は1〜4ラウンドで終わるので、
+    // 1ラウンド目だけの効果が実質いつでも効く効果になる。
+    // 合わせて7SP・初級だけで 1R目 ×1.90（実測 Lv20 で 1.04R）。
+    'tr_first_round', 'tr_opening',
+    // 初級を埋めて中級・上級を開ける
+    'tr_atk', 'tr_magi', 'tr_hp', 'tr_def',
+    // 上級の乗算。3SPあたり +19% で、初級の基礎（1SPで+5%）より効率がよい
+    'tr_all_tag',
+    'tr_phys2', 'tr_magi2', 'tr_reli2',
+    'tr_crit', 'tr_crit_dmg',
+    'tr_guard', 'tr_execute', 'tr_regen', 'tr_lifesteal',
+    // 限界超越（上限突破）は最後。
     //
-    // この検証が見るのは Lv1〜100 の帯で、そこでの与ダメージは
-    // 最大でも約89,000。ダメージ上限の500,000には遠く届かないので、
-    // ここに振っても **1ダメージも増えない**。
-    // 効いてくるのは、装備とツリーを積み切って上限に張り付いてからで、
-    // それは Lv150 の最終盤の話になる (§3.2 ステップ8)。
+    // 与ダメージが上限（1発 500,000）に届いていないあいだは **1ダメージも増えない**。
+    // Lv20 の与ダメージは2,000前後で、上限には250倍足りない。
+    // 効いてくるのは装備とツリーを積み切って上限に張り付いてから (§3.2 ステップ8)。
     'tr_cap',
   ];
+
+  /**
+   * 明示した優先順位を使い切ったあと、**残ったSPを振る先**。
+   *
+   * ── なぜ必要か ──
+   * ここが無かったために、**259SP のうち 135SP しか使わない**想定ビルドで
+   * 全部の測定が回っていた（124SP・48%が余ったまま）。しかも列挙した20個のうち
+   * 3個（`tr_slot_acc` / `tr_slot_armor` / `tr_slot_weapon`）は、
+   * 装備枠がレベル開放へ変わったときに**消えたIDのまま残っていた**。
+   *
+   * 上の一覧は Lv1〜100 を見ていた頃のもので、その帯では SP が少なく
+   * 使い切れないことが自然だった。測定の対象が Lv255 まで伸びたのに、
+   * 一覧のほうが取り残された。**「振り切った人」を測っているつもりで、
+   * 半分しか振っていない人を測っていた。**
+   *
+   * 個別に列挙し続けると同じことが再発するので、**残りは自動で埋める**。
+   * data/skilltree.js の定義順に、振れるものへ順に振る。
+   * 順序が定義順なので、実行するたびに同じ結果になる。
+   */
+  function remainingNodes() {
+    return (RPG.data.skillTree || []).map((/** @type {any} */ n) => n.id)
+      .filter((/** @type {string} */ id) => PRIORITY.indexOf(id) < 0);
+  }
 
   /**
    * レベル帯ごとの想定装備。
@@ -64,7 +92,8 @@
     let progressed = true;
     while (progressed && guard++ < 500) {
       progressed = false;
-      for (const nodeId of PRIORITY) {
+      // 明示した順に振り、使い切れなかったぶんを定義順で埋める。
+      for (const nodeId of PRIORITY.concat(remainingNodes())) {
         while (RPG.tree.canInvest(charSave, nodeId).ok) {
           charSave.tree[nodeId] = (charSave.tree[nodeId] || 0) + 1;
           progressed = true;
@@ -72,6 +101,20 @@
       }
     }
     return charSave;
+  }
+
+  /**
+   * 想定ビルドが実際に使ったSPを数える。検証テストが使う。
+   * @param {any} charSave
+   * @returns {number}
+   */
+  function spentSp(charSave) {
+    let sp = 0;
+    for (const node of RPG.data.skillTree || []) {
+      const lv = (charSave.tree || {})[node.id] || 0;
+      sp += lv * (node.cost || 1);
+    }
+    return sp;
   }
 
   /**
@@ -436,7 +479,7 @@
   }
 
   RPG.balance = {
-    PRIORITY, GEAR_BY_LEVEL,
+    PRIORITY, GEAR_BY_LEVEL, remainingNodes, spentSp,
     makeUnit, makeParty, investTree, equipBest, uidSource,
     referenceDummy, bestAttack, damageCurve, runBattle, simulate,
     boxSellValue, boxYield, economy, economyLevel, economyTable,
