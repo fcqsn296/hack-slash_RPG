@@ -129,6 +129,12 @@ def _join_strings(chunk):
     return "".join(re.findall(r"'([^']*)'", chunk))
 
 
+def _one_string(text, key):
+    """`key: 'a' + 'b',` のような1本の文字列を取り出す。無ければ空文字。"""
+    m = re.search(key + r":\s*((?:'[^']*'\s*\+?\s*)+),", text)
+    return _join_strings(m.group(1)) if m else ""
+
+
 def _parse_block(text, key):
     """`key: { … }` の中身を取り出す。入れ子は想定しない。"""
     m = re.search(key + r":\s*\{", text)
@@ -167,6 +173,12 @@ def load_prompt_catalog():
         "bossTags": _join_strings(boss.group(1)) if boss else "",
         "enemies": _parse_block(text, "enemies"),
         "characters": _parse_block(text, "characters"),
+        # 背景 (§1.3)。立ち絵とは土台も除外タグも別に持つ。
+        # 立ち絵側の negative には scenery / detailed background が入っていて、
+        # 背景の指示と正面から喧嘩するため、共用できない。
+        "backgrounds": _parse_block(text, "backgrounds"),
+        "backgroundBase": _one_string(text, "backgroundBase"),
+        "backgroundNegative": _one_string(text, "backgroundNegative"),
     }
 
 
@@ -531,6 +543,77 @@ def resolve_targets(args, targets):
             continue
         picked.append(found)
     return picked
+
+
+def run_background(args):
+    """背景を1枚ぶん生成する (§1.3)。
+
+    立ち絵とは要求が正反対なので、経路ごと分けてある。
+      - 土台   … backgroundBase（no humans, scenery, detailed background）
+      - 除外   … backgroundNegative（立ち絵側は scenery を除外しているので使えない）
+      - 大きさ … 横長。既定 1216x832
+      - 透過   … しない。透けた空を敷いても意味がない
+
+    **暗く作らないこと。** 表示側で膜がかかり、make_backdrop.py が明るさも揃える。
+    ここで暗くすると二重に暗くなって、実機でほとんど見えなくなる。
+    """
+    catalog = load_prompt_catalog()
+    fid = args.bg
+    detail = (catalog.get("backgrounds") or {}).get(fid)
+    if not detail:
+        print("data/artprompts.js の backgrounds に %s がありません。" % fid)
+        known = sorted((catalog.get("backgrounds") or {}).keys())
+        if known:
+            print("  書いてあるもの: " + ", ".join(known))
+        return 1
+
+    prompt = args.prompt or ", ".join(
+        x for x in (catalog.get("backgroundBase"), detail, args.add) if x)
+    negative = args.negative if args.negative is not None else catalog.get("backgroundNegative")
+    if args.negative_add:
+        negative = negative + ", " + args.negative_add
+
+    out_w, out_h = 1216, 832
+    if args.size:
+        try:
+            _w, _h = args.size.lower().split("x")
+            out_w, out_h = int(_w), int(_h)
+        except Exception:
+            print("--size の書き方が違います。例: 1216x832")
+            return 1
+
+    print("[背景] %s" % fid)
+    print("  prompt: " + prompt)
+    print("  size:   %dx%d（透過なし）" % (out_w, out_h))
+    if args.dry_run:
+        print("  (--dry-run のため送信しません)")
+        return 0
+
+    token = os.environ.get("NOVELAI_API_TOKEN", "").strip()
+    if not token:
+        print("環境変数 NOVELAI_API_TOKEN が設定されていません。")
+        return 1
+
+    limiter = RateLimiter(args.delay)
+    print("  %d枚を %.0f 秒間隔で1件ずつ送ります。" % (args.count, limiter.delay))
+
+    made = 0
+    for i in range(args.count):
+        seed = args.seed if args.seed is not None else random.randint(1, 2 ** 31 - 1)
+        try:
+            png = generate(token, prompt, negative, seed, limiter,
+                           out_w, out_h, args.steps, args.scale,
+                           model=MODELS[args.model])
+        except RuntimeError as e:
+            print("  失敗: %s" % e)
+            break
+        path = save_candidate("bg_" + fid, png, prompt, negative, seed)
+        made += 1
+        print("  %d/%d 保存: %s" % (i + 1, args.count, os.path.relpath(path, ROOT)))
+
+    print("%d 枚を生成しました。" % made)
+    print("採用するには:  python tools/make_backdrop.py <選んだPNG> %s" % fid)
+    return 0
 
 
 def run_generation(args, targets, cfg):
@@ -1008,6 +1091,10 @@ def main():
     # 背景（assets/bg/）を作るときは必ずこちら。透過した空を敷いても意味がない。
     parser.add_argument("--opaque", action="store_true",
                         help="透過させない（背景を作るときに使う）")
+    # 背景は立ち絵と要求が正反対なので、専用の口にしてある。
+    # 透過も自動で切る（透けた空を敷いても意味がない）。
+    parser.add_argument("--bg", metavar="ID",
+                        help="背景を作る。data/artprompts.js の backgrounds から引く")
     parser.add_argument("--scale", type=float, default=5.0, help="プロンプトの効き（既定 5.0）")
     parser.add_argument("--dry-run", action="store_true", help="送信せずプロンプトだけ表示する")
     parser.add_argument("--list-prompts", action="store_true", help="全対象のプロンプトを表示する")
@@ -1030,6 +1117,9 @@ def main():
             print("\n[%s] %s  (%s)" % (t["id"], t["name"], src))
             print("  " + build_prompt(t, catalog, overrides))
         return 0
+
+    if args.bg:
+        return run_background(args)
 
     if args.pick:
         return run_picker(args.pick, targets, cfg, args)
