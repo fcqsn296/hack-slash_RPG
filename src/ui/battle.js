@@ -708,8 +708,13 @@
             // 通常の出撃に落とすと、終わったあとマップではなく拠点へ戻ってしまう。
             ? W.button('もう一度', () => {
                 const enc = battle.mapEncounter;
+                // **印も一緒に持ち直す。**
+                // ここで mapFlag を渡していなかったため、負けたボスに
+                // 「もう一度」で挑んで勝っても印が立たず、話が進まなかった。
+                // 一度マップへ戻って踏み直せば直るが、そうと気づけない。
+                const mapFlag = battle.mapFlag;
                 RPG.app.finishBattle(battle, { silent: true });
-                RPG.app.startStoryBattle(enc);
+                RPG.app.startStoryBattle(enc, { mapFlag });
               }, { variant: 'primary', sub: 'この場でもう一戦' })
             : W.button('もう一度', () => {
                 // 報酬を受け取ってから、同じ場所へそのまま出撃し直す
