@@ -987,7 +987,18 @@
       // **借りる側がレベルだけ指定できる**ようにした。章が増えても同じ手が使える。
       enemyLv: (config.enemyLv || (quest && quest.enemyLv))
         || scaledEnemyLv(field, config.party),
-      enemyScale: quest && quest.enemyScale ? quest.enemyScale : 1,
+      // config.enemyScale も物語が使う (§20.4)。
+      //
+      // enemyLv だけでは足りない場面がある。敵の能力は
+      // 「素の値 ＋ 成長 ×(レベル-1)」なので、**素の値が下がらない**。
+      // 封絶区画の敵は Lv130 帯として書かれていて、索引の亡霊は素で HP10,500・
+      // 攻撃570。レベルを16まで下げても Lv9 のパーティは一撃で沈む（実測 勝率0%）。
+      //
+      // フィールドを物語用に複製すると敵とボスを二重に持つので、
+      // レベルと同じく**倍率も借りる側が指定できる**ようにした。
+      enemyScale: (config.enemyScale || (quest && quest.enemyScale)) || 1,
+      // 借りたフィールドの払い出しを縮める。省略すれば等倍。
+      rewardScale: config.rewardScale || null,
       // 縛りを破ったときの理由。勝っても達成にならない。
       ruleBroken: /** @type {string|null} */ (null),
       // ウェーブをまたいだ通算ラウンド。round はウェーブごとに1に戻るため別に数える。
@@ -3088,8 +3099,16 @@
 
     // 報酬はウェーブごとに蓄積し、全終了後にまとめて付与する (§10.1)
     for (const enemy of battle.enemies) {
-      battle.rewards.gold += Math.floor(enemy.gold * battle.field.gold_mult);
-      battle.rewards.exp += Math.floor(enemy.exp * (battle.field.exp_mult == null ? 1 : battle.field.exp_mult));
+      // rewardScale は物語が使う (§20.4)。
+      //
+      // enemyLv と enemyScale で強さは借りられるが、**報酬は借りられない**。
+      // 封絶区画の敵は Lv130 帯の払い出しを持っていて、索引の亡霊は1体3,600経験値。
+      // 弱くして勝てるようにしても、1戦で12,000入って章の刻みが吹き飛ぶ（実測）。
+      // 強さと払い出しは対で借りるものなので、同じ口に3つ目として置いた。
+      const rw = battle.rewardScale == null ? 1 : battle.rewardScale;
+      battle.rewards.gold += Math.floor(enemy.gold * battle.field.gold_mult * rw);
+      battle.rewards.exp += Math.floor(
+        enemy.exp * (battle.field.exp_mult == null ? 1 : battle.field.exp_mult) * rw);
       // 戦闘中は「宝箱ID + 個数」のフラグ加算のみ (§2.2)
       //
       // box_mult は gold_mult の宝箱版で、フィールド側の調整つまみ。

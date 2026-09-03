@@ -614,6 +614,8 @@
       // 物語は周回用のフィールドを借りるので、章に合った敵レベルを渡せる。
       // 省略したときは今までどおりフィールドの既定値になる。
       enemyLv: enc.enemyLv || null,
+      enemyScale: enc.enemyScale || null,
+      rewardScale: enc.rewardScale || null,
     });
     currentBattle.fromMap = true;
     // 「もう一度」で同じ遭遇をやり直せるように、内容ごと控えておく。
