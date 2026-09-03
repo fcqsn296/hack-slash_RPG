@@ -59,7 +59,7 @@ RPG.data.characters = {
     base: { hp: 620, atk: 60, def: 38, magi_power: 145 },
     growth: { hp: 40, atk: 3.0, def: 2.4, magi_power: 11.0 },
     unique_skills: ['sk_rizel_surge'],
-    common_skills: ['sk_fire_bolt', 'sk_stone_press', 'sk_mind_bash'],
+    common_skills: ['sk_fire_bolt', 'sk_stone_press', 'sk_mind_bash', 'sk_relic_ember'],
     color: '#ee684a', accent: '#48251d', glyph: '緋',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -95,7 +95,7 @@ RPG.data.characters = {
     base: { hp: 660, atk: 140, def: 42, magi_power: 55 },
     growth: { hp: 44, atk: 10.5, def: 2.8, magi_power: 3.0 },
     unique_skills: ['sk_shiki_flurry'],
-    common_skills: ['sk_double_strike', 'sk_gale_edge', 'sk_poison_fang'],
+    common_skills: ['sk_double_strike', 'sk_gale_edge', 'sk_poison_fang', 'sk_relic_gust'],
     color: '#91c7de', accent: '#2f3d43', glyph: '疾',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -131,7 +131,7 @@ RPG.data.characters = {
     base: { hp: 700, atk: 118, def: 48, magi_power: 118 },
     growth: { hp: 46, atk: 8.0, def: 3.0, magi_power: 8.0 },
     unique_skills: ['sk_poison_fang'],
-    common_skills: ['sk_magic_blade', 'sk_mind_bash', 'sk_focus'],
+    common_skills: ['sk_magic_blade', 'sk_mind_bash', 'sk_focus', 'sk_relic_umbra'],
     color: '#be8df2', accent: '#3c2f49', glyph: '宵',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -224,7 +224,7 @@ RPG.data.characters = {
     base: { hp: 800, atk: 92, def: 58, magi_power: 30 },
     growth: { hp: 55, atk: 6.5, def: 3.8, magi_power: 1.8 },
     unique_skills: ['sk_bran_smash'],
-    common_skills: ['sk_slash', 'sk_heavy_slash', 'sk_stone_press'],
+    common_skills: ['sk_slash', 'sk_heavy_slash', 'sk_stone_press', 'sk_relic_root'],
     color: '#b2ab94', accent: '#36342e', glyph: '傭',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -242,7 +242,7 @@ RPG.data.characters = {
     base: { hp: 580, atk: 44, def: 36, magi_power: 100 },
     growth: { hp: 38, atk: 2.2, def: 2.2, magi_power: 7.5 },
     unique_skills: ['sk_mia_splash'],
-    common_skills: ['sk_heal_light', 'sk_aqua_lance', 'sk_fire_bolt'],
+    common_skills: ['sk_heal_light', 'sk_aqua_lance', 'sk_fire_bolt', 'sk_relic_tide'],
     color: '#a4e3f8', accent: '#35464b', glyph: '水',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -452,7 +452,7 @@ RPG.data.characters = {
     base: { hp: 760, atk: 62, def: 54, magi_power: 162 },
     growth: { hp: 48, atk: 3.2, def: 3.4, magi_power: 12.2 },
     unique_skills: ['sk_lg_absolute_zero'],
-    common_skills: ['sk_noa_tide', 'sk_magic_blade', 'sk_mind_bash'],
+    common_skills: ['sk_noa_tide', 'sk_magic_blade', 'sk_mind_bash', 'sk_relic_ripple'],
     // 【特殊】凍結を撒く役。凍結は「相手の脆さ」なので、
     // 自分の火力ではなくパーティ全員の火力に化ける (§5.8)。
     passives: {

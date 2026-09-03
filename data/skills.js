@@ -1079,6 +1079,62 @@ RPG.data.skills = {
       '「業を背負う」を持っていれば、その弱体がそのまま火力に変わる。',
   },
 
+  /* ------- [遺物]技の穴埋め（作業ログ「遺物の技を足す」）-------
+   *
+   * 棚卸しで、[遺物]は威力帯×属性の21マス中9マスが空と分かった。
+   * ここでは小技・中技の6マス（火/水/風の小、水/土/闇の中）を埋める。
+   * 大技帯の3マス（火/風/土）はあえて埋めていない（理由は作業ログ参照）。
+   *
+   * 数値は他タグの同じ威力帯・同じ属性の技に揃えた（詳細は各行のコメント）。
+   */
+  sk_relic_ember: {
+    // 小・火の遺物技。同じ「小・火」の唯一の素の攻撃技 sk_tree_spark（魔術・60・0.08）に揃えた。
+    name: '残響の火片', kind: 'active', plugin: null,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'fire',
+    power: 60, crit_rate: 0.08,
+    desc: '遺物に残った火の残響。威力60%の小技。',
+  },
+  sk_relic_ripple: {
+    // 小・水の遺物技。小技帯に水属性の技がどのタグにも無いため、
+    // 隣の中技帯の水属性技（水牙槍130・潮騒145）と、他の「小」属性技の帯（55〜95）から
+    // 中間的に65へ置いた。
+    name: '微光の水紋', kind: 'active', plugin: null,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'water',
+    power: 65, crit_rate: 0.08,
+    desc: '遺物ににじむ水の紋様。威力65%の小技。',
+  },
+  sk_relic_gust: {
+    // 小・風の遺物技。同じ「小・風」帯の他タグ技（双連撃70・風舞の連刃60・雷撃85など、
+    // 平均クリティカル率0.12前後）に揃えた。
+    name: '疾ぐ環', kind: 'active', plugin: null,
+    scaling_stat: 'atk', damage_type: 'reli', element: 'wind',
+    power: 75, crit_rate: 0.12,
+    desc: '遺物に宿る風の環。威力75%の小技。',
+  },
+  sk_relic_tide: {
+    // 中・水の遺物技。同じ帯の水属性技（水牙槍130・潮騒145、平均クリティカル率0.05〜0.08）と、
+    // [遺物]中技の他属性平均（およそ155）の中間で140に置いた。
+    name: '波紋の一穿', kind: 'active', plugin: null,
+    scaling_stat: 'magi_power', damage_type: 'reli', element: 'water',
+    power: 140, crit_rate: 0.08,
+    desc: '遺物を通した水の一撃。威力140%の中技。',
+  },
+  sk_relic_root: {
+    // 中・土の遺物技。同じ帯の土属性技（岩塊圧140・渾身打ち155、クリティカル率0.05）に揃えた。
+    name: '根の一撃', kind: 'active', plugin: null,
+    scaling_stat: 'atk', damage_type: 'reli', element: 'earth',
+    power: 150, crit_rate: 0.05,
+    desc: '遺物が根を張るように叩き込む。威力150%の中技。',
+  },
+  sk_relic_umbra: {
+    // 中・闇の遺物技。同じ帯の闇属性技の平均（宵闇の帳150・紅涙150・呑噬175、
+    // クリティカル率0.05〜0.18の中間）に揃えた。
+    name: '影を継ぐ牙', kind: 'active', plugin: null,
+    scaling_stat: 'atk', damage_type: 'reli', element: 'dark',
+    power: 150, crit_rate: 0.10,
+    desc: '遺物に宿る影が牙となって食い込む。威力150%の中技。',
+  },
+
   /* ---------------- 敵専用 ---------------- */
   sk_enemy_bite: {
     name: '噛みつき', kind: 'active', plugin: null,
