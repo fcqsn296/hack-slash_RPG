@@ -684,7 +684,7 @@ RPG.data.characters = {
     color: '#d8d8e8', accent: '#38384a', glyph: '針',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5096, y: 0.136, size: 0.3391 },
+      face: { x: 0.554, y: 0.105, size: 0.366 },
       gender: 'female', hair: 'twin', expression: 'cool', accessory: 'hairpin',
       hairColor: '#c8c8dc', hairLight: '#f0f0fa', hairDark: '#6c6c84',
       eye: '#a8ffd8', eyeLight: '#dcfff0',
@@ -968,7 +968,7 @@ RPG.data.characters = {
     color: '#ff9d5c', accent: '#4a2210', glyph: '極',
     art: {
       // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.451, y: 0.101, size: 0.369 },
+      face: { x: 0.485, y: 0.155, size: 0.290 },
       gender: 'female', hair: 'ponytail', expression: 'cool', accessory: 'visor',
       hairColor: '#ff9d5c', hairLight: '#ffd0a8', hairDark: '#a04d1c',
       eye: '#ffe066', eyeLight: '#fff4b8',
