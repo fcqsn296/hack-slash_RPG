@@ -490,7 +490,7 @@ RPG.data.characters = {
     color: '#ff8a4c', accent: '#4c2010', glyph: '焔',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.488, y: 0.1062, size: 0.3614 },
+      face: { x: 0.514, y: 0.150, size: 0.369 },
       gender: 'female', hair: 'twin', expression: 'smug', accessory: 'hairpin',
       hairColor: '#ff8a4c', hairLight: '#ffc08a', hairDark: '#a03c10',
       eye: '#ffd24c', eyeLight: '#fff0b0',
