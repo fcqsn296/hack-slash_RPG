@@ -1064,11 +1064,14 @@
       // という弱点があった。フィールドの戦闘は2〜3ラウンドで終わる。
       // 開幕ぶんを持てると、その帯でも軸として成立する。
       // パーティで一番大きい値を採る（重ねると段の意味が薄れるため）。
-      combo: {
-        count: (config.party || []).reduce((/** @type {number} */ top, /** @type {any} */ u) =>
-          Math.max(top, (u.passives && u.passives.comboStart) || 0), 0),
-        best: 0, reason: '',
-      },
+      combo: (() => {
+        const start = (config.party || []).reduce(
+          (/** @type {number} */ top, /** @type {any} */ u) =>
+            Math.max(top, (u.passives && u.passives.comboStart) || 0), 0);
+        // best は開幕ぶんも数える。0 から始めると、開幕の段が一度も
+        // 更新されないまま終わったとき「最高0段」と記録されてしまう。
+        return { count: start, best: start, reason: '' };
+      })(),
       // 残響セットが予約した遅延ダメージ (§7.7)
       echoes: /** @type {any[]} */ ([]),
       // 図鑑用の記録 (§13)。ここは数を数えるだけで、セーブには触らない。
