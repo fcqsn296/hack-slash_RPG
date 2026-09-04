@@ -863,7 +863,7 @@ RPG.data.characters = {
     color: '#ffe9a8', accent: '#4a3c14', glyph: '禱',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5, y: 0.123, size: 0.353 },
+      face: { x: 0.498, y: 0.098, size: 0.369 },
       gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
       hairColor: '#f2e2b4', hairLight: '#fff8dc', hairDark: '#a89058',
       eye: '#ffd166', eyeLight: '#fff0c0',
@@ -1094,7 +1094,7 @@ RPG.data.characters = {
     color: '#a8e6b0', accent: '#1c3e24', glyph: '環',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.505, y: 0.114, size: 0.358 },
+      face: { x: 0.529, y: 0.097, size: 0.370 },
       gender: 'female', hair: 'twin', expression: 'smug', accessory: 'ribbon',
       hairColor: '#3e4a3c', hairLight: '#6e7c68', hairDark: '#1e2620',
       eye: '#a8e6b0', eyeLight: '#dcf6de',
@@ -1129,7 +1129,7 @@ RPG.data.characters = {
     color: '#cfd6e0', accent: '#2c3340', glyph: '中',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.496, y: 0.127, size: 0.342 },
+      face: { x: 0.495, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
       hairColor: '#b8c0cc', hairLight: '#e8eef6', hairDark: '#6a7280',
       eye: '#8fa4bc', eyeLight: '#cfdcec',
@@ -1308,7 +1308,7 @@ RPG.data.characters = {
     color: '#9a8ab8', accent: '#241e34', glyph: '鉄',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.513, y: 0.109, size: 0.36 },
+      face: { x: 0.507, y: 0.102, size: 0.368 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'none',
       hairColor: '#8878a8', hairLight: '#c4b4dc', hairDark: '#4e4268',
       eye: '#c8b8e0', eyeLight: '#e8dcf4',
@@ -1443,7 +1443,7 @@ RPG.data.characters = {
     art: {
       // 自動計測が大道具（炎の髪・掲げた棍・担いだ大刃）を頭と誤認したので、
       // 顔だけを見て手で直してある。再計測しても上書きしないこと。
-      face: { x: 0.519, y: 0.104, size: 0.365 },
+      face: { x: 0.520, y: 0.215, size: 0.265 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'none',
       hairColor: '#e05c3c', hairLight: '#ff9878', hairDark: '#943820',
       eye: '#ffcc60', eyeLight: '#ffeeb0',
