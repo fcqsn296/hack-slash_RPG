@@ -156,7 +156,7 @@ RPG.data.characters = {
     color: '#e0ecf0', accent: '#454849', glyph: '零',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
-      face: { x: 0.5288, y: 0.191, size: 0.3185 },
+      face: { x: 0.543, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'visor',
       hairColor: '#e4e9f2', hairLight: '#ffffff', hairDark: '#8d97a8',
       eye: '#57e0ff', eyeLight: '#b8f2ff',
@@ -361,7 +361,7 @@ RPG.data.characters = {
     color: '#e0c48c', accent: '#4a3c1c', glyph: '楯',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4868, y: 0.132, size: 0.3428 },
+      face: { x: 0.578, y: 0.096, size: 0.369 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'circlet',
       hairColor: '#e0c48c', hairLight: '#f8e4b8', hairDark: '#8a6c30',
       eye: '#7ad19a', eyeLight: '#c4f0d6',
@@ -382,7 +382,7 @@ RPG.data.characters = {
     color: '#a878e8', accent: '#2c1a4a', glyph: '厄',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5228, y: 0.1023, size: 0.3684 },
+      face: { x: 0.587, y: 0.098, size: 0.370 },
       gender: 'female', hair: 'wavy', expression: 'smug', accessory: 'horn',
       hairColor: '#9068e0', hairLight: '#c4a4ff', hairDark: '#3e2470',
       eye: '#7bffcf', eyeLight: '#c8fff0',
@@ -403,7 +403,7 @@ RPG.data.characters = {
     color: '#ff7a4d', accent: '#4a1a0c', glyph: '焔',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5132, y: 0.097, size: 0.3706 },
+      face: { x: 0.564, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'twin', expression: 'fierce', accessory: 'hairpin',
       hairColor: '#ff6a3c', hairLight: '#ffa478', hairDark: '#8c2c10',
       eye: '#ffd24a', eyeLight: '#fff0ac',
@@ -544,7 +544,7 @@ RPG.data.characters = {
     color: '#a8f0d8', accent: '#164438', glyph: '鎖',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4964, y: 0.1517, size: 0.3263 },
+      face: { x: 0.555, y: 0.100, size: 0.370 },
       gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'visor',
       hairColor: '#a8f0d8', hairLight: '#dcfff2', hairDark: '#4c9080',
       eye: '#c8b4ff', eyeLight: '#e8dcff',
@@ -739,7 +739,7 @@ RPG.data.characters = {
     color: '#ff7ab0', accent: '#3c1030', glyph: '月',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4928, y: 0.1273, size: 0.3501 },
+      face: { x: 0.433, y: 0.099, size: 0.369 },
       gender: 'female', hair: 'wavy', expression: 'smug', accessory: 'ribbon',
       hairColor: '#e85c9c', hairLight: '#ffa8cc', hairDark: '#8a1c58',
       eye: '#ffe08a', eyeLight: '#fff4c8',
