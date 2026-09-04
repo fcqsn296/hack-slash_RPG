@@ -1073,10 +1073,9 @@ RPG.data.characters = {
       outfit: '#17383a', outfitLight: '#265a5c', outfitTrim: '#6fd3c8',
       accentColor: '#8ae0d4',
     },
-    artPrompt: 'vivid teal long hair with silver hair ornaments, glowing emerald eyes, ' +
-      'dark green sleeveless dress with a deep neckline and side slits, ' +
-      'venom vials on a jeweled hip belt, black arm wraps and anklets, ' +
-      'thin needle-like blade dripping, patient look',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_lieve'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技で弱体が付く確率+55%。与えた弱体の持続が+1ラウンド。' +
       '毒や麻痺を確実に通す、搦手の中核。',
   },
@@ -1290,10 +1289,9 @@ RPG.data.characters = {
       outfit: '#3a2018', outfitLight: '#5e3428', outfitTrim: '#e07a5a',
       accentColor: '#ff9c78',
     },
-    artPrompt: 'brilliant copper red high ponytail, burning orange eyes, ' +
-      'crimson battle dress with a bare midriff and one bare shoulder, ' +
-      'ornate gold shoulder guard and a jeweled tower shield, thigh straps, ' +
-      'forward-leaning stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_garnet'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【変換】ATKの45%がDEFに乗る。攻めるほど硬くなり、倒すたびに5%回復する。',
   },
 
@@ -1346,10 +1344,9 @@ RPG.data.characters = {
       outfit: '#3e2216', outfitLight: '#5e3624', outfitTrim: '#ff9a6a',
       accentColor: '#ffc090',
     },
-    artPrompt: 'burning ember orange bob, glowing gold eyes, ornate gold circlet, ' +
-      'scorched white and scarlet vestment with a bare midriff and long slit, ' +
-      'gold censer swinging from a jeweled chain, gilded arm rings, ' +
-      'small flames rising around her feet',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_johanna'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【変換】回復量の伸びの25%が火力にも乗り、癒した量の75%が敵を焼く。慈悲がそのまま攻撃になる。',
   },
 
@@ -1373,10 +1370,9 @@ RPG.data.characters = {
       outfit: '#1c3a2e', outfitLight: '#2e5a48', outfitTrim: '#a8e0c8',
       accentColor: '#b8f0d8',
     },
-    artPrompt: 'brilliant mint green short crop, glowing emerald eyes, ' +
-      'teal scout outfit with a bare midriff and open sides, ' +
-      'ornate silver ear cuffs and a jeweled waist chain, thigh straps, ' +
-      'two curved blades held reversed, ready stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_echo'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【反撃】反撃が60%で敵全体に及び、反撃の威力+25%。囲まれるほど返る音が増える。',
   },
 
