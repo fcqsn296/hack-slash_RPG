@@ -34,7 +34,7 @@ RPG.data.characters = {
     growth: { hp: 62, atk: 9.5, def: 4.2, magi_power: 7.0 },
     // §8.1 主人公のみ「攻撃系＋回復系」の2つの固有技を持つ
     unique_skills: ['sk_hero_slash', 'sk_hero_heal'],
-    common_skills: ['sk_slash', 'sk_magic_blade', 'sk_focus'],
+    common_skills: ['sk_slash', 'sk_magic_blade', 'sk_focus', 'sk_combo_weave'],
     // 【特殊】主人公だけは限界突破できず、その分ボーナスSPも得られない (§6.3/§6.5)。
     // 代わりに「凸で伸びない代わりに、育てるほど伸びる」形の固有パッシブで差を埋める。
     //   mirrorStat  … 攻撃力と魔力の高い方に、低い方を揃える。
@@ -149,7 +149,7 @@ RPG.data.characters = {
     base: { hp: 880, atk: 150, def: 70, magi_power: 80 },
     growth: { hp: 58, atk: 11.5, def: 4.5, magi_power: 5.0 },
     unique_skills: ['sk_astra_zero'],
-    common_skills: ['sk_heavy_slash', 'sk_focus', 'sk_armor_break'],
+    common_skills: ['sk_heavy_slash', 'sk_focus', 'sk_armor_break', 'sk_combo_surge'],
     // 【特殊】ラウンド頭から全開。開幕バフを持ち、1ラウンド目の火力が跳ね上がる
     passives: { openingBuff: 0.35 },
     situational: { firstRoundPower: 0.5 },
@@ -375,7 +375,7 @@ RPG.data.characters = {
     base: { hp: 720, atk: 66, def: 46, magi_power: 156 },
     growth: { hp: 46, atk: 3.4, def: 2.8, magi_power: 11.8 },
     unique_skills: ['sk_lg_calamity'],
-    common_skills: ['sk_poison_fang', 'sk_magic_blade', 'sk_ryn_veil'],
+    common_skills: ['sk_poison_fang', 'sk_magic_blade', 'sk_ryn_veil', 'sk_combo_wither'],
     // 【特殊】デバフ中の敵を殴るほど伸びる。攻撃は必ず防御を崩す
     situational: { debuffAmp: 0.55 },
     passives: { guardBreak: 0.35 },
@@ -417,7 +417,7 @@ RPG.data.characters = {
     base: { hp: 780, atk: 72, def: 58, magi_power: 168 },
     growth: { hp: 50, atk: 3.8, def: 3.6, magi_power: 12.6 },
     unique_skills: ['sk_lg_deluge'],
-    common_skills: ['sk_selen_ray', 'sk_heal_light', 'sk_fire_bolt'],
+    common_skills: ['sk_selen_ray', 'sk_heal_light', 'sk_fire_bolt', 'sk_combo_verdict'],
     // 【特殊】単体攻撃が他の敵にも波及し、ボスに強い
     situational: { bossSlayer: 0.4 },
     passives: { chain: 0.35 },
@@ -479,7 +479,7 @@ RPG.data.characters = {
     base: { hp: 700, atk: 118, def: 46, magi_power: 118 },
     growth: { hp: 44, atk: 8.2, def: 2.8, magi_power: 8.2 },
     unique_skills: ['sk_lg_pyre'],
-    common_skills: ['sk_fire_bolt', 'sk_slash', 'sk_focus'],
+    common_skills: ['sk_fire_bolt', 'sk_slash', 'sk_focus', 'sk_combo_burnout'],
     // 【特殊】火傷は「相手が動くと痛い」異常。手数で撒いて焼き続ける (§5.8 / §4.3)。
     passives: {
       statusOnHitKind: { burn: 0.40 },

@@ -1087,6 +1087,75 @@ RPG.data.skills = {
    *
    * 数値は他タグの同じ威力帯・同じ属性の技に揃えた（詳細は各行のコメント）。
    */
+  /* ── 弱点コンボを読む技 (§5.10) ─────────────────────
+   *
+   * 段は1本の数でしかない。**読み方を変えるだけで型が増える**ので、
+   * 型ごとに効果キーを作らず、params.combo を battle.js が1箇所で読む。
+   * 新しい型を足すときはここに1本書くだけで済む。
+   *
+   *   needs    … これ未満なら不発（前提型）
+   *   spend    … 発動時に消費する段（消費型）
+   *   spendAll … 持っている段を全部使う。消費量が per に掛かる
+   *   per      … 段1つあたりの上乗せ
+   *   gain     … 撃ったあとに積む段（積み型。条件を満たさなくても積む）
+   *
+   * 下の5本は、型が1本ずつ揃うように置いた見本でもある。
+   */
+
+  // 【閾値型】段が乗っているほど強いが、無くても撃てる。
+  // 入口として置く1本なので不発にしない。per は控えめ。
+  sk_combo_surge: {
+    name: '継ぎ穂', kind: 'active', plugin: null,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 95, crit_rate: 0.08,
+    params: { combo: { per: 0.18 } },
+    desc: '威力95%。弱点コンボ1段につき威力が18%上がる。段は減らない。',
+  },
+
+  // 【前提型】段が要る代わりに、通れば重い。
+  // needs 3 は「先んじる連鎖」を1段取れば開幕から満たせる位置。
+  sk_combo_verdict: {
+    name: '断ち切る一閃', kind: 'active', plugin: null,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'light',
+    power: 150, crit_rate: 0.10,
+    // クールダウンは付けない。攻撃技に待ち時間を課さないのは設計の決まりで、
+    // **段を要求すること自体が既に対価**になっている。二重に縛らない。
+    params: { combo: { needs: 3, per: 0.22 } },
+    desc: '威力150%。弱点コンボが3段以上でなければ通らない。'
+      + '1段につき威力が22%上がる。',
+  },
+
+  // 【消費型】全部使い切る。消費した段だけ効く。
+  // 「一息に絞る」「出し切る呼吸」がここに乗る——**投資の受け皿**。
+  sk_combo_burnout: {
+    name: '出涸らし', kind: 'active', plugin: null,
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
+    power: 80, crit_rate: 0.08,
+    // 同上。全部使い切ること自体が対価なので、待ち時間は重ねない。
+    params: { combo: { spendAll: true, per: 0.55 } },
+    desc: '威力80%。弱点コンボを全部使い切り、使った1段につき威力が55%上がる。',
+  },
+
+  // 【消費型・弱体】火力ではないほうの消費先。
+  // 段を払って弱体の効きを伸ばす。攻撃型がつまみ食いしても旨みが薄い。
+  sk_combo_wither: {
+    name: '削ぎ落とし', kind: 'active', plugin: 'poison',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 70, crit_rate: 0.05,
+    params: { turns: 4, ratio: 0.022, combo: { spend: 2, per: 0.40 } },
+    desc: '威力70%と毒。弱点コンボを2段使い、使った1段につき威力が40%上がる。',
+  },
+
+  // 【積み型】条件（属性有利・弱体中）を満たさなくても段が積める。
+  // 属性が刺さらない相手でもコンボ軸を回せるようにする入口。
+  sk_combo_weave: {
+    name: '手繰り', kind: 'active', plugin: null,
+    scaling_stat: 'atk', damage_type: 'reli', element: 'none',
+    power: 60, crit_rate: 0.06,
+    params: { combo: { gain: 2 } },
+    desc: '威力60%の小技。属性や弱体の条件を満たさなくても、弱点コンボが2段積む。',
+  },
+
   sk_relic_ember: {
     // 小・火の遺物技。同じ「小・火」の唯一の素の攻撃技 sk_tree_spark（魔術・60・0.08）に揃えた。
     name: '残響の火片', kind: 'active', plugin: null,

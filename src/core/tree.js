@@ -291,7 +291,9 @@
     'boss_slayer', 'buff_duration', 'buff_extend', 'buff_heal', 'buff_on_kill', 'buff_power',
     'buff_shield', 'cap_break', 'chain', 'chain_power',
     'ally_buff_power', 'self_buff_power',
-    'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power', 'cooldown_cut',
+    'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power',
+    'combo_start', 'combo_spend_power', 'combo_threshold', 'combo_refund',
+    'combo_max', 'cooldown_cut',
     'counter', 'counter_all',
     'crit_overflow', 'mid_power_crit',
     'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
@@ -410,6 +412,11 @@
       comboGain: 0,        // 弱点を突いたときに追加で積まれる段数
       comboKeep: 0,        // 外したときにコンボが落ちにくくなる確率
       comboPower: 0,       // コンボ1段あたりの倍率への上乗せ
+      comboStart: 0,       // 戦闘開始時に持っている段 (§5.10)
+      comboSpendPower: 0,  // 段を消費する技の、1段あたりの効きへの上乗せ (§5.10)
+      comboThreshold: 0,   // 段を要求する技の、必要段数を下げる (§5.10)
+      comboRefund: 0,      // 消費した段のうち戻ってくる割合 (§5.10)
+      comboMaxUp: 0,       // コンボの上限そのものを伸ばす (§5.10)
       // --- 回復・防護 ---
       healPower: 0,        // 自分が行う回復量の上乗せ
       healOnKill: 0,       // 敵を倒したときに回復する最大HPの割合
@@ -633,6 +640,11 @@
           case 'combo_gain': passives.comboGain += amount; break;
           case 'combo_keep': passives.comboKeep += amount; break;
           case 'combo_power': passives.comboPower += amount; break;
+          case 'combo_start': passives.comboStart += amount; break;
+          case 'combo_spend_power': passives.comboSpendPower += amount; break;
+          case 'combo_threshold': passives.comboThreshold += amount; break;
+          case 'combo_refund': passives.comboRefund += amount; break;
+          case 'combo_max': passives.comboMaxUp += amount; break;
           case 'heal_power': passives.healPower += amount; break;
           case 'heal_on_kill': passives.healOnKill += amount; break;
           case 'start_shield': passives.startShield += amount; break;
