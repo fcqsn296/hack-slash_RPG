@@ -265,6 +265,19 @@ def build_prompt(target, catalog, overrides, extra=""):
         detail = overrides[tid]
     elif inline:
         detail = inline
+        # ここも静かに壊れる場所なので知らせる。
+        #
+        # 定義側の artPrompt は artprompts.js より**先に**読まれる。
+        # そのため artprompts.js に丁寧に書いても、定義側に残っていると
+        # **黙って無視される**。レジェンド25人がこの状態だった。
+        #
+        # 拡張が data/ を書き換えない約束のためにこの順序になっているので、
+        # 順序そのものは変えない。気づけるようにするだけにする。
+        table = catalog["enemies"] if is_enemy else catalog["characters"]
+        if tid in table:
+            print("  ※ %s は定義側の artPrompt が使われます。"
+                  "data/artprompts.js に書いたものは無視されます。" % tid)
+            print("     そちらを使いたいなら、定義側の artPrompt を外してください。")
     else:
         table = catalog["enemies"] if is_enemy else catalog["characters"]
         if tid in table:
