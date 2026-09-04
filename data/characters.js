@@ -1167,10 +1167,9 @@ RPG.data.characters = {
       outfit: '#3c3420', outfitLight: '#5e5434', outfitTrim: '#ffe6b8',
       accentColor: '#ffd070',
     },
-    artPrompt: 'radiant platinum blonde sharp bob, burning gold eyes, ornate silver circlet, ' +
-      'white and gold duelist coat with a deep chest cutout and high slit, ' +
-      'gold shoulder ornaments and a jeweled belt, gilded thighhighs, ' +
-      'slender longsword raised to the edge, fierce narrowed gaze',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_noel'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技のダメージ上限突破+85%。中技の火力+15%。' +
       '上限に潰されていた中技を、大技と同じ土俵まで押し上げる。',
   },
@@ -1204,10 +1203,9 @@ RPG.data.characters = {
       outfit: '#3e3420', outfitLight: '#5e5030', outfitTrim: '#ffe0b0',
       accentColor: '#ffd08a',
     },
-    artPrompt: 'radiant golden long hair, glowing amber eyes, ' +
-      'ivory and gold healer dress with a deep neckline and long slit skirt, ' +
-      'ring of light behind her, layered gold necklaces and arm rings, ' +
-      'both palms open and raised, welcoming smile',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_marika'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【回復】回復が他の味方へも50%及び、回復した相手に固有バフ+30%。1人を癒すと全員が整う。',
   },
 
@@ -1232,10 +1230,9 @@ RPG.data.characters = {
       outfit: '#173a44', outfitLight: '#28606e', outfitTrim: '#8ed8e8',
       accentColor: '#a8e8f0',
     },
-    artPrompt: 'brilliant cyan wavy hair, glowing blue eyes, silver circlet, ' +
-      'deep water-blue vestment with bare shoulders and a high slit, ' +
-      'ornate lantern of blue flame hung from a jeweled chain, gold anklets, ' +
-      'unhurried stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_nevia'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【回復】毎ラウンド最大HPの10%回復。ラウンド終了時に瀕死の味方を癒し、ウェーブ移行時にも15%回復する。切れ目が無い。',
   },
 
@@ -1260,10 +1257,9 @@ RPG.data.characters = {
       outfit: '#2c2838', outfitLight: '#443e52', outfitTrim: '#d8d0e0',
       accentColor: '#cfc6dc',
     },
-    artPrompt: 'silver white long hair, glowing violet eyes, ' +
-      'black and silver mourning dress with a bare back and long slit, ' +
-      'ornate silver stole clasps and a rosary of pale gems, sheer black thighhighs, ' +
-      'hands folded over a glowing closed book, still and quiet',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_agatha'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【回復】復活時のHP+35%。ウェーブ移行時に70%で倒れた味方が立ち上がり、回復のたびに弱体を1つ解く。',
   },
 
@@ -1393,9 +1389,9 @@ RPG.data.characters = {
       outfit: '#38301e', outfitLight: '#54482e', outfitTrim: '#c8b088',
       accentColor: '#d8c090',
     },
-    artPrompt: 'radiant honey blonde twin braids with gold ribbons, glowing amber eyes, ' +
-      'golden brown gambeson worn open over a bare midriff, ' +
-      'ornate bracers and a jeweled belt, thighhighs, open palms raised to receive a blow',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_brigitta'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【反撃】32%で反撃する。瀕死ほど硬くなる（最大12%軽減）。受けることが攻めになる型。',
   },
 
@@ -1420,10 +1416,9 @@ RPG.data.characters = {
       outfit: '#301a2a', outfitLight: '#4a2a42', outfitTrim: '#b06a9a',
       accentColor: '#e0a0c8',
     },
-    artPrompt: 'vivid plum long hair, glowing violet eyes, ' +
-      'black and magenta court dress with a deep chest cutout and high slit, ' +
-      'ornate choker and layered jewel pendants, sheer thighhighs, ' +
-      'enormous mace resting on her shoulder, unbothered posture',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_veronica'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【反撃】反撃の威力+40%。開幕から最大HPの15%の障壁を張っている。返す一撃が重い。',
   },
 
@@ -1478,10 +1473,9 @@ RPG.data.characters = {
       outfit: '#1c2028', outfitLight: '#2e3644', outfitTrim: '#7a86a8',
       accentColor: '#98a4c0',
     },
-    artPrompt: 'deep indigo blue bob, glowing violet eyes, ' +
-      'black hooded shawl over a dark dress with a bare back and high slit, ' +
-      'ornate silver chains and a jeweled satchel clasp, sheer thighhighs, ' +
-      'standing slightly turned away',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_shannon'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【狙われやすさ】狙われにくさ+28%。瀕死の相手ほど回復量が増える（最大+75%）。狙われずに後ろから支える。',
   },
 
@@ -1505,10 +1499,9 @@ RPG.data.characters = {
       outfit: '#1a3440', outfitLight: '#2a5464', outfitTrim: '#a0e8f0',
       accentColor: '#d0f8ff',
     },
-    artPrompt: 'brilliant aqua high ponytail, glowing cyan eyes, ' +
-      'turquoise duelist outfit with a bare midriff and open shoulders, ' +
-      'ornate ear cuffs and a jeweled rapier guard, thigh straps, weight on the back foot, ' +
-      'playful smirk',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_fiona'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【狙われやすさ】8%で攻撃を回避する。瀕死ほど硬い（最大15%軽減）。当たらなければ痛くない、を積む型。',
   },
 
@@ -1535,10 +1528,9 @@ RPG.data.characters = {
       outfit: '#3a1616', outfitLight: '#5a2626', outfitTrim: '#e05858',
       accentColor: '#ff8080',
     },
-    artPrompt: 'vivid crimson long hair, burning red eyes, ' +
-      'scarlet battle wrap with a bare midriff and bare shoulders, ' +
-      'ornate gold arm rings and a jeweled hip chain, thigh straps, ' +
-      'huge cleaver held one-handed, fierce grin',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_belga'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【HP依存】最大HPの6%がATKに乗る。HPが高いほど火力+15%。体そのものが武器になる型。',
   },
 
@@ -1564,10 +1556,9 @@ RPG.data.characters = {
       outfit: '#38321e', outfitLight: '#544c34', outfitTrim: '#b8a888',
       accentColor: '#c8b890',
     },
-    artPrompt: 'radiant golden blonde short crop, glowing hazel eyes, ' +
-      'bronze and gold layered armor with a bare midriff and one bare shoulder, ' +
-      'ornate shoulder guards and a jeweled belt, thighhighs, arms crossed, ' +
-      'planted immovably',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_irma'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【HP依存】最大HPの16%がDEFに乗る。HPが高いほど火力+10%。硬さをHPから引き出す型。',
   },
 
@@ -1593,9 +1584,9 @@ RPG.data.characters = {
       outfit: '#1c2a40', outfitLight: '#2e4460', outfitTrim: '#88b0e0',
       accentColor: '#a0c8f0',
     },
-    artPrompt: 'brilliant sapphire wavy hair, glowing blue eyes, ' +
-      'deep blue coat worn open over a bare midriff, high slit skirt, ' +
-      'ornate silver clasps and a jeweled gourd at her hip, thighhighs, broad steady stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_tanya'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【HP依存】HPが高いほど火力+20%。開幕から最大HPの15%の障壁を張る。満ちているほど強い。',
   },
 
