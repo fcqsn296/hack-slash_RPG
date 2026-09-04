@@ -1228,6 +1228,27 @@ RPG.data.skillTree = [
     effects: [{ kind: 'combo_spend_power', value: 0.20 }],
     desc: '段を消費する技の、1段あたりの効きが20%上がる',
   },
+  {
+    // 前提型の技を撃ちやすくする。needs 3 の技が2段で通るようになる。
+    // 上限を1つ下げるだけで**短い戦闘での成立率が変わる**ので、初級に置いた。
+    id: 'tr_combo_threshold', tier: 'basic', name: '見切り', cost: 3, maxLevel: 2,
+    effects: [{ kind: 'combo_threshold', value: 1 }],
+    desc: '段を要求する技の、必要な段数が1つ減る',
+  },
+  {
+    // 消費型は撃つたびに段が0へ戻るので、続けて撃てないのが弱点だった。
+    // 戻りがあると軸を回し続けられる。切り捨てなので1段払いでは戻らない。
+    id: 'tr_combo_refund', tier: 'mid', name: '食い下がり', cost: 4, maxLevel: 3,
+    effects: [{ kind: 'combo_refund', value: 0.15 }],
+    desc: '段を消費したとき、払った段の15%が戻る',
+  },
+  {
+    // 上限を動かせるのは千変セットだけだった。ツリー側にも手を用意する。
+    // 上限が伸びると消費型の伸び代がそのまま増えるので、上級に置いて costも重くした。
+    id: 'tr_combo_max', tier: 'high', name: '重ねの理', cost: 6, maxLevel: 3,
+    effects: [{ kind: 'combo_max', value: 1 }],
+    desc: '弱点コンボの上限が1段増える',
+  },
 
   {
     id: 'tr_smite_mid', tier: 'mid', name: '裁きの光', cost: 3, maxLevel: 4,

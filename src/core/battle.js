@@ -97,6 +97,12 @@
     let bonus = 0;
     for (const u of battle.party) {
       bonus = Math.max(bonus, (u.setEffects && u.setEffects.comboMaxBonus) || 0);
+      // 「重ねの理」(§5.10) — ツリーからも上限を伸ばせる。
+      //
+      // それまで上限を動かせるのは千変セットだけだった。**ツリーに手が無い**ので、
+      // 段を厚くする方向へ投資できず、消費型の技も伸び代が頭打ちになる。
+      // セットと同じく、パーティで一番大きい値を採る（重ねない）。
+      bonus = Math.max(bonus, (u.passives && u.passives.comboMaxUp) || 0);
     }
     return COMBO_MAX + bonus;
   }
@@ -2731,7 +2737,14 @@
     // 消費は撃つ前。撃ったあとだと、倒しきって戦闘が終わったときに払わずに済む。
     if (cb.spent > 0) {
       battle.combo.count -= cb.spent;
-      pushLog(battle, `${skill.name} が ${cb.spent} 段を使い切った`, 'sub');
+      // 「食い下がり」(§5.10) — 払った段の一部が戻る。
+      // 消費型は撃つたびに0へ戻るので、**連続して撃てない**という弱点があった。
+      // 戻りがあると、積み直しの手数を減らして軸を回し続けられる。
+      // 切り捨てなので、1段しか払っていないときは戻らない。
+      const back = Math.floor(cb.spent * ((actor.passives || {}).comboRefund || 0));
+      if (back > 0) battle.combo.count = Math.min(comboMax(battle), battle.combo.count + back);
+      pushLog(battle, `${skill.name} が ${cb.spent} 段を使い切った`
+        + (back > 0 ? `（${back} 段が戻った）` : ''), 'sub');
       pushEvent(battle, {
         type: 'combo', count: battle.combo.count, power: comboPower(battle, actor),
       });

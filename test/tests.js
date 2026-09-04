@@ -1045,6 +1045,7 @@
         'element_power', 'element_resist', 'dual_element',
         'combo_gain', 'combo_keep', 'combo_power',
         'combo_start', 'combo_spend_power',
+        'combo_threshold', 'combo_refund', 'combo_max',
         'heal_power', 'heal_on_kill', 'start_shield', 'status_immune',
         'low_hp_guard', 'reflect', 'front_power', 'back_guard',
         'round_stack', 'hit_stack', 'party_size_power', 'solo_power',
@@ -7976,6 +7977,9 @@
           // 許可一覧へ逃がさず、値がユニットまで届くことをここで見る。
           comboStart: (r) => r.unit.passives.comboStart,
           comboSpendPower: (r) => r.unit.passives.comboSpendPower,
+          comboThreshold: (r) => r.unit.passives.comboThreshold,
+          comboRefund: (r) => r.unit.passives.comboRefund,
+          comboMaxUp: (r) => r.unit.passives.comboMaxUp,
           midPowerBoost: (r) => (r.unit.situational || {}).midPowerBoost,
           midPowerCap: (r) => (r.unit.situational || {}).midPowerCap,
           critPierce: (r) => r.attacker.critPierce,
