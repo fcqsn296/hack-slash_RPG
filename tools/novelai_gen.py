@@ -307,6 +307,23 @@ def build_prompt(target, catalog, overrides, extra=""):
     if not is_enemy and not declares_subject:
         rarity = (_meta(target) or {}).get("rarity")
         rarity_tag = (catalog.get("rarityTags") or {}).get(rarity, "")
+    elif not is_enemy and declares_subject:
+        # ここは静かに壊れる場所なので、黙って落とさず知らせる。
+        #
+        # 個別プロンプトの先頭に 1girl と書くと主語の補完が止まるが、
+        # **レアリティの味付けも同じ旗に乗っている**。名乗った瞬間に
+        # revealing clothing / cleavage cutout / skindentation / curvy /
+        # thick thighs が全部消える。
+        #
+        # 実際それでエンバーが「肌の出ている場所が顔だけ」になり、
+        # 暗いボディスーツが画面を占める絵になった。rarityTags のコメントが
+        # 警告している「高レアに見えない」問題を、そのまま再現していた。
+        rarity = (_meta(target) or {}).get("rarity")
+        if (catalog.get("rarityTags") or {}).get(rarity):
+            print("  ※ 個別プロンプトが 1girl / 1boy を名乗っているため、"
+                  "%s のレアリティの語（%s）が付きません。" % (tid, rarity))
+            print("     華やかさが要るなら、個別プロンプトから主語を外してください"
+                  "（主語は subject が入れます）。")
 
     pieces = [p for p in (subject, catalog["base"].get(base_key, ""), rarity_tag, detail, extra) if p]
     return ", ".join(pieces)
