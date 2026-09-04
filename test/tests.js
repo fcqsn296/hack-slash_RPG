@@ -1044,6 +1044,7 @@
         // 属性・コンボ・隊列・戦況の拡張 (§5.7)
         'element_power', 'element_resist', 'dual_element',
         'combo_gain', 'combo_keep', 'combo_power',
+        'combo_start', 'combo_spend_power',
         'heal_power', 'heal_on_kill', 'start_shield', 'status_immune',
         'low_hp_guard', 'reflect', 'front_power', 'back_guard',
         'round_stack', 'hit_stack', 'party_size_power', 'solo_power',
@@ -7971,6 +7972,10 @@
           buffCapBonus: (r) => r.unit.passives.buffCapBonus,
           noAllyHeal: (r) => r.unit.passives.noAllyHeal,
           midPowerCrit: (r) => r.unit.passives.midPowerCrit,
+          // 段を資源として使う枝 (§5.10)。どちらも passives 行きなので、
+          // 許可一覧へ逃がさず、値がユニットまで届くことをここで見る。
+          comboStart: (r) => r.unit.passives.comboStart,
+          comboSpendPower: (r) => r.unit.passives.comboSpendPower,
           midPowerBoost: (r) => (r.unit.situational || {}).midPowerBoost,
           midPowerCap: (r) => (r.unit.situational || {}).midPowerCap,
           critPierce: (r) => r.attacker.critPierce,

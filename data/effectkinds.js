@@ -81,6 +81,8 @@ RPG.data.effectKinds = {
   combo_gain: { to: 'passives', shape: 'add', uniq: 'comboGain', route: 'passives', key: 'comboGain', label: 'コンボの積み', fmt: 'pct' },
   combo_keep: { to: 'passives', shape: 'add', uniq: null, key: 'comboKeep', label: 'コンボが減らない', fmt: 'pct' },
   combo_power: { to: 'passives', shape: 'add', uniq: 'comboPower', route: 'passives', key: 'comboPower', label: 'コンボ1段の威力', fmt: 'pct' },
+  combo_start: { to: 'passives', shape: 'add', uniq: 'comboStart', route: 'passives', key: 'comboStart', label: '開幕のコンボ', fmt: 'num' },
+  combo_spend_power: { to: 'passives', shape: 'add', uniq: 'comboSpendPower', route: 'passives', key: 'comboSpendPower', label: '消費1段あたりの効き', fmt: 'pct' },
   counter: { to: 'passives', shape: 'add', opt: ["power"], uniq: 'counterRate', route: 'passives', key: 'counterRate', label: '反撃', fmt: 'pct' },
   counter_all: { to: 'passives', shape: 'add', uniq: null, key: 'counterAll', label: '反撃が全体に及ぶ', fmt: 'pct' },
   counter_power: { to: 'passives', shape: 'add', uniq: null, key: 'counterPower', label: '反撃の威力', fmt: 'pct' },

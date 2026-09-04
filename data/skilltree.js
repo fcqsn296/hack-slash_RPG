@@ -1198,6 +1198,37 @@ RPG.data.skillTree = [
     effects: [{ kind: 'combo_power', value: 0.025 }],
     desc: 'コンボ1段あたりの倍率 +2.5%',
   },
+  /*
+   * ── 段を「資源」として使う枝 (§5.10) ────────────────
+   *
+   * それまでのコンボは**貯まるだけで、使い道が火力しかなかった**。
+   * そのため次の3つが同時に起きていた。
+   *
+   *   ① 段はパーティ共有なので、**振っていない人にも無料で乗る**
+   *   ② 積むのに手数が要り、2〜3ラウンドで終わる戦闘では仕事をしない
+   *   ③ 全部振って +120%（49SP）。三系統掌握は 9SP で ×1.64 なので選ぶ理由が無い
+   *
+   * 火力の上限を伸ばしても①は直らない（つまみ食いの取り分も増える）。
+   * そこで**段を消費する技**を用意し、その効きをここで伸びるようにした。
+   * 消費する技は params.combo を持つものだけなので、
+   * **振っていない人が撃っても薄いまま**になる。
+   */
+  {
+    id: 'tr_combo_start', tier: 'mid', name: '先んじる連鎖', cost: 4, maxLevel: 3,
+    effects: [{ kind: 'combo_start', value: 1 }],
+    desc: '戦闘開始時に弱点コンボを1段持っている',
+  },
+  {
+    id: 'tr_combo_spend', tier: 'mid', name: '一息に絞る', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'combo_spend_power', value: 0.12 }],
+    desc: '段を消費する技の、1段あたりの効きが12%上がる',
+  },
+  {
+    id: 'tr_combo_spend_hi', tier: 'high', name: '出し切る呼吸', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'combo_spend_power', value: 0.20 }],
+    desc: '段を消費する技の、1段あたりの効きが20%上がる',
+  },
+
   {
     id: 'tr_smite_mid', tier: 'mid', name: '裁きの光', cost: 3, maxLevel: 4,
     effects: [{ kind: 'smite', value: 0.16 }],

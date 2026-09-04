@@ -102,6 +102,54 @@
   }
 
   /**
+   * 技が宣言した「段の読み方」を解く (§5.10)。
+   *
+   * ── なぜ効果キーを型ごとに作らないのか ──
+   * 段は1本の数でしかない。**読み方を変えるだけで型が増える**ので、
+   * 型ごとに効果キーを作ると、5ファイル7箇所の登録が型の数だけ要る
+   * （しかも漏らすと静かに無効になる）。技側の宣言を1箇所で読む形にすれば、
+   * 新しい型はデータを書くだけで足せる。
+   *
+   * data/skills.js の params.combo に書く:
+   *   needs    … これ未満なら不発（前提型）
+   *   spend    … 発動時に消費する段（消費型）
+   *   spendAll … 持っている段を全部使う。消費量が per に掛かる
+   *   per      … 段1つあたりの上乗せ。読んだ段数 × per が威力に乗る
+   *   gain     … 撃ったあとに積む段（積み型。条件を満たさなくても積む）
+   *
+   * @param {any} battle @param {any} actor @param {any} skill
+   * @returns {{blocked: boolean, needs: number, spent: number, scale: number, gain: number}}
+   */
+  function resolveCombo(battle, actor, skill) {
+    const none = { blocked: false, needs: 0, spent: 0, scale: 1, gain: 0 };
+    const c = skill && skill.params && skill.params.combo;
+    if (!c || actor.side !== 'party') return none;
+
+    const p = actor.passives || {};
+    const have = battle.combo.count;
+
+    // 閾値。振っていれば緩む（combo_threshold）。0未満にはしない。
+    const needs = Math.max(0, (c.needs || 0) - (p.comboThreshold || 0));
+    if (needs > 0 && have < needs) {
+      return { blocked: true, needs, spent: 0, scale: 1, gain: 0 };
+    }
+
+    // 消費。持っているぶんまでしか払えない。
+    let spent = 0;
+    if (c.spendAll) spent = have;
+    else if (c.spend) spent = Math.min(have, c.spend);
+
+    // 上乗せ。**消費した段（または満たした段）1つあたり per**。
+    // 消費1段あたりの効きは combo_spend_power で伸びる——ここが投資の軸で、
+    // 振っていない人が消費型を撃っても薄いままになる（つまみ食いを塞ぐ）。
+    const per = (c.per || 0) * (1 + (p.comboSpendPower || 0));
+    const read = spent > 0 ? spent : Math.min(have, comboMax(battle));
+    const scale = 1 + read * per;
+
+    return { blocked: false, needs, spent, scale, gain: c.gain || 0 };
+  }
+
+  /**
    * 今のコンボによる火力の上乗せ。
    * @param {any} battle
    */
@@ -1004,7 +1052,17 @@
       // ウェーブをまたいだ通算ラウンド。round はウェーブごとに1に戻るため別に数える。
       totalRounds: 1,
       // 弱点コンボ (§10.6)。手動で段取りを組んだときだけ伸びる。
-      combo: { count: 0, best: 0, reason: '' },
+      //
+      // 「先んじる連鎖」(§5.10) を持っていれば開幕から段がある。
+      // コンボは積むのに手数が要るので、**短い戦闘では一度も仕事をしない**
+      // という弱点があった。フィールドの戦闘は2〜3ラウンドで終わる。
+      // 開幕ぶんを持てると、その帯でも軸として成立する。
+      // パーティで一番大きい値を採る（重ねると段の意味が薄れるため）。
+      combo: {
+        count: (config.party || []).reduce((/** @type {number} */ top, /** @type {any} */ u) =>
+          Math.max(top, (u.passives && u.passives.comboStart) || 0), 0),
+        best: 0, reason: '',
+      },
       // 残響セットが予約した遅延ダメージ (§7.7)
       echoes: /** @type {any[]} */ ([]),
       // 図鑑用の記録 (§13)。ここは数を数えるだけで、セーブには触らない。
@@ -2253,7 +2311,12 @@
       damage: (target, opts) => applyDamage(battle, actor, target, skill,
         // 同時に2体以上を殴っているなら「広い攻撃」と見なす (§17)。
         // 闘技場の「単体でしか通らない」ボスがこれを見る。
-        Object.assign({ multiTarget: targets.length > 1 }, opts || {})),
+        Object.assign({ multiTarget: targets.length > 1 }, opts || {},
+          // 段の読み取り (§5.10) を威力へ流す。plugin が powerScale を
+          // 自分で決めている場合はそれに掛ける——上書きすると多段技の配分が壊れる。
+          api.comboScale
+            ? { powerScale: ((opts && opts.powerScale) || 1) * api.comboScale }
+            : null)),
 
       /**
        * 別の技として殴る。フルバースト (§4.3) のように、
@@ -2654,6 +2717,28 @@
       }
     }
 
+    // --- 弱点コンボを資源として読む (§5.10) ---
+    //
+    // 段そのものは1本しかないが、**読み方を変えるだけで技の型が増える**。
+    // 効果キーを型ごとに作らず、技側の params.combo を1箇所で読む形にしてある。
+    // ここが唯一の読み書き口なので、新しい型を足すときもデータだけで済む。
+    const cb = resolveCombo(battle, actor, skill);
+    if (cb.blocked) {
+      pushLog(battle, `${actor.name} は段が足りず ${skill.name} を通せなかった`
+        + `（${battle.combo.count} / ${cb.needs} 段）`, 'sub');
+      return;
+    }
+    // 消費は撃つ前。撃ったあとだと、倒しきって戦闘が終わったときに払わずに済む。
+    if (cb.spent > 0) {
+      battle.combo.count -= cb.spent;
+      pushLog(battle, `${skill.name} が ${cb.spent} 段を使い切った`, 'sub');
+      pushEvent(battle, {
+        type: 'combo', count: battle.combo.count, power: comboPower(battle, actor),
+      });
+    }
+    // 読み取った倍率は powerScale へ流す。ダメージ計算そのものは触らない。
+    if (cb.scale !== 1) ctx.comboScale = cb.scale;
+
     const runOnce = () => {
       if (plugin) {
         plugin.execute(ctx);
@@ -2665,6 +2750,15 @@
     };
 
     runOnce();
+
+    // 技の側から段を積む (§5.10)。条件（属性有利・弱体中）を満たさなくても積める型。
+    if (cb.gain > 0 && battle.combo.count < comboMax(battle)) {
+      battle.combo.count = Math.min(comboMax(battle), battle.combo.count + cb.gain);
+      battle.combo.best = Math.max(battle.combo.best, battle.combo.count);
+      pushEvent(battle, {
+        type: 'combo', count: battle.combo.count, power: comboPower(battle, actor),
+      });
+    }
 
     // 撃ち終えたので、次に動く味方が見る「直前の系統」を更新する (§5.9)
     if (actor.side === 'party' && isAttackSkill(skill)) {

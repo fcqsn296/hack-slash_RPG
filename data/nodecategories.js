@@ -52,7 +52,7 @@ RPG.data.nodeCategories = [
     id: 'combo', label: '弱点コンボ', icon: 'combo',
     terms: ['コンボ', '弱点', '連携'],
     desc: 'コンボは手動戦闘でしか積めない。ここを厚くするほど、手で戦う見返りが大きくなる。',
-    kinds: ['combo_gain', 'combo_keep', 'combo_power'],
+    kinds: ['combo_gain', 'combo_keep', 'combo_power', 'combo_start', 'combo_spend_power'],
   },
   {
     id: 'status', label: '状態異常', icon: 'status',
