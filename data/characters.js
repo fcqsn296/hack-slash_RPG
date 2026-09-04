@@ -1008,10 +1008,9 @@ RPG.data.characters = {
       outfit: '#241436', outfitLight: '#3c2450', outfitTrim: '#c58cff',
       accentColor: '#e8b0ff',
     },
-    artPrompt: 'vivid violet long hair falling straight, glowing lavender eyes, ' +
-      'black executioner dress with silver chains and a deep back cutout, ' +
-      'ornate silver gorget and layered belts, garter with hanging charms, ' +
-      'enormous single-edged greatsword held low, unblinking cold stare',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_diana'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【会心】会心倍率+0.85（1.5倍 → 2.35倍）。会心率+20%。' +
       '当たれば重い、一撃の質に全部を寄せた型。',
   },
