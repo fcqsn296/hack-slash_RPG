@@ -124,14 +124,22 @@ def _strip_comments(text):
     return re.sub(r"^\s*//.*$", "", text, flags=re.MULTILINE)
 
 
+# 文字列1つぶん。**シングルとダブルの両方を受ける。**
+# 以前はシングルだけを見ていたので、所有格を書くために "gown's" とダブルに
+# しただけで **そのキーが丸ごと拾えなくなり、黙って自動合成へ落ちていた**。
+# 実際にネヴィアとアガタで踏んで、--dry-run に属性色だけの短い文が出て発覚した。
+_STR = r"(?:'[^']*'|\"[^\"]*\")"
+_CHAIN = r"(?:" + _STR + r"\s*\+?\s*)+"
+
+
 def _join_strings(chunk):
     """`'a' + 'b' + 'c'` のような連結を1つの文字列にする。"""
-    return "".join(re.findall(r"'([^']*)'", chunk))
+    return "".join(m[1:-1] for m in re.findall(_STR, chunk))
 
 
 def _one_string(text, key):
     """`key: 'a' + 'b',` のような1本の文字列を取り出す。無ければ空文字。"""
-    m = re.search(key + r":\s*((?:'[^']*'\s*\+?\s*)+),", text)
+    m = re.search(key + r":\s*(" + _CHAIN + r"),", text)
     return _join_strings(m.group(1)) if m else ""
 
 
@@ -154,16 +162,27 @@ def _parse_block(text, key):
         return {}
 
     out = {}
-    for em in re.finditer(r"(\w+):\s*((?:'[^']*'\s*\+?\s*)+),", body):
+    for em in re.finditer(r"(\w+):\s*(" + _CHAIN + r"),", body):
         out[em.group(1)] = _join_strings(em.group(2))
+
+    # 拾えなかったキーを**黙って落とさない**。
+    # 落ちたキーは自動合成へフォールバックするので、絵は出てしまう。
+    # 出てしまうぶん気づきにくい——だからここで言う。
+    seen = set(re.findall(r"^\s*(\w+):", body, re.M))
+    missed = sorted(seen - set(out))
+    if missed:
+        print("警告: %s の %s が読めなかった（自動合成へ落ちる）。"
+              % (key, " / ".join(missed)))
+        print("      文字列の書き方を確かめること。"
+              "連結は '…' + '…' の形だけを読む。")
     return out
 
 
 def load_prompt_catalog():
     text = _strip_comments(open(os.path.join(DATA, "artprompts.js"), encoding="utf-8").read())
 
-    negative = re.search(r"negative:\s*((?:'[^']*'\s*\+?\s*)+),", text)
-    boss = re.search(r"bossTags:\s*((?:'[^']*'\s*\+?\s*)+),", text)
+    negative = re.search(r"negative:\s*(" + _CHAIN + r"),", text)
+    boss = re.search(r"bossTags:\s*(" + _CHAIN + r"),", text)
     return {
         "base": _parse_block(text, "base"),
         "subject": _parse_block(text, "subject"),
