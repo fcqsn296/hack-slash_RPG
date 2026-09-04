@@ -870,10 +870,9 @@ RPG.data.characters = {
       outfit: '#3c3418', outfitLight: '#5e5228', outfitTrim: '#ffe9a8',
       accentColor: '#ffd166',
     },
-    artPrompt: 'radiant platinum blonde very long hair, glowing golden eyes, ' +
-      'white and gold liturgical dress with a deep chest cutout and long slit skirt, ' +
-      'floating golden halo, layered gold chain necklaces and arm rings, gilded thighhighs, ' +
-      'hands clasped in prayer, serene smile',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_litania'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【支援】ラウンド開始時、味方全体に固有バフ+10%（手番を使わない）。' +
       '自分がかけるバフの持続が+1ターン。撃たなくても働き続ける。',
   },
@@ -1102,9 +1101,9 @@ RPG.data.characters = {
       outfit: '#24402c', outfitLight: '#3a6442', outfitTrim: '#a8e6b0',
       accentColor: '#c8f0cc',
     },
-    artPrompt: 'deep green twin braids tied with crimson ribbons, brilliant leaf-green eyes, ' +
-      'short battle kimono with wide sleeves worn open at the chest, bare thighs, ' +
-      'gold chain linking twin ring-blades, floral hair ornaments, playful smirk',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_tsubaki'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技を当てると弱点コンボが1段多く積む。コンボ1段あたりの倍率+3%。' +
       '中技からコンボへ橋を架ける型。',
   },
@@ -1137,10 +1136,9 @@ RPG.data.characters = {
       outfit: '#2a303c', outfitLight: '#444c5c', outfitTrim: '#cfd6e0',
       accentColor: '#aebccc',
     },
-    artPrompt: 'silver white short crop, glowing steel blue eyes, ' +
-      'dark navy drill uniform with a bare midriff and unbuttoned collar, ' +
-      'ornate silver epaulettes and medal chains, thigh-high boots, ' +
-      'single straight sword held at mid guard, composed veteran stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_nadia'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技の火力+50%。守りを30%無視して攻撃する。' +
       '搦手を通さず、中技を素直に強くする帯の中核。',
   },
@@ -1317,10 +1315,9 @@ RPG.data.characters = {
       outfit: '#221c30', outfitLight: '#3a3048', outfitTrim: '#9a8ab8',
       accentColor: '#c8b8e0',
     },
-    artPrompt: 'vivid violet hime cut, glowing pale eyes, ' +
-      'black and silver armored dress with a deep chest cutout and high slit, ' +
-      'ornate gorget and blood-red jeweled sash, sheer black thighhighs, ' +
-      'greatsword resting point-down, unmoving posture',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_lucrezia'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【変換】DEFの80%がATKに乗る。ボスから受けるダメージ-15%。守りを固めるほど打撃が重くなる。',
   },
 
@@ -1453,10 +1450,11 @@ RPG.data.characters = {
       outfit: '#3e1e18', outfitLight: '#5e3026', outfitTrim: '#ff8060',
       accentColor: '#ffa080',
     },
-    artPrompt: 'brilliant flame red high ponytail, burning orange eyes, ' +
-      'scarlet and gold breastplate over a bare midriff, one bare shoulder, ' +
-      'ornate gold pauldron and a torn war banner, jeweled thigh straps, ' +
-      'one arm thrown wide in challenge, shouting',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_olga'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
+    // 顔の自動検出が大道具を頭と誤認する傾向があるため（art.face のコメント参照）、
+    // 炎を顔の高さ（髪先）へ置く記述は避けている。
     desc: '【狙われやすさ】狙われやすさ+125%。ボスから受けるダメージ-15%。反射や棘を積む味方の代わりに、自分が矢面に立つ。',
   },
 
