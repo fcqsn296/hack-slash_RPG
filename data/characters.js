@@ -463,7 +463,7 @@ RPG.data.characters = {
     color: '#8fd8ff', accent: '#183a52', glyph: '氷',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5192, y: 0.1376, size: 0.3391 },
+      face: { x: 0.567, y: 0.099, size: 0.370 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'circlet',
       hairColor: '#bfeaff', hairLight: '#eafaff', hairDark: '#5a8ea8',
       eye: '#7fd6ff', eyeLight: '#d4f2ff',
