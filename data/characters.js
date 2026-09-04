@@ -795,7 +795,7 @@ RPG.data.characters = {
     color: '#b0b8c8', accent: '#2c3240', glyph: '一',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4868, y: 0.1292, size: 0.3489 },
+      face: { x: 0.476, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'bob', expression: 'cool', accessory: 'none',
       hairColor: '#98a4b8', hairLight: '#d4dce8', hairDark: '#4c5464',
       eye: '#ff9c7a', eyeLight: '#ffd4c4',
@@ -1066,7 +1066,7 @@ RPG.data.characters = {
     color: '#6fd3c8', accent: '#123c3a', glyph: '浸',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.498, y: 0.119, size: 0.358 },
+      face: { x: 0.531, y: 0.100, size: 0.366 },
       gender: 'female', hair: 'long', expression: 'calm', accessory: 'none',
       hairColor: '#5cc0b4', hairLight: '#a8ebe2', hairDark: '#2a6d66',
       eye: '#8ae0d4', eyeLight: '#d0f6f0',
@@ -1282,7 +1282,7 @@ RPG.data.characters = {
     color: '#e07a5a', accent: '#3e2018', glyph: '拓',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.519, y: 0.124, size: 0.354 },
+      face: { x: 0.510, y: 0.097, size: 0.370 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'none',
       hairColor: '#c85a3c', hairLight: '#f09878', hairDark: '#8a3820',
       eye: '#ffd0a0', eyeLight: '#ffe8d0',
@@ -1337,7 +1337,7 @@ RPG.data.characters = {
     color: '#ff9a6a', accent: '#4a2416', glyph: '慈',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.495, y: 0.104, size: 0.356 },
+      face: { x: 0.523, y: 0.096, size: 0.367 },
       gender: 'female', hair: 'bob', expression: 'cool', accessory: 'circlet',
       hairColor: '#e8845a', hairLight: '#ffb894', hairDark: '#a04c28',
       eye: '#ffd070', eyeLight: '#fff0c0',
@@ -1363,7 +1363,7 @@ RPG.data.characters = {
     color: '#a8e0c8', accent: '#1e3c30', glyph: '響',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.514, y: 0.103, size: 0.368 },
+      face: { x: 0.529, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
       hairColor: '#88c8ac', hairLight: '#c8f0dc', hairDark: '#48806a',
       eye: '#b8f0d8', eyeLight: '#e0fbf0',
