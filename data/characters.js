@@ -1038,10 +1038,9 @@ RPG.data.characters = {
       outfit: '#2e2a20', outfitLight: '#4a4434', outfitTrim: '#d8c39a',
       accentColor: '#e8d8b0',
     },
-    artPrompt: 'glossy black short bob with an ornate jade hairpin, brilliant amber eyes, ' +
-      'crimson and gold short kimono worn off one shoulder, bare thighs, ' +
-      'gold obi with hanging tassels and bell charms, two slim blades reversed in her hands, ' +
-      'unhurried stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_saya'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【会心】中技の会心率+40%（中技にだけ乗る）。会心率+15%。' +
       '固有技は1発ずつが中技帯に収まる、刻んで当てる型。',
   },
