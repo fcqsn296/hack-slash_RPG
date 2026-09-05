@@ -280,17 +280,24 @@
     });
 
     let commands = 0;
-    let rounds = 0;
+    let waveRoundMax = 0;
+    let roundsFought = 0;
     let guard = 0;
     while (!battle.finished && guard++ < 4000) {
-      if (battle.phase === 'wave_clear') { RPG.battle.advanceWave(battle); continue; }
+      if (battle.phase === 'wave_clear') {
+        // ウェーブが終わるたびに、そのウェーブで戦ったラウンド数を足す
+        roundsFought += battle.round;
+        RPG.battle.advanceWave(battle);
+        continue;
+      }
       const action = RPG.autoplay.chooseAction(battle);
       if (!action) break;
       // シミュレータはオート戦闘そのものなので、手動ボーナスは付かない扱いにする
       RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
       commands++;
-      rounds = Math.max(rounds, battle.round);
+      waveRoundMax = Math.max(waveRoundMax, battle.round);
     }
+    roundsFought += battle.round;   // 最後のウェーブぶん
 
     const survivors = battle.party.filter((/** @type {any} */ u) => u.alive).length;
     const hpLeft = battle.party.reduce((/** @type {number} */ s, /** @type {any} */ u) => s + u.hp, 0) /
@@ -298,7 +305,26 @@
 
     return {
       victory: battle.victory,
-      commands, rounds,
+      commands,
+      // 1周に実際に戦ったラウンドの合計。**収益の分母はこれを使う。**
+      //
+      // ラウンドの物差しが3つあり、どれも別のものを測っている。
+      //   roundsFought  … 各ウェーブのラウンドを足したもの＝1周の長さ
+      //   totalRounds   … ラウンド送りの回数＋1。依頼の制限が見ている値。
+      //                   ウェーブが1ラウンドで片付くと増えないので短く出る
+      //   battle.round  … いま何ラウンド目か。ウェーブごとに1へ戻る
+      //
+      // 以前は battle.round の最大値を「1周のラウンド数」として使っていた。
+      // 連戦（既定5ウェーブ）では1本ぶんしか数えないので短く出て、
+      // ラウンド当たり収益がそのぶん大きく見えていた。
+      rounds: roundsFought,
+      // 依頼のラウンド制限が見ている値。**1周の長さとは別物。**
+      // totalRounds はラウンド送りでしか増えないので、ウェーブが1ラウンドで
+      // 片付くと増えない。5ウェーブすべて即決なら totalRounds は 1 のまま。
+      // 制限判定との突き合わせに使う。
+      totalRounds: battle.totalRounds,
+      // 旧指標。ウェーブ1本ぶんの長さの最大値。過去の数字と突き合わせるときだけ使う
+      waveRoundMax,
       gold: battle.rewards.gold,
       exp: battle.rewards.exp,
       boxes: Object.keys(battle.rewards.boxes)
@@ -331,6 +357,8 @@
       runs,
       winRate: wins.length / runs,
       rounds: avg((r) => r.rounds, wins),
+      totalRounds: avg((r) => r.totalRounds, wins),
+      waveRoundMax: avg((r) => r.waveRoundMax, wins),
       commands: avg((r) => r.commands, wins),
       gold: avg((r) => r.gold, wins),
       exp: avg((r) => r.exp, wins),

@@ -10210,6 +10210,108 @@
         const budget = 254 + 5;
         check('測定道具: 想定ビルドが SP を使い切る', spent >= budget - 5,
           `${spent} / ${budget} SP`);
+
+        // ── ラウンドの物差しが3つあるので、取り違えを固定する ──
+        //
+        // battle.round      いま何ラウンド目か。**ウェーブごとに1へ戻る**
+        // battle.totalRounds ラウンド送りの回数+1。**依頼の制限が見ている値**。
+        //                    ウェーブが1ラウンドで片付くと増えない
+        // roundsFought      各ウェーブのラウンドの合計。**1周の長さ**
+        //
+        // 測定道具は以前 battle.round の最大値を「1周のラウンド数」として
+        // 使っていた。5連戦では1本ぶんしか数えないので、ラウンド当たり収益が
+        // 実測で約3倍に見えていた（順位は変わらなかったが、絶対値は誤り）。
+        // 3つが混ざると同じ事故が起きるので、関係をここで固定する。
+        {
+          const cfg = {
+            fieldId: 'fl_verge', waves: 3, bossFinale: true, level: 225, limitBreak: 3,
+          };
+
+          // 独立に数える。道具と同じ計算を書くのではなく、
+          // 「ウェーブが変わった瞬間の battle.round を足す」で外から数える。
+          RPG.rng.seed(20260905);
+          const party = RPG.balance.makeParty(cfg.level, cfg.limitBreak);
+          const b = RPG.battle.start({
+            fieldId: cfg.fieldId, waves: cfg.waves, party, bossFinale: cfg.bossFinale,
+          });
+          let sumByHand = 0;
+          let transitions = 0;
+          let prevRound = b.round;
+          let guard = 0;
+          while (!b.finished && guard++ < 4000) {
+            if (b.phase === 'wave_clear') {
+              sumByHand += b.round;
+              RPG.battle.advanceWave(b);
+              prevRound = b.round;
+              continue;
+            }
+            const a = RPG.autoplay.chooseAction(b);
+            if (!a) break;
+            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            if (b.round > prevRound) { transitions += b.round - prevRound; }
+            prevRound = b.round;
+          }
+          sumByHand += b.round;
+
+          RPG.rng.seed(20260905);
+          const r = RPG.balance.runBattle(cfg);
+          RPG.rng.seed(null);
+
+          check('測定道具: 1周のラウンドは各ウェーブの合計と一致する',
+            r.rounds === sumByHand, `道具 ${r.rounds} / 手で数えて ${sumByHand}`);
+          check('測定道具: 通算ラウンドはラウンド送りの回数+1と一致する',
+            r.totalRounds === transitions + 1,
+            `道具 ${r.totalRounds} / 送り ${transitions} + 1`);
+          check('測定道具: 1周の長さは通算ラウンド以上・ウェーブ数以上',
+            r.rounds >= r.totalRounds && r.rounds >= cfg.waves,
+            `合計 ${r.rounds} / 通算 ${r.totalRounds} / ${cfg.waves}ウェーブ`);
+          check('測定道具: 旧指標（ウェーブ1本の最大）は1周の長さを超えない',
+            r.waveRoundMax <= r.rounds, `旧 ${r.waveRoundMax} / 合計 ${r.rounds}`);
+        }
+
+        // ── 依頼のラウンド制限の境界 ──
+        //
+        // 「N ラウンド以内」は **N ラウンド目に決着すれば間に合う**。
+        // 判定は次のラウンドへ入るときにしか走らないので、
+        // N ラウンド目で勝った戦闘は制限に触れない。
+        //
+        // 最初この境界を1つ間違えて書き、「制限ちょうどなら失敗するはず」と
+        // した検査が落ちた。**落ちたのは実装ではなく検査のほう**だった。
+        // 両側（ちょうど／1つ厳しく）を見ないと、この向きは分からない。
+        {
+          const run = (/** @type {number|null} */ maxRounds) => {
+            RPG.rng.seed(20260905);
+            const party = RPG.balance.makeParty(225, 3);
+            const b = RPG.battle.start({
+              fieldId: 'fl_verge', waves: 3, bossFinale: true, party,
+              quest: maxRounds == null ? null : { rules: { maxRounds } },
+            });
+            let guard = 0;
+            while (!b.finished && guard++ < 4000) {
+              if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+              const a = RPG.autoplay.chooseAction(b);
+              if (!a) break;
+              RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            }
+            RPG.rng.seed(null);
+            return b;
+          };
+
+          const free = run(null);
+          check('依頼: 制限なしなら totalRounds は伸びる',
+            free.totalRounds >= 2, `${free.totalRounds} ラウンド`);
+
+          const reached = free.totalRounds;        // 制限なしで到達したラウンド
+          const justEnough = run(reached);         // ちょうど → 間に合う
+          const tooTight = run(reached - 1);       // 1つ厳しく → 失敗する
+
+          check('依頼: 制限ちょうどのラウンドで決着すれば間に合う',
+            !justEnough.ruleBroken,
+            justEnough.ruleBroken || `制限 ${reached} で完走（${justEnough.totalRounds} ラウンド）`);
+          check('依頼: 制限を1つ厳しくすると失敗し、その値で止まる',
+            !!tooTight.ruleBroken && tooTight.totalRounds === reached - 1,
+            `制限 ${reached - 1} / 実測 ${tooTight.totalRounds} / ${tooTight.ruleBroken || '失敗せず'}`);
+        }
       })
       // ── 本体が読む JS が全部、構文として通るか ──
       //
