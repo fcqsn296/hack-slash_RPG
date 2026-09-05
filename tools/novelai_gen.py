@@ -124,14 +124,22 @@ def _strip_comments(text):
     return re.sub(r"^\s*//.*$", "", text, flags=re.MULTILINE)
 
 
+# 文字列1つぶん。**シングルとダブルの両方を受ける。**
+# 以前はシングルだけを見ていたので、所有格を書くために "gown's" とダブルに
+# しただけで **そのキーが丸ごと拾えなくなり、黙って自動合成へ落ちていた**。
+# 実際にネヴィアとアガタで踏んで、--dry-run に属性色だけの短い文が出て発覚した。
+_STR = r"(?:'[^']*'|\"[^\"]*\")"
+_CHAIN = r"(?:" + _STR + r"\s*\+?\s*)+"
+
+
 def _join_strings(chunk):
     """`'a' + 'b' + 'c'` のような連結を1つの文字列にする。"""
-    return "".join(re.findall(r"'([^']*)'", chunk))
+    return "".join(m[1:-1] for m in re.findall(_STR, chunk))
 
 
 def _one_string(text, key):
     """`key: 'a' + 'b',` のような1本の文字列を取り出す。無ければ空文字。"""
-    m = re.search(key + r":\s*((?:'[^']*'\s*\+?\s*)+),", text)
+    m = re.search(key + r":\s*(" + _CHAIN + r"),", text)
     return _join_strings(m.group(1)) if m else ""
 
 
@@ -154,16 +162,27 @@ def _parse_block(text, key):
         return {}
 
     out = {}
-    for em in re.finditer(r"(\w+):\s*((?:'[^']*'\s*\+?\s*)+),", body):
+    for em in re.finditer(r"(\w+):\s*(" + _CHAIN + r"),", body):
         out[em.group(1)] = _join_strings(em.group(2))
+
+    # 拾えなかったキーを**黙って落とさない**。
+    # 落ちたキーは自動合成へフォールバックするので、絵は出てしまう。
+    # 出てしまうぶん気づきにくい——だからここで言う。
+    seen = set(re.findall(r"^\s*(\w+):", body, re.M))
+    missed = sorted(seen - set(out))
+    if missed:
+        print("警告: %s の %s が読めなかった（自動合成へ落ちる）。"
+              % (key, " / ".join(missed)))
+        print("      文字列の書き方を確かめること。"
+              "連結は '…' + '…' の形だけを読む。")
     return out
 
 
 def load_prompt_catalog():
     text = _strip_comments(open(os.path.join(DATA, "artprompts.js"), encoding="utf-8").read())
 
-    negative = re.search(r"negative:\s*((?:'[^']*'\s*\+?\s*)+),", text)
-    boss = re.search(r"bossTags:\s*((?:'[^']*'\s*\+?\s*)+),", text)
+    negative = re.search(r"negative:\s*(" + _CHAIN + r"),", text)
+    boss = re.search(r"bossTags:\s*(" + _CHAIN + r"),", text)
     return {
         "base": _parse_block(text, "base"),
         "subject": _parse_block(text, "subject"),
@@ -265,6 +284,19 @@ def build_prompt(target, catalog, overrides, extra=""):
         detail = overrides[tid]
     elif inline:
         detail = inline
+        # ここも静かに壊れる場所なので知らせる。
+        #
+        # 定義側の artPrompt は artprompts.js より**先に**読まれる。
+        # そのため artprompts.js に丁寧に書いても、定義側に残っていると
+        # **黙って無視される**。レジェンド25人がこの状態だった。
+        #
+        # 拡張が data/ を書き換えない約束のためにこの順序になっているので、
+        # 順序そのものは変えない。気づけるようにするだけにする。
+        table = catalog["enemies"] if is_enemy else catalog["characters"]
+        if tid in table:
+            print("  ※ %s は定義側の artPrompt が使われます。"
+                  "data/artprompts.js に書いたものは無視されます。" % tid)
+            print("     そちらを使いたいなら、定義側の artPrompt を外してください。")
     else:
         table = catalog["enemies"] if is_enemy else catalog["characters"]
         if tid in table:
@@ -307,6 +339,23 @@ def build_prompt(target, catalog, overrides, extra=""):
     if not is_enemy and not declares_subject:
         rarity = (_meta(target) or {}).get("rarity")
         rarity_tag = (catalog.get("rarityTags") or {}).get(rarity, "")
+    elif not is_enemy and declares_subject:
+        # ここは静かに壊れる場所なので、黙って落とさず知らせる。
+        #
+        # 個別プロンプトの先頭に 1girl と書くと主語の補完が止まるが、
+        # **レアリティの味付けも同じ旗に乗っている**。名乗った瞬間に
+        # revealing clothing / cleavage cutout / skindentation / curvy /
+        # thick thighs が全部消える。
+        #
+        # 実際それでエンバーが「肌の出ている場所が顔だけ」になり、
+        # 暗いボディスーツが画面を占める絵になった。rarityTags のコメントが
+        # 警告している「高レアに見えない」問題を、そのまま再現していた。
+        rarity = (_meta(target) or {}).get("rarity")
+        if (catalog.get("rarityTags") or {}).get(rarity):
+            print("  ※ 個別プロンプトが 1girl / 1boy を名乗っているため、"
+                  "%s のレアリティの語（%s）が付きません。" % (tid, rarity))
+            print("     華やかさが要るなら、個別プロンプトから主語を外してください"
+                  "（主語は subject が入れます）。")
 
     pieces = [p for p in (subject, catalog["base"].get(base_key, ""), rarity_tag, detail, extra) if p]
     return ", ".join(pieces)

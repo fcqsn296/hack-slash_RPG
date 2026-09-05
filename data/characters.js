@@ -156,7 +156,7 @@ RPG.data.characters = {
     color: '#e0ecf0', accent: '#454849', glyph: '零',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
-      face: { x: 0.5288, y: 0.191, size: 0.3185 },
+      face: { x: 0.543, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'visor',
       hairColor: '#e4e9f2', hairLight: '#ffffff', hairDark: '#8d97a8',
       eye: '#57e0ff', eyeLight: '#b8f2ff',
@@ -341,7 +341,7 @@ RPG.data.characters = {
     color: '#dfe6f0', accent: '#33394a', glyph: '双',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4856, y: 0.111, size: 0.3574 },
+      face: { x: 0.553, y: 0.098, size: 0.370 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'hairpin',
       hairColor: '#c8ccd8', hairLight: '#f0f3f8', hairDark: '#6e7482',
       eye: '#ff6b6b', eyeLight: '#ffc0c0',
@@ -361,7 +361,7 @@ RPG.data.characters = {
     color: '#e0c48c', accent: '#4a3c1c', glyph: '楯',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4868, y: 0.132, size: 0.3428 },
+      face: { x: 0.578, y: 0.096, size: 0.369 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'circlet',
       hairColor: '#e0c48c', hairLight: '#f8e4b8', hairDark: '#8a6c30',
       eye: '#7ad19a', eyeLight: '#c4f0d6',
@@ -382,7 +382,7 @@ RPG.data.characters = {
     color: '#a878e8', accent: '#2c1a4a', glyph: '厄',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5228, y: 0.1023, size: 0.3684 },
+      face: { x: 0.587, y: 0.098, size: 0.370 },
       gender: 'female', hair: 'wavy', expression: 'smug', accessory: 'horn',
       hairColor: '#9068e0', hairLight: '#c4a4ff', hairDark: '#3e2470',
       eye: '#7bffcf', eyeLight: '#c8fff0',
@@ -403,7 +403,7 @@ RPG.data.characters = {
     color: '#ff7a4d', accent: '#4a1a0c', glyph: '焔',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5132, y: 0.097, size: 0.3706 },
+      face: { x: 0.564, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'twin', expression: 'fierce', accessory: 'hairpin',
       hairColor: '#ff6a3c', hairLight: '#ffa478', hairDark: '#8c2c10',
       eye: '#ffd24a', eyeLight: '#fff0ac',
@@ -424,7 +424,7 @@ RPG.data.characters = {
     color: '#ffe27a', accent: '#5c4a14', glyph: '雷',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5012, y: 0.1041, size: 0.3678 },
+      face: { x: 0.535, y: 0.103, size: 0.367 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'halo',
       hairColor: '#ffe27a', hairLight: '#fff6c4', hairDark: '#9c7c1c',
       eye: '#8fd8ff', eyeLight: '#d0f0ff',
@@ -463,7 +463,7 @@ RPG.data.characters = {
     color: '#8fd8ff', accent: '#183a52', glyph: '氷',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5192, y: 0.1376, size: 0.3391 },
+      face: { x: 0.567, y: 0.099, size: 0.370 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'circlet',
       hairColor: '#bfeaff', hairLight: '#eafaff', hairDark: '#5a8ea8',
       eye: '#7fd6ff', eyeLight: '#d4f2ff',
@@ -490,7 +490,7 @@ RPG.data.characters = {
     color: '#ff8a4c', accent: '#4c2010', glyph: '焔',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.488, y: 0.1062, size: 0.3614 },
+      face: { x: 0.514, y: 0.150, size: 0.369 },
       gender: 'female', hair: 'twin', expression: 'smug', accessory: 'hairpin',
       hairColor: '#ff8a4c', hairLight: '#ffc08a', hairDark: '#a03c10',
       eye: '#ffd24c', eyeLight: '#fff0b0',
@@ -518,7 +518,7 @@ RPG.data.characters = {
     color: '#ff5c7a', accent: '#4a1424', glyph: '涙',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.488, y: 0.1245, size: 0.3388 },
+      face: { x: 0.525, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'long', expression: 'cool', accessory: 'none',
       hairColor: '#c8324c', hairLight: '#ff7a94', hairDark: '#6c1024',
       eye: '#ff9cb4', eyeLight: '#ffd8e2',
@@ -544,7 +544,7 @@ RPG.data.characters = {
     color: '#a8f0d8', accent: '#164438', glyph: '鎖',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4964, y: 0.1517, size: 0.3263 },
+      face: { x: 0.555, y: 0.100, size: 0.370 },
       gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'visor',
       hairColor: '#a8f0d8', hairLight: '#dcfff2', hairDark: '#4c9080',
       eye: '#c8b4ff', eyeLight: '#e8dcff',
@@ -571,7 +571,7 @@ RPG.data.characters = {
     color: '#e8d4ff', accent: '#3a2a54', glyph: '呪',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5252, y: 0.1128, size: 0.3529 },
+      face: { x: 0.500, y: 0.097, size: 0.368 },
       gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
       hairColor: '#e8d4ff', hairLight: '#f8f0ff', hairDark: '#8a70b0',
       eye: '#ffe08a', eyeLight: '#fff4c8',
@@ -599,7 +599,7 @@ RPG.data.characters = {
     color: '#b8ffc8', accent: '#1c4a2a', glyph: '舞',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5, y: 0.1172, size: 0.351 },
+      face: { x: 0.517, y: 0.098, size: 0.370 },
       gender: 'female', hair: 'ponytail', expression: 'gentle', accessory: 'ribbon',
       hairColor: '#8ce8a8', hairLight: '#ccffdc', hairDark: '#3c8a54',
       eye: '#ffb0d8', eyeLight: '#ffe0f0',
@@ -627,7 +627,7 @@ RPG.data.characters = {
     color: '#f0f0e0', accent: '#4a4638', glyph: '槍',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5337, y: 0.1228, size: 0.3437 },
+      face: { x: 0.602, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'circlet',
       hairColor: '#f0ecd8', hairLight: '#fffdf0', hairDark: '#98927c',
       eye: '#8ce8a8', eyeLight: '#ccffdc',
@@ -656,7 +656,7 @@ RPG.data.characters = {
     color: '#7fb3ff', accent: '#1c3050', glyph: '盾',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5264, y: 0.1191, size: 0.3541 },
+      face: { x: 0.541, y: 0.099, size: 0.370 },
       gender: 'female', hair: 'bob', expression: 'calm', accessory: 'visor',
       hairColor: '#9cbce8', hairLight: '#d4e4ff', hairDark: '#4c6a98',
       eye: '#ffd88c', eyeLight: '#fff0c8',
@@ -684,7 +684,7 @@ RPG.data.characters = {
     color: '#d8d8e8', accent: '#38384a', glyph: '針',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5096, y: 0.136, size: 0.3391 },
+      face: { x: 0.554, y: 0.105, size: 0.366 },
       gender: 'female', hair: 'twin', expression: 'cool', accessory: 'hairpin',
       hairColor: '#c8c8dc', hairLight: '#f0f0fa', hairDark: '#6c6c84',
       eye: '#a8ffd8', eyeLight: '#dcfff0',
@@ -711,7 +711,7 @@ RPG.data.characters = {
     color: '#ff6a3c', accent: '#4c1808', glyph: '断',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4868, y: 0.1452, size: 0.3382 },
+      face: { x: 0.513, y: 0.175, size: 0.300 },
       gender: 'female', hair: 'long', expression: 'fierce', accessory: 'horn',
       hairColor: '#ff7a4c', hairLight: '#ffb894', hairDark: '#9c3410',
       eye: '#ffe04c', eyeLight: '#fff8b0',
@@ -739,7 +739,7 @@ RPG.data.characters = {
     color: '#ff7ab0', accent: '#3c1030', glyph: '月',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4928, y: 0.1273, size: 0.3501 },
+      face: { x: 0.433, y: 0.099, size: 0.369 },
       gender: 'female', hair: 'wavy', expression: 'smug', accessory: 'ribbon',
       hairColor: '#e85c9c', hairLight: '#ffa8cc', hairDark: '#8a1c58',
       eye: '#ffe08a', eyeLight: '#fff4c8',
@@ -763,7 +763,7 @@ RPG.data.characters = {
     color: '#c8b4ff', accent: '#2a2054', glyph: '双',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5096, y: 0.1251, size: 0.3446 },
+      face: { x: 0.502, y: 0.097, size: 0.369 },
       gender: 'female', hair: 'hime', expression: 'calm', accessory: 'halo',
       hairColor: '#c8b4ff', hairLight: '#e8dcff', hairDark: '#6c54a8',
       eye: '#8cf0d8', eyeLight: '#d0fff0',
@@ -795,7 +795,7 @@ RPG.data.characters = {
     color: '#b0b8c8', accent: '#2c3240', glyph: '一',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.4868, y: 0.1292, size: 0.3489 },
+      face: { x: 0.476, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'bob', expression: 'cool', accessory: 'none',
       hairColor: '#98a4b8', hairLight: '#d4dce8', hairDark: '#4c5464',
       eye: '#ff9c7a', eyeLight: '#ffd4c4',
@@ -822,7 +822,7 @@ RPG.data.characters = {
     color: '#7ae8ff', accent: '#154450', glyph: '華',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.518, y: 0.164, size: 0.3346 },
+      face: { x: 0.542, y: 0.098, size: 0.369 },
       gender: 'female', hair: 'twin', expression: 'smug', accessory: 'hairpin',
       hairColor: '#7ae8ff', hairLight: '#c8f8ff', hairDark: '#2c8098',
       eye: '#ffb0e8', eyeLight: '#ffdcf4',
@@ -863,17 +863,16 @@ RPG.data.characters = {
     color: '#ffe9a8', accent: '#4a3c14', glyph: '禱',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.5, y: 0.123, size: 0.353 },
+      face: { x: 0.498, y: 0.098, size: 0.369 },
       gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
       hairColor: '#f2e2b4', hairLight: '#fff8dc', hairDark: '#a89058',
       eye: '#ffd166', eyeLight: '#fff0c0',
       outfit: '#3c3418', outfitLight: '#5e5228', outfitTrim: '#ffe9a8',
       accentColor: '#ffd166',
     },
-    artPrompt: 'radiant platinum blonde very long hair, glowing golden eyes, ' +
-      'white and gold liturgical dress with a deep chest cutout and long slit skirt, ' +
-      'floating golden halo, layered gold chain necklaces and arm rings, gilded thighhighs, ' +
-      'hands clasped in prayer, serene smile',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_litania'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【支援】ラウンド開始時、味方全体に固有バフ+10%（手番を使わない）。' +
       '自分がかけるバフの持続が+1ターン。撃たなくても働き続ける。',
   },
@@ -894,16 +893,16 @@ RPG.data.characters = {
     color: '#b8f0d8', accent: '#16443a', glyph: '雷',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.576, y: 0.113, size: 0.363 },
+      face: { x: 0.575, y: 0.099, size: 0.370 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'circlet',
       hairColor: '#9fe8c8', hairLight: '#d8fff0', hairDark: '#3e8870',
       eye: '#7ef0ff', eyeLight: '#c8faff',
       outfit: '#1c4038', outfitLight: '#2e6454', outfitTrim: '#b8f0d8',
       accentColor: '#7ef0ff',
     },
-    artPrompt: 'brilliant mint green high ponytail streaming upward, glowing cyan eyes, ' +
-      'emerald herald outfit with bare midriff and open shoulders, silver circlet, ' +
-      'jeweled sash and wind-swept ribbons, ornate war horn at her hip, fierce grin',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_vesta'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【支援】自分がかけるバフの効果量+35%。さらにバフ効果量の上限を+50%して、' +
       '積み上げたぶんを捨てずに済む。撃つバフがいちばん大きい。',
   },
@@ -924,17 +923,16 @@ RPG.data.characters = {
     color: '#8ec4ff', accent: '#16304e', glyph: '織',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.52, y: 0.138, size: 0.346 },
+      face: { x: 0.556, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'ribbon',
       hairColor: '#7fa8e0', hairLight: '#c0dcff', hairDark: '#3a5c88',
       eye: '#a8d8ff', eyeLight: '#dcf0ff',
       outfit: '#1e3450', outfitLight: '#32526f', outfitTrim: '#8ec4ff',
       accentColor: '#a8d8ff',
     },
-    artPrompt: 'deep sapphire blue wavy hair with silver ribbon, luminous ice blue eyes, ' +
-      'indigo weaver dress with woven gold threads, bare shoulders and high slit, ' +
-      'strands of shimmering thread wrapped around her arms like bracelets, ' +
-      'spindle of glowing light in hand, composed expression',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_solveig'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【支援】味方にかけるバフの効果量+35%。バフをかけた相手に最大HPの12%の障壁と' +
       '10%の回復がつく。撒くほど陣形が固くなる。',
   },
@@ -969,19 +967,18 @@ RPG.data.characters = {
     color: '#ff9d5c', accent: '#4a2210', glyph: '極',
     art: {
       // 立ち絵がまだ無いので既定値。生成したら detect_faces.py で測り直すこと。
-      face: { x: 0.451, y: 0.101, size: 0.369 },
+      face: { x: 0.485, y: 0.155, size: 0.290 },
       gender: 'female', hair: 'ponytail', expression: 'cool', accessory: 'visor',
       hairColor: '#ff9d5c', hairLight: '#ffd0a8', hairDark: '#a04d1c',
       eye: '#ffe066', eyeLight: '#fff4b8',
       outfit: '#3a1c10', outfitLight: '#5e3018', outfitTrim: '#ff9d5c',
       accentColor: '#ffc47a',
     },
-    // バイザーを「目の前」に置くと顔全体を覆った絵が返ってきて、顔アイコンが
-    // 切り出せなかった。額へ上げた形に言い換えて目を出している。
-    artPrompt: 'burning orange high ponytail, brilliant golden eyes clearly visible, ' +
-      'ornate marksman visor pushed up onto her forehead, ' +
-      'scarlet and black archer outfit with bare midriff and thigh straps, ' +
-      'gold ear cuffs and a jeweled quiver, longbow of glowing embers, focused aim',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_verna'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
+    // 「バイザーを目の前に置くと顔全体を覆い、顔アイコンが切り出せない」という
+    // 教訓（額へ上げた形に言い換える）は移した先でも引き継いでいる。
     desc: '【会心】会心率+55%。100%を超えたぶんの35%が会心倍率へ回る。' +
       '固有技は確定会心なので、積んだ率がまるごと倍率に化ける。',
   },
@@ -1001,17 +998,16 @@ RPG.data.characters = {
     color: '#c58cff', accent: '#2c1740', glyph: '秤',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.552, y: 0.109, size: 0.361 },
+      face: { x: 0.546, y: 0.098, size: 0.369 },
       gender: 'female', hair: 'long', expression: 'cool', accessory: 'none',
       hairColor: '#b07ce8', hairLight: '#e0c0ff', hairDark: '#5a3080',
       eye: '#e8b0ff', eyeLight: '#f8e0ff',
       outfit: '#241436', outfitLight: '#3c2450', outfitTrim: '#c58cff',
       accentColor: '#e8b0ff',
     },
-    artPrompt: 'vivid violet long hair falling straight, glowing lavender eyes, ' +
-      'black executioner dress with silver chains and a deep back cutout, ' +
-      'ornate silver gorget and layered belts, garter with hanging charms, ' +
-      'enormous single-edged greatsword held low, unblinking cold stare',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_diana'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【会心】会心倍率+0.85（1.5倍 → 2.35倍）。会心率+20%。' +
       '当たれば重い、一撃の質に全部を寄せた型。',
   },
@@ -1031,17 +1027,16 @@ RPG.data.characters = {
     color: '#d8c39a', accent: '#3a3020', glyph: '刻',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.501, y: 0.107, size: 0.363 },
+      face: { x: 0.514, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'bob', expression: 'calm', accessory: 'hairpin',
       hairColor: '#4a3f34', hairLight: '#7a6a58', hairDark: '#241d16',
       eye: '#d8c39a', eyeLight: '#f4e8cc',
       outfit: '#2e2a20', outfitLight: '#4a4434', outfitTrim: '#d8c39a',
       accentColor: '#e8d8b0',
     },
-    artPrompt: 'glossy black short bob with an ornate jade hairpin, brilliant amber eyes, ' +
-      'crimson and gold short kimono worn off one shoulder, bare thighs, ' +
-      'gold obi with hanging tassels and bell charms, two slim blades reversed in her hands, ' +
-      'unhurried stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_saya'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【会心】中技の会心率+40%（中技にだけ乗る）。会心率+15%。' +
       '固有技は1発ずつが中技帯に収まる、刻んで当てる型。',
   },
@@ -1070,17 +1065,16 @@ RPG.data.characters = {
     color: '#6fd3c8', accent: '#123c3a', glyph: '浸',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.498, y: 0.119, size: 0.358 },
+      face: { x: 0.531, y: 0.100, size: 0.366 },
       gender: 'female', hair: 'long', expression: 'calm', accessory: 'none',
       hairColor: '#5cc0b4', hairLight: '#a8ebe2', hairDark: '#2a6d66',
       eye: '#8ae0d4', eyeLight: '#d0f6f0',
       outfit: '#17383a', outfitLight: '#265a5c', outfitTrim: '#6fd3c8',
       accentColor: '#8ae0d4',
     },
-    artPrompt: 'vivid teal long hair with silver hair ornaments, glowing emerald eyes, ' +
-      'dark green sleeveless dress with a deep neckline and side slits, ' +
-      'venom vials on a jeweled hip belt, black arm wraps and anklets, ' +
-      'thin needle-like blade dripping, patient look',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_lieve'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技で弱体が付く確率+55%。与えた弱体の持続が+1ラウンド。' +
       '毒や麻痺を確実に通す、搦手の中核。',
   },
@@ -1100,16 +1094,16 @@ RPG.data.characters = {
     color: '#a8e6b0', accent: '#1c3e24', glyph: '環',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.505, y: 0.114, size: 0.358 },
+      face: { x: 0.529, y: 0.097, size: 0.370 },
       gender: 'female', hair: 'twin', expression: 'smug', accessory: 'ribbon',
       hairColor: '#3e4a3c', hairLight: '#6e7c68', hairDark: '#1e2620',
       eye: '#a8e6b0', eyeLight: '#dcf6de',
       outfit: '#24402c', outfitLight: '#3a6442', outfitTrim: '#a8e6b0',
       accentColor: '#c8f0cc',
     },
-    artPrompt: 'deep green twin braids tied with crimson ribbons, brilliant leaf-green eyes, ' +
-      'short battle kimono with wide sleeves worn open at the chest, bare thighs, ' +
-      'gold chain linking twin ring-blades, floral hair ornaments, playful smirk',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_tsubaki'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技を当てると弱点コンボが1段多く積む。コンボ1段あたりの倍率+3%。' +
       '中技からコンボへ橋を架ける型。',
   },
@@ -1135,17 +1129,16 @@ RPG.data.characters = {
     color: '#cfd6e0', accent: '#2c3340', glyph: '中',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.496, y: 0.127, size: 0.342 },
+      face: { x: 0.495, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
       hairColor: '#b8c0cc', hairLight: '#e8eef6', hairDark: '#6a7280',
       eye: '#8fa4bc', eyeLight: '#cfdcec',
       outfit: '#2a303c', outfitLight: '#444c5c', outfitTrim: '#cfd6e0',
       accentColor: '#aebccc',
     },
-    artPrompt: 'silver white short crop, glowing steel blue eyes, ' +
-      'dark navy drill uniform with a bare midriff and unbuttoned collar, ' +
-      'ornate silver epaulettes and medal chains, thigh-high boots, ' +
-      'single straight sword held at mid guard, composed veteran stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_nadia'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技の火力+50%。守りを30%無視して攻撃する。' +
       '搦手を通さず、中技を素直に強くする帯の中核。',
   },
@@ -1166,18 +1159,19 @@ RPG.data.characters = {
     },
     color: '#ffe6b8', accent: '#4a3a1c', glyph: '際',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.492, y: 0.127, size: 0.354 },
+      // 自動計測が掲げた細身の長剣を頭と誤認したので、顔を見て手で直した。
+      // **数値が中央に見えても外れていることがある**（オルガの件）。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.525, y: 0.222, size: 0.37 },
       gender: 'female', hair: 'bob', expression: 'fierce', accessory: 'circlet',
       hairColor: '#f0dcae', hairLight: '#fff4d8', hairDark: '#a08c58',
       eye: '#ffd070', eyeLight: '#fff0c4',
       outfit: '#3c3420', outfitLight: '#5e5434', outfitTrim: '#ffe6b8',
       accentColor: '#ffd070',
     },
-    artPrompt: 'radiant platinum blonde sharp bob, burning gold eyes, ornate silver circlet, ' +
-      'white and gold duelist coat with a deep chest cutout and high slit, ' +
-      'gold shoulder ornaments and a jeweled belt, gilded thighhighs, ' +
-      'slender longsword raised to the edge, fierce narrowed gaze',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_noel'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【中技】中技のダメージ上限突破+85%。中技の火力+15%。' +
       '上限に潰されていた中技を、大技と同じ土俵まで押し上げる。',
   },
@@ -1203,18 +1197,19 @@ RPG.data.characters = {
     },
     color: '#ffe0b0', accent: '#4a3a20', glyph: '遍',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.501, y: 0.108, size: 0.359 },
+      // 自動計測が頭上の後光を頭と誤認したので、顔を見て手で直した。
+      // **数値が中央に見えても外れていることがある**（オルガの件）。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.5, y: 0.15, size: 0.37 },
       gender: 'female', hair: 'long', expression: 'gentle', accessory: 'halo',
       hairColor: '#f4dcae', hairLight: '#fff2d0', hairDark: '#a68c58',
       eye: '#ffd08a', eyeLight: '#ffe8c8',
       outfit: '#3e3420', outfitLight: '#5e5030', outfitTrim: '#ffe0b0',
       accentColor: '#ffd08a',
     },
-    artPrompt: 'radiant golden long hair, glowing amber eyes, ' +
-      'ivory and gold healer dress with a deep neckline and long slit skirt, ' +
-      'ring of light behind her, layered gold necklaces and arm rings, ' +
-      'both palms open and raised, welcoming smile',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_marika'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【回復】回復が他の味方へも50%及び、回復した相手に固有バフ+30%。1人を癒すと全員が整う。',
   },
 
@@ -1232,17 +1227,16 @@ RPG.data.characters = {
     color: '#8ed8e8', accent: '#153a44', glyph: '灯',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.496, y: 0.118, size: 0.349 },
+      face: { x: 0.528, y: 0.098, size: 0.370 },
       gender: 'female', hair: 'wavy', expression: 'calm', accessory: 'circlet',
       hairColor: '#7cc8dc', hairLight: '#c0eef8', hairDark: '#3a7e90',
       eye: '#a8e8f0', eyeLight: '#dcf8fc',
       outfit: '#173a44', outfitLight: '#28606e', outfitTrim: '#8ed8e8',
       accentColor: '#a8e8f0',
     },
-    artPrompt: 'brilliant cyan wavy hair, glowing blue eyes, silver circlet, ' +
-      'deep water-blue vestment with bare shoulders and a high slit, ' +
-      'ornate lantern of blue flame hung from a jeweled chain, gold anklets, ' +
-      'unhurried stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_nevia'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【回復】毎ラウンド最大HPの10%回復。ラウンド終了時に瀕死の味方を癒し、ウェーブ移行時にも15%回復する。切れ目が無い。',
   },
 
@@ -1260,17 +1254,16 @@ RPG.data.characters = {
     color: '#d8d0e0', accent: '#2e2a3a', glyph: '還',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.513, y: 0.111, size: 0.357 },
+      face: { x: 0.504, y: 0.099, size: 0.369 },
       gender: 'female', hair: 'long', expression: 'calm', accessory: 'none',
       hairColor: '#c8c0d4', hairLight: '#eee8f4', hairDark: '#7a7288',
       eye: '#cfc6dc', eyeLight: '#efe8f6',
       outfit: '#2c2838', outfitLight: '#443e52', outfitTrim: '#d8d0e0',
       accentColor: '#cfc6dc',
     },
-    artPrompt: 'silver white long hair, glowing violet eyes, ' +
-      'black and silver mourning dress with a bare back and long slit, ' +
-      'ornate silver stole clasps and a rosary of pale gems, sheer black thighhighs, ' +
-      'hands folded over a glowing closed book, still and quiet',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_agatha'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【回復】復活時のHP+35%。ウェーブ移行時に70%で倒れた味方が立ち上がり、回復のたびに弱体を1つ解く。',
   },
 
@@ -1287,17 +1280,16 @@ RPG.data.characters = {
     color: '#e07a5a', accent: '#3e2018', glyph: '拓',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.519, y: 0.124, size: 0.354 },
+      face: { x: 0.510, y: 0.097, size: 0.370 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'none',
       hairColor: '#c85a3c', hairLight: '#f09878', hairDark: '#8a3820',
       eye: '#ffd0a0', eyeLight: '#ffe8d0',
       outfit: '#3a2018', outfitLight: '#5e3428', outfitTrim: '#e07a5a',
       accentColor: '#ff9c78',
     },
-    artPrompt: 'brilliant copper red high ponytail, burning orange eyes, ' +
-      'crimson battle dress with a bare midriff and one bare shoulder, ' +
-      'ornate gold shoulder guard and a jeweled tower shield, thigh straps, ' +
-      'forward-leaning stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_garnet'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【変換】ATKの45%がDEFに乗る。攻めるほど硬くなり、倒すたびに5%回復する。',
   },
 
@@ -1316,17 +1308,16 @@ RPG.data.characters = {
     color: '#9a8ab8', accent: '#241e34', glyph: '鉄',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.513, y: 0.109, size: 0.36 },
+      face: { x: 0.507, y: 0.102, size: 0.368 },
       gender: 'female', hair: 'hime', expression: 'cool', accessory: 'none',
       hairColor: '#8878a8', hairLight: '#c4b4dc', hairDark: '#4e4268',
       eye: '#c8b8e0', eyeLight: '#e8dcf4',
       outfit: '#221c30', outfitLight: '#3a3048', outfitTrim: '#9a8ab8',
       accentColor: '#c8b8e0',
     },
-    artPrompt: 'vivid violet hime cut, glowing pale eyes, ' +
-      'black and silver armored dress with a deep chest cutout and high slit, ' +
-      'ornate gorget and blood-red jeweled sash, sheer black thighhighs, ' +
-      'greatsword resting point-down, unmoving posture',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_lucrezia'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【変換】DEFの80%がATKに乗る。ボスから受けるダメージ-15%。守りを固めるほど打撃が重くなる。',
   },
 
@@ -1343,17 +1334,16 @@ RPG.data.characters = {
     color: '#ff9a6a', accent: '#4a2416', glyph: '慈',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.495, y: 0.104, size: 0.356 },
+      face: { x: 0.523, y: 0.096, size: 0.367 },
       gender: 'female', hair: 'bob', expression: 'cool', accessory: 'circlet',
       hairColor: '#e8845a', hairLight: '#ffb894', hairDark: '#a04c28',
       eye: '#ffd070', eyeLight: '#fff0c0',
       outfit: '#3e2216', outfitLight: '#5e3624', outfitTrim: '#ff9a6a',
       accentColor: '#ffc090',
     },
-    artPrompt: 'burning ember orange bob, glowing gold eyes, ornate gold circlet, ' +
-      'scorched white and scarlet vestment with a bare midriff and long slit, ' +
-      'gold censer swinging from a jeweled chain, gilded arm rings, ' +
-      'small flames rising around her feet',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_johanna'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【変換】回復量の伸びの25%が火力にも乗り、癒した量の75%が敵を焼く。慈悲がそのまま攻撃になる。',
   },
 
@@ -1370,17 +1360,16 @@ RPG.data.characters = {
     color: '#a8e0c8', accent: '#1e3c30', glyph: '響',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.514, y: 0.103, size: 0.368 },
+      face: { x: 0.529, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'crop', expression: 'cool', accessory: 'none',
       hairColor: '#88c8ac', hairLight: '#c8f0dc', hairDark: '#48806a',
       eye: '#b8f0d8', eyeLight: '#e0fbf0',
       outfit: '#1c3a2e', outfitLight: '#2e5a48', outfitTrim: '#a8e0c8',
       accentColor: '#b8f0d8',
     },
-    artPrompt: 'brilliant mint green short crop, glowing emerald eyes, ' +
-      'teal scout outfit with a bare midriff and open sides, ' +
-      'ornate silver ear cuffs and a jeweled waist chain, thigh straps, ' +
-      'two curved blades held reversed, ready stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_echo'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【反撃】反撃が60%で敵全体に及び、反撃の威力+25%。囲まれるほど返る音が増える。',
   },
 
@@ -1396,17 +1385,18 @@ RPG.data.characters = {
     },
     color: '#c8b088', accent: '#3a3020', glyph: '受',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.511, y: 0.128, size: 0.345 },
+      // 自動計測は縦にわずかに高かったので、顔を見て手で下げた。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.5, y: 0.11, size: 0.37 },
       gender: 'female', hair: 'twin', expression: 'calm', accessory: 'ribbon',
       hairColor: '#b09868', hairLight: '#e0cca0', hairDark: '#6e5c38',
       eye: '#d8c090', eyeLight: '#f4e4c0',
       outfit: '#38301e', outfitLight: '#54482e', outfitTrim: '#c8b088',
       accentColor: '#d8c090',
     },
-    artPrompt: 'radiant honey blonde twin braids with gold ribbons, glowing amber eyes, ' +
-      'golden brown gambeson worn open over a bare midriff, ' +
-      'ornate bracers and a jeweled belt, thighhighs, open palms raised to receive a blow',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_brigitta'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【反撃】32%で反撃する。瀕死ほど硬くなる（最大12%軽減）。受けることが攻めになる型。',
   },
 
@@ -1422,19 +1412,20 @@ RPG.data.characters = {
     },
     color: '#b06a9a', accent: '#341c2c', glyph: '礼',
     art: {
-      // 自動計測が大道具（炎の髪・掲げた棍・担いだ大刃）を頭と誤認したので、
-      // 顔だけを見て手で直してある。再計測しても上書きしないこと。
-      face: { x: 0.5, y: 0.11, size: 0.353 },
+      // 自動計測が肩に担いだ棘つき大槌を頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.475, y: 0.15, size: 0.370 },
       gender: 'female', hair: 'long', expression: 'smug', accessory: 'none',
       hairColor: '#9c5a88', hairLight: '#d090bc', hairDark: '#5e2e50',
       eye: '#e0a0c8', eyeLight: '#f4d0e8',
       outfit: '#301a2a', outfitLight: '#4a2a42', outfitTrim: '#b06a9a',
       accentColor: '#e0a0c8',
     },
-    artPrompt: 'vivid plum long hair, glowing violet eyes, ' +
-      'black and magenta court dress with a deep chest cutout and high slit, ' +
-      'ornate choker and layered jewel pendants, sheer thighhighs, ' +
-      'enormous mace resting on her shoulder, unbothered posture',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_veronica'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【反撃】反撃の威力+40%。開幕から最大HPの15%の障壁を張っている。返す一撃が重い。',
   },
 
@@ -1454,17 +1445,18 @@ RPG.data.characters = {
     art: {
       // 自動計測が大道具（炎の髪・掲げた棍・担いだ大刃）を頭と誤認したので、
       // 顔だけを見て手で直してある。再計測しても上書きしないこと。
-      face: { x: 0.519, y: 0.104, size: 0.365 },
+      face: { x: 0.520, y: 0.215, size: 0.265 },
       gender: 'female', hair: 'ponytail', expression: 'fierce', accessory: 'none',
       hairColor: '#e05c3c', hairLight: '#ff9878', hairDark: '#943820',
       eye: '#ffcc60', eyeLight: '#ffeeb0',
       outfit: '#3e1e18', outfitLight: '#5e3026', outfitTrim: '#ff8060',
       accentColor: '#ffa080',
     },
-    artPrompt: 'brilliant flame red high ponytail, burning orange eyes, ' +
-      'scarlet and gold breastplate over a bare midriff, one bare shoulder, ' +
-      'ornate gold pauldron and a torn war banner, jeweled thigh straps, ' +
-      'one arm thrown wide in challenge, shouting',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_olga'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
+    // 顔の自動検出が大道具を頭と誤認する傾向があるため（art.face のコメント参照）、
+    // 炎を顔の高さ（髪先）へ置く記述は避けている。
     desc: '【狙われやすさ】狙われやすさ+125%。ボスから受けるダメージ-15%。反射や棘を積む味方の代わりに、自分が矢面に立つ。',
   },
 
@@ -1480,18 +1472,20 @@ RPG.data.characters = {
     },
     color: '#7a86a8', accent: '#1e2230', glyph: '影',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.499, y: 0.112, size: 0.36 },
+      // 自動計測が深く被ったフードの庇を頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.36, y: 0.105, size: 0.370 },
       gender: 'female', hair: 'bob', expression: 'calm', accessory: 'none',
       hairColor: '#66728e', hairLight: '#a0acc8', hairDark: '#3a4258',
       eye: '#98a4c0', eyeLight: '#d0d8e8',
       outfit: '#1c2028', outfitLight: '#2e3644', outfitTrim: '#7a86a8',
       accentColor: '#98a4c0',
     },
-    artPrompt: 'deep indigo blue bob, glowing violet eyes, ' +
-      'black hooded shawl over a dark dress with a bare back and high slit, ' +
-      'ornate silver chains and a jeweled satchel clasp, sheer thighhighs, ' +
-      'standing slightly turned away',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_shannon'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【狙われやすさ】狙われにくさ+28%。瀕死の相手ほど回復量が増える（最大+75%）。狙われずに後ろから支える。',
   },
 
@@ -1507,18 +1501,20 @@ RPG.data.characters = {
     },
     color: '#a0e8f0', accent: '#1c3844', glyph: '紙',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.524, y: 0.115, size: 0.359 },
+      // 自動計測が結い上げた長いポニーテールを頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.528, y: 0.09, size: 0.370 },
       gender: 'female', hair: 'ponytail', expression: 'smug', accessory: 'none',
       hairColor: '#7cd0dc', hairLight: '#c0f4fa', hairDark: '#3e7c8a',
       eye: '#d0f8ff', eyeLight: '#f0fdff',
       outfit: '#1a3440', outfitLight: '#2a5464', outfitTrim: '#a0e8f0',
       accentColor: '#d0f8ff',
     },
-    artPrompt: 'brilliant aqua high ponytail, glowing cyan eyes, ' +
-      'turquoise duelist outfit with a bare midriff and open shoulders, ' +
-      'ornate ear cuffs and a jeweled rapier guard, thigh straps, weight on the back foot, ' +
-      'playful smirk',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_fiona'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【狙われやすさ】8%で攻撃を回避する。瀕死ほど硬い（最大15%軽減）。当たらなければ痛くない、を積む型。',
   },
 
@@ -1536,19 +1532,20 @@ RPG.data.characters = {
     },
     color: '#e05858', accent: '#3e1818', glyph: '血',
     art: {
-      // 自動計測が大道具（炎の髪・掲げた棍・担いだ大刃）を頭と誤認したので、
-      // 顔だけを見て手で直してある。再計測しても上書きしないこと。
-      face: { x: 0.56, y: 0.115, size: 0.36 },
+      // 自動計測が担いだ大鉈と肩の頭骨飾りを頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.585, y: 0.165, size: 0.370 },
       gender: 'female', hair: 'long', expression: 'fierce', accessory: 'none',
       hairColor: '#c84040', hairLight: '#f08888', hairDark: '#8a2424',
       eye: '#ff8080', eyeLight: '#ffc0c0',
       outfit: '#3a1616', outfitLight: '#5a2626', outfitTrim: '#e05858',
       accentColor: '#ff8080',
     },
-    artPrompt: 'vivid crimson long hair, burning red eyes, ' +
-      'scarlet battle wrap with a bare midriff and bare shoulders, ' +
-      'ornate gold arm rings and a jeweled hip chain, thigh straps, ' +
-      'huge cleaver held one-handed, fierce grin',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_belga'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【HP依存】最大HPの6%がATKに乗る。HPが高いほど火力+15%。体そのものが武器になる型。',
   },
 
@@ -1566,18 +1563,20 @@ RPG.data.characters = {
     },
     color: '#b8a888', accent: '#3a3428', glyph: '壁',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.508, y: 0.114, size: 0.36 },
+      // 自動計測が縦にずれていたので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.425, y: 0.095, size: 0.370 },
       gender: 'female', hair: 'crop', expression: 'calm', accessory: 'none',
       hairColor: '#a09070', hairLight: '#d0c0a0', hairDark: '#645840',
       eye: '#c8b890', eyeLight: '#e8dcc0',
       outfit: '#38321e', outfitLight: '#544c34', outfitTrim: '#b8a888',
       accentColor: '#c8b890',
     },
-    artPrompt: 'radiant golden blonde short crop, glowing hazel eyes, ' +
-      'bronze and gold layered armor with a bare midriff and one bare shoulder, ' +
-      'ornate shoulder guards and a jeweled belt, thighhighs, arms crossed, ' +
-      'planted immovably',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_irma'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【HP依存】最大HPの16%がDEFに乗る。HPが高いほど火力+10%。硬さをHPから引き出す型。',
   },
 
@@ -1595,17 +1594,18 @@ RPG.data.characters = {
     },
     color: '#88b0e0', accent: '#1e2c44', glyph: '満',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.495, y: 0.128, size: 0.352 },
+      // 自動計測が縦にずれていたので、顔を見て手で直した。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.505, y: 0.075, size: 0.37 },
       gender: 'female', hair: 'wavy', expression: 'cool', accessory: 'none',
       hairColor: '#6c94c8', hairLight: '#a8c8ec', hairDark: '#3a5480',
       eye: '#a0c8f0', eyeLight: '#d8e8fc',
       outfit: '#1c2a40', outfitLight: '#2e4460', outfitTrim: '#88b0e0',
       accentColor: '#a0c8f0',
     },
-    artPrompt: 'brilliant sapphire wavy hair, glowing blue eyes, ' +
-      'deep blue coat worn open over a bare midriff, high slit skirt, ' +
-      'ornate silver clasps and a jeweled gourd at her hip, thighhighs, broad steady stance',
+    // artPrompt は V5作り直し (docs/作業ログ/レジェンドの立ち絵をV5で作り直す.md) で
+    // data/artprompts.js の characters['ch_lg_tanya'] へ移した
+    // （コアのキャラは artprompts.js 側に置く約束。inline artPrompt は拡張§18向け）。
     desc: '【HP依存】HPが高いほど火力+20%。開幕から最大HPの15%の障壁を張る。満ちているほど強い。',
   },
 
