@@ -1472,7 +1472,7 @@ RPG.data.characters = {
     color: '#7a86a8', accent: '#1e2230', glyph: '影',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.499, y: 0.112, size: 0.36 },
+      face: { x: 0.418, y: 0.097, size: 0.371 },
       gender: 'female', hair: 'bob', expression: 'calm', accessory: 'none',
       hairColor: '#66728e', hairLight: '#a0acc8', hairDark: '#3a4258',
       eye: '#98a4c0', eyeLight: '#d0d8e8',
@@ -1497,8 +1497,9 @@ RPG.data.characters = {
     },
     color: '#a0e8f0', accent: '#1c3844', glyph: '紙',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.524, y: 0.115, size: 0.359 },
+      // 自動計測が結い上げた長いポニーテールを頭と誤認したので、顔を見て手で直した。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.51, y: 0.105, size: 0.37 },
       gender: 'female', hair: 'ponytail', expression: 'smug', accessory: 'none',
       hairColor: '#7cd0dc', hairLight: '#c0f4fa', hairDark: '#3e7c8a',
       eye: '#d0f8ff', eyeLight: '#f0fdff',
@@ -1525,9 +1526,9 @@ RPG.data.characters = {
     },
     color: '#e05858', accent: '#3e1818', glyph: '血',
     art: {
-      // 自動計測が大道具（炎の髪・掲げた棍・担いだ大刃）を頭と誤認したので、
-      // 顔だけを見て手で直してある。再計測しても上書きしないこと。
-      face: { x: 0.56, y: 0.115, size: 0.36 },
+      // 自動計測が肩に担いだ大鉈と肩の頭骨飾りを頭と誤認したので、顔を見て手で直した。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.535, y: 0.15, size: 0.37 },
       gender: 'female', hair: 'long', expression: 'fierce', accessory: 'none',
       hairColor: '#c84040', hairLight: '#f08888', hairDark: '#8a2424',
       eye: '#ff8080', eyeLight: '#ffc0c0',
@@ -1554,8 +1555,9 @@ RPG.data.characters = {
     },
     color: '#b8a888', accent: '#3a3428', glyph: '壁',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.508, y: 0.114, size: 0.36 },
+      // 自動計測が縦にずれていたので、顔を見て手で直した。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.465, y: 0.105, size: 0.37 },
       gender: 'female', hair: 'crop', expression: 'calm', accessory: 'none',
       hairColor: '#a09070', hairLight: '#d0c0a0', hairDark: '#645840',
       eye: '#c8b890', eyeLight: '#e8dcc0',
@@ -1582,8 +1584,9 @@ RPG.data.characters = {
     },
     color: '#88b0e0', accent: '#1e2c44', glyph: '満',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.495, y: 0.128, size: 0.352 },
+      // 自動計測が縦にずれていたので、顔を見て手で直した。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.505, y: 0.075, size: 0.37 },
       gender: 'female', hair: 'wavy', expression: 'cool', accessory: 'none',
       hairColor: '#6c94c8', hairLight: '#a8c8ec', hairDark: '#3a5480',
       eye: '#a0c8f0', eyeLight: '#d8e8fc',
