@@ -433,11 +433,39 @@
       // フィールドでは時間あたりが減ることがある（実際、封絶区画→創世の残響→
       // 終わりなき回廊 が 4,882 → 4,677 → 4,375 と2段下がっていた）。
       // 時間あたりで見るには宝箱の期待額が要るので、判定はこちらに置く。
-      { ok: rowsSorted.every(function (r, i) {
-          return i === 0 || r.totalPerRound > rowsSorted[i - 1].totalPerRound;
-        }),
+      //
+      // ── 許容幅を置いている理由 ──
+      // 2026-09-05 に分母を1周の合計ラウンドへ直したあと、
+      // **封絶区画(Lv130) が 灰燼の果て(Lv110) をわずかに下回った**。
+      // 試行数を変えると差は -3.7% 〜 0.0% で符号が動くので、
+      // 「逆転している」ではなく **2つが並んでいる** が実態。
+      // 全12フィールドを通して後退はこの1箇所だけで、幅は 1.8〜2.2%。
+      //
+      // 厳密な増加を求めると、この誤差で落ちる。かといって隣とだけ比べて
+      // 緩めると、毎段わずかに下がり続けて頂点が中腹より低い、という
+      // 崩れ方を素通しにしてしまう。**比べる相手はそこまでの最大値**にして、
+      // 幅は実測の後退（最大2.2%）を包む 5% に置いた。
+      // 本当に劣化したフィールドは桁で外れるので、この幅では隠れない。
+      { ok: (function () {
+          var best = 0;
+          return rowsSorted.every(function (r) {
+            var ok = best === 0 || r.totalPerRound >= best * 0.95;
+            best = Math.max(best, r.totalPerRound);
+            return ok;
+          });
+        }()),
         text: '上位フィールドほど1ラウンドあたりの総収入が多い（宝箱の期待額を含む）'
-          + ' — 進む動機がある' },
+          + ' — 進む動機がある。最大の後退 ' + (function () {
+            var best = 0, worst = 0, at = '';
+            rowsSorted.forEach(function (r) {
+              if (best > 0 && 1 - r.totalPerRound / best > worst) {
+                worst = 1 - r.totalPerRound / best;
+                at = RPG.data.fields[r.fieldId].name;
+              }
+              best = Math.max(best, r.totalPerRound);
+            });
+            return worst > 0 ? pct(worst) + '（' + at + '）' : 'なし';
+          }()) + ' / 許容 5%' },
     ]);
 
     progress.textContent = '完了';
