@@ -73,16 +73,34 @@
    * 今の編成でこのクエストに出撃できるか。
    * 破っている縛りをすべて挙げて返す（1つ直すたびに出撃し直させないため）。
    *
+   * ── なぜ編成を外から渡せるのか ──
+   * 既定はセーブを見る（実際の出撃）。測定側は保存を持たない合成の編成を
+   * 測るので、**同じ判定をもう1つ書くことになる**。書き写した判定は必ずずれるので、
+   * 入口だけ開けて実装は1つに保つ。
+   * 渡す形は `[{id, level}]`。省略時はこれまでどおりセーブから作る。
+   *
    * @param {any} quest
+   * @param {{id: string, level: number}[]} [roster] 省略時はセーブの編成
    * @returns {{ok: boolean, reasons: string[]}}
    */
-  function checkParty(quest) {
-    const s = RPG.state.get();
+  function checkParty(quest, roster) {
+    const s = roster ? null : RPG.state.get();
     const rules = quest.rules || {};
     /** @type {string[]} */
     const reasons = [];
 
-    const party = s.party.filter((/** @type {string} */ id) => !!s.characters[id]);
+    /** @type {string[]} */
+    const party = roster
+      ? roster.map((m) => m.id)
+      : s.party.filter((/** @type {string} */ id) => !!s.characters[id]);
+    /** @type {(id: string) => number} */
+    const levelOf = (id) => (roster
+      ? (roster.find((m) => m.id === id) || { level: 1 }).level
+      : s.characters[id].level);
+    /** @type {(id: string) => string} */
+    const nameOf = (id) => (roster
+      ? (RPG.data.characters[id] || { name: id }).name
+      : RPG.state.charName(id));
     if (party.length === 0) reasons.push('パーティが空です');
 
     if (rules.maxParty && party.length > rules.maxParty) {
@@ -90,10 +108,10 @@
     }
 
     if (rules.maxLevel) {
-      const over = party.filter((/** @type {string} */ id) => s.characters[id].level > rules.maxLevel);
+      const over = party.filter((/** @type {string} */ id) => levelOf(id) > rules.maxLevel);
       if (over.length) {
         reasons.push(`Lv${rules.maxLevel} 以下のみ出撃可（超過: ` +
-          over.map((/** @type {string} */ id) => `${RPG.state.charName(id)} Lv${s.characters[id].level}`).join('、') + '）');
+          over.map((/** @type {string} */ id) => `${nameOf(id)} Lv${levelOf(id)}`).join('、') + '）');
       }
     }
 
@@ -107,7 +125,7 @@
         !rules.elements.includes(RPG.data.characters[id].element));
       if (bad.length) {
         reasons.push(`${labels}属性のみ出撃可（対象外: ` +
-          bad.map((/** @type {string} */ id) => RPG.state.charName(id)).join('、') + '）');
+          bad.map((/** @type {string} */ id) => nameOf(id)).join('、') + '）');
       }
     }
 

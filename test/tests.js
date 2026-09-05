@@ -10312,6 +10312,107 @@
             !!tooTight.ruleBroken && tooTight.totalRounds === reached - 1,
             `制限 ${reached - 1} / 実測 ${tooTight.totalRounds} / ${tooTight.ruleBroken || '失敗せず'}`);
         }
+
+        // ── 固定した編成そのものの検査 (A2) ──
+        //
+        // 「終盤はどの編成でも勝率100%」で行き止まっていたので、
+        // 比べられる編成を3つ固定した。**編成の作りが崩れると、
+        // その上で出す比較は全部無意味になる**ので、作りのほうを見張る。
+        {
+          const names = RPG.balance.compositionNames();
+          check('編成: 3つ以上ある', names.length >= 3, names.join(' / '));
+
+          RPG.rng.seed(RPG.balance.PARTY_SEED);
+          const built = names.map((/** @type {string} */ n) => RPG.balance.buildComposition(n));
+          RPG.rng.seed(null);
+
+          const leftover = [];
+          const bare = [];
+          for (const c of built) {
+            for (const m of c.members) {
+              if (m.spLeft !== 0) leftover.push(`${c.label}/${m.name} 余り${m.spLeft}`);
+              if (m.gearCount === 0) bare.push(`${c.label}/${m.name}`);
+            }
+          }
+          // 想定ビルドが SP を半分余らせたまま全部の測定が回っていた事故がある。
+          // 編成が増えるとまた起きるので、編成ごとに見る。
+          check('編成: 全員が SP を使い切っている', leftover.length === 0,
+            leftover.join(' / ') || `${built.length} 編成を確認`);
+          check('編成: 全員が装備している', bare.length === 0,
+            bare.join(' / ') || `${built.length} 編成を確認`);
+
+          // 支援は「足す」ではなく「置き換える」。足すと枠の対価を
+          // 払っていないぶん過大評価になる (CLAUDE.md §3)。
+          const ids = (/** @type {string} */ n) =>
+            RPG.balance.COMPOSITIONS[n].members.map((/** @type {any} */ m) => m.id);
+          const plainIds = ids('plain');
+          const supIds = ids('support');
+          const swapped = supIds.filter((/** @type {string} */ id) => plainIds.indexOf(id) < 0);
+          check('編成: 支援入りは基準の1枠だけを置き換えている',
+            swapped.length === 1 && supIds.length === plainIds.length,
+            `入れ替え ${swapped.length}人 / 人数 ${supIds.length} 対 ${plainIds.length}`);
+
+          // 外せない枠を抜いた編成は、実際には組めない編成になる。
+          const fixedIds = Object.keys(RPG.data.characters)
+            .filter((/** @type {string} */ id) => RPG.data.characters[id].fixed);
+          const missing = built.filter((/** @type {any} */ c) =>
+            fixedIds.some((/** @type {string} */ id) =>
+              !c.members.some((/** @type {any} */ m) => m.id === id)));
+          check('編成: 外せない枠が全編成に入っている', missing.length === 0,
+            missing.map((/** @type {any} */ c) => c.label).join(' / ') ||
+              fixedIds.join(' / ') || '外せない枠は無い');
+
+          // 同じ種から同じ結果。ここが崩れると比較そのものが成立しない。
+          const r1 = RPG.balance.runComposition(
+            { composition: 'plain', fieldId: 'fl_endless', seed: 31337 });
+          const r2 = RPG.balance.runComposition(
+            { composition: 'plain', fieldId: 'fl_endless', seed: 31337 });
+          check('編成: 同じ種から同じ結果が出る',
+            r1.rounds === r2.rounds && r1.commands === r2.commands &&
+              r1.victory === r2.victory,
+            `${r1.rounds}R/${r1.commands}手 と ${r2.rounds}R/${r2.commands}手`);
+        }
+
+        // ── 依頼込みの測定が、通常の出撃と区別されているか (A2) ──
+        //
+        // 依頼の縛りは2箇所に分かれている。編成の縛り (RPG.quest.checkParty) と
+        // 戦闘中の縛り (battle.js が quest から読む)。**片方だけ通して
+        // 「依頼を測った」と言えてしまう**のが怖いので、両方を見る。
+        {
+          const roster = [
+            { id: 'ch_hero', level: 255 },
+            { id: 'ch_lg_zero', level: 255 },
+          ];
+          // 編成の縛り: 実際の出撃と同じ関数が、渡した編成でも働くか
+          const overLevel = RPG.quest.checkParty({ rules: { maxLevel: 100 } }, roster);
+          const okLevel = RPG.quest.checkParty({ rules: { maxLevel: 255 } }, roster);
+          const overParty = RPG.quest.checkParty({ rules: { maxParty: 1 } }, roster);
+          check('依頼: 編成の縛りが渡した編成にも効く（レベル上限）',
+            !overLevel.ok && okLevel.ok,
+            `Lv100制限=${overLevel.ok ? '通過' : '弾く'} / Lv255制限=${okLevel.ok ? '通過' : '弾く'}`);
+          check('依頼: 編成の縛りが渡した編成にも効く（人数上限）',
+            !overParty.ok, overParty.reasons.join(' / ') || '弾かれなかった');
+
+          // 戦闘中の縛り: 同じ戦闘が、依頼つきだと失格になる
+          const plain = RPG.balance.runComposition(
+            { composition: 'plain', fieldId: 'fl_endless', seed: 555 });
+          const withQuest = RPG.balance.runComposition({
+            composition: 'plain', fieldId: 'fl_endless', seed: 555,
+            quest: { rules: { maxRounds: 1 } },
+          });
+          check('依頼: 同じ戦闘でも依頼の縛りがあれば結果が変わる',
+            plain.victory && !!withQuest.ruleBroken && !withQuest.victory,
+            `通常=${plain.victory ? '勝利' : '敗北'} / 依頼つき=${withQuest.ruleBroken || '素通し'}`);
+
+          // オート禁止の依頼をオートで測っても実態を映さない。旗が立つこと。
+          const noAuto = RPG.balance.runComposition({
+            composition: 'plain', fieldId: 'fl_endless', seed: 555,
+            quest: { rules: { noAuto: true } },
+          });
+          check('依頼: オート禁止が旗として出る（黙って測らない）',
+            noAuto.autoAllowed === false && plain.autoAllowed === true,
+            `禁止=${noAuto.autoAllowed} / 通常=${plain.autoAllowed}`);
+        }
       })
       // ── 本体が読む JS が全部、構文として通るか ──
       //
