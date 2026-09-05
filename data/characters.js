@@ -1413,9 +1413,10 @@ RPG.data.characters = {
     color: '#b06a9a', accent: '#341c2c', glyph: '礼',
     art: {
       // 自動計測が肩に担いだ棘つき大槌を頭と誤認したので、顔を見て手で直した。
-      // **数値が中央に見えても外れていることがある**（オルガの件）。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
       // 再計測しても上書きしないこと。
-      face: { x: 0.425, y: 0.135, size: 0.37 },
+      face: { x: 0.475, y: 0.15, size: 0.370 },
       gender: 'female', hair: 'long', expression: 'smug', accessory: 'none',
       hairColor: '#9c5a88', hairLight: '#d090bc', hairDark: '#5e2e50',
       eye: '#e0a0c8', eyeLight: '#f4d0e8',
@@ -1471,8 +1472,11 @@ RPG.data.characters = {
     },
     color: '#7a86a8', accent: '#1e2230', glyph: '影',
     art: {
-      // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
-      face: { x: 0.418, y: 0.097, size: 0.371 },
+      // 自動計測が深く被ったフードの庇を頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
+      // 再計測しても上書きしないこと。
+      face: { x: 0.36, y: 0.105, size: 0.370 },
       gender: 'female', hair: 'bob', expression: 'calm', accessory: 'none',
       hairColor: '#66728e', hairLight: '#a0acc8', hairDark: '#3a4258',
       eye: '#98a4c0', eyeLight: '#d0d8e8',
@@ -1498,8 +1502,10 @@ RPG.data.characters = {
     color: '#a0e8f0', accent: '#1c3844', glyph: '紙',
     art: {
       // 自動計測が結い上げた長いポニーテールを頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
       // 再計測しても上書きしないこと。
-      face: { x: 0.51, y: 0.105, size: 0.37 },
+      face: { x: 0.528, y: 0.09, size: 0.370 },
       gender: 'female', hair: 'ponytail', expression: 'smug', accessory: 'none',
       hairColor: '#7cd0dc', hairLight: '#c0f4fa', hairDark: '#3e7c8a',
       eye: '#d0f8ff', eyeLight: '#f0fdff',
@@ -1526,9 +1532,11 @@ RPG.data.characters = {
     },
     color: '#e05858', accent: '#3e1818', glyph: '血',
     art: {
-      // 自動計測が肩に担いだ大鉈と肩の頭骨飾りを頭と誤認したので、顔を見て手で直した。
+      // 自動計測が担いだ大鉈と肩の頭骨飾りを頭と誤認したので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
       // 再計測しても上書きしないこと。
-      face: { x: 0.535, y: 0.15, size: 0.37 },
+      face: { x: 0.585, y: 0.165, size: 0.370 },
       gender: 'female', hair: 'long', expression: 'fierce', accessory: 'none',
       hairColor: '#c84040', hairLight: '#f08888', hairDark: '#8a2424',
       eye: '#ff8080', eyeLight: '#ffc0c0',
@@ -1556,8 +1564,10 @@ RPG.data.characters = {
     color: '#b8a888', accent: '#3a3428', glyph: '壁',
     art: {
       // 自動計測が縦にずれていたので、顔を見て手で直した。
+      // 確認は **size × 画像幅** の正方形で行うこと（facecrop.js の applyRect）。
+      // 高さ基準で描くと枠が広くなり、ズレを見落とす。
       // 再計測しても上書きしないこと。
-      face: { x: 0.465, y: 0.105, size: 0.37 },
+      face: { x: 0.425, y: 0.095, size: 0.370 },
       gender: 'female', hair: 'crop', expression: 'calm', accessory: 'none',
       hairColor: '#a09070', hairLight: '#d0c0a0', hairDark: '#645840',
       eye: '#c8b890', eyeLight: '#e8dcc0',
