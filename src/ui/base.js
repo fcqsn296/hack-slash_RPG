@@ -12,6 +12,15 @@
   let activeTab = 'sortie';
   /** @type {string} */
   let selectedChar = 'ch_hero';
+  /**
+   * 直前の自動装備の結果。装備画面に出しっぱなしにする。
+   *
+   * トーストは3秒で消えるので、**4人ぶんの前後を読むには短すぎる**。
+   * 「4人・計4箇所を更新」しか出ておらず、強くなったのかが分からない、
+   * という指摘を受けてここに残す形にした。次に自動装備を押すまで残る。
+   * @type {{list: Array<any>, at: number}|null}
+   */
+  let lastAutoEquip = null;
   /** @type {any[]} 直近の鑑定結果 */
   /**
    * 鑑定結果として一度に並べるカードの上限 (§7.9)。
@@ -2565,6 +2574,38 @@
   /* ============================ 装備 ============================ */
 
   /** @param {HTMLElement} root */
+  /**
+   * 直前の自動装備で何がどう変わったかを並べる。
+   *
+   * 箇所数だけでは強くなったかが伝わらないので、**数字の前後**を出す。
+   * 増減が0の相手は「据え置き」とだけ書く——1行も出さないと
+   * 「押したのに何も起きなかった」に見える。
+   */
+  function autoEquipReport() {
+    if (!lastAutoEquip || !lastAutoEquip.list.length) return null;
+    const arrow = (/** @type {number} */ a, /** @type {number} */ b) =>
+      (a === b ? String(a) : `${a} → ${b}`);
+    return h('div.autoequip-report',
+      h('div.autoequip-report-head', { text: '直前の自動装備' }),
+      lastAutoEquip.list.map((/** @type {any} */ r) => {
+        const st = r.stats;
+        if (!st) return null;
+        const same = st.before.main === st.after.main &&
+          st.before.hp === st.after.hp && st.before.def === st.after.def;
+        return h('div.autoequip-row',
+          h('span.autoequip-name', { text: RPG.state.charName(r.id) }),
+          same
+            ? h('span.autoequip-same', { text: '据え置き' })
+            : h('span.autoequip-delta', {
+                text: `${st.before.mainLabel} ${arrow(st.before.main, st.after.main)}` +
+                  `　HP ${arrow(st.before.hp, st.after.hp)}` +
+                  `　DEF ${arrow(st.before.def, st.after.def)}`,
+              })
+        );
+      }).filter(Boolean)
+    );
+  }
+
   function renderGear(root) {
     const save = RPG.state.get();
     const charSave = save.characters[selectedChar];
@@ -2629,6 +2670,10 @@
             W.button('自動装備', () => {
               const r = RPG.autoequip.forCharacter(selectedChar, { keepLocked: true });
               const gain = r.before > 0 ? Math.round((r.after / r.before - 1) * 100) : 0;
+              lastAutoEquip = {
+                at: Date.now(),
+                list: [{ id: selectedChar, changed: r.changed, stats: r.stats, gain }],
+              };
               RPG.app.toast(r.changed === 0
                 ? 'すでに最適な装備です'
                 : `${r.changed}箇所を更新（総合力 ${gain >= 0 ? '+' : ''}${gain}%）`);
@@ -2636,12 +2681,14 @@
             }, { variant: 'primary', sub: 'このキャラ' }),
             W.button('全員まとめて', () => {
               const r = RPG.autoequip.forParty({ keepLocked: true });
+              lastAutoEquip = { at: Date.now(), list: r.perCharacter };
               RPG.app.toast(r.changed === 0
                 ? 'パーティ全員すでに最適です'
                 : `パーティ${r.perCharacter.length}人・計${r.changed}箇所を更新`);
               render(root);
             }, { variant: 'ghost', sub: 'パーティ' })
-          )
+          ),
+          autoEquipReport()
         ),
         presetBar(root, unit),
         h('div.slot-row', Object.keys(slots).map((slot) => {

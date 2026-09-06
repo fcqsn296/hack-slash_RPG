@@ -245,6 +245,33 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
 .hint { color: var(--text-dim); font-size: 12px; }
 .hint-sm { font-size: 11px; margin: 8px 0 0; }
+
+/* 自動装備の前後。**箇所数だけでは強くなったか伝わらない**という指摘への対処。
+   トーストは3秒で消えて4人ぶんを読むには短いので、画面に残す。 */
+.autoequip-report {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.autoequip-report-head {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.autoequip-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 2px 0;
+  /* 数字が並ぶので、狭い画面でも折り返さず横に流す */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.autoequip-name { flex: 0 0 auto; min-width: 5.5em; }
+.autoequip-delta { flex: 1 1 auto; font-variant-numeric: tabular-nums; }
+.autoequip-same { flex: 1 1 auto; color: var(--text-dim); }
 .empty {
   padding: 32px;
   text-align: center;

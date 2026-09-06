@@ -188,10 +188,41 @@
   }
 
   /**
+   * そのキャラの「見せるべきステータス」を拾う。
+   *
+   * 何箇所替わったかだけでは、強くなったのかが分からない
+   * （実際に「4人・計4箇所を更新」とだけ出て伝わらなかった）。
+   * **数字の前後**を出すために、装備を反映したユニットから拾う。
+   *
+   * 攻撃力と魔力は、そのキャラが実際に参照するほうだけを見せる。
+   * 両方出すと、使っていない側の増減に目が行ってしまう。
+   *
+   * @param {any} charSave
+   * @param {any[]} inventory
+   * @param {any} equipped
+   */
+  function statsOf(charSave, inventory, equipped) {
+    const snapshot = Object.assign({}, charSave, { equipped });
+    const unit = RPG.units.buildCharacterUnit(snapshot, inventory);
+    // 計算済みの数値は unit.stats の下にある（unit 直下ではない）
+    const st = unit.stats || {};
+    // どちらを見せるかは**素の伸びしろ**で決める。装備後の値で決めると、
+    // 装備が偏った回だけ表示が入れ替わって前後が比べられなくなる。
+    const base = (RPG.data.characters[charSave.id] || {}).base || {};
+    const magic = (base.magi_power || 0) > (base.atk || 0);
+    return {
+      hp: Math.round(unit.maxHp || st.hp || 0),
+      def: Math.round(st.def || 0),
+      mainLabel: magic ? '魔力' : 'ATK',
+      main: Math.round((magic ? st.magi_power : st.atk) || 0),
+    };
+  }
+
+  /**
    * 1人分を自動装備する。他のキャラクターが着けている装備には手を触れない。
    * @param {string} charId
    * @param {{keepLocked?: boolean}} [opts]
-   * @returns {{changed: number, before: number, after: number}}
+   * @returns {{changed: number, before: number, after: number, stats: any}}
    */
   function forCharacter(charId, opts) {
     const save = RPG.state.get();
@@ -208,16 +239,21 @@
     const pool = save.inventory.filter((/** @type {any} */ it) => !taken.has(it.uid));
 
     const before = loadoutScore(charSave, save.inventory, charSave.equipped);
+    const statsBefore = statsOf(charSave, save.inventory, charSave.equipped);
     const result = optimize(charSave, pool, opts);
     RPG.state.setLoadout(charId, result.equipped);
+    const statsAfter = statsOf(charSave, save.inventory, result.equipped);
 
-    return { changed: result.changed, before, after: result.score };
+    return {
+      changed: result.changed, before, after: result.score,
+      stats: { before: statsBefore, after: statsAfter },
+    };
   }
 
   /**
    * パーティ全員を順に自動装備する。先頭のキャラから良い装備を取っていく。
    * @param {{keepLocked?: boolean}} [opts]
-   * @returns {{changed: number, perCharacter: Array<{id: string, changed: number}>}}
+   * @returns {{changed: number, perCharacter: Array<any>}}
    */
   function forParty(opts) {
     const save = RPG.state.get();
@@ -232,24 +268,33 @@
     }
 
     let changed = 0;
-    /** @type {Array<{id: string, changed: number}>} */
+    /** @type {Array<any>} */
     const perCharacter = [];
 
     for (const charId of save.party) {
       const charSave = save.characters[charId];
       const pool = save.inventory.filter((/** @type {any} */ it) => !used.has(it.uid));
+      // 「何箇所替えたか」だけでなく**前後の数字**を持ち帰る。
+      // 1人ずつの自動装備は総合力の増減を出していたのに、
+      // 全員まとめては箇所数しか出しておらず、強くなったかが分からなかった。
+      const statsBefore = statsOf(charSave, save.inventory, charSave.equipped);
       const result = optimize(charSave, pool, opts);
       RPG.state.setLoadout(charId, result.equipped);
+      const statsAfter = statsOf(charSave, save.inventory, result.equipped);
 
       for (const slot of SLOTS) for (const uid of result.equipped[slot]) used.add(uid);
       changed += result.changed;
-      perCharacter.push({ id: charId, changed: result.changed });
+      perCharacter.push({
+        id: charId, changed: result.changed,
+        stats: { before: statsBefore, after: statsAfter },
+      });
     }
 
     return { changed, perCharacter };
   }
 
   RPG.autoequip = {
+    statsOf,
     optimize, forCharacter, forParty, loadoutScore, quickScore, referenceDefender,
     CANDIDATES_PER_SLOT,
   };
