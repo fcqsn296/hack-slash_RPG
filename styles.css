@@ -246,6 +246,39 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .hint { color: var(--text-dim); font-size: 12px; }
 .hint-sm { font-size: 11px; margin: 8px 0 0; }
 
+/* はじめの4歩。**4つ終わると消える**ので、常設ぶんの圧迫を気にしなくてよい。
+   出撃画面の頭は毎回目に入るので、慣れた後まで残すと邪魔になる。 */
+.starter-guide {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(20, 24, 33, .42);
+}
+.starter-head { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.starter-steps { list-style: none; margin: 0; padding: 0; }
+.starter-step {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.starter-mark {
+  flex: 0 0 auto;
+  width: 1.6em; height: 1.6em;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 11px;
+}
+.starter-step.is-done { color: var(--text-dim); }
+.starter-step.is-done .starter-mark { border-color: transparent; }
+.starter-step.is-now .starter-mark { border-color: currentColor; font-weight: 700; }
+/* いまの一歩の理由だけを出す。全部に出すと読む量が増えて、案内が壁になる */
+.starter-why { flex: 1 1 100%; color: var(--text-dim); font-size: 11px; padding-left: 2.4em; }
+
 /* 自動装備の前後。**箇所数だけでは強くなったか伝わらない**という指摘への対処。
    トーストは3秒で消えて4人ぶんを読むには短いので、画面に残す。 */
 .autoequip-report {
