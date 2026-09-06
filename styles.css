@@ -354,6 +354,23 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .chip-buff { color: var(--ok); border-color: #4ee08a55; }
 .chip-debuff { color: var(--danger); border-color: #ff6b6b55; }
 
+/* 対象を選んでいるあいだの相性。色だけに頼らず「有利／不利／等倍」の語も出す
+   （色の見分けが付かない人にも読めるように） */
+.chip-adv { color: var(--ok); border-color: #4ee08a55; font-weight: 700; }
+.chip-dis { color: var(--danger); border-color: #ff6b6b55; font-weight: 700; }
+.chip-even { color: var(--text-dim); }
+
+/* いまどちらの育成にいるか。物語のときだけ出る。
+   上部の所持金や宝箱がどちらのものか、どこにも書いていなかった。 */
+.mode-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 /* ---------------- 立ち絵プレースホルダー ---------------- */
 
 .portrait {

@@ -124,6 +124,18 @@
     const save = RPG.state.get();
     const boxTotal = Object.keys(save.boxes).reduce((s, k) => s + save.boxes[k], 0);
     requestAnimationFrame(measureTopbar);
+
+    // いまどちらの育成にいるか。**物語のときだけ**出す。
+    // 数字（所持金・宝箱）は上部に出ているのに、それがどちらのものかは
+    // どこにも書いていなかった。周回側では既定なので出さない。
+    const story = RPG.state.mode() === 'story';
+    replace($('#topbar-left'),
+      h('span.logo', { text: '灰銀の継承者' }),
+      story
+        ? h('span.mode-badge', { text: '物語モード', title: '周回側の進行は別に残っています' })
+        : h('span.logo-sub', { text: 'HACK & SLASH' })
+    );
+
     replace($('#topbar-right'),
       h('div.currency',
         W.icon('coin', { size: '15px', color: 'var(--currency)' }),
@@ -537,6 +549,20 @@
    * 章が始まっていなければ始めてから、続きの場所へ入る。
    */
   function showStory() {
+    // ── 初めて入るときだけ確かめる ──
+    // 物語は別プロファイル（§7）なので、入った瞬間に仲間も装備も所持金も
+    // 別のものに切り替わる。周回側は残っているのだが、画面上は
+    // **所持金が0になったように見える**ので「消えた」と思われる。
+    // 2回目からは黙って入る（毎回聞かれるほうが煩わしい）。
+    if (!RPG.story.status()) {
+      const ok = confirm(
+        '物語はもうひとつの育成です。\n\n'
+        + '・仲間、装備、所持金、レベルはすべて別。周回側のものは持ち込めません\n'
+        + '・周回側の進行はそのまま残ります。いつでも「拠点へ戻る」で戻れます\n\n'
+        + '始めますか？'
+      );
+      if (!ok) return;
+    }
     RPG.state.setMode('story');
     RPG.story.start();
     showMap();

@@ -593,8 +593,10 @@
       { id: 'arena', label: '闘技場', desc: 'レベル上限を伸ばす' },
       { id: 'codex', label: '図鑑', desc: '出会った敵と、用語の説明' },
       {
+        // 押した瞬間に別の育成へ切り替わり、所持金が0に見える。
+        // 「消えた」と思わせないよう、**押す前に別データだと分かる文**にする。
         id: 'story', label: '物語',
-        desc: RPG.story.status() ? '続きから' : 'もうひとつの育成で遊ぶ',
+        desc: RPG.story.status() ? '続きから（別の育成）' : '別の育成で遊ぶ・周回は残る',
         action: () => RPG.app.showStory(),
       },
     ];
@@ -1495,7 +1497,7 @@
           h('span.codex-skill-name', { text: skill.name }),
           W.elementChip(skill.element),
           W.tagChip(skill.damage_type),
-          h('span.chip', { text: skill.power > 0 ? `威力${skill.power}%` : '補助' })
+          h('span.chip', { text: W.powerLabel(skill) })
         ),
         h('span.codex-skill-desc', { text: skill.desc })
       );
@@ -3372,7 +3374,7 @@ ${nextCost.toLocaleString()} G
 
     const rows = [
       ['基礎', Math.round(b.base).toLocaleString(),
-        `${RPG.units.STAT_LABEL[skill.scaling_stat] || skill.scaling_stat} × 威力${skill.power}%`],
+        `${RPG.units.STAT_LABEL[skill.scaling_stat] || skill.scaling_stat} × ${W.powerLabel(skill)}`],
       ['系統タグ', x(b.tag), '同じタグは足し算、違うタグは掛け算'],
       ['固有バフ', x(b.unique), 'それぞれ独立して掛かる'],
       ['防御', x(b.defense), `相手 DEF ${defender.def.toLocaleString()}`],
@@ -3472,9 +3474,7 @@ ${nextCost.toLocaleString()} G
                 h('div.skill-order-chips',
                   W.elementChip(sk.element),
                   W.tagChip(sk.damage_type),
-                  sk.power > 0
-                    ? h('span.chip', { text: '威力' + sk.power + '%' })
-                    : h('span.chip', { text: '補助' }),
+                  h('span.chip', { text: W.powerLabel(sk) }),
                   sk.crit_rate ? h('span.chip', { text: '会心' + Math.round(sk.crit_rate * 100) + '%' }) : null,
                   sk.readyRound ? h('span.chip', { text: sk.readyRound + 'R目〜' }) : null,
                   sk.cooldown ? h('span.chip', { text: 'CT' + sk.cooldown }) : null

@@ -412,7 +412,32 @@
     return overlay;
   }
 
+  /**
+   * 威力のチップに出す文字。**多段なら回数まで出す。**
+   *
+   * 「威力60%」とだけ出ていたので、説明を読むまで三連撃だと分からなかった。
+   * 1発の威力だけ見て弱い技だと判断されてしまう。
+   *
+   * 回数の出どころはプラグインごとに違う（既定値も違う）ので、ここで吸収する。
+   *   multi_hit    … 単体へ hits 回（既定2）
+   *   all_enemies  … 全体へ hits 波（既定1）
+   * 数え方を増やすときは、ここと data/skills.js の両方を見ること。
+   *
+   * @param {any} skill
+   * @returns {string}
+   */
+  function powerLabel(skill) {
+    if (!skill || !(skill.power > 0)) return '補助';
+    const params = skill.params || {};
+    const times = skill.plugin === 'multi_hit' ? (params.hits || 2)
+      : skill.plugin === 'all_enemies' ? (params.hits || 1)
+        : 1;
+    if (times <= 1) return `威力${skill.power}%`;
+    return `威力${skill.power}% × ${times}${skill.plugin === 'all_enemies' ? '波' : '回'}`;
+  }
+
   RPG.widgets = {
+    powerLabel,
     elementChip, rarityChip, tagChip, portrait, standee, enemyArt, artLightbox,
     hpBar, itemCard, button, heading, ELEMENT_COLOR,
     icon, ELEMENT_ICON, TAG_ICON, STAT_ICON, SLOT_ICON,
