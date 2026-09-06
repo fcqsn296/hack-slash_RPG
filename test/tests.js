@@ -10211,17 +10211,22 @@
         check('測定道具: 想定ビルドが SP を使い切る', spent >= budget - 5,
           `${spent} / ${budget} SP`);
 
-        // ── ラウンドの物差しが3つあるので、取り違えを固定する ──
+        // ── ラウンドの数え方を固定する ──
         //
-        // battle.round      いま何ラウンド目か。**ウェーブごとに1へ戻る**
-        // battle.totalRounds ラウンド送りの回数+1。**依頼の制限が見ている値**。
-        //                    ウェーブが1ラウンドで片付くと増えない
-        // roundsFought      各ウェーブのラウンドの合計。**1周の長さ**
+        // battle.round       いま何ラウンド目か。**ウェーブごとに1へ戻る**
+        // battle.totalRounds 1戦で戦ったラウンドの合計。依頼の制限が見る値
         //
         // 測定道具は以前 battle.round の最大値を「1周のラウンド数」として
         // 使っていた。5連戦では1本ぶんしか数えないので、ラウンド当たり収益が
         // 実測で約3倍に見えていた（順位は変わらなかったが、絶対値は誤り）。
-        // 3つが混ざると同じ事故が起きるので、関係をここで固定する。
+        //
+        // さらに battle.totalRounds 自身も、以前は**ラウンド送りの回数**しか
+        // 数えていなかった。ウェーブが1ラウンドで片付くと増えないので、
+        // 5連戦で6ラウンド戦っても2にしかならない。チップの「Nラウンド以内」が
+        // 3倍ゆるかったのはこれが理由。いまはウェーブ移行でも1つ進む。
+        //
+        // **道具とエンジンで二重に数えて、一致を見張る。** 片方が壊れたときに
+        // 気付けるようにするため。
         {
           const cfg = {
             fieldId: 'fl_verge', waves: 3, bossFinale: true, level: 225, limitBreak: 3,
@@ -10259,12 +10264,15 @@
 
           check('測定道具: 1周のラウンドは各ウェーブの合計と一致する',
             r.rounds === sumByHand, `道具 ${r.rounds} / 手で数えて ${sumByHand}`);
-          check('測定道具: 通算ラウンドはラウンド送りの回数+1と一致する',
-            r.totalRounds === transitions + 1,
-            `道具 ${r.totalRounds} / 送り ${transitions} + 1`);
-          check('測定道具: 1周の長さは通算ラウンド以上・ウェーブ数以上',
-            r.rounds >= r.totalRounds && r.rounds >= cfg.waves,
-            `合計 ${r.rounds} / 通算 ${r.totalRounds} / ${cfg.waves}ウェーブ`);
+          // ここが要。エンジンの数えた合計と、外から数えた合計が同じであること。
+          check('ラウンド: エンジンの通算が実際に戦った合計と一致する',
+            r.totalRounds === sumByHand,
+            `エンジン ${r.totalRounds} / 手で数えて ${sumByHand}`);
+          check('ラウンド: 合計はウェーブ数を下回らない',
+            r.rounds >= cfg.waves, `合計 ${r.rounds} / ${cfg.waves}ウェーブ`);
+          check('ラウンド: ラウンド送りの回数は合計からウェーブ数を引いた数',
+            transitions === sumByHand - cfg.waves,
+            `送り ${transitions} / 合計 ${sumByHand} - ${cfg.waves}ウェーブ`);
           check('測定道具: 旧指標（ウェーブ1本の最大）は1周の長さを超えない',
             r.waveRoundMax <= r.rounds, `旧 ${r.waveRoundMax} / 合計 ${r.rounds}`);
         }
