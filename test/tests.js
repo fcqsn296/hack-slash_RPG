@@ -10413,6 +10413,62 @@
             noAuto.autoAllowed === false && plain.autoAllowed === true,
             `禁止=${noAuto.autoAllowed} / 通常=${plain.autoAllowed}`);
         }
+
+        // ── 「三で足りる」が狙いどおり働いているか (A3) ──
+        //
+        // 縛りつきの依頼13件のうち11件がオート禁止で、オートで挑める2件は
+        // 実測で一度も引っかからなかった。**オートのまま編成を考える理由**が
+        // 無かったので、その1件目として置いたもの。
+        // 狙いが崩れたらここで落ちる。
+        {
+          const q = RPG.data.quests.q_three_at_the_verge;
+          check('三で足りる: 依頼が実在する', !!q, q ? q.name : '見つからない');
+
+          if (q) {
+            // 1. オートで挑めること。ここが目的そのものなので、
+            //    noAuto が付いた時点で依頼の意味が変わる。
+            check('三で足りる: オートで挑める',
+              !(q.rules && q.rules.noAuto), JSON.stringify(q.rules));
+
+            // 2. 縛りは1種類だけ。増やすと「どれが効いたか」が分からなくなる。
+            check('三で足りる: 縛りは1種類だけ',
+              Object.keys(q.rules || {}).length === 1,
+              Object.keys(q.rules || {}).join(' / '));
+
+            // 3. 敵を盛って差を作っていないこと。盛ると「編成で変わる」ではなく
+            //    「地力で殴れるか」を測る依頼になる。
+            check('三で足りる: 敵を盛っていない',
+              q.enemyLv == null && q.enemyScale == null,
+              `enemyLv=${q.enemyLv} / enemyScale=${q.enemyScale}`);
+
+            // 4. 門: 4人は弾かれ、3人は通る
+            const roster = (/** @type {number} */ n) =>
+              RPG.balance.COMPOSITIONS.plain.members.slice(0, n)
+                .map((/** @type {any} */ m) => ({ id: m.id, level: 255 }));
+            const four = RPG.quest.checkParty(q, roster(4));
+            const three = RPG.quest.checkParty(q, roster(3));
+            check('三で足りる: 4人は弾かれ3人は通る',
+              !four.ok && three.ok,
+              `4人=${four.ok ? '通過' : four.reasons.join('/')} / 3人=${three.ok ? '通過' : '弾く'}`);
+
+            // 5. 狙いの核: **適合した編成は全達成し、素直な編成より明らかに速い**。
+            //    ここが崩れたら「誰を連れても同じ」になり、依頼の意味が消える。
+            const fit = RPG.balance.simulateComposition({
+              composition: 'element', fieldId: q.fieldId, waves: q.waves,
+              bossFinale: q.bossFinale !== false, quest: q, size: 3, runs: 20,
+            });
+            const plainThree = RPG.balance.simulateComposition({
+              composition: 'plain', fieldId: q.fieldId, waves: q.waves,
+              bossFinale: q.bossFinale !== false, quest: q, size: 3, runs: 20,
+            });
+            check('三で足りる: 適合した編成は全達成する',
+              fit.winRate === 1 && fit.partyOk,
+              `勝率 ${(fit.winRate * 100).toFixed(0)}% / 門=${fit.partyOk ? '通過' : '拒否'}`);
+            check('三で足りる: 編成で所要が明らかに変わる（1.5倍以上）',
+              plainThree.rounds >= fit.rounds * 1.5,
+              `適合 ${fit.rounds.toFixed(1)}R 対 素直 ${plainThree.rounds.toFixed(1)}R`);
+          }
+        }
       })
       // ── 本体が読む JS が全部、構文として通るか ──
       //

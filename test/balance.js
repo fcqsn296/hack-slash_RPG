@@ -346,13 +346,16 @@
    * @param {number} [level]
    * @param {number} [limitBreak]
    */
-  function buildComposition(name, level, limitBreak) {
+  function buildComposition(name, level, limitBreak, size) {
     const comp = COMPOSITIONS[name];
     if (!comp) throw new Error('知らない編成: ' + name);
     const lv = level == null ? RPG.data.maxLevelCap : level;
     const lb = limitBreak == null ? 5 : limitBreak;
     const uid = uidSource();
-    const built = comp.members.map((m) => makeMember(m, lv, lb, uid, comp.prefix));
+    // size は人数制限の依頼を測るため。**先頭から詰める**ので、
+    // 外せない枠（主人公）が必ず残る。後ろから削ると組めない編成になる。
+    const members = size == null ? comp.members : comp.members.slice(0, size);
+    const built = members.map((m) => makeMember(m, lv, lb, uid, comp.prefix));
     return {
       name,
       label: comp.label,
@@ -724,10 +727,15 @@
 
     // 編成は毎回同じ種で組み直す。戦闘でユニットが書き換わるので使い回せない。
     RPG.rng.seed(PARTY_SEED);
-    const comp = buildComposition(cfg.composition, cfg.level, cfg.limitBreak);
+    const comp = buildComposition(cfg.composition, cfg.level, cfg.limitBreak, cfg.size);
     RPG.rng.seed(cfg.seed == null ? 4242 : cfg.seed);
 
     // 編成の縛り。実際の出撃と同じ関数で見る。
+    // **読めていないなら黙って素通ししない。** 縛りを見ないまま
+    // 「依頼を測った」と言えてしまうのがいちばん困る。
+    if (cfg.quest && !(RPG.quest && RPG.quest.checkParty)) {
+      throw new Error('RPG.quest が読めていない（依頼の縛りを判定できない）');
+    }
     const roster = comp.members.map((m) => ({ id: m.id, level: comp.level }));
     const partyCheck = cfg.quest
       ? RPG.quest.checkParty(cfg.quest, roster)

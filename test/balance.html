@@ -148,6 +148,10 @@
 <script src="../src/core/autoplay.js"></script>
 
 <!-- 拡張コンテンツの締め (§18) — tools/sync_content.py が書き換える -->
+<script src="../data/quests.js"></script>
+<!-- 依頼の縛りを実出撃と同じ関数で見るために要る (A2/A3)。
+     編成を引数で渡す経路はセーブを触らないので、ここでは state を読み込まない。 -->
+<script src="../src/core/quest.js"></script>
 <script src="../src/core/content-seal.js"></script>
 <!-- /拡張コンテンツの締め -->
 <script src="balance.js"></script>
