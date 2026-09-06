@@ -245,6 +245,66 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
 .hint { color: var(--text-dim); font-size: 12px; }
 .hint-sm { font-size: 11px; margin: 8px 0 0; }
+
+/* はじめの4歩。**4つ終わると消える**ので、常設ぶんの圧迫を気にしなくてよい。
+   出撃画面の頭は毎回目に入るので、慣れた後まで残すと邪魔になる。 */
+.starter-guide {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(20, 24, 33, .42);
+}
+.starter-head { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.starter-steps { list-style: none; margin: 0; padding: 0; }
+.starter-step {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.starter-mark {
+  flex: 0 0 auto;
+  width: 1.6em; height: 1.6em;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 11px;
+}
+.starter-step.is-done { color: var(--text-dim); }
+.starter-step.is-done .starter-mark { border-color: transparent; }
+.starter-step.is-now .starter-mark { border-color: currentColor; font-weight: 700; }
+/* いまの一歩の理由だけを出す。全部に出すと読む量が増えて、案内が壁になる */
+.starter-why { flex: 1 1 100%; color: var(--text-dim); font-size: 11px; padding-left: 2.4em; }
+
+/* 自動装備の前後。**箇所数だけでは強くなったか伝わらない**という指摘への対処。
+   トーストは3秒で消えて4人ぶんを読むには短いので、画面に残す。 */
+.autoequip-report {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.autoequip-report-head {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.autoequip-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 2px 0;
+  /* 数字が並ぶので、狭い画面でも折り返さず横に流す */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.autoequip-name { flex: 0 0 auto; min-width: 5.5em; }
+.autoequip-delta { flex: 1 1 auto; font-variant-numeric: tabular-nums; }
+.autoequip-same { flex: 1 1 auto; color: var(--text-dim); }
 .empty {
   padding: 32px;
   text-align: center;
@@ -293,6 +353,23 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .chip-tag[data-tag="reli"] { color: #d8a6ff; border-color: #d8a6ff55; }
 .chip-buff { color: var(--ok); border-color: #4ee08a55; }
 .chip-debuff { color: var(--danger); border-color: #ff6b6b55; }
+
+/* 対象を選んでいるあいだの相性。色だけに頼らず「有利／不利／等倍」の語も出す
+   （色の見分けが付かない人にも読めるように） */
+.chip-adv { color: var(--ok); border-color: #4ee08a55; font-weight: 700; }
+.chip-dis { color: var(--danger); border-color: #ff6b6b55; font-weight: 700; }
+.chip-even { color: var(--text-dim); }
+
+/* いまどちらの育成にいるか。物語のときだけ出る。
+   上部の所持金や宝箱がどちらのものか、どこにも書いていなかった。 */
+.mode-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  white-space: nowrap;
+}
 
 /* ---------------- 立ち絵プレースホルダー ---------------- */
 

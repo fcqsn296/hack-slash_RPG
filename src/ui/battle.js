@@ -554,6 +554,19 @@
     );
   }
 
+  /**
+   * その技をその相手に当てたときの相性。
+   * @param {any} skill
+   * @param {any} target
+   */
+  function advantageChip(skill, target) {
+    if (!skill || !(skill.power > 0)) return null;
+    const m = RPG.damage.elementMultiplier(skill.element, target.element);
+    if (m > 1) return h('span.chip.chip-adv', { text: `有利 ×${m}` });
+    if (m < 1) return h('span.chip.chip-dis', { text: `不利 ×${m}` });
+    return h('span.chip.chip-even', { text: '等倍' });
+  }
+
   /** @param {any} e */
   function enemyCard(e) {
     const targeting = pendingSkill && RPG.battle.targetKind(RPG.data.skills[pendingSkill]) === 'enemy';
@@ -571,6 +584,13 @@
         W.hpBar(e.hp, e.maxHp, null, prevHp[e.key]),
         h('div.chips',
           W.elementChip(e.element),
+          // 対象を選んでいるあいだだけ相性を出す。
+          //
+          // 属性のチップは前から出ていたが、**手持ちの技とどちらが有利かは
+          // 覚えていないと分からない**。7属性の相性表を暗記している人しか
+          // 使えない情報になっていた。選ぶ瞬間にだけ答えを出す。
+          // 常時出すと、選んでいないときも画面が賑やかになるので出さない。
+          targeting ? advantageChip(RPG.data.skills[pendingSkill], e) : null,
           e.defIgnoredTurns > 0 ? h('span.chip.chip-debuff', { text: '防御崩壊' }) : null,
           ...e.statusEffects.filter((/** @type {any} */ s) => s.kind === 'poison')
             .map(() => h('span.chip.chip-debuff', { text: '毒' }))
@@ -812,7 +832,7 @@
           h('span.skill-meta',
             W.elementChip(skill.element),
             W.tagChip(skill.damage_type),
-            skill.power > 0 ? h('span.chip', { text: '威力' + skill.power + '%' }) : h('span.chip', { text: '補助' }),
+            h('span.chip', { text: W.powerLabel(skill) }),
             skill.cooldown ? h('span.chip', { text: `CT${skill.cooldown}` }) : null
           ),
           h('span.skill-desc', { text: skill.desc })

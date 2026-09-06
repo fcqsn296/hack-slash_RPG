@@ -12,6 +12,20 @@
   let activeTab = 'sortie';
   /** @type {string} */
   let selectedChar = 'ch_hero';
+  /**
+   * 遠い狩場も並べるか。**セーブには持たない**（その場の見え方の話なので）。
+   * @type {boolean}
+   */
+  let showFarFields = false;
+  /**
+   * 直前の自動装備の結果。装備画面に出しっぱなしにする。
+   *
+   * トーストは3秒で消えるので、**4人ぶんの前後を読むには短すぎる**。
+   * 「4人・計4箇所を更新」しか出ておらず、強くなったのかが分からない、
+   * という指摘を受けてここに残す形にした。次に自動装備を押すまで残る。
+   * @type {{list: Array<any>, at: number}|null}
+   */
+  let lastAutoEquip = null;
   /** @type {any[]} 直近の鑑定結果 */
   /**
    * 鑑定結果として一度に並べるカードの上限 (§7.9)。
@@ -579,8 +593,10 @@
       { id: 'arena', label: '闘技場', desc: 'レベル上限を伸ばす' },
       { id: 'codex', label: '図鑑', desc: '出会った敵と、用語の説明' },
       {
+        // 押した瞬間に別の育成へ切り替わり、所持金が0に見える。
+        // 「消えた」と思わせないよう、**押す前に別データだと分かる文**にする。
         id: 'story', label: '物語',
-        desc: RPG.story.status() ? '続きから' : 'もうひとつの育成で遊ぶ',
+        desc: RPG.story.status() ? '続きから（別の育成）' : '別の育成で遊ぶ・周回は残る',
         action: () => RPG.app.showStory(),
       },
     ];
@@ -690,6 +706,8 @@
             }, { variant: 'primary' })
           : null
       ),
+      starterGuide(root),
+
       // ── 行き先の一覧 (§1.4) ──
       //
       // 下のタブは4つに絞ってある（11個並べると狭い画面で3段に折り返す）。
@@ -731,8 +749,7 @@
               + '物語を進めて外へ出ると、そこで出る相手の狩場がここに並びます。',
           })
         : null,
-      h('div.field-grid', sortieFieldIds().sort((a, b) =>
-        RPG.data.fields[a].rec_level - RPG.data.fields[b].rec_level).map((id) => {
+      h('div.field-grid', visibleFieldIds().map((id) => {
         const f = RPG.data.fields[id];
         const selected = selectedField === id;
         return h('button.field-card' + (selected ? '.is-selected' : ''), {
@@ -761,12 +778,110 @@
           selected ? dispatchRow(root, id) : null
         );
       })),
+      farFieldToggle(root),
       dispatchResult(),
       h('div.party-preview',
         h('h3', { text: '出撃パーティ' }),
         h('div.party-row', party.map((u) => partyMini(u)))
       ),
       h('p.hint', { text: `所持ゴールド ${save.gold.toLocaleString()} G ／ 戦績 ${save.stats.wins} 勝 / ${save.stats.battles} 戦` })
+    );
+  }
+
+  /**
+   * 始めたばかりの人への案内。**全部終わったら自動で消える。**
+   *
+   * ── なぜ消えるのか ──
+   * 出撃画面の頭は毎回目に入る場所なので、常設すると慣れた後に邪魔になる。
+   * 案内が要るのは最初の数分だけ。**進捗から判定して、済んだら消す。**
+   *
+   * ── なぜセーブに項目を足さないのか ──
+   * 「見た」を保存すると、新しいキーを移行処理と新規作成の両方へ
+   * 置く必要が出る（§7）。ここは既にあるセーブの中身から判定できるので、
+   * 増やさない。作り直しても同じ判定になる。
+   *
+   * 消えたあとは用語集の「はじめかた」から読み返せる。
+   * @param {HTMLElement} root
+   */
+  function starterGuide(root) {
+    const save = RPG.state.get();
+    const geared = save.party.some((/** @type {string} */ id) => {
+      const c = save.characters[id];
+      return c && Object.keys(c.equipped || {}).some((k) => (c.equipped[k] || []).length > 0);
+    });
+    const steps = [
+      {
+        done: Object.keys(save.characters).length >= 2,
+        text: '仲間を集める', why: 'ガチャを回す。ひとりだと連戦で押し切れない',
+        go: 'gacha', label: 'ガチャへ',
+      },
+      {
+        done: save.stats.wins >= 1,
+        text: '草原で1戦する', why: '下の「始まりの草原」を押して、腕試し（1戦）から',
+        go: null, label: null,
+      },
+      {
+        done: (save.inventory || []).length > 0,
+        text: '拾った箱を鑑定する', why: '中身は開けるまで分からない。売るか着けるかはその後',
+        go: 'identify', label: '鑑定へ',
+      },
+      {
+        done: geared,
+        text: '装備する', why: '「全員まとめて」を押せば、拾ったぶんから最適に配られる',
+        go: 'gear', label: '装備へ',
+      },
+    ];
+    if (steps.every((x) => x.done)) return null;
+
+    const current = steps.findIndex((x) => !x.done);
+    return h('div.starter-guide',
+      h('div.starter-head', { text: 'はじめの4歩' }),
+      h('ol.starter-steps', steps.map((x, i) => h('li.starter-step' +
+        (x.done ? '.is-done' : (i === current ? '.is-now' : '')),
+        h('span.starter-mark', { text: x.done ? '済' : String(i + 1) }),
+        h('span.starter-text', { text: x.text }),
+        i === current ? h('span.starter-why', { text: x.why }) : null,
+        (i === current && x.go)
+          ? W.button(x.label, () => { activeTab = x.go; render(root); }, { variant: 'primary' })
+          : null
+      ))),
+      h('p.hint.hint-sm', { text: '4つ終わると、この案内は消えます。用語集の「はじめかた」で読み返せます。' })
+    );
+  }
+
+  /**
+   * いま並べる狩場。**いまの帯と、その2つ先まで。**
+   *
+   * 12か所を一度に並べると、始めたばかりの人には Lv255 の狩場まで見える。
+   * 選ぶ順が読めないので、届く範囲だけを出す。
+   * 前回の出撃先と、開いているカードは帯の外でも必ず残す
+   * （押した場所が消えると操作を見失う）。
+   */
+  function visibleFieldIds() {
+    const all = sortieFieldIds().sort((a, b) =>
+      RPG.data.fields[a].rec_level - RPG.data.fields[b].rec_level);
+    if (showFarFields) return all;
+    const save = RPG.state.get();
+    const top = RPG.quest.partyTopLevel();
+    let last = -1;
+    all.forEach((id, i) => { if (RPG.data.fields[id].rec_level <= top) last = i; });
+    // 手前が1つも無くても2か所は出す。届く先を2つ見せて進む先を示す。
+    const cut = Math.max(1, last + 2);
+    const keep = new Set(all.slice(0, cut + 1));
+    if (selectedField) keep.add(selectedField);
+    if (save.lastSortie && save.lastSortie.fieldId) keep.add(save.lastSortie.fieldId);
+    return all.filter((id) => keep.has(id));
+  }
+
+  /** 畳んだぶんの開閉。畳むものが無ければ出さない。 */
+  function farFieldToggle(root) {
+    const total = sortieFieldIds().length;
+    const shown = visibleFieldIds().length;
+    if (!showFarFields && shown >= total) return null;
+    return W.button(
+      showFarFields ? '遠い狩場を畳む' : `遠い狩場も見る（あと ${total - shown} か所）`,
+      () => { showFarFields = !showFarFields; render(root); },
+      { variant: 'ghost' }
     );
   }
 
@@ -1382,7 +1497,7 @@
           h('span.codex-skill-name', { text: skill.name }),
           W.elementChip(skill.element),
           W.tagChip(skill.damage_type),
-          h('span.chip', { text: skill.power > 0 ? `威力${skill.power}%` : '補助' })
+          h('span.chip', { text: W.powerLabel(skill) })
         ),
         h('span.codex-skill-desc', { text: skill.desc })
       );
@@ -2565,6 +2680,38 @@
   /* ============================ 装備 ============================ */
 
   /** @param {HTMLElement} root */
+  /**
+   * 直前の自動装備で何がどう変わったかを並べる。
+   *
+   * 箇所数だけでは強くなったかが伝わらないので、**数字の前後**を出す。
+   * 増減が0の相手は「据え置き」とだけ書く——1行も出さないと
+   * 「押したのに何も起きなかった」に見える。
+   */
+  function autoEquipReport() {
+    if (!lastAutoEquip || !lastAutoEquip.list.length) return null;
+    const arrow = (/** @type {number} */ a, /** @type {number} */ b) =>
+      (a === b ? String(a) : `${a} → ${b}`);
+    return h('div.autoequip-report',
+      h('div.autoequip-report-head', { text: '直前の自動装備' }),
+      lastAutoEquip.list.map((/** @type {any} */ r) => {
+        const st = r.stats;
+        if (!st) return null;
+        const same = st.before.main === st.after.main &&
+          st.before.hp === st.after.hp && st.before.def === st.after.def;
+        return h('div.autoequip-row',
+          h('span.autoequip-name', { text: RPG.state.charName(r.id) }),
+          same
+            ? h('span.autoequip-same', { text: '据え置き' })
+            : h('span.autoequip-delta', {
+                text: `${st.before.mainLabel} ${arrow(st.before.main, st.after.main)}` +
+                  `　HP ${arrow(st.before.hp, st.after.hp)}` +
+                  `　DEF ${arrow(st.before.def, st.after.def)}`,
+              })
+        );
+      }).filter(Boolean)
+    );
+  }
+
   function renderGear(root) {
     const save = RPG.state.get();
     const charSave = save.characters[selectedChar];
@@ -2629,6 +2776,10 @@
             W.button('自動装備', () => {
               const r = RPG.autoequip.forCharacter(selectedChar, { keepLocked: true });
               const gain = r.before > 0 ? Math.round((r.after / r.before - 1) * 100) : 0;
+              lastAutoEquip = {
+                at: Date.now(),
+                list: [{ id: selectedChar, changed: r.changed, stats: r.stats, gain }],
+              };
               RPG.app.toast(r.changed === 0
                 ? 'すでに最適な装備です'
                 : `${r.changed}箇所を更新（総合力 ${gain >= 0 ? '+' : ''}${gain}%）`);
@@ -2636,12 +2787,14 @@
             }, { variant: 'primary', sub: 'このキャラ' }),
             W.button('全員まとめて', () => {
               const r = RPG.autoequip.forParty({ keepLocked: true });
+              lastAutoEquip = { at: Date.now(), list: r.perCharacter };
               RPG.app.toast(r.changed === 0
                 ? 'パーティ全員すでに最適です'
                 : `パーティ${r.perCharacter.length}人・計${r.changed}箇所を更新`);
               render(root);
             }, { variant: 'ghost', sub: 'パーティ' })
-          )
+          ),
+          autoEquipReport()
         ),
         presetBar(root, unit),
         h('div.slot-row', Object.keys(slots).map((slot) => {
@@ -3221,7 +3374,7 @@ ${nextCost.toLocaleString()} G
 
     const rows = [
       ['基礎', Math.round(b.base).toLocaleString(),
-        `${RPG.units.STAT_LABEL[skill.scaling_stat] || skill.scaling_stat} × 威力${skill.power}%`],
+        `${RPG.units.STAT_LABEL[skill.scaling_stat] || skill.scaling_stat} × ${W.powerLabel(skill)}`],
       ['系統タグ', x(b.tag), '同じタグは足し算、違うタグは掛け算'],
       ['固有バフ', x(b.unique), 'それぞれ独立して掛かる'],
       ['防御', x(b.defense), `相手 DEF ${defender.def.toLocaleString()}`],
@@ -3321,9 +3474,7 @@ ${nextCost.toLocaleString()} G
                 h('div.skill-order-chips',
                   W.elementChip(sk.element),
                   W.tagChip(sk.damage_type),
-                  sk.power > 0
-                    ? h('span.chip', { text: '威力' + sk.power + '%' })
-                    : h('span.chip', { text: '補助' }),
+                  h('span.chip', { text: W.powerLabel(sk) }),
                   sk.crit_rate ? h('span.chip', { text: '会心' + Math.round(sk.crit_rate * 100) + '%' }) : null,
                   sk.readyRound ? h('span.chip', { text: sk.readyRound + 'R目〜' }) : null,
                   sk.cooldown ? h('span.chip', { text: 'CT' + sk.cooldown }) : null

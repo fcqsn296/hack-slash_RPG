@@ -51,7 +51,8 @@ RPG.data.nodeCategories = [
   {
     id: 'combo', label: '弱点コンボ', icon: 'combo',
     terms: ['コンボ', '弱点', '連携'],
-    desc: 'コンボは手動戦闘でしか積めない。ここを厚くするほど、手で戦う見返りが大きくなる。',
+    desc: '属性有利を突くか、弱体中の相手を殴ると1段積む。パーティ全体の火力が上がる。'
+      + 'オートでも積むが、段取りを組める手動のほうが伸ばしやすい。',
     kinds: ['combo_gain', 'combo_keep', 'combo_power', 'combo_start',
       'combo_spend_power', 'combo_threshold', 'combo_refund', 'combo_max'],
   },
