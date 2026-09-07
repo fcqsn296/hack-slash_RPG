@@ -166,7 +166,11 @@ RPG.data.effectKinds = {
   overheal_shield: { to: 'passives', shape: 'add', uniq: 'overhealShield', route: 'passives', key: 'overhealShield', label: 'あふれた回復が障壁に', fmt: 'pct' },
   overkill_carry: { to: 'passives', shape: 'add', uniq: null, key: 'overkillCarry', label: '超過ダメージを持ち越す', fmt: 'pct' },
   party_size_power: { to: 'passives', shape: 'add', uniq: null, key: 'partySizePower', label: '味方1人につき火力', fmt: 'pct' },
-  rainbow_power: { to: 'passives', shape: 'add', uniq: null, key: 'rainbowPower', label: '属性を散らした火力', fmt: 'pct' },
+  // uniq を持たせるとユニーク装備・セット効果からも使えるようになる（effectRoutes 経由）。
+  // 『七色の杖』(§7.8) がこの2つを使うので開けた。route は passives——
+  // battle.js の powerScale は attacker.passives からしか読まないので、
+  // setEffects 側にも足すと二重には**ならない**代わりに、passives へ合流させないと届かない。
+  rainbow_power: { to: 'passives', shape: 'add', uniq: 'rainbowPower', route: 'passives', key: 'rainbowPower', label: '属性を散らした火力', fmt: 'pct' },
   reduction: { to: 'build', shape: 'add', uniq: null },
   reflect: { to: 'passives', shape: 'add', uniq: 'reflect', route: 'passives', key: 'reflect', label: '受けたダメージを反射', fmt: 'pct' },
   regen: { to: 'passives', shape: 'add', uniq: null, key: 'regen', label: '毎ラウンド回復', fmt: 'pct' },
@@ -190,7 +194,7 @@ RPG.data.effectKinds = {
   tag_crit: { to: 'build', shape: 'keyed', needs: ["tag"], uniq: null },
   tag_pierce: { to: 'build', shape: 'keyed', needs: ["tag"], uniq: null },
   thorns: { to: 'passives', shape: 'add', uniq: null, key: 'thorns', label: '被弾時に相手の最大HPを削る', fmt: 'pct' },
-  variety_power: { to: 'passives', shape: 'add', uniq: null, key: 'varietyPower', label: '技を変えると火力', fmt: 'pct' },
+  variety_power: { to: 'passives', shape: 'add', uniq: 'varietyPower', route: 'passives', key: 'varietyPower', label: '技を変えると火力', fmt: 'pct' },
   vs_status_power: { to: 'passives', shape: 'keyed', needs: ["status"], uniq: null, key: 'vsStatusPower', label: '弱体中の敵への火力', fmt: 'keyed' },
   wave_heal: { to: 'passives', shape: 'add', uniq: null, key: 'waveHeal', label: 'ウェーブ移行時に回復', fmt: 'pct' },
   wave_power: { to: 'passives', shape: 'add', uniq: null, key: 'wavePower', label: '最終ウェーブの火力', fmt: 'pct' },

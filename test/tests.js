@@ -204,6 +204,62 @@
         `分散 ${spread.toFixed(3)} > 集中 ${focused.toFixed(3)}（+${((spread / focused - 1) * 100).toFixed(1)}%）`);
     }
 
+    /* ===== 技種別限定の副オプション（3系統そろっているか） =====
+     *
+     * 「限定枠で汎用の約1.8倍を取りに行く」という強化の道は、
+     * **遺物にだけ長いあいだ無かった**（棚卸しで判明）。
+     * 3つそろっていること、条件が効いていること、そして
+     * **専業でなければ損になること**を固定する。
+     * 専業でなくても得なら、ただの上位互換になって選択が消える。
+     */
+    {
+      const byId = /** @type {Record<string, any>} */ ({});
+      for (const a of RPG.data.affixes) byId[a.id] = a;
+      const only = ['af_tag_phys_only', 'af_tag_magi_only', 'af_tag_reli_only'];
+      const missing = only.filter((id) => !byId[id]);
+      assertTrue('限定副オプションが3系統そろっている', missing.length === 0,
+        missing.join(' / ') || only.join(' / '));
+
+      if (missing.length === 0) {
+        // 3つが同じ条件であること。片方だけ強いと「どの系統で組むか」ではなく
+        // 「どれが強いか」の話になってしまう。
+        const shape = (/** @type {string} */ id) =>
+          `${byId[id].range[0]}-${byId[id].range[1]}/w${byId[id].weight}`;
+        const shapes = only.map(shape);
+        assertTrue('限定副オプションは3系統とも同じ幅と重み',
+          shapes.every((x) => x === shapes[0]), shapes.join(' / '));
+
+        assertTrue('限定副オプションは対応する系統に紐づいている',
+          only.every((id) => byId[id].match_type === byId[id].tag),
+          only.map((id) => `${id}:${byId[id].tag}/${byId[id].match_type}`).join(' '));
+
+        // 汎用より広い幅を持つこと（対価があるぶん見返りが大きい）
+        assertTrue('限定副オプションは汎用より幅が広い',
+          byId.af_tag_reli_only.range[1] > byId.af_tag_reli.range[1],
+          `限定 ${byId.af_tag_reli_only.range[1]} 対 汎用 ${byId.af_tag_reli.range[1]}`);
+      }
+
+      // 条件が効いているか。乗る側と乗らない側の両方を見る。
+      const lim = [{ tag: 'reli', value: 0.32, matchType: 'reli' }];
+      assertNear('遺物技限定は[遺物]技に乗る',
+        RPG.damage.tagMultiplier(lim, 'reli').multiplier, 1.32, 1e-9);
+      assertNear('遺物技限定は[物理]技には乗らない',
+        RPG.damage.tagMultiplier(lim, 'phys').multiplier, 1, 1e-9);
+
+      // 専業なら得、混ぜると損。ここが崩れると選択でなくなる。
+      const base = [{ tag: 'phys', value: 0.30 }, { tag: 'magi', value: 0.30 }, { tag: 'reli', value: 0.30 }];
+      const generic = base.concat([{ tag: 'reli', value: 0.18 }]);
+      const limited = base.concat([{ tag: 'reli', value: 0.32, matchType: 'reli' }]);
+      const mul = (/** @type {any[]} */ b, /** @type {any} */ dt) =>
+        RPG.damage.tagMultiplier(b, dt).multiplier;
+      assertTrue('遺物専業なら限定のほうが強い',
+        mul(limited, 'reli') > mul(generic, 'reli'),
+        `限定 ${mul(limited, 'reli').toFixed(3)} 対 汎用 ${mul(generic, 'reli').toFixed(3)}`);
+      assertTrue('遺物以外を使うと限定のほうが弱い（上位互換ではない）',
+        mul(limited, 'phys') < mul(generic, 'phys'),
+        `限定 ${mul(limited, 'phys').toFixed(3)} 対 汎用 ${mul(generic, 'phys').toFixed(3)}`);
+    }
+
     /* ===== §3.2 ステップ5: 属性相性 ===== */
     {
       const em = RPG.damage.elementMultiplier;
@@ -7980,6 +8036,10 @@
           comboThreshold: (r) => r.unit.passives.comboThreshold,
           comboRefund: (r) => r.unit.passives.comboRefund,
           comboMaxUp: (r) => r.unit.passives.comboMaxUp,
+          // 属性を散らす軸 (§7.8「七色の杖」)。どちらも powerScale が
+          // attacker.passives から読むので、ユニットまで届くことを見る。
+          rainbowPower: (r) => r.unit.passives.rainbowPower,
+          varietyPower: (r) => r.unit.passives.varietyPower,
           midPowerBoost: (r) => (r.unit.situational || {}).midPowerBoost,
           midPowerCap: (r) => (r.unit.situational || {}).midPowerCap,
           critPierce: (r) => r.attacker.critPierce,

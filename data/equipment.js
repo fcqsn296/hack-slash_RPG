@@ -109,8 +109,15 @@ RPG.data.affixes = [
   { id: 'af_tag_magi', name: '[魔術]系統', kind: 'tag_bonus', tag: 'magi', range: [0.06, 0.18], weight: 8 },
   { id: 'af_tag_reli', name: '[遺物]系統', kind: 'tag_bonus', tag: 'reli', range: [0.06, 0.18], weight: 8 },
 
+  // 技種別限定。汎用の約1.8倍の幅を持つ代わりに、その系統の技にしか乗らない。
+  //
+  // **遺物だけ長いあいだ欠けていた。** 物理と魔術には「限定枠で1.8倍を取りに行く」
+  // という強化の道があるのに、遺物ビルドにはその道そのものが無い状態だった
+  // （棚卸しで判明）。仕組みは match_type で汎用化されているので、
+  // 行を1本足すだけで動く。src/ 側の変更は要らない。
   { id: 'af_tag_phys_only', name: '[物理]系統(物理技限定)', kind: 'tag_bonus', tag: 'phys', match_type: 'phys', range: [0.14, 0.32], weight: 4 },
   { id: 'af_tag_magi_only', name: '[魔術]系統(魔術技限定)', kind: 'tag_bonus', tag: 'magi', match_type: 'magi', range: [0.14, 0.32], weight: 4 },
+  { id: 'af_tag_reli_only', name: '[遺物]系統(遺物技限定)', kind: 'tag_bonus', tag: 'reli', match_type: 'reli', range: [0.14, 0.32], weight: 4 },
 
   { id: 'af_crit',      name: 'クリティカル率', kind: 'crit',      range: [0.02, 0.07], weight: 6 },
   { id: 'af_cap_break', name: 'ダメージ上限突破', kind: 'cap_break', range: [0.04, 0.12], weight: 3 },
