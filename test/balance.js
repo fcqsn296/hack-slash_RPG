@@ -87,13 +87,19 @@
    * 優先順位に沿ってスキルツリーに振る。
    * @param {any} charSave
    */
-  function investTree(charSave) {
+  function investTree(charSave, prefix) {
     let guard = 0;
     let progressed = true;
+    // prefix は編成ごとの先振り (A2)。PRIORITY より前に置く。
+    // 既定は空なので、渡さなければ従来とまったく同じ結果になる。
+    const pre = prefix || [];
+    const order = pre
+      .concat(PRIORITY.filter((id) => pre.indexOf(id) < 0));
     while (progressed && guard++ < 500) {
       progressed = false;
       // 明示した順に振り、使い切れなかったぶんを定義順で埋める。
-      for (const nodeId of PRIORITY.concat(remainingNodes())) {
+      for (const nodeId of order.concat(
+        remainingNodes().filter((id) => order.indexOf(id) < 0))) {
         while (RPG.tree.canInvest(charSave, nodeId).ok) {
           charSave.tree[nodeId] = (charSave.tree[nodeId] || 0) + 1;
           progressed = true;
@@ -182,6 +188,188 @@
     const uid = uidSource();
     return ['ch_hero', 'ch_rizel', 'ch_gald', 'ch_noa']
       .map((id) => makeUnit(id, level, limitBreak || 0, uid));
+  }
+
+  /* ============================================================
+     編成 (A2)
+     ============================================================ */
+
+  /**
+   * 比較のために固定した終盤編成。
+   *
+   * ── なぜ固定するのか ──
+   * 「終盤はどのフィールドも勝率100%・残HP95〜100%」で行き止まっていたのは、
+   * **測っていたのが1編成だけ**だったから。勝敗と残HPは天井に張り付いていて、
+   * そこから「編成を変える価値」は読み取れない。比べる相手が要る。
+   *
+   * ── 決め方 ──
+   * - **主人公は全編成に入れる。** 外せない枠 (characters.ch_hero.fixed) なので、
+   *   抜いた編成を作ると「実際には組めない編成」を測ることになる
+   * - **支援編成は attack の1枠を置き換える。** 足すと枠の対価を払っていないぶん
+   *   過大評価になる (CLAUDE.md §3)。plain と support は
+   *   **ディアナ ↔ ソルヴェイグ の1人だけが違う**
+   * - **ツリーの振り方は共通** (PRIORITY ＋ 定義順の穴埋め)。編成ごとに動かすのは
+   *   「誰がいるか」「どのクラスに就くか」「先に振る枝」の3つだけ
+   * - クラスは Lv30 から5レベルに1点。Lv255 で 51点
+   *
+   * prefix は PRIORITY より**前**に置かれる枝。
+   * これが無いと、SPが 259（ツリー全体の8.4%）しかないぶん定義順の穴埋めが
+   * 支配して、どの編成もほとんど同じツリーになってしまう。
+   */
+  const COMPOSITIONS = {
+    plain: {
+      label: '素直な攻撃',
+      note: '搦手を使わず素の火力で殴る。比較の基準。',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_zero', klass: 'cls_breaker' },     // 双牙の剣鬼（多段・ATK倍率）
+        { id: 'ch_lg_nefeli', klass: 'cls_breaker' },   // 一の太刀（安定・無属性）
+        { id: 'ch_lg_diana', klass: 'cls_assassin' },   // 一撃の秤（会心）
+      ],
+    },
+    element: {
+      label: '属性特化（光）',
+      note: '光で染めて弱点を突く。相性が噛み合うかで結果が動く。',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_aurora', klass: 'cls_breaker' },   // 双極の巫女（弱点狩り・属性補正）
+        { id: 'ch_lg_lumen', klass: 'cls_breaker' },    // 天雷の審判者（連鎖・ボス特効）
+        { id: 'ch_lg_noel', klass: 'cls_breaker' },     // 際を断つ者（中技）
+      ],
+      prefix: [
+        'tr_mastery_light', 'tr_power_light', 'tr_crit_light',
+        'tr_weak_hunter', 'tr_element_all', 'tr_mastery_all', 'tr_dual_light',
+      ],
+    },
+    support: {
+      label: '支援入り',
+      note: 'plain のディアナをソルヴェイグへ置き換えたもの。**1枠だけ違う。**',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_zero', klass: 'cls_breaker' },
+        { id: 'ch_lg_nefeli', klass: 'cls_breaker' },
+        {
+          id: 'ch_lg_solveig', klass: 'cls_mender',     // 護りを編む者（味方バフ・障壁・回復）
+          prefix: ['tr_ally_buff_hi', 'tr_buff_shield_hi', 'tr_buff_heal_hi', 'tr_round_buff_hi'],
+        },
+      ],
+    },
+  };
+
+  /**
+   * クラスに就いて、点を使い切るまで振る。
+   *
+   * ツリー側と同じ考え方で、クラスのノードを**定義順**に埋める。
+   * 派生は3つのうち1つしか選べないので、最初に触った派生に固定される。
+   * 定義順なので、何度実行しても同じ結果になる。
+   *
+   * @param {any} charSave
+   * @param {string} [classId]
+   */
+  function investClass(charSave, classId) {
+    if (!classId || !RPG.klass) return charSave;
+    if (!RPG.klass.canTakeClass(charSave).ok) return charSave;
+    charSave.klass = classId;
+    charSave.klassTree = charSave.klassTree || {};
+    const nodes = ((RPG.data.classes[classId] || {}).nodes || [])
+      .map((/** @type {any} */ n) => n.id);
+    let guard = 0;
+    let progressed = true;
+    while (progressed && guard++ < 200) {
+      progressed = false;
+      for (const nodeId of nodes) {
+        while (RPG.klass.canInvest(charSave, nodeId).ok) {
+          charSave.klassTree[nodeId] = (charSave.klassTree[nodeId] || 0) + 1;
+          progressed = true;
+        }
+      }
+    }
+    return charSave;
+  }
+
+  /**
+   * 編成の1人を作り、**使ったSP・クラス点・装備を記録して返す**。
+   *
+   * 「未装備のまま測っていた」「SPが半分余っていた」はどちらも実際に起きた事故で、
+   * どちらも**結果の数字を眺めているだけでは気付けない**。だから作った側が内訳を出す。
+   *
+   * @param {{id: string, klass?: string, prefix?: string[]}} member
+   * @param {number} level
+   * @param {number} limitBreak
+   * @param {{next: () => number}} uid
+   * @param {string[]} [prefix] 編成ぜんぶに効く先振り
+   */
+  function makeMember(member, level, limitBreak, uid, prefix) {
+    const charSave = {
+      id: member.id, level, limitBreak,
+      tree: {}, klassTree: {},
+      equipped: { weapon: [], armor: [], accessory: [] },
+    };
+    investTree(charSave, member.prefix || prefix || []);
+    investClass(charSave, member.klass);
+    const plan = gearPlanFor(level);
+    const inventory = equipBest(charSave, plan.box, plan.rolls, uid, plan.plus);
+    const unit = RPG.units.buildCharacterUnit(charSave, inventory);
+
+    const spBudget = (level - 1) + limitBreak;
+    const spSpent = spentSp(charSave);
+    /** @type {string[]} */
+    const gear = [];
+    for (const slot of Object.keys(charSave.equipped)) {
+      for (const eqUid of charSave.equipped[slot]) {
+        const it = inventory.find((/** @type {any} */ x) => x.uid === eqUid);
+        if (it) gear.push(`${it.name || it.baseId}+${it.plus || 0}`);
+      }
+    }
+    return {
+      unit,
+      detail: {
+        id: member.id,
+        name: RPG.data.characters[member.id].name,
+        klass: member.klass ? RPG.data.classes[member.klass].name : '（未就任）',
+        spSpent,
+        spBudget,
+        spLeft: spBudget - spSpent,
+        classSpent: RPG.klass ? RPG.klass.spentPoints(charSave) : 0,
+        classTotal: RPG.klass ? RPG.klass.totalPoints(charSave) : 0,
+        gearCount: gear.length,
+        gear: gear.join('、'),
+        skills: (unit.skills || []).map((/** @type {string} */ k) =>
+          (RPG.data.skills[k] || {}).name || k).join('、'),
+      },
+    };
+  }
+
+  /**
+   * 名前のついた編成を組み立てる。
+   * @param {string} name COMPOSITIONS のキー
+   * @param {number} [level]
+   * @param {number} [limitBreak]
+   */
+  function buildComposition(name, level, limitBreak, size) {
+    const comp = COMPOSITIONS[name];
+    if (!comp) throw new Error('知らない編成: ' + name);
+    const lv = level == null ? RPG.data.maxLevelCap : level;
+    const lb = limitBreak == null ? 5 : limitBreak;
+    const uid = uidSource();
+    // size は人数制限の依頼を測るため。**先頭から詰める**ので、
+    // 外せない枠（主人公）が必ず残る。後ろから削ると組めない編成になる。
+    const members = size == null ? comp.members : comp.members.slice(0, size);
+    const built = members.map((m) => makeMember(m, lv, lb, uid, comp.prefix));
+    return {
+      name,
+      label: comp.label,
+      note: comp.note,
+      level: lv,
+      limitBreak: lb,
+      party: built.map((b) => b.unit),
+      members: built.map((b) => b.detail),
+    };
+  }
+
+  /** 編成の名前を並べる。画面と検査が使う。 */
+  function compositionNames() {
+    return Object.keys(COMPOSITIONS);
   }
 
   /* ============================================================
@@ -280,17 +468,24 @@
     });
 
     let commands = 0;
-    let rounds = 0;
+    let waveRoundMax = 0;
+    let roundsFought = 0;
     let guard = 0;
     while (!battle.finished && guard++ < 4000) {
-      if (battle.phase === 'wave_clear') { RPG.battle.advanceWave(battle); continue; }
+      if (battle.phase === 'wave_clear') {
+        // ウェーブが終わるたびに、そのウェーブで戦ったラウンド数を足す
+        roundsFought += battle.round;
+        RPG.battle.advanceWave(battle);
+        continue;
+      }
       const action = RPG.autoplay.chooseAction(battle);
       if (!action) break;
       // シミュレータはオート戦闘そのものなので、手動ボーナスは付かない扱いにする
       RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
       commands++;
-      rounds = Math.max(rounds, battle.round);
+      waveRoundMax = Math.max(waveRoundMax, battle.round);
     }
+    roundsFought += battle.round;   // 最後のウェーブぶん
 
     const survivors = battle.party.filter((/** @type {any} */ u) => u.alive).length;
     const hpLeft = battle.party.reduce((/** @type {number} */ s, /** @type {any} */ u) => s + u.hp, 0) /
@@ -298,7 +493,21 @@
 
     return {
       victory: battle.victory,
-      commands, rounds,
+      commands,
+      // 1周に実際に戦ったラウンドの合計。**収益の分母はこれを使う。**
+      //
+      // ここは道具の側で外から数えた値。エンジンの battle.totalRounds とは
+      // **一致するはず**で、検証テストがその一致を見張っている。
+      // わざわざ二重に数えているのは、片方が壊れたときに気付くため。
+      //
+      // 以前は battle.round の最大値を「1周のラウンド数」として使っていた。
+      // battle.round はウェーブごとに1へ戻るので、連戦（既定5ウェーブ）では
+      // 1本ぶんしか数えず、ラウンド当たり収益が約3倍に見えていた。
+      rounds: roundsFought,
+      // エンジンが数えた合計。依頼の「Nラウンド以内」が見るのもこれ。
+      totalRounds: battle.totalRounds,
+      // 旧指標。ウェーブ1本ぶんの長さの最大値。過去の数字と突き合わせるときだけ使う
+      waveRoundMax,
       gold: battle.rewards.gold,
       exp: battle.rewards.exp,
       boxes: Object.keys(battle.rewards.boxes)
@@ -331,6 +540,8 @@
       runs,
       winRate: wins.length / runs,
       rounds: avg((r) => r.rounds, wins),
+      totalRounds: avg((r) => r.totalRounds, wins),
+      waveRoundMax: avg((r) => r.waveRoundMax, wins),
       commands: avg((r) => r.commands, wins),
       gold: avg((r) => r.gold, wins),
       exp: avg((r) => r.exp, wins),
@@ -478,10 +689,183 @@
       economy({ fieldId, level: economyLevel(fieldId) }));
   }
 
+  /* ============================================================
+     依頼込みの測定 (A2)
+     ============================================================ */
+
+  /**
+   * 編成を組み立てるときの種。
+   *
+   * パーティの組み立ては装備の鑑定で乱数を使うので、**種を固定しないと
+   * 走らせるたびに違う装備のパーティを測ることになる**。
+   * 1試行ごとの種（戦闘用）とは別に持つ。
+   * こうしておくと「編成の種 + 試行の種」の2つだけで1試行を単独で再現できる。
+   */
+  const PARTY_SEED = 90210;
+
+  /**
+   * 編成1つで1戦する。
+   *
+   * ── 依頼を「通常戦闘で代用」しない ──
+   * 依頼の縛りは2箇所に分かれている。
+   *   - 編成の縛り（人数・レベル・属性）… `RPG.quest.checkParty`
+   *   - 戦闘中の縛り（ラウンド上限・全員生存）… `battle.js` が `quest` から読む
+   * どちらか片方だけを通すと「依頼を測ったつもり」になるので、**両方通す**。
+   * 前者は実際の出撃と同じ関数を呼ぶ（測定用に書き写さない）。
+   *
+   * @param {{composition: string, fieldId: string, waves?: number, bossFinale?: boolean,
+   *          quest?: any, level?: number, limitBreak?: number, seed?: number}} cfg
+   */
+  function runComposition(cfg) {
+    const waves = cfg.waves == null ? 5 : cfg.waves;
+    const bossFinale = cfg.bossFinale !== false;
+
+    // 編成は毎回同じ種で組み直す。戦闘でユニットが書き換わるので使い回せない。
+    RPG.rng.seed(PARTY_SEED);
+    const comp = buildComposition(cfg.composition, cfg.level, cfg.limitBreak, cfg.size);
+    RPG.rng.seed(cfg.seed == null ? 4242 : cfg.seed);
+
+    // 編成の縛り。実際の出撃と同じ関数で見る。
+    // **読めていないなら黙って素通ししない。** 縛りを見ないまま
+    // 「依頼を測った」と言えてしまうのがいちばん困る。
+    if (cfg.quest && !(RPG.quest && RPG.quest.checkParty)) {
+      throw new Error('RPG.quest が読めていない（依頼の縛りを判定できない）');
+    }
+    const roster = comp.members.map((m) => ({ id: m.id, level: comp.level }));
+    const partyCheck = cfg.quest
+      ? RPG.quest.checkParty(cfg.quest, roster)
+      : { ok: true, reasons: [] };
+
+    const battle = RPG.battle.start({
+      fieldId: cfg.fieldId, waves, party: comp.party, bossFinale,
+      quest: cfg.quest || null,
+    });
+
+    let commands = 0;
+    let waveRoundMax = 0;
+    let roundsFought = 0;
+    let guard = 0;
+    while (!battle.finished && guard++ < 4000) {
+      if (battle.phase === 'wave_clear') {
+        roundsFought += battle.round;
+        RPG.battle.advanceWave(battle);
+        continue;
+      }
+      const action = RPG.autoplay.chooseAction(battle);
+      if (!action) break;
+      RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
+      commands++;
+      waveRoundMax = Math.max(waveRoundMax, battle.round);
+    }
+    roundsFought += battle.round;
+    RPG.rng.seed(null);
+
+    const survivors = battle.party.filter((/** @type {any} */ u) => u.alive).length;
+    const hpLeft = battle.party.reduce((/** @type {number} */ a, /** @type {any} */ u) => a + u.hp, 0) /
+      battle.party.reduce((/** @type {number} */ a, /** @type {any} */ u) => a + u.maxHp, 0);
+
+    return {
+      composition: cfg.composition,
+      seed: cfg.seed == null ? 4242 : cfg.seed,
+      partySeed: PARTY_SEED,
+      // 編成の縛りを満たしているか。満たしていない編成の勝敗は意味を持たない
+      partyOk: partyCheck.ok,
+      partyReasons: partyCheck.reasons,
+      // オート禁止の依頼をオートで測っても実態を映さない。黙って測らず旗を立てる
+      autoAllowed: !(cfg.quest && cfg.quest.rules && cfg.quest.rules.noAuto),
+      victory: battle.victory,
+      ruleBroken: battle.ruleBroken || null,
+      rounds: roundsFought,
+      totalRounds: battle.totalRounds,
+      waveRoundMax,
+      commands,
+      survivors,
+      hpLeft,
+      gold: battle.rewards.gold,
+      exp: battle.rewards.exp,
+      stuck: guard >= 4000,
+    };
+  }
+
+  /** 中央値。平均だけだと、たまに出る長期戦に引きずられて実感とずれる。 */
+  function median(nums) {
+    if (!nums.length) return 0;
+    const a = nums.slice().sort((x, y) => x - y);
+    const h = Math.floor(a.length / 2);
+    return a.length % 2 ? a[h] : (a[h - 1] + a[h]) / 2;
+  }
+
+  /**
+   * 編成を何度も回して比べられる形にする。
+   *
+   * ── 平均だけを見ない ──
+   * 勝率100%・残HP95%で張り付いている帯では、平均は動かない。
+   * **中央値と散らばり**、そして「勝てなかった内訳」を分けて出す。
+   * 「失敗」は3種類ある（負け／条件で失格／止まった）ので、混ぜない。
+   *
+   * ── 1試行を単独で再現できるようにする ──
+   * 試行ごとに種を振り直す（seed + i）。records にその種が入っているので、
+   * 気になる1回だけを runComposition で撃ち直せる。
+   *
+   * @param {{composition: string, fieldId: string, waves?: number, bossFinale?: boolean,
+   *          quest?: any, level?: number, limitBreak?: number, runs?: number, seed?: number}} cfg
+   */
+  function simulateComposition(cfg) {
+    const runs = cfg.runs || 30;
+    const base = cfg.seed == null ? 4242 : cfg.seed;
+    /** @type {any[]} */
+    const records = [];
+    for (let i = 0; i < runs; i++) {
+      records.push(runComposition(Object.assign({}, cfg, { seed: base + i })));
+    }
+
+    const wins = records.filter((r) => r.victory);
+    const avg = (/** @type {(r: any) => number} */ f, /** @type {any[]} */ set) =>
+      (set.length ? set.reduce((a, r) => a + f(r), 0) / set.length : 0);
+    const roundsOfWins = wins.map((r) => r.rounds);
+    const spread = roundsOfWins.length
+      ? Math.max.apply(null, roundsOfWins) - Math.min.apply(null, roundsOfWins) : 0;
+
+    const first = records[0] || {};
+    return {
+      composition: cfg.composition,
+      label: (COMPOSITIONS[cfg.composition] || {}).label || cfg.composition,
+      fieldId: cfg.fieldId,
+      quest: cfg.quest ? (cfg.quest.name || cfg.quest.id || '(無名の依頼)') : null,
+      runs,
+      seedFrom: base,
+      seedTo: base + runs - 1,
+      partySeed: PARTY_SEED,
+      partyOk: first.partyOk !== false,
+      partyReasons: first.partyReasons || [],
+      autoAllowed: first.autoAllowed !== false,
+      // 勝ったぶんだけの平均。負けを混ぜると「短いラウンドで負けた」が
+      // 「速い」に化ける
+      winRate: wins.length / runs,
+      rounds: avg((r) => r.rounds, wins),
+      roundsMedian: median(roundsOfWins),
+      roundsSpread: spread,
+      totalRounds: avg((r) => r.totalRounds, wins),
+      commands: avg((r) => r.commands, wins),
+      survivors: avg((r) => r.survivors, wins),
+      hpLeft: avg((r) => r.hpLeft, wins),
+      gold: avg((r) => r.gold, wins),
+      exp: avg((r) => r.exp, wins),
+      // 勝てなかった内訳。混ぜない
+      lost: records.filter((r) => !r.victory && !r.ruleBroken && !r.stuck).length,
+      failedRule: records.filter((r) => !!r.ruleBroken).length,
+      stuck: records.filter((r) => r.stuck).length,
+      records,
+    };
+  }
+
+
   RPG.balance = {
     PRIORITY, GEAR_BY_LEVEL, remainingNodes, spentSp,
-    makeUnit, makeParty, investTree, equipBest, uidSource,
+    makeUnit, makeParty, investTree, investClass, equipBest, uidSource,
     referenceDummy, bestAttack, damageCurve, runBattle, simulate,
     boxSellValue, boxYield, economy, economyLevel, economyTable,
+    COMPOSITIONS, compositionNames, buildComposition,
+    runComposition, simulateComposition, PARTY_SEED,
   };
 })(window.RPG);

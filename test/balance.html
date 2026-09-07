@@ -54,7 +54,8 @@
   <div class="verdict" id="sim-verdict"></div>
 
   <h2>3. 収益効率</h2>
-  <p class="lead">推奨レベルで回したときの1ラウンドあたりゴールド。上位フィールドへ進む動機があるかを見ます。</p>
+  <p class="lead">推奨レベルで回したときの1ラウンドあたりゴールド。上位フィールドへ進む動機があるかを見ます。<br>
+  <b>2026-09-05 に分母の定義を直しました。</b>それまでは1周のラウンド数をウェーブ1本ぶんで数えていたため、ここの値は実際の約3倍に見えていました。<b>この日より前の記録とは直接比べられません</b>（フィールドの順位は変わっていません）。</p>
   <div class="scroll"><table id="income"></table></div>
   <div class="verdict" id="income-verdict"></div>
 
@@ -68,6 +69,18 @@
   </p>
   <div class="scroll"><table id="econ"></table></div>
   <div class="verdict" id="econ-verdict"></div>
+
+  <h2>5. 編成の比べ合い</h2>
+  <p class="lead">
+    終盤（Lv255・5凸・装備込み）で、<b>固定した3編成</b>を同じフィールドに当てて比べます。<br>
+    終盤は<b>どの編成でも勝率100%・残HPほぼ満タン</b>なので、勝敗では差が出ません。
+    見るのは <b>1周のラウンド</b> と <b>手数</b> です。<br>
+    <b>支援入りは「素直な攻撃」の1枠を置き換えたもの</b>です（足していません）。枠の対価を払わない比較は過大評価になります。
+  </p>
+  <div class="scroll"><table id="comp"></table></div>
+  <p class="lead">編成の中身。<b>未装備とSPの振り残しは結果の数字からは見えません</b>（どちらも過去に起きています）。</p>
+  <div class="scroll"><table id="comp-members"></table></div>
+  <div class="verdict" id="comp-verdict"></div>
 </div>
 
 <script src="../src/namespace.js"></script>
@@ -135,6 +148,10 @@
 <script src="../src/core/autoplay.js"></script>
 
 <!-- 拡張コンテンツの締め (§18) — tools/sync_content.py が書き換える -->
+<script src="../data/quests.js"></script>
+<!-- 依頼の縛りを実出撃と同じ関数で見るために要る (A2/A3)。
+     編成を引数で渡す経路はセーブを触らないので、ここでは state を読み込まない。 -->
+<script src="../src/core/quest.js"></script>
 <script src="../src/core/content-seal.js"></script>
 <!-- /拡張コンテンツの締め -->
 <script src="balance.js"></script>
@@ -230,14 +247,16 @@
 
   function finishSim(rows) {
     table(document.getElementById('sim'),
-      ['フィールド', '推奨Lv', 'パーティLv', '勝率', '平均ラウンド', '平均コマンド', '生存', '残HP', '獲得G', '獲得EXP', '宝箱'],
+      ['フィールド', '推奨Lv', 'パーティLv', '勝率', '1周ラウンド', '(旧)波最大', '通算', '平均コマンド',
+        '生存', '残HP', '獲得G', '獲得EXP', '宝箱'],
       rows.map(function (r) {
         var f = RPG.data.fields[r.fieldId];
         var cls = r.winRate >= 0.9 ? 'good' : r.winRate >= 0.4 ? 'warn' : 'bad';
         return [
           f.name, 'Lv' + f.rec_level, 'Lv' + r.level,
           '<span class="' + cls + '">' + pct(r.winRate) + '</span>',
-          r.rounds.toFixed(1), r.commands.toFixed(0),
+          r.rounds.toFixed(1), r.waveRoundMax.toFixed(1), r.totalRounds.toFixed(1),
+          r.commands.toFixed(0),
           r.survivors.toFixed(1) + '人', pct(r.hpLeft),
           num(r.gold), num(r.exp), r.boxes.toFixed(1),
         ];
@@ -254,15 +273,25 @@
           atRec.map(function (r) { return RPG.data.fields[r.fieldId].name + ' ' + pct(r.winRate); }).join(' / ') },
       { ok: under.some(function (r) { return r.winRate < 0.9; }),
         text: '推奨レベル未満では明確に苦しい — レベル上げの意味がある' },
-      { ok: over.every(function (r) { return r.rounds <= 12; }),
-        text: '過剰レベルなら短時間で終わる（周回が快適）— 最大 ' +
-          Math.max.apply(null, over.map(function (r) { return r.rounds; })).toFixed(1) + ' ラウンド' },
+      // ── ラウンドの閾値は「1ウェーブあたり」で書く ──
+      // r.rounds は5ウェーブぶんの合計なので、ウェーブ数を変えたら
+      // 生の数字は意味を失う。割ってから比べる。
+      //
+      // 以前はここが battle.round の最大値（＝ウェーブ1本ぶん）で、
+      // 上限 12 / 25 はその物差しに対して置かれていた。実測は 1.1〜3.7 だったので、
+      // 上限は一度も働いていない。合計に切り替えた実測は 5.1〜8.9（1本あたり 1.0〜1.8）。
+      // 数字はそのまま据え置き、意味だけを「1本あたり 2.4 / 5.0」に置き直した。
+      { ok: over.every(function (r) { return r.rounds / r.waves <= 2.4; }),
+        text: '過剰レベルなら短時間で終わる（周回が快適）— 1ウェーブあたり最大 ' +
+          Math.max.apply(null, over.map(function (r) { return r.rounds / r.waves; })).toFixed(2) +
+          ' ラウンド（上限 2.4）' },
       // ラウンド数は「短すぎないか」より「長すぎないか」が問題になる。
       // 手数が伸びるほど1周が退屈になるので上限だけを見る。
-      // 火力が伸びて2ラウンドで終わる帯があるのは、育成が効いている証拠であって欠陥ではない。
-      { ok: atRec.every(function (r) { return r.rounds >= 1.5 && r.rounds <= 25; }),
-        text: '推奨レベルでの5連戦が 1.5〜25 ラウンドに収まる（長引いて退屈にならない）— ' +
-          atRec.map(function (r) { return r.rounds.toFixed(1); }).join(' / ') },
+      // 下限は置かない——合計で数えると 1ウェーブ1ラウンドが構造上の床なので、
+      // 下限を置いても常に満たされるだけで何も検査しない。
+      { ok: atRec.every(function (r) { return r.rounds / r.waves <= 5.0; }),
+        text: '推奨レベルでの1ウェーブが 5.0 ラウンド以内（長引いて退屈にならない）— ' +
+          atRec.map(function (r) { return (r.rounds / r.waves).toFixed(2); }).join(' / ') },
     ]);
 
     runIncome(rows);
@@ -420,14 +449,164 @@
       // フィールドでは時間あたりが減ることがある（実際、封絶区画→創世の残響→
       // 終わりなき回廊 が 4,882 → 4,677 → 4,375 と2段下がっていた）。
       // 時間あたりで見るには宝箱の期待額が要るので、判定はこちらに置く。
-      { ok: rowsSorted.every(function (r, i) {
-          return i === 0 || r.totalPerRound > rowsSorted[i - 1].totalPerRound;
-        }),
+      //
+      // ── 許容幅を置いている理由 ──
+      // 2026-09-05 に分母を1周の合計ラウンドへ直したあと、
+      // **封絶区画(Lv130) が 灰燼の果て(Lv110) をわずかに下回った**。
+      // 試行数を変えると差は -3.7% 〜 0.0% で符号が動くので、
+      // 「逆転している」ではなく **2つが並んでいる** が実態。
+      // 全12フィールドを通して後退はこの1箇所だけで、幅は 1.8〜2.2%。
+      //
+      // 厳密な増加を求めると、この誤差で落ちる。かといって隣とだけ比べて
+      // 緩めると、毎段わずかに下がり続けて頂点が中腹より低い、という
+      // 崩れ方を素通しにしてしまう。**比べる相手はそこまでの最大値**にして、
+      // 幅は実測の後退（最大2.2%）を包む 5% に置いた。
+      // 本当に劣化したフィールドは桁で外れるので、この幅では隠れない。
+      { ok: (function () {
+          var best = 0;
+          return rowsSorted.every(function (r) {
+            var ok = best === 0 || r.totalPerRound >= best * 0.95;
+            best = Math.max(best, r.totalPerRound);
+            return ok;
+          });
+        }()),
         text: '上位フィールドほど1ラウンドあたりの総収入が多い（宝箱の期待額を含む）'
-          + ' — 進む動機がある' },
+          + ' — 進む動機がある。最大の後退 ' + (function () {
+            var best = 0, worst = 0, at = '';
+            rowsSorted.forEach(function (r) {
+              if (best > 0 && 1 - r.totalPerRound / best > worst) {
+                worst = 1 - r.totalPerRound / best;
+                at = RPG.data.fields[r.fieldId].name;
+              }
+              best = Math.max(best, r.totalPerRound);
+            });
+            return worst > 0 ? pct(worst) + '（' + at + '）' : 'なし';
+          }()) + ' / 許容 5%' },
+    ]);
+
+    runCompositions();
+  }
+
+  // ---------- 5. 編成の比べ合い ----------
+  function runCompositions() {
+    var names = RPG.balance.compositionNames();
+    // 終盤だけを見る。編成を変える価値が読めないのは終盤なので。
+    var fields = ['fl_origin', 'fl_verge', 'fl_beyond', 'fl_endless'];
+    var jobs = [];
+    fields.forEach(function (fid) {
+      names.forEach(function (n) { jobs.push({ fieldId: fid, name: n }); });
+    });
+
+    var rows = [];
+    var i = 0;
+    (function step() {
+      if (i >= jobs.length) { finishCompositions(rows); return; }
+      var job = jobs[i++];
+      progress.textContent = '編成の比べ合い ' + i + ' / ' + jobs.length +
+        '（' + RPG.data.fields[job.fieldId].name + ' / ' + job.name + '）…';
+      setTimeout(function () {
+        rows.push(RPG.balance.simulateComposition({
+          composition: job.name, fieldId: job.fieldId, runs: 30,
+        }));
+        step();
+      }, 10);
+    })();
+  }
+
+  function finishCompositions(rows) {
+    // 基準（素直な攻撃）との差を出す。編成を変える価値はここにしか出ない。
+    var baseBy = {};
+    rows.forEach(function (r) { if (r.composition === 'plain') baseBy[r.fieldId] = r.rounds; });
+
+    table(document.getElementById('comp'),
+      ['フィールド', '編成', '勝率', '1周R', '中央値', '幅', '手数', '基準との差',
+        '生存', '残HP', '負け', '条件失格', '停止'],
+      rows.map(function (r) {
+        var base = baseBy[r.fieldId] || 0;
+        var diff = (base && r.composition !== 'plain')
+          ? ((r.rounds / base - 1) * 100).toFixed(1) + '%' : '—';
+        return [
+          RPG.data.fields[r.fieldId].name, r.label, pct(r.winRate),
+          r.rounds.toFixed(2), r.roundsMedian.toFixed(1), String(r.roundsSpread),
+          r.commands.toFixed(1), diff,
+          r.survivors.toFixed(1) + '人', pct(r.hpLeft),
+          String(r.lost), String(r.failedRule), String(r.stuck),
+        ];
+      }));
+
+    // 編成の中身。**未装備・SPの振り残しは結果の数字からは見えない**ので、
+    // ここに出しておく。過去に両方とも起きている。
+    // 表示用にもう一度組む。**測ったときと同じ種で**組まないと、
+    // 別の装備のパーティの内訳を載せることになる。
+    RPG.rng.seed(RPG.balance.PARTY_SEED);
+    var built = RPG.balance.compositionNames().map(function (n) {
+      return RPG.balance.buildComposition(n);
+    });
+    RPG.rng.seed(null);
+    var detailRows = [];
+    built.forEach(function (c) {
+      c.members.forEach(function (m) {
+        detailRows.push([c.label, m.name, m.klass,
+          m.spSpent + ' / ' + m.spBudget, String(m.spLeft),
+          m.classSpent + ' / ' + m.classTotal, m.gearCount + '点']);
+      });
+    });
+
+    table(document.getElementById('comp-members'),
+      ['編成', '仲間', 'クラス', '使用SP', '余り', 'クラス点', '装備'], detailRows);
+
+    var noLeftover = built.every(function (c) {
+      return c.members.every(function (m) { return m.spLeft === 0; });
+    });
+    var allGeared = built.every(function (c) {
+      return c.members.every(function (m) { return m.gearCount > 0; });
+    });
+
+    // 支援編成は plain の1枠だけを置き換えたものか。
+    // 足してしまうと枠の対価を払っていないので過大評価になる (CLAUDE.md §3)。
+    var plainIds = RPG.balance.COMPOSITIONS.plain.members.map(function (m) { return m.id; });
+    var supIds = RPG.balance.COMPOSITIONS.support.members.map(function (m) { return m.id; });
+    var swapped = supIds.filter(function (id) { return plainIds.indexOf(id) < 0; });
+    var kept = supIds.filter(function (id) { return plainIds.indexOf(id) >= 0; });
+
+    // 同じ種で同じ結果になるか。ならなければ比較そのものが成り立たない。
+    var a = RPG.balance.runComposition({ composition: 'plain', fieldId: 'fl_endless', seed: 31337 });
+    var b = RPG.balance.runComposition({ composition: 'plain', fieldId: 'fl_endless', seed: 31337 });
+
+    // ラウンドか手数のどちらかで、編成の差が読み取れるか。
+    // 勝率と残HPは天井に張り付いているので、そこでは差が出ない。
+    var readable = fieldsWithDiff(rows, baseBy);
+
+    verdict(document.getElementById('comp-verdict'), [
+      { ok: noLeftover, text: '3編成とも SP を使い切っている（振り残しゼロ）' },
+      { ok: allGeared, text: '全員が装備している（未装備のまま測っていない）' },
+      { ok: swapped.length === 1 && kept.length === plainIds.length - 1,
+        text: '支援編成は基準の1枠を置き換えたもの — 入れ替え ' + swapped.length +
+          '人 / 据え置き ' + kept.length + '人' },
+      { ok: a.rounds === b.rounds && a.commands === b.commands,
+        text: '同じ種から同じ結果が出る（1試行を単独で再現できる）— ' +
+          a.rounds + 'R / ' + a.commands + '手' },
+      { ok: readable === rows.length / 3,
+        text: '勝敗が天井でも編成の差が読み取れる — ' + readable + ' / ' +
+          (rows.length / 3) + ' フィールドで差が出た' },
     ]);
 
     progress.textContent = '完了';
+  }
+
+  // ラウンドか手数のどちらかで、基準と 5% 以上ちがう編成があるフィールドを数える。
+  // 「差が出ない」＝この道具では編成の価値を測れない、という意味になる。
+  function fieldsWithDiff(rows, baseBy) {
+    var byField = {};
+    rows.forEach(function (r) { (byField[r.fieldId] = byField[r.fieldId] || []).push(r); });
+    return Object.keys(byField).filter(function (fid) {
+      var base = byField[fid].find(function (r) { return r.composition === 'plain'; });
+      return byField[fid].some(function (r) {
+        if (r.composition === 'plain') return false;
+        return Math.abs(r.rounds / base.rounds - 1) >= 0.05 ||
+          Math.abs(r.commands / base.commands - 1) >= 0.05;
+      });
+    }).length;
   }
 })();
 </script>

@@ -1055,7 +1055,16 @@
       rewardScale: config.rewardScale || null,
       // 縛りを破ったときの理由。勝っても達成にならない。
       ruleBroken: /** @type {string|null} */ (null),
-      // ウェーブをまたいだ通算ラウンド。round はウェーブごとに1に戻るため別に数える。
+      // 1戦を通して**実際に戦ったラウンドの合計**。round はウェーブごとに
+      // 1へ戻るので別に数える。依頼の「Nラウンド以内」はこの値を見る。
+      //
+      // ── 以前はラウンド送りの回数だけを数えていた ──
+      // ウェーブが1ラウンドで片付くと増えなかったので、5連戦で実際に
+      // 6ラウンド戦っても通算は2にしかならなかった。
+      // チップには「10ラウンド以内」と出るのに、判定は読み手が期待する数の
+      // 3倍ゆるい。オートで挑める制限つき依頼2件が一度も引っかからなかったのは
+      // これが理由（制限10・40 に対して実測2.0）。
+      // いまはウェーブが変わるときにも1つ進めるので、言葉どおりの意味になる。
       totalRounds: 1,
       // 弱点コンボ (§10.6)。手動で段取りを組んだときだけ伸びる。
       //
@@ -1138,6 +1147,21 @@
    */
   function nextWave(battle) {
     battle.wave++;
+
+    // 2つ目以降のウェーブは、そのウェーブの1ラウンド目を通算へ足す。
+    // **初戦は数え済み**（初期値が1）。
+    // これが無いと、ウェーブ内で決着するたびに通算が止まり、
+    // 「Nラウンド以内」が実際に戦った数と食い違う。
+    //
+    // 足す前に制限を見る。ラウンド送りと**同じ判定・同じ順序**。
+    // ここを飛ばすと、ウェーブ移行で増えたぶんが判定を素通りする
+    // （実際にそう書いて、3ウェーブ・合計4ラウンドの戦闘が
+    // 制限3を通り抜けた）。
+    if (battle.wave > 1) {
+      if (hitRoundLimit(battle)) return;
+      battle.totalRounds++;
+    }
+
     const field = battle.field;
     const isFinal = battle.wave === battle.totalWaves && battle.bossFinale;
 
@@ -3158,10 +3182,7 @@
     }
 
     // ラウンド制限。次のラウンドに入れないなら時間切れ。
-    if (battle.rules.maxRounds && battle.totalRounds >= battle.rules.maxRounds) {
-      failQuest(battle, `${battle.rules.maxRounds} ラウンド以内に決着がつかなかった`);
-      return;
-    }
+    if (hitRoundLimit(battle)) return;
 
     battle.round++;
     battle.totalRounds++;
@@ -3172,6 +3193,25 @@
     battle.phase = 'command';
     skipDeadActors(battle);
     if (battle.actorIndex >= battle.party.length) runEnemyPhase(battle);
+  }
+
+  /**
+   * ラウンド制限に達しているか。達していたら失格にして true を返す。
+   *
+   * ラウンド送りとウェーブ移行の**両方**から呼ぶ。片方だけに書くと、
+   * もう片方で増えたぶんが判定を素通りする。
+   *
+   * 「Nラウンド以内」は **Nラウンド目に決着すれば間に合う**。
+   * 判定は次のラウンドへ入ろうとするときにしか走らないため。
+   *
+   * @param {any} battle
+   * @returns {boolean}
+   */
+  function hitRoundLimit(battle) {
+    if (!battle.rules.maxRounds) return false;
+    if (battle.totalRounds < battle.rules.maxRounds) return false;
+    failQuest(battle, `${battle.rules.maxRounds} ラウンド以内に決着がつかなかった`);
+    return true;
   }
 
   /**

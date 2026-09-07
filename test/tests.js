@@ -10210,6 +10210,273 @@
         const budget = 254 + 5;
         check('測定道具: 想定ビルドが SP を使い切る', spent >= budget - 5,
           `${spent} / ${budget} SP`);
+
+        // ── ラウンドの数え方を固定する ──
+        //
+        // battle.round       いま何ラウンド目か。**ウェーブごとに1へ戻る**
+        // battle.totalRounds 1戦で戦ったラウンドの合計。依頼の制限が見る値
+        //
+        // 測定道具は以前 battle.round の最大値を「1周のラウンド数」として
+        // 使っていた。5連戦では1本ぶんしか数えないので、ラウンド当たり収益が
+        // 実測で約3倍に見えていた（順位は変わらなかったが、絶対値は誤り）。
+        //
+        // さらに battle.totalRounds 自身も、以前は**ラウンド送りの回数**しか
+        // 数えていなかった。ウェーブが1ラウンドで片付くと増えないので、
+        // 5連戦で6ラウンド戦っても2にしかならない。チップの「Nラウンド以内」が
+        // 3倍ゆるかったのはこれが理由。いまはウェーブ移行でも1つ進む。
+        //
+        // **道具とエンジンで二重に数えて、一致を見張る。** 片方が壊れたときに
+        // 気付けるようにするため。
+        {
+          const cfg = {
+            fieldId: 'fl_verge', waves: 3, bossFinale: true, level: 225, limitBreak: 3,
+          };
+
+          // 独立に数える。道具と同じ計算を書くのではなく、
+          // 「ウェーブが変わった瞬間の battle.round を足す」で外から数える。
+          RPG.rng.seed(20260905);
+          const party = RPG.balance.makeParty(cfg.level, cfg.limitBreak);
+          const b = RPG.battle.start({
+            fieldId: cfg.fieldId, waves: cfg.waves, party, bossFinale: cfg.bossFinale,
+          });
+          let sumByHand = 0;
+          let transitions = 0;
+          let prevRound = b.round;
+          let guard = 0;
+          while (!b.finished && guard++ < 4000) {
+            if (b.phase === 'wave_clear') {
+              sumByHand += b.round;
+              RPG.battle.advanceWave(b);
+              prevRound = b.round;
+              continue;
+            }
+            const a = RPG.autoplay.chooseAction(b);
+            if (!a) break;
+            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            if (b.round > prevRound) { transitions += b.round - prevRound; }
+            prevRound = b.round;
+          }
+          sumByHand += b.round;
+
+          RPG.rng.seed(20260905);
+          const r = RPG.balance.runBattle(cfg);
+          RPG.rng.seed(null);
+
+          check('測定道具: 1周のラウンドは各ウェーブの合計と一致する',
+            r.rounds === sumByHand, `道具 ${r.rounds} / 手で数えて ${sumByHand}`);
+          // ここが要。エンジンの数えた合計と、外から数えた合計が同じであること。
+          check('ラウンド: エンジンの通算が実際に戦った合計と一致する',
+            r.totalRounds === sumByHand,
+            `エンジン ${r.totalRounds} / 手で数えて ${sumByHand}`);
+          check('ラウンド: 合計はウェーブ数を下回らない',
+            r.rounds >= cfg.waves, `合計 ${r.rounds} / ${cfg.waves}ウェーブ`);
+          check('ラウンド: ラウンド送りの回数は合計からウェーブ数を引いた数',
+            transitions === sumByHand - cfg.waves,
+            `送り ${transitions} / 合計 ${sumByHand} - ${cfg.waves}ウェーブ`);
+          check('測定道具: 旧指標（ウェーブ1本の最大）は1周の長さを超えない',
+            r.waveRoundMax <= r.rounds, `旧 ${r.waveRoundMax} / 合計 ${r.rounds}`);
+        }
+
+        // ── 依頼のラウンド制限の境界 ──
+        //
+        // 「N ラウンド以内」は **N ラウンド目に決着すれば間に合う**。
+        // 判定は次のラウンドへ入るときにしか走らないので、
+        // N ラウンド目で勝った戦闘は制限に触れない。
+        //
+        // 最初この境界を1つ間違えて書き、「制限ちょうどなら失敗するはず」と
+        // した検査が落ちた。**落ちたのは実装ではなく検査のほう**だった。
+        // 両側（ちょうど／1つ厳しく）を見ないと、この向きは分からない。
+        {
+          const run = (/** @type {number|null} */ maxRounds) => {
+            RPG.rng.seed(20260905);
+            const party = RPG.balance.makeParty(225, 3);
+            const b = RPG.battle.start({
+              fieldId: 'fl_verge', waves: 3, bossFinale: true, party,
+              quest: maxRounds == null ? null : { rules: { maxRounds } },
+            });
+            let guard = 0;
+            while (!b.finished && guard++ < 4000) {
+              if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+              const a = RPG.autoplay.chooseAction(b);
+              if (!a) break;
+              RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            }
+            RPG.rng.seed(null);
+            return b;
+          };
+
+          const free = run(null);
+          check('依頼: 制限なしなら totalRounds は伸びる',
+            free.totalRounds >= 2, `${free.totalRounds} ラウンド`);
+
+          const reached = free.totalRounds;        // 制限なしで到達したラウンド
+          const justEnough = run(reached);         // ちょうど → 間に合う
+          const tooTight = run(reached - 1);       // 1つ厳しく → 失敗する
+
+          check('依頼: 制限ちょうどのラウンドで決着すれば間に合う',
+            !justEnough.ruleBroken,
+            justEnough.ruleBroken || `制限 ${reached} で完走（${justEnough.totalRounds} ラウンド）`);
+          check('依頼: 制限を1つ厳しくすると失敗し、その値で止まる',
+            !!tooTight.ruleBroken && tooTight.totalRounds === reached - 1,
+            `制限 ${reached - 1} / 実測 ${tooTight.totalRounds} / ${tooTight.ruleBroken || '失敗せず'}`);
+        }
+
+        // ── 固定した編成そのものの検査 (A2) ──
+        //
+        // 「終盤はどの編成でも勝率100%」で行き止まっていたので、
+        // 比べられる編成を3つ固定した。**編成の作りが崩れると、
+        // その上で出す比較は全部無意味になる**ので、作りのほうを見張る。
+        {
+          const names = RPG.balance.compositionNames();
+          check('編成: 3つ以上ある', names.length >= 3, names.join(' / '));
+
+          RPG.rng.seed(RPG.balance.PARTY_SEED);
+          const built = names.map((/** @type {string} */ n) => RPG.balance.buildComposition(n));
+          RPG.rng.seed(null);
+
+          const leftover = [];
+          const bare = [];
+          for (const c of built) {
+            for (const m of c.members) {
+              if (m.spLeft !== 0) leftover.push(`${c.label}/${m.name} 余り${m.spLeft}`);
+              if (m.gearCount === 0) bare.push(`${c.label}/${m.name}`);
+            }
+          }
+          // 想定ビルドが SP を半分余らせたまま全部の測定が回っていた事故がある。
+          // 編成が増えるとまた起きるので、編成ごとに見る。
+          check('編成: 全員が SP を使い切っている', leftover.length === 0,
+            leftover.join(' / ') || `${built.length} 編成を確認`);
+          check('編成: 全員が装備している', bare.length === 0,
+            bare.join(' / ') || `${built.length} 編成を確認`);
+
+          // 支援は「足す」ではなく「置き換える」。足すと枠の対価を
+          // 払っていないぶん過大評価になる (CLAUDE.md §3)。
+          const ids = (/** @type {string} */ n) =>
+            RPG.balance.COMPOSITIONS[n].members.map((/** @type {any} */ m) => m.id);
+          const plainIds = ids('plain');
+          const supIds = ids('support');
+          const swapped = supIds.filter((/** @type {string} */ id) => plainIds.indexOf(id) < 0);
+          check('編成: 支援入りは基準の1枠だけを置き換えている',
+            swapped.length === 1 && supIds.length === plainIds.length,
+            `入れ替え ${swapped.length}人 / 人数 ${supIds.length} 対 ${plainIds.length}`);
+
+          // 外せない枠を抜いた編成は、実際には組めない編成になる。
+          const fixedIds = Object.keys(RPG.data.characters)
+            .filter((/** @type {string} */ id) => RPG.data.characters[id].fixed);
+          const missing = built.filter((/** @type {any} */ c) =>
+            fixedIds.some((/** @type {string} */ id) =>
+              !c.members.some((/** @type {any} */ m) => m.id === id)));
+          check('編成: 外せない枠が全編成に入っている', missing.length === 0,
+            missing.map((/** @type {any} */ c) => c.label).join(' / ') ||
+              fixedIds.join(' / ') || '外せない枠は無い');
+
+          // 同じ種から同じ結果。ここが崩れると比較そのものが成立しない。
+          const r1 = RPG.balance.runComposition(
+            { composition: 'plain', fieldId: 'fl_endless', seed: 31337 });
+          const r2 = RPG.balance.runComposition(
+            { composition: 'plain', fieldId: 'fl_endless', seed: 31337 });
+          check('編成: 同じ種から同じ結果が出る',
+            r1.rounds === r2.rounds && r1.commands === r2.commands &&
+              r1.victory === r2.victory,
+            `${r1.rounds}R/${r1.commands}手 と ${r2.rounds}R/${r2.commands}手`);
+        }
+
+        // ── 依頼込みの測定が、通常の出撃と区別されているか (A2) ──
+        //
+        // 依頼の縛りは2箇所に分かれている。編成の縛り (RPG.quest.checkParty) と
+        // 戦闘中の縛り (battle.js が quest から読む)。**片方だけ通して
+        // 「依頼を測った」と言えてしまう**のが怖いので、両方を見る。
+        {
+          const roster = [
+            { id: 'ch_hero', level: 255 },
+            { id: 'ch_lg_zero', level: 255 },
+          ];
+          // 編成の縛り: 実際の出撃と同じ関数が、渡した編成でも働くか
+          const overLevel = RPG.quest.checkParty({ rules: { maxLevel: 100 } }, roster);
+          const okLevel = RPG.quest.checkParty({ rules: { maxLevel: 255 } }, roster);
+          const overParty = RPG.quest.checkParty({ rules: { maxParty: 1 } }, roster);
+          check('依頼: 編成の縛りが渡した編成にも効く（レベル上限）',
+            !overLevel.ok && okLevel.ok,
+            `Lv100制限=${overLevel.ok ? '通過' : '弾く'} / Lv255制限=${okLevel.ok ? '通過' : '弾く'}`);
+          check('依頼: 編成の縛りが渡した編成にも効く（人数上限）',
+            !overParty.ok, overParty.reasons.join(' / ') || '弾かれなかった');
+
+          // 戦闘中の縛り: 同じ戦闘が、依頼つきだと失格になる
+          const plain = RPG.balance.runComposition(
+            { composition: 'plain', fieldId: 'fl_endless', seed: 555 });
+          const withQuest = RPG.balance.runComposition({
+            composition: 'plain', fieldId: 'fl_endless', seed: 555,
+            quest: { rules: { maxRounds: 1 } },
+          });
+          check('依頼: 同じ戦闘でも依頼の縛りがあれば結果が変わる',
+            plain.victory && !!withQuest.ruleBroken && !withQuest.victory,
+            `通常=${plain.victory ? '勝利' : '敗北'} / 依頼つき=${withQuest.ruleBroken || '素通し'}`);
+
+          // オート禁止の依頼をオートで測っても実態を映さない。旗が立つこと。
+          const noAuto = RPG.balance.runComposition({
+            composition: 'plain', fieldId: 'fl_endless', seed: 555,
+            quest: { rules: { noAuto: true } },
+          });
+          check('依頼: オート禁止が旗として出る（黙って測らない）',
+            noAuto.autoAllowed === false && plain.autoAllowed === true,
+            `禁止=${noAuto.autoAllowed} / 通常=${plain.autoAllowed}`);
+        }
+
+        // ── 「三で足りる」が狙いどおり働いているか (A3) ──
+        //
+        // 縛りつきの依頼13件のうち11件がオート禁止で、オートで挑める2件は
+        // 実測で一度も引っかからなかった。**オートのまま編成を考える理由**が
+        // 無かったので、その1件目として置いたもの。
+        // 狙いが崩れたらここで落ちる。
+        {
+          const q = RPG.data.quests.q_three_at_the_verge;
+          check('三で足りる: 依頼が実在する', !!q, q ? q.name : '見つからない');
+
+          if (q) {
+            // 1. オートで挑めること。ここが目的そのものなので、
+            //    noAuto が付いた時点で依頼の意味が変わる。
+            check('三で足りる: オートで挑める',
+              !(q.rules && q.rules.noAuto), JSON.stringify(q.rules));
+
+            // 2. 縛りは1種類だけ。増やすと「どれが効いたか」が分からなくなる。
+            check('三で足りる: 縛りは1種類だけ',
+              Object.keys(q.rules || {}).length === 1,
+              Object.keys(q.rules || {}).join(' / '));
+
+            // 3. 敵を盛って差を作っていないこと。盛ると「編成で変わる」ではなく
+            //    「地力で殴れるか」を測る依頼になる。
+            check('三で足りる: 敵を盛っていない',
+              q.enemyLv == null && q.enemyScale == null,
+              `enemyLv=${q.enemyLv} / enemyScale=${q.enemyScale}`);
+
+            // 4. 門: 4人は弾かれ、3人は通る
+            const roster = (/** @type {number} */ n) =>
+              RPG.balance.COMPOSITIONS.plain.members.slice(0, n)
+                .map((/** @type {any} */ m) => ({ id: m.id, level: 255 }));
+            const four = RPG.quest.checkParty(q, roster(4));
+            const three = RPG.quest.checkParty(q, roster(3));
+            check('三で足りる: 4人は弾かれ3人は通る',
+              !four.ok && three.ok,
+              `4人=${four.ok ? '通過' : four.reasons.join('/')} / 3人=${three.ok ? '通過' : '弾く'}`);
+
+            // 5. 狙いの核: **適合した編成は全達成し、素直な編成より明らかに速い**。
+            //    ここが崩れたら「誰を連れても同じ」になり、依頼の意味が消える。
+            const fit = RPG.balance.simulateComposition({
+              composition: 'element', fieldId: q.fieldId, waves: q.waves,
+              bossFinale: q.bossFinale !== false, quest: q, size: 3, runs: 20,
+            });
+            const plainThree = RPG.balance.simulateComposition({
+              composition: 'plain', fieldId: q.fieldId, waves: q.waves,
+              bossFinale: q.bossFinale !== false, quest: q, size: 3, runs: 20,
+            });
+            check('三で足りる: 適合した編成は全達成する',
+              fit.winRate === 1 && fit.partyOk,
+              `勝率 ${(fit.winRate * 100).toFixed(0)}% / 門=${fit.partyOk ? '通過' : '拒否'}`);
+            check('三で足りる: 編成で所要が明らかに変わる（1.5倍以上）',
+              plainThree.rounds >= fit.rounds * 1.5,
+              `適合 ${fit.rounds.toFixed(1)}R 対 素直 ${plainThree.rounds.toFixed(1)}R`);
+          }
+        }
       })
       // ── 本体が読む JS が全部、構文として通るか ──
       //
