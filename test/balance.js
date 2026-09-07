@@ -254,6 +254,43 @@
         },
       ],
     },
+
+    /* ── 支援を1つの型で代表させない (C1) ──
+     *
+     * A2 の時点では「支援入り」1つしか無く、終盤で遅いという結果だけが出ていた。
+     * だが支援と言っても仕事が違う。**バフで攻めを伸ばす**のと、
+     * **削られたぶんを戻す**のと、**そもそも削られないようにする**のは別物で、
+     * どれが効くかは「どれだけ削られるか」で変わる。
+     * 1つにまとめると「支援は遅い」で終わってしまうので、3つに分ける。
+     *
+     * どれも plain の**ディアナ1枠だけ**を置き換えたもの。比べる相手を揃える。
+     */
+    heal: {
+      label: '回復入り',
+      note: 'plain のディアナをネヴィアへ置き換えたもの。削られたぶんを戻す型。',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_zero', klass: 'cls_breaker' },
+        { id: 'ch_lg_nefeli', klass: 'cls_breaker' },
+        {
+          id: 'ch_lg_nevia', klass: 'cls_mender',       // 絶えぬ灯（再生・瀕死回復・ウェーブ回復）
+          prefix: ['tr_regen_hi', 'tr_low_hp_heal_hi', 'tr_wave_heal', 'tr_heal_power_hi'],
+        },
+      ],
+    },
+    guard: {
+      label: '防護入り',
+      note: 'plain のディアナをテオドラへ置き換えたもの。削られないようにする型。',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_zero', klass: 'cls_breaker' },
+        { id: 'ch_lg_nefeli', klass: 'cls_breaker' },
+        {
+          id: 'ch_lg_theodora', klass: 'cls_guardian',  // 万人の盾（庇う・肩代わり・反射）
+          prefix: ['tr_guard_ally_hi', 'tr_damage_share', 'tr_back_guard', 'tr_shield_regen'],
+        },
+      ],
+    },
   };
 
   /**
