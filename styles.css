@@ -3117,6 +3117,7 @@ body.has-backdrop { background: transparent; }
 .target-btn:hover { border-color: var(--ember); }
 .target-btn:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
 .target-btn.is-foe { border-left: 3px solid var(--danger); }
+.target-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .target-name { font-size: 13px; }
 .target-hp { position: relative; display: block; height: 14px; }
 .target-hp-bar {
