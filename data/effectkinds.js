@@ -201,7 +201,7 @@ RPG.data.effectKinds = {
   wave_revive: { to: 'passives', shape: 'max', uniq: null, key: 'waveRevive', label: 'ウェーブ移行時に復活', fmt: 'pct' },
   wave_stack: { to: 'passives', shape: 'add', uniq: null, key: 'waveStack', label: 'ウェーブごとに火力', fmt: 'pct' },
   weak_guard: { to: 'situational', shape: 'add', uniq: null, key: 'weakGuard', label: '不利属性で受ける被害を軽減', fmt: 'pct' },
-  weak_hunter: { to: 'situational', shape: 'add', uniq: null, key: 'weakHunter', label: '不利属性でも通す', fmt: 'pct' },
+  weak_hunter: { to: 'situational', shape: 'add', uniq: null, key: 'weakHunter', label: '有利を取れたときの火力', fmt: 'pct' },
 };
 
 /**
