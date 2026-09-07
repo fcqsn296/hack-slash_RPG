@@ -8036,6 +8036,10 @@
           comboThreshold: (r) => r.unit.passives.comboThreshold,
           comboRefund: (r) => r.unit.passives.comboRefund,
           comboMaxUp: (r) => r.unit.passives.comboMaxUp,
+          // 属性を散らす軸 (§7.8「七色の杖」)。どちらも powerScale が
+          // attacker.passives から読むので、ユニットまで届くことを見る。
+          rainbowPower: (r) => r.unit.passives.rainbowPower,
+          varietyPower: (r) => r.unit.passives.varietyPower,
           midPowerBoost: (r) => (r.unit.situational || {}).midPowerBoost,
           midPowerCap: (r) => (r.unit.situational || {}).midPowerCap,
           critPierce: (r) => r.attacker.critPierce,
