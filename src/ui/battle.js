@@ -793,7 +793,15 @@
           h('button.target-btn' + (t.side === 'enemy' ? '.is-foe' : ''), {
             onClick: () => confirmTarget(t),
           },
-            h('span.target-name', { text: t.name }),
+            // ── ここにも相性を出す ──
+            // 上の敵カードには出していたが、縦長の画面では
+            // **カードとこのボタンが離れる**ので、視線が往復する。
+            // 押す場所そのものに答えを置く。同じ advantageChip を使うので
+            // 上下で食い違わない。味方を選ぶときは相性の話ではないので出さない。
+            h('span.target-line',
+              h('span.target-name', { text: t.name }),
+              t.side === 'enemy' ? advantageChip(skill, t) : null
+            ),
             h('span.target-hp',
               h('span.target-hp-bar', {
                 style: `--w: ${Math.max(0, Math.round(t.hp / t.maxHp * 100))}%`,
