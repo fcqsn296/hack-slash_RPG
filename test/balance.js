@@ -93,18 +93,24 @@
     // prefix は編成ごとの先振り (A2)。PRIORITY より前に置く。
     // 既定は空なので、渡さなければ従来とまったく同じ結果になる。
     const pre = prefix || [];
+
+    // ── 順位どおりに振るには、1段ずつ・毎回先頭から見直す ──
+    //
+    // 上級のノードは初級＋中級に一定量の投資が要る。ノードごとに
+    // 振り切ってから次へ進む書き方だと、**上級の枝は解放される前に
+    // SPを使い切られて黙って落ちる**。実際 tr_double（双撃の理）が
+    // どの型でも0段だった。属性特化の tr_mastery_all なども同じ。
+    //
+    // 1段振るたびに先頭から見直せば、解放された瞬間に順位どおり拾える。
+    // 254SP × 340ノードでも一瞬で終わる。
     const order = pre
       .concat(PRIORITY.filter((id) => pre.indexOf(id) < 0));
-    while (progressed && guard++ < 500) {
-      progressed = false;
-      // 明示した順に振り、使い切れなかったぶんを定義順で埋める。
-      for (const nodeId of order.concat(
-        remainingNodes().filter((id) => order.indexOf(id) < 0))) {
-        while (RPG.tree.canInvest(charSave, nodeId).ok) {
-          charSave.tree[nodeId] = (charSave.tree[nodeId] || 0) + 1;
-          progressed = true;
-        }
-      }
+    while (guard++ < 2000) {
+      const all = order.concat(
+        remainingNodes().filter((id) => order.indexOf(id) < 0));
+      const next = all.find((id) => RPG.tree.canInvest(charSave, id).ok);
+      if (!next) break;
+      charSave.tree[next] = (charSave.tree[next] || 0) + 1;
     }
     return charSave;
   }
