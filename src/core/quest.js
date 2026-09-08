@@ -107,6 +107,19 @@
       reasons.push(`出撃できるのは ${rules.maxParty} 人まで（現在 ${party.length} 人）`);
     }
 
+    // ── なぜ下限が要るのか ──
+    // 上限だけだと「3人以下」は1人でも満たしてしまう。
+    // 「3人で挑め」を表す手段がどこにも無く、実際に最大レベルの1人で
+    // 突破された（試遊の報告と、共有された実データで再現済み）。
+    //
+    // ラウンド制限では代われない。**単騎のほうが速い**ためである。
+    // 実データの主人公単騎は5ラウンド（中央値）で抜け、3人編成は5〜10ラウンド。
+    // 火力は1人ぶんに集約でき、上限突破と多段が乗るので、
+    // 人数を減らすほど速くなる帯がある。時間で縛ると先に人数の多い側が落ちる。
+    if (rules.minParty && party.length < rules.minParty) {
+      reasons.push(`${rules.minParty} 人以上で出撃すること（現在 ${party.length} 人）`);
+    }
+
     if (rules.maxLevel) {
       const over = party.filter((/** @type {string} */ id) => levelOf(id) > rules.maxLevel);
       if (over.length) {
@@ -141,7 +154,13 @@
     const r = quest.rules || {};
     /** @type {string[]} */
     const out = [];
-    if (r.maxParty) out.push(`${r.maxParty}人以下`);
+    // 上限と下限が同じなら「ちょうど3人」と1つにまとめる。
+    // 「3人以下」「3人以上」が並ぶと、読み手が2つの条件だと思ってしまう。
+    if (r.minParty && r.maxParty === r.minParty) out.push(`ちょうど${r.maxParty}人`);
+    else {
+      if (r.maxParty) out.push(`${r.maxParty}人以下`);
+      if (r.minParty) out.push(`${r.minParty}人以上`);
+    }
     if (r.maxLevel) out.push(`Lv${r.maxLevel}以下`);
     if (r.elements) out.push(r.elements.map((/** @type {string} */ e) => RPG.damage.ELEMENT_LABEL[e]).join('・') + '属性のみ');
     if (r.maxRounds) out.push(`${r.maxRounds}ラウンド以内`);

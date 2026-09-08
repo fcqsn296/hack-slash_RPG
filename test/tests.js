@@ -10540,8 +10540,30 @@
                 RPG.rng.seed(null);
                 if (b.victory) cleared++;
               }
-              check('三で足りる: 最大レベルの単騎では達成できない',
+              check('三で足りる: 消耗戦の単騎では達成できない（時間切れ）',
                 cleared === 0, `テオドラ単騎 Lv255/5凸 で ${cleared} / 6 回達成`);
+            }
+
+            // 3. **人数の下限。** ここが本体。
+            //
+            // 「3人以下」は1人でも満たしてしまい、実際に最大レベルの1人で
+            // 突破された。ラウンド制限では代われない——共有された実データの
+            // 主人公単騎は5ラウンド（中央値）で、3人編成（5〜10）より**速い**。
+            // 火力を1人へ集約できるので、時間で縛ると人数の多い側が先に落ちる。
+            {
+              const roster = (/** @type {number} */ n) =>
+                RPG.balance.COMPOSITIONS.plain.members.slice(0, n)
+                  .map((/** @type {any} */ m) => ({ id: m.id, level: 255 }));
+              const one = RPG.quest.checkParty(q, roster(1));
+              const two = RPG.quest.checkParty(q, roster(2));
+              const three = RPG.quest.checkParty(q, roster(3));
+              check('三で足りる: 1人・2人では出撃できない',
+                !one.ok && !two.ok && three.ok,
+                `1人=${one.ok ? '通過' : one.reasons.join('/')} / ` +
+                `2人=${two.ok ? '通過' : '弾く'} / 3人=${three.ok ? '通過' : '弾く'}`);
+              check('三で足りる: 縛りの表示が「ちょうど3人」にまとまる',
+                RPG.quest.ruleLabels(q).some((/** @type {string} */ x) => /ちょうど3人/.test(x)),
+                RPG.quest.ruleLabels(q).join(' / '));
             }
 
             // 3. 敵を盛って差を作っていないこと。盛ると「編成で変わる」ではなく
