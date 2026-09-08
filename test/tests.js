@@ -10566,11 +10566,19 @@
                 RPG.quest.ruleLabels(q).join(' / '));
             }
 
-            // 3. 敵を盛って差を作っていないこと。盛ると「編成で変わる」ではなく
-            //    「地力で殴れるか」を測る依頼になる。
-            check('三で足りる: 敵を盛っていない',
-              q.enemyLv == null && q.enemyScale == null,
-              `enemyLv=${q.enemyLv} / enemyScale=${q.enemyScale}`);
+            // 3. 敵を盛ってあること。
+            //
+            // 置いた当初は「盛らない」を守らせていた。差を作るために敵を厚くすると
+            // 「編成で変わるか」ではなく「地力で殴れるか」を測る依頼になるためだが、
+            // **そもそも素のフィールドが弱すぎた**。
+            // 実データの主人公（最適化されていない・使わない技まで積んである）が
+            // 終盤の全フィールドを単騎・5ラウンド・無傷で抜ける。
+            // 5ラウンドは毎ウェーブ1ラウンドで、相手が一度も行動していない。
+            //
+            // 縛りで塞ぐ話ではないので、この依頼だけ敵を厚くした。
+            // enemyScale は依頼ごとの上書きなので、フィールドの周回は変わらない。
+            check('三で足りる: 敵を実データ基準まで引き上げてある',
+              q.enemyScale >= 10, `enemyScale=${q.enemyScale}`);
 
             // 4. 門: 4人は弾かれ、3人は通る
             const roster = (/** @type {number} */ n) =>
@@ -10582,22 +10590,41 @@
               !four.ok && three.ok,
               `4人=${four.ok ? '通過' : four.reasons.join('/')} / 3人=${three.ok ? '通過' : '弾く'}`);
 
-            // 5. 狙いの核: **適合した編成は全達成し、素直な編成より明らかに速い**。
-            //    ここが崩れたら「誰を連れても同じ」になり、依頼の意味が消える。
-            const fit = RPG.balance.simulateComposition({
-              composition: 'element', fieldId: q.fieldId, waves: q.waves,
-              bossFinale: q.bossFinale !== false, quest: q, size: 3, runs: 20,
-            });
-            const plainThree = RPG.balance.simulateComposition({
-              composition: 'plain', fieldId: q.fieldId, waves: q.waves,
-              bossFinale: q.bossFinale !== false, quest: q, size: 3, runs: 20,
-            });
-            check('三で足りる: 適合した編成は全達成する',
-              fit.winRate === 1 && fit.partyOk,
-              `勝率 ${(fit.winRate * 100).toFixed(0)}% / 門=${fit.partyOk ? '通過' : '拒否'}`);
-            check('三で足りる: 編成で所要が明らかに変わる（1.5倍以上）',
-              plainThree.rounds >= fit.rounds * 1.5,
-              `適合 ${fit.rounds.toFixed(1)}R 対 素直 ${plainThree.rounds.toFixed(1)}R`);
+            // 5. 狙いの核: **3人なら届き、1人では届かない。**
+            //
+            // ここは道具の想定ビルド（PRIORITY ＋ 定義順の穴埋め）では測れない。
+            // 実物と桁が違うためで、実際そのせいで「単騎では無理」と誤判定した。
+            // 実データを写した終盤ビルド（endgameUnit）で見る。
+            {
+              const runOne = (/** @type {string[]} */ ids, /** @type {number} */ seed) => {
+                RPG.rng.seed(RPG.balance.PARTY_SEED);
+                const party = ids.map((id) => RPG.balance.endgameUnit(id, 255, 0));
+                RPG.rng.seed(seed);
+                const b = RPG.battle.start({
+                  fieldId: q.fieldId, waves: q.waves,
+                  bossFinale: q.bossFinale !== false, party, quest: q,
+                });
+                let g = 0;
+                while (!b.finished && g++ < 9000) {
+                  if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+                  const a = RPG.autoplay.chooseAction(b);
+                  if (!a) break;
+                  RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+                }
+                RPG.rng.seed(null);
+                return b.victory;
+              };
+              let solo = 0;
+              let trio = 0;
+              for (let i = 0; i < 6; i++) {
+                if (runOne(['ch_hero'], 9800 + i)) solo++;
+                if (runOne(['ch_hero', 'ch_lg_zero', 'ch_lg_licorice'], 9800 + i)) trio++;
+              }
+              check('三で足りる: 終盤ビルドの単騎でも届かない',
+                solo === 0, `単騎 ${solo} / 6 回達成`);
+              check('三で足りる: 終盤ビルドの3人なら届く',
+                trio >= 4, `3人 ${trio} / 6 回達成`);
+            }
           }
         }
       })
