@@ -846,9 +846,16 @@ RPG.data.skillTree = [
     id: 'tr_double', tier: 'high', name: '双撃の理', cost: 8, maxLevel: 1,
     effects: [
       { kind: 'double_hits', value: 1 },
-      { kind: 'stat_pct', stat: 'atk', value: -0.30 },
+      // 代償を stat_cost へ移すまで、この -30% は最終ATKを 3.5% しか削っていなかった
+      // （素の値にしか掛からないうえ、主人公は mirrorStat が魔力を床にする）。
+      // だから全ビルドで事実上の必須になっていた。
+      //
+      // 額面どおり効かせて測り直すと、-30% はちょうど平衡点で、
+      // 取っても取らなくても決着 12R = **取る意味が消える**。
+      // 選択肢として残すため -20%（実測 ×1.09）に置いた。
+      { kind: 'stat_cost', stat: 'atk', value: -0.20 },
     ],
-    desc: '攻撃技が必ず2回発動する。ただしATK -30%',
+    desc: '攻撃技が必ず2回発動する。ただしATK -20%',
   },
   {
     id: 'tr_chain', tier: 'high', name: '波及', cost: 4, maxLevel: 3,
@@ -2069,14 +2076,16 @@ RPG.data.skillTree = [
       // 「素直な上積み」になる（実測で会心なしビルドに +47〜51% 出た）。
       // 倍率だけなら、会心する回数が少ない者には代償だけが残る。
       { kind: 'crit_damage', value: 1.3 },
-      // 代償は名目ではなく**実効**で決める。
-      // stat_pct は素のステータスにしか掛からず、終盤は装備がATKの2/3を占める。
-      // 実測では名目 -25% がダメージ -8.6% にしかならなかった。
-      // 名目 -0.7 でおよそ実効 -24%。表示と体感を合わせるため desc には実効を書く。
-      { kind: 'stat_pct', stat: 'atk', value: -0.7 },
-      { kind: 'stat_pct', stat: 'magi_power', value: -0.7 },
+      // 代償は stat_cost なので、書いた % がそのまま最終値から減る。
+      //
+      // ここは長く -0.7 と書いてあった。stat_pct が素の値にしか掛からず、
+      // 終盤は装備と変換がATKの大半を占めるため、名目を膨らませて
+      // 実効 -24% を作り出す回避策だった（desc に実効を書く但し書きも付けていた）。
+      // stat_cost はその薄まりが無いので、**狙っていた実効をそのまま書く**。
+      { kind: 'stat_cost', stat: 'atk', value: -0.25 },
+      { kind: 'stat_cost', stat: 'magi_power', value: -0.25 },
     ],
-    desc: '会心倍率 +1.3。ただし素のATKと魔力 -70%（装備ぶんは減らないので、実際の火力は約 -25%）',
+    desc: '会心倍率 +1.3。ただしATKと魔力 -25%',
   },
   {
     // 大技以外を捨てる。繋ぎに中技や小技を撃つ回りが効かなくなる。
@@ -2085,7 +2094,7 @@ RPG.data.skillTree = [
     effects: [
       { kind: 'high_power_boost', value: 0.9 },
       { kind: 'low_power_boost', value: -0.7 },
-      { kind: 'stat_pct', stat: 'hp', value: -0.3 },
+      { kind: 'stat_cost', stat: 'hp', value: -0.3 },
     ],
     desc: '大技の火力 +90%。ただし小技の火力 -70%、最大HP -30%',
   },
@@ -2155,11 +2164,11 @@ RPG.data.skillTree = [
       { kind: 'heal_power', value: 1.1 },
       { kind: 'heal_spread', value: 0.45 },
       { kind: 'triage', value: 0.6 },
-      { kind: 'stat_pct', stat: 'hp', value: -0.35 },
-      { kind: 'stat_pct', stat: 'atk', value: -0.9 },
+      { kind: 'stat_cost', stat: 'hp', value: -0.35 },
+      { kind: 'stat_cost', stat: 'atk', value: -0.9 },
     ],
     desc: '与える回復量 +110%、回復が他の味方へ45%及ぶ、瀕死への回復 +60%。'
-      + 'ただし素の最大HP -35%、素のATK -90%',
+      + 'ただし最大HP -35%、ATK -90%',
   },
   {
     // 神官戦士。自分で立ち続けるが、隊列の回復役は務まらなくなる。

@@ -183,6 +183,7 @@ RPG.data.effectKinds = {
   solo_power: { to: 'passives', shape: 'add', uniq: 'soloPower', route: 'passives', key: 'soloPower', label: '単騎のときの火力', fmt: 'pct' },
   stable_damage: { to: 'passives', shape: 'add', uniq: null, key: 'stableDamage', label: 'ダメージの振れ幅を抑える', fmt: 'pct' },
   start_shield: { to: 'passives', shape: 'add', uniq: null, key: 'startShield', label: '開幕の障壁', fmt: 'pct' },
+  stat_cost: { to: 'build', shape: 'keyed', needs: ["stat"], uniq: null },
   stat_pct: { to: 'build', shape: 'keyed', needs: ["stat"], uniq: null },
   status_immune: { to: 'passives', shape: 'add', uniq: null, key: 'statusImmune', label: '弱体をはねのける', fmt: 'pct' },
   status_on_hit: { to: 'passives', shape: 'add', uniq: null, key: 'statusOnHit', label: '攻撃時に弱体を付与', fmt: 'pct' },

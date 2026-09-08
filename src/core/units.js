@@ -271,10 +271,33 @@
     // 「攻撃力が半分になる代わりに常に二回攻撃」のような代償はここで効かせる
     if (passives.atkScale !== 1) stats.atk = Math.max(1, Math.floor(stats.atk * passives.atkScale));
 
+    // --- 代償 (§5.8) ---
+    //
+    // `stat_pct` と違い、代償は **書いた % がそのまま最終値から減る**ように効かせる。
+    //
+    // ── なぜ別の種別が要ったか ──
+    // `stat_pct` は装備より前で素の値に掛かる。上昇を積むぶんにはそれでよいが、
+    // **代償に使うと額面どおりに働かない**。終盤のATKは大半が装備と変換
+    // （DEFの280%）から来るので、素にしか掛からない代償は薄まりきる。
+    // 実測では「ATK -100%」と書いても最終ATKは 3.5% しか減らなかった。
+    // 主人公は mirrorStat が魔力を床にするので、-30% より下は完全に無効だった。
+    //
+    // ── 2か所で使う理由 ──
+    // ステータスは互いの材料になる（HP→ATK/DEF、DEF→ATK）。
+    //   ① 変換は **代償を引いたあとの値** を材料として読む
+    //      （読まないと「DEF -60%」がATKを一切減らさず、変換型には無償の節になる）
+    //   ② 表示・計算に使う値は、最後にまとめて額面どおり引く
+    // ①で引いた材料から作られたぶんも②で改めて引かれるが、二重取りではない。
+    // 「材料が減ったので生まれる量も減り、その結果もさらに代償を負う」——
+    // どちらもその代償が起こすべきことなので、両方が要る。
+    const statCost = tree.statCost || {};
+    /** 代償を引いた値。変換の材料として読むためのもの @param {string} key */
+    const afterCost = (key) => Math.max(1, Math.floor((stats[key] || 0) * (1 + (statCost[key] || 0))));
+
     // 「命を刃に」— 最大HPの一部を攻撃力と魔力に上乗せする (§5.6)。
     // HPを伸ばす装備が火力にも化けるので、耐久型に別の道が生まれる。
     if (passives.hpToAtk) {
-      const bonus = Math.floor((stats.hp || 0) * passives.hpToAtk);
+      const bonus = Math.floor(afterCost('hp') * passives.hpToAtk);
       stats.atk = (stats.atk || 0) + bonus;
       stats.magi_power = (stats.magi_power || 0) + bonus;
     }
@@ -283,15 +306,15 @@
     // HPは母数が大きいので、変換率が低くても効く。
     // 防御で耐えるビルドは、DEFの割合増しだけでは必要な桁に届かない。
     if (passives.hpToDef) {
-      stats.def = (stats.def || 0) + Math.floor((stats.hp || 0) * passives.hpToDef);
+      stats.def = (stats.def || 0) + Math.floor(afterCost('hp') * passives.hpToDef);
     }
 
     // 「守りを刃に」「攻めを盾に」— ステータスを別の役へ回す (§5.8)。
     // hpToAtk と同じく装備を全部乗せた後に効かせる。
     // 元の値を先に控えるのは、双方向に振ったときに増えたぶんが二重に化けないようにするため。
     if (passives.defToAtk || passives.atkToDef) {
-      const srcDef = stats.def || 0;
-      const srcAtk = stats.atk || 0;
+      const srcDef = afterCost('def');
+      const srcAtk = afterCost('atk');
       if (passives.defToAtk) {
         const bonus = Math.floor(srcDef * passives.defToAtk);
         stats.atk = (stats.atk || 0) + bonus;
@@ -309,6 +332,12 @@
       const top = Math.max(stats.atk || 0, stats.magi_power || 0);
       stats.atk = top;
       stats.magi_power = top;
+    }
+
+    // 代償をまとめて引く。ここが「書いた % がそのまま減る」を保証する場所。
+    // 1 を下回らせないのは、0 だとダメージ計算や生存判定が壊れるため。
+    for (const key of Object.keys(stats)) {
+      if (statCost[key]) stats[key] = afterCost(key);
     }
 
     // 固有技・共通技に、スキルツリーで習得した技を足す (§5.1)

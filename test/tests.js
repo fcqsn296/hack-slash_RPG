@@ -1084,7 +1084,7 @@
         missing.length ? missing.join(' / ') : '未解決の参照なし');
 
       // 効果種別が全て tree.js で処理されるか（未知の kind は静かに無視されるため明示的に確認する）
-      const KNOWN = ['stat_pct', 'tag_bonus', 'tag_all', 'crit', 'crit_damage', 'cap_break',
+      const KNOWN = ['stat_pct', 'stat_cost', 'tag_bonus', 'tag_all', 'crit', 'crit_damage', 'cap_break',
         'execute', 'reduction', 'lifesteal', 'regen', 'counter', 'revive', 'extra_action',
         'grant_skill', 'element_adapt', 'element_mastery', 'chaos',
         // 特殊パッシブ
