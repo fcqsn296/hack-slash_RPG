@@ -10498,10 +10498,51 @@
             check('三で足りる: オートで挑める',
               !(q.rules && q.rules.noAuto), JSON.stringify(q.rules));
 
-            // 2. 縛りは1種類だけ。増やすと「どれが効いたか」が分からなくなる。
-            check('三で足りる: 縛りは1種類だけ',
-              Object.keys(q.rules || {}).length === 1,
-              Object.keys(q.rules || {}).join(' / '));
+            // 2. **最大レベルの1人では達成できないこと。**
+            //
+            // 置いた当初は「縛りは1種類だけ」を守らせていたが、人数だけでは
+            // 単騎を止められなかった（試遊で判明）。「3人以下」は
+            // 「3人で挑め」ではなく「3人まで」なので、1人でも満たしてしまう。
+            //
+            // 敵を強くする方向は効かない。テオドラ単騎は敵Lv400でも抜ける——
+            // 反射と肩代わりで、殴られるほど相手が減る型がいるため。
+            // 効いたのは所要ラウンド。単騎は消耗戦なので時間がかかる。
+            //
+            // ここで見るのは「単騎で通らない」という**結果のほう**。
+            // 縛りの数を数えても、狙いが守られているかは分からない。
+            {
+              RPG.rng.seed(RPG.balance.PARTY_SEED);
+              const uid = RPG.balance.uidSource();
+              const cs = {
+                id: 'ch_lg_theodora', level: 255, limitBreak: 5,
+                tree: {}, klassTree: {}, equipped: { weapon: [], armor: [], accessory: [] },
+              };
+              RPG.balance.investTree(cs);
+              RPG.balance.investClass(cs, 'cls_guardian');
+              const inv = RPG.balance.equipBest(cs, 'box_dragon', 80, uid, 10);
+              const solo = RPG.units.buildCharacterUnit(cs, inv);
+              RPG.rng.seed(null);
+
+              let cleared = 0;
+              for (let i = 0; i < 6; i++) {
+                RPG.rng.seed(7000 + i);
+                const b = RPG.battle.start({
+                  fieldId: q.fieldId, waves: q.waves, bossFinale: true,
+                  party: [solo], quest: q,
+                });
+                let g = 0;
+                while (!b.finished && g++ < 6000) {
+                  if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+                  const a = RPG.autoplay.chooseAction(b);
+                  if (!a) break;
+                  RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+                }
+                RPG.rng.seed(null);
+                if (b.victory) cleared++;
+              }
+              check('三で足りる: 最大レベルの単騎では達成できない',
+                cleared === 0, `テオドラ単騎 Lv255/5凸 で ${cleared} / 6 回達成`);
+            }
 
             // 3. 敵を盛って差を作っていないこと。盛ると「編成で変わる」ではなく
             //    「地力で殴れるか」を測る依頼になる。
