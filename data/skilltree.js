@@ -2245,10 +2245,12 @@ RPG.data.skillTree = [
       { kind: 'element_mastery', element: 'all', value: 0.5 },
       { kind: 'weak_hunter', value: 0.6 },
       { kind: 'neutral_power', value: -0.6 },
-      { kind: 'stat_pct', stat: 'hp', value: -0.35 },
+      // stat_cost へ移した。素の値にしか掛からなかったころは実効 -28.3% で、
+      // いま額面どおり -35%。HPは装備でほとんど伸びないので差は小さい。
+      { kind: 'stat_cost', stat: 'hp', value: -0.35 },
     ],
     desc: '全属性の有利倍率 +0.5（1.5 → 2.0）、有利を取れたときの火力 +60%。'
-      + 'ただし等倍の相手への火力 -60%、素の最大HP -35%',
+      + 'ただし等倍の相手への火力 -60%、最大HP -35%',
   },
   {
     // 疫。撒く量は増えるが、自分の手で殴る力を失う。
@@ -2278,11 +2280,22 @@ RPG.data.skillTree = [
       { kind: 'status_power', value: 0.45 },
       { kind: 'debuff_duration', value: 2 },
       { kind: 'debuff_spread', value: 0.5 },
-      { kind: 'stat_pct', stat: 'atk', value: -0.8 },
-      { kind: 'stat_pct', stat: 'magi_power', value: -0.8 },
+      // この節は stat_cost を作る前に書いたので、長く stat_pct の -80% だった。
+      // 素の値にしか掛からないため実効 -9.3% で、狙っていた「殴りを捨てる」に
+      // まるで届いていなかった。
+      //
+      // 額面どおり効かせて測り直した（ボスHP2億／敵1体3億の5連戦・単騎）。
+      // 継続ダメージは相手の最大HP基準なので、代償は専門家をほとんど削らない。
+      //   代償     専門の価値   攻撃型がつまみ食い
+      //   -30%      ×1.15          ×0.89
+      //   -60%      ×1.10          ×0.77   ← 採用
+      //   -80%      ×1.08          ×0.64
+      // -80% は専門家まで削るわりに得るものが無い。-60% が分離がいちばん明確。
+      { kind: 'stat_cost', stat: 'atk', value: -0.6 },
+      { kind: 'stat_cost', stat: 'magi_power', value: -0.6 },
     ],
     desc: '与える継続ダメージ +45%、弱体の持続 +2ターン、弱体が隣へ50%伝染。'
-      + 'ただし素のATKと魔力 -80%（継続ダメージは相手の最大HP基準なので減らない）',
+      + 'ただしATKと魔力 -60%（継続ダメージは相手の最大HP基準なので減らない）',
   },
   {
     // 孤影。戴く頭は一つでよい。
