@@ -57,12 +57,43 @@
   }
 
   /**
+   * 吸収を織り込んだ「相手のHPが実際に減る量」(§17)。
+   *
+   * ── なぜ要るのか ──
+   * 「虹を喰らう獣」は有利属性の攻撃を回復として喰う。見積が素のダメージのままだと、
+   * オートは**一番よく喰われる技を一番よく削れる技と見て**選び続ける。
+   * 与えたぶんがそのまま回復に化けるので、味方が上限（maxHitRatio）で守られている
+   * ぶんだけ戦闘が終わらない。実測で 3,800 ラウンド走っても決着しなかった。
+   *
+   * 吸収される技を負の点にすると、等倍や不利の技のほうが高い点を取る。
+   * ボスの謳い文句である「等倍か不利で殴るという逆転の発想」に、オートも辿り着く。
+   *
+   * 満タンの相手には回復が乗らないので、そのときの吸収は 0 点（損も得もしない）。
+   * 削った後に喰わせると自分の戦果を戻すことになるので、そこで初めて負になる。
+   *
+   * @param {number} raw 吸収を考えない見込みダメージ
+   * @param {any} actor @param {any} target @param {any} skill @param {any} [battle]
+   */
+  function absorbed(raw, actor, target, skill, battle) {
+    if (!battle || !RPG.battle || !RPG.battle.absorbRatio || raw <= 0) return raw;
+    const ratio = RPG.battle.absorbRatio(battle, actor, target, skill);
+    if (!(ratio > 0)) return raw;
+    const eaten = raw * ratio;
+    const healed = Math.min(Math.max(0, (target.maxHp || 0) - (target.hp || 0)), eaten);
+    return (raw - eaten) - healed;
+  }
+
+  /**
    * 1回の攻撃で与えられる見込みダメージ。多段は回数分を合算する。
+   *
+   * `battle` を渡すと闘技場の仕掛け (§17) を織り込む。
+   * 渡さない呼び出し（test/balance.js の素振り）は素のダメージのまま。
    * @param {any} actor
    * @param {any} target
    * @param {any} skill
+   * @param {any} [battle]
    */
-  function estimate(actor, target, skill) {
+  function estimate(actor, target, skill, battle) {
     let hits = skill.plugin === 'multi_hit' ? (skill.params && skill.params.hits) || 1 : 1;
     // 生命代償はHPを払うほど威力が伸びるので、平均的な上乗せを見込む
     if (skill.plugin === 'hp_cost') {
@@ -78,6 +109,10 @@
         random: 1.0,
         crit: false,
         ignoreDefense: skill.plugin === 'def_ignore' || target.defIgnoredTurns > 0,
+        // 闘技場「属性の否定」(§17)。相性が等倍に均される相手では、
+        // 有利属性の技は見た目ほど通らない。見積にも同じ条件を渡さないと、
+        // オートは「有利だから重い」と誤って読み、より通る等倍の技を取りこぼす。
+        elementNull: !!(battle && RPG.battle.elementNulled(battle, target)),
       },
     });
     // 起爆 (§5.8) は、たまっている弱体ぶんが本体で、
@@ -85,10 +120,11 @@
     // オートは威力70の弱い技としか見えず、永久に選ばない。
     // 実際に入る額と同じ関数を通す。
     if (skill.plugin === 'detonate') {
-      return result.damage * hits + RPG.battle.detonationValue(target).total;
+      return absorbed(result.damage * hits + RPG.battle.detonationValue(target).total,
+        actor, target, skill, battle);
     }
 
-    return result.damage * hits;
+    return absorbed(result.damage * hits, actor, target, skill, battle);
   }
 
   /**
@@ -234,14 +270,14 @@
       const wide = s.def.plugin === 'all_enemies'
         || (s.def.plugin === 'detonate' && s.def.params && s.def.params.all);
       if (wide) {
-        const total = foes.reduce((sum, t) => sum + Math.min(estimate(actor, t, s.def), t.hp), 0);
+        const total = foes.reduce((sum, t) => sum + Math.min(estimate(actor, t, s.def, battle), t.hp), 0);
         if (!best || total > best.score) {
           best = { score: total, dmg: total, skillId: s.id, target: foes[0] };
         }
         continue;
       }
       for (const target of foes) {
-        const dmg = estimate(actor, target, s.def);
+        const dmg = estimate(actor, target, s.def, battle);
         // 過剰ダメージは価値が無いので、実際に削れる量で評価する
         const score = Math.min(dmg, target.hp);
         if (!best || score > best.score ||

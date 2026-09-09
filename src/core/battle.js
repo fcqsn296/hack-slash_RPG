@@ -245,6 +245,97 @@
   }
 
   /**
+   * 闘技場「属性の否定」— この相手には相性が常に等倍か (§17)。
+   *
+   * 吸収と同じく、**オートの見積が同じ判定を読む**ために切り出してある。
+   * 等倍に均される相手へ、オートが有利属性の技を「よく通る技」と見て選ぶと、
+   * 実際には等倍でしか入らないので、より重い等倍の技を取りこぼす。
+   *
+   * @param {any} battle @param {any} defender
+   */
+  function elementNulled(battle, defender) {
+    return !!(isArenaBoss(battle, defender) && (battle.arena.gimmicks || {}).elementNull);
+  }
+
+  /**
+   * 適応2 だけで「有利」になっている攻撃を、最大どれだけ喰えるか (§17.4)。
+   * 1 にすると、適応2 を取ったキャラは「虹を喰らう獣」に一切ダメージを通せなくなる。
+   * ハードの elementAbsorbRatio と同じ 8 割。理由は absorbRatio() の説明にある。
+   */
+  const ADAPT_ABSORB_CAP = 0.8;
+
+  /**
+   * 「虹を喰らう獣」が、この一撃をどれだけ喰うか (§17)。
+   *
+   * ここに切り出してあるのは、**オートの見積が同じ判定を読む**ため。
+   * 吸収される技を「一番よく削れる技」と見て選び続けると、
+   * 与えたぶんがそのまま回復に化けて戦闘が終わらなくなる（実測 3,700 ラウンド超）。
+   * 判定を写すと必ず食い違うので、applyDamage と同じ関数を通す。
+   *
+   * 判定は **素の属性表だけ** で行う (§17)。
+   *
+   * 実測した結果の倍率（result.breakdown.element）で見ると、
+   * 全属性適応を取った編成ではあらゆる攻撃が「有利」と判定され、
+   * 無属性で殴っても吸収されて逃げ道が消える（実測 0% 勝率）。
+   * それは謎かけではなく理不尽なので、ビルドの補正を含まない
+   * 攻撃属性 vs ボス属性の相性だけを見る。
+   *
+   * ── 属性変換で抜けられていた (§17.4) ──
+   * `skill.element` だけを見ていたので、`element_convert` で闇に染めると
+   * **有利倍率(1.5倍)は得たまま吸収だけ回避**できていた。実測で吸収0。
+   * damage.js が実際に使う攻撃属性（`mods.convert || skill.element`）と揃える。
+   * 適応や極意は「倍率」を動かすだけで属性そのものは変えないので、
+   * 上のコメントにある「全属性適応で逃げ道が消える」問題は起きない。
+   *
+   * ── 全属性適応2も「有利」として数える (§17.4) ──
+   * `adapt >= 2` は damage.js が **全攻撃を有利化** する。
+   * 素の属性表しか見ていなかったので、適応2を取ると
+   * 「有利倍率は得たまま吸収だけ回避」できていた。体感どおりギミックが働いていない。
+   *
+   * 適応2は属性の悩みを丸ごと消す強力な枝なので、
+   * **それを咎める相手が1体いる**のはむしろ健全。
+   *
+   * ── ただし咎めるだけで、閉ざしてはいけない (ADAPT_ABSORB_CAP) ──
+   * このボスの謎かけは「素の属性で等倍か不利を選べ」。素の属性で有利を選んだ者は、
+   * 選び直せばいいので全部喰ってよい。**適応2はその選び直しを奪う。**
+   * 段階2は全攻撃を有利化するので、どの技で殴っても喰われる。
+   * 通常（喰う割合1）では1点も通らず、味方が上限(maxHitRatio)で守られているぶん、
+   * 双方が決着できない膠着になる。実測で 3,855 ラウンド走っても終わらなかった。
+   * 難しさではなく詰みなので、適応2**だけ**で有利になっている攻撃は全部は喰わない。
+   *
+   * 咎めは残る。有利(1.5倍)の2割しか通らないので実効0.3倍で、
+   * 適応2を持たない味方が等倍(1.0倍)で殴るより明確に損。
+   * 「適応2を取ると属性で悩まなくていい」がここでだけ通じない、という形になる。
+   *
+   * @param {any} battle @param {any} attacker @param {any} defender @param {any} skill
+   * @returns {number} 喰われる割合。0 なら吸収しない。既定は 1（全部喰う）
+   */
+  function absorbRatio(battle, attacker, defender, skill) {
+    if (!isArenaBoss(battle, defender)) return 0;
+    const g = battle.arena.gimmicks || {};
+    if (!g.elementAbsorb) return 0;
+    const atkMods = (attacker && attacker.elementMods) || {};
+    const effectiveElement = atkMods.chaos ? 'none'
+      : (atkMods.convert || (skill && skill.element) || (attacker && attacker.element));
+    const adapted = (atkMods.adapt || 0) >= 2;
+    const rawAdvantage
+      = RPG.damage.elementMultiplier(effectiveElement, defender.element) > 1;
+    if (!adapted && !rawAdvantage) return 0;
+    // 喰らう割合 (§17.4)。既定は 1（全部喰う＝従来どおり）。
+    //
+    // ── なぜ全部ではなく割合にできるようにするのか ──
+    // 全部喰われると、有利属性で殴る道が**完全に閉じる**。
+    // 割合にしておけば「損だが通る」ので、
+    // 極まったビルドなら強引に押し切れる余地が残る。
+    // 8割なら、有利(2倍)で殴っても実効0.4倍。
+    // 等倍で殴るほうが得なので、普通は素直に属性を変える判断になる。
+    const ratio = g.elementAbsorbRatio != null ? g.elementAbsorbRatio : 1;
+    // 素の属性では有利でないなら、有利にしているのは適応2だけ。逃げ道を残す。
+    return (adapted && !rawAdvantage) ? Math.min(ratio, ADAPT_ABSORB_CAP) : ratio;
+  }
+
+
+  /**
    * ギミックによってダメージが通るかを判定する (§17)。
    *
    * @param {any} battle @param {any} attacker @param {any} defender @param {any} skill @param {any} opts
@@ -1729,8 +1820,7 @@
         // 闘技場「属性の否定」(§17)。相性を等倍に均す。
         // 適応・極意・貫通といった属性で解く道を丸ごと塞ぐのが狙いなので、
         // 攻撃側の補正が乗るより前に damage.js 側で潰す必要がある。
-        elementNull: !!(battle.arena && isArenaBoss(battle, defender)
-          && (battle.arena.gimmicks || {}).elementNull),
+        elementNull: elementNulled(battle, defender),
         // 大技だけを底上げする (§5.8)。小技側とは排他で、同じ技には両方乗らない。
         highPowerBoost: isHighPower(skill)
           ? ((attacker.situational && attacker.situational.highPowerBoost) || 0) : 0,
@@ -1783,51 +1873,12 @@
     // 上限＝制限時間ちょうどにすると、初手から全力を出せる型しか間に合わない。
 
     // 「虹を喰らう獣」— 有利属性の攻撃を回復として受ける (§17)。
-    // 有利で殴るほど不利になるので、属性の常識がそのまま裏返る。
-    // 判定は **素の属性表だけ** で行う (§17)。
-    //
-    // 実測した結果の倍率（result.breakdown.element）で見ると、
-    // 全属性適応を取った編成ではあらゆる攻撃が「有利」と判定され、
-    // 無属性で殴っても吸収されて逃げ道が消える（実測 0% 勝率）。
-    // それは謎かけではなく理不尽なので、ビルドの補正を含まない
-    // 攻撃属性 vs ボス属性の相性だけを見る。
-    //
-    // ── 属性変換で抜けられていた (§17.4) ──
-    // `skill.element` だけを見ていたので、`element_convert` で闇に染めると
-    // **有利倍率(1.5倍)は得たまま吸収だけ回避**できていた。実測で吸収0。
-    // damage.js が実際に使う攻撃属性（`mods.convert || skill.element`）と揃える。
-    // 適応や極意は「倍率」を動かすだけで属性そのものは変えないので、
-    // 上のコメントにある「全属性適応で逃げ道が消える」問題は起きない。
-    const atkMods = (attacker && attacker.elementMods) || {};
-    const effectiveElement = atkMods.chaos ? 'none'
-      : (atkMods.convert || skill.element || attacker.element);
-    //
-    // ── 全属性適応2も「有利」として数える (§17.4) ──
-    // `adapt >= 2` は damage.js:349 で **全攻撃を有利化** する。
-    // 素の属性表しか見ていなかったので、適応2を取ると
-    // 「有利倍率は得たまま吸収だけ回避」できていた。体感どおりギミックが働いていない。
-    //
-    // 素の属性に限定していたのは「全部吸収されて逃げ道が消える」ためだったが、
-    // 吸収が割合(0.8)になった今は2割が通るので、行き止まりにはならない。
-    // 適応2は属性の悩みを丸ごと消す強力な枝なので、
-    // **それを咎える相手が1体いる**のはむしろ健全。
-    const adapted = (atkMods.adapt || 0) >= 2;
-    const rawAdvantage = isArenaBoss(battle, defender)
-      && (adapted
-        || RPG.damage.elementMultiplier(effectiveElement, defender.element) > 1);
+    // 吸収するかどうかとその割合は absorbRatio() が持っている。
+    // オートの見積も同じ関数を読むので、判定が二重にならない。
+    const absorbRate = absorbRatio(battle, attacker, defender, skill);
 
-    if (rawAdvantage && (battle.arena.gimmicks || {}).elementAbsorb && result.damage > 0) {
-      // 喰らう割合 (§17.4)。既定は 1（全部喰う＝従来どおり）。
-      //
-      // ── なぜ全部ではなく割合にできるようにするのか ──
-      // 全部喰われると、有利属性で殴る道が**完全に閉じる**。
-      // 割合にしておけば「損だが通る」ので、
-      // 極まったビルドなら強引に押し切れる余地が残る。
-      // 8割なら、有利(2倍)で殴っても実効0.4倍。
-      // 等倍で殴るほうが得なので、普通は素直に属性を変える判断になる。
-      const g = battle.arena.gimmicks || {};
-      const ratio = g.elementAbsorbRatio != null ? g.elementAbsorbRatio : 1;
-      const absorbed = Math.floor(result.damage * ratio);
+    if (absorbRate > 0 && result.damage > 0) {
+      const absorbed = Math.floor(result.damage * absorbRate);
       const through = result.damage - absorbed;
 
       // 回復は「減っているぶん」までしか乗らない。
@@ -3366,7 +3417,7 @@
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
     skillReady, startCooldown,
-    arenaGate, arenaRoundTick, isArenaBoss,
+    arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX,
     detonationValue, isDebuff, debuffsOn, kindOf,

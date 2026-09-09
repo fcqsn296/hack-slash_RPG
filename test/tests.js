@@ -5867,13 +5867,46 @@
     // 1発も通らない詰み状態を作った事故が、どちらも起きている。
     // ---------------------------------------------------------------
     {
+      // ── 編成は、遊んでいる人のセーブから作らない ──
+      //
+      // 以前はここが `RPG.state.get()` をそのまま使い、レベルだけ100に揃えていた。
+      // ツリーも装備も**その端末のセーブのまま**なので、結果が人によって変わる。
+      // 実際、適応2を振ったキャラが3人いるセーブでは「虹を喰らう獣」が
+      // 3,800ラウンド走っても決着せず、まっさらなセーブでは9ラウンドで負けて終わる、
+      // という形で**同じコードが端末ごとに違う判定を出していた**。
+      //
+      // このテストが確かめたいのは「攻略不能でないこと」なので、
+      // 上のコメントが謳っていたとおりの**最大強化の編成をここで作る**。
+      // 乱数も止める。決着しないことを見張る番人（9000回）が、
+      // 引きの悪さで揺れては見張りにならない。
+      const backupSave = localStorage.getItem(RPG.state.STORAGE_KEY);
+      RPG.state.reset();
       const save = RPG.state.get();
-      for (const id of ['ch_rizel', 'ch_gald', 'ch_shiki']) {
-        if (!save.characters[id]) save.characters[id] = RPG.state.createCharacter(id);
-      }
+
+      /**
+       * ツリーを振り切る。**1段ずつ、毎回先頭から見直す。**
+       * 上から振り切って次へ進むと、上級ノードが解放される前にSPを使い切られ、
+       * 黙って0段のまま残る（test/sim.node.js の invest と同じ理由）。
+       */
+      const investAll = (/** @type {any} */ c) => {
+        c.tree = {};
+        let guard = 0;
+        while (guard++ < 3000) {
+          const next = RPG.data.skillTree
+            .map((/** @type {any} */ n) => n.id)
+            .find((/** @type {string} */ id) => RPG.tree.canInvest(c, id).ok);
+          if (!next) break;
+          c.tree[next] = (c.tree[next] || 0) + 1;
+        }
+      };
+
       save.party = ['ch_hero', 'ch_rizel', 'ch_gald', 'ch_shiki'];
-      for (const id of save.party) save.characters[id].level = 100;
-      save.characters.ch_hero.level = 100;
+      for (const id of save.party) {
+        if (!save.characters[id]) save.characters[id] = RPG.state.createCharacter(id);
+        // 基準は maxLevel(150) ではなく maxLevelCap(255)。上限を伸ばした先で測る。
+        save.characters[id].level = RPG.data.maxLevelCap;
+        investAll(save.characters[id]);
+      }
 
       const defs = RPG.data.arena.bosses;
 
@@ -6000,11 +6033,114 @@
         }
       }
 
-      // 攻略不能でないこと。全ボスを最大強化に近い編成で回して、1体でも
+      // --- 有利属性の吸収と、オートがそれを避けること (§17.4) ---
+      //
+      // ── どうやって見つけたか ──
+      // 「虹を喰らう獣」が 3,800 ラウンド走っても決着しない戦闘があり、
+      // 中を覗くと、与えたぶんがそっくり回復に化けていた。原因は2つ重なっていた。
+      //
+      //   ① オートの見積が吸収を知らず、**一番よく喰われる技**を
+      //      「一番よく削れる技」と読んで選び続けていた
+      //   ② 適応2を取ったキャラは**どの属性で殴っても有利扱い**になるので、
+      //      通常（喰う割合1）では1点も通せず、味方が被ダメージ上限で守られている
+      //      ぶんだけ、どちらも決着できない膠着になっていた
+      //
+      // ①は見積の誤り、②は「等倍を選べ」という謎かけに答える手段そのものが
+      // 塞がっていた設計の穴。どちらも実測でしか見えなかったので、ここで固定する。
+      {
+        const b = RPG.arena.start('ar_prism_eater');
+        const boss = b.enemies[0];
+        const hero = b.party[0];
+        const mk = (/** @type {string} */ el) =>
+          ({ power: 100, element: el, scaling_stat: 'atk', damage_type: 'slash' });
+        const strong = Object.keys(RPG.damage.STRONG_AGAINST)
+          .find((/** @type {string} */ e) => RPG.damage.elementMultiplier(e, boss.element) > 1);
+
+        const savedMods = hero.elementMods;
+        hero.elementMods = {};
+        assertTrue('闘技場: 素の属性で有利を選ぶと全部喰われる',
+          RPG.battle.absorbRatio(b, hero, boss, mk(strong)) === 1, `${strong} → ${boss.element}`);
+        assertTrue('闘技場: 等倍で殴れば喰われない',
+          RPG.battle.absorbRatio(b, hero, boss, mk(boss.element)) === 0,
+          `${boss.element} → ${boss.element}`);
+
+        // 適応2は「等倍を選ぶ」という答えそのものを奪う。
+        // 咎めは残してよいが、閉ざすと攻略不能になる。
+        hero.elementMods = { adapt: 2 };
+        const eaten = RPG.battle.absorbRatio(b, hero, boss, mk(boss.element));
+        assertTrue('闘技場: 適応2で殴っても通る道が残る',
+          eaten > 0 && eaten < 1, `喰われる割合 ${eaten}`);
+        hero.elementMods = savedMods;
+
+        // オートの見積。喰われる技は「削れない技」として読めること。
+        // 満タンだと回復が乗らないので、削った状態で見る。
+        //
+        // 誰が「喰われる技と通る技を両方持つ」かはツリーの引き方で変わるので、
+        // 先頭に決め打ちせず編成から探す。決め打ちにすると、
+        // ツリーを1つ足しただけで**確かめたい中身ではなく前提が落ちる**。
+        boss.hp = Math.floor(boss.maxHp / 2);
+        let probe = null;
+        for (const u of b.party) {
+          const attacks = u.skills
+            .map((/** @type {string} */ id) => RPG.data.skills[id])
+            .filter((/** @type {any} */ sk) => RPG.autoplay.isAttack(sk));
+          const eatenSkill = attacks
+            .find((/** @type {any} */ sk) => RPG.battle.absorbRatio(b, u, boss, sk) > 0);
+          const cleanSkill = attacks
+            .find((/** @type {any} */ sk) => RPG.battle.absorbRatio(b, u, boss, sk) === 0);
+          if (eatenSkill && cleanSkill) { probe = { u, eatenSkill, cleanSkill }; break; }
+        }
+        assertTrue('闘技場: 喰われる技と通る技を両方持つ者で試せる', !!probe,
+          probe ? `${probe.u.name}: ${probe.eatenSkill.name} / ${probe.cleanSkill.name}`
+            : '見当たらない');
+        if (probe) {
+          const eat = RPG.autoplay.estimate(probe.u, boss, probe.eatenSkill, b);
+          const clean = RPG.autoplay.estimate(probe.u, boss, probe.cleanSkill, b);
+          assertTrue('オート: 吸収される技を「削れる技」と読まない',
+            eat < 0 && clean > 0,
+            `${probe.eatenSkill.name} ${Math.round(eat)} / ${probe.cleanSkill.name} ${Math.round(clean)}`);
+          // 戦闘を渡さない呼び出し（test/balance.js の素振り）は素のダメージのまま。
+          assertTrue('オート: 戦闘を渡さなければ従来どおり素のダメージ',
+            RPG.autoplay.estimate(probe.u, boss, probe.eatenSkill) > 0, '');
+        }
+      }
+
+      // オートの見積が「属性の否定」も織り込むこと (§17)。
+      // 吸収と同じ種類の食い違い。実際には等倍でしか入らない有利属性の技を
+      // 「よく通る技」と読むと、より重い等倍の技を取りこぼす。
+      // いまのデータでは一番手が入れ替わる組み合わせは無いが、
+      // 見積と実際が食い違っている状態そのものを残さない。
+      {
+        const b = RPG.arena.start('ar_null_sovereign');
+        const boss = b.enemies[0];
+        const hero = b.party[0];
+        const strong = Object.keys(RPG.damage.STRONG_AGAINST)
+          .find((/** @type {string} */ e) => RPG.damage.elementMultiplier(e, boss.element) > 1);
+        const skill = { power: 100, element: strong, scaling_stat: 'atk', damage_type: 'slash' };
+        assertTrue('オート: 見積が属性の否定を織り込む',
+          RPG.autoplay.estimate(hero, boss, skill, b)
+            < RPG.autoplay.estimate(hero, boss, skill),
+          `${Math.round(RPG.autoplay.estimate(hero, boss, skill, b))}`
+          + ` < ${Math.round(RPG.autoplay.estimate(hero, boss, skill))}`);
+      }
+
+      // 攻略不能でないこと。全ボスを最大強化の編成で回して、1体でも
       // 「何度やっても勝てない」ものがあれば設計の失敗として落とす。
+      //
+      // ── 勝てることまで見る ──
+      // 以前は決着したかどうかしか見ておらず、`won` を数えていながら
+      // **一度も判定に使っていなかった**。全敗しても通るので、
+      // 看板である「攻略不能でない」が実は確かめられていなかった。
+      //
+      // 検査の本数を編成の強さで変えないため、判定はボス1体につき2本に固定する。
+      // 以前は勝てるまでの試行ごとに「決着する」を積んでいたので、
+      // **テストの総数が実行のたびに変わって**いた（1,405 と 1,417 が交互に出る）。
       for (const d of defs) {
         let won = 0;
+        let stalled = 0;
+        let rounds = 0;
         for (let i = 0; i < 3 && !won; i++) {
+          RPG.rng.seed(4000 + i);
           const b = RPG.arena.start(d.id);
           let guard = 0;
           while (!b.finished && guard++ < 9000) {
@@ -6012,10 +6148,18 @@
             if (!a) break;
             RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
           }
+          rounds = b.totalRounds;
+          if (!b.finished) stalled++;
           if (b.victory) won++;
-          assertTrue(`闘技場: ${d.name} が決着する`, b.finished, `${b.totalRounds} ラウンド`);
         }
+        assertTrue(`闘技場: ${d.name} が決着する`, stalled === 0, `${rounds} ラウンド`);
+        assertTrue(`闘技場: ${d.name} に勝てる`, won > 0, `${rounds} ラウンド`);
       }
+      RPG.rng.seed(null);
+
+      if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
+      else localStorage.setItem(RPG.state.STORAGE_KEY, backupSave);
+      RPG.state.load();
     }
 
 
