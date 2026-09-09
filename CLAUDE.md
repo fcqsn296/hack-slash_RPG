@@ -64,8 +64,23 @@ tools/     公開・画像・取り込みのスクリプト
 
 ## 3. 数値を触ったら必ず測り直す
 
-**感覚で決めない。** `test/balance.html` で実測してから決める。
-`balance-tuning` スキルに手順がある。
+**感覚で決めない。** 実測してから決める。`balance-tuning` スキルに手順がある。
+
+- 画面から見るなら `test/balance.html`
+- **まとめて回すなら `test/sim.node.js`（node 専用）**
+
+```js
+const sim = require('./test/sim.node.js');
+sim.load();
+sim.useSave('_scratch/セーブ.json', ['ch_hero']);
+console.log(sim.fmt(sim.repeat(20, (seed) => sim.run({ questId: 'q_endless_vigil', seed }))));
+```
+
+**使い捨てのスクリプトを書き直さないこと。** 1周で52本・3,239行になったことがあり、
+そのたびに同じ罠を踏んだ。`sim.node.js` はその罠を閉じ込めてある——
+乱数の止め方（`random` であって `randomRange` ではない）、耐久を切り離すときに
+HPを戻す順序、`enemyScale` が ATK にも掛かること、ツリーを1段ずつ振ること、
+状態異常が読むたびに上限で丸められること。**足りない道具はあちらに足す。**
 
 測るときの注意:
 
