@@ -2116,6 +2116,15 @@
       if (result.breakdown.reduction > 0) {
         tags.push(result.damage === 0 ? '完全防御！' : `軽減${Math.round(result.breakdown.reduction * 100)}%`);
       }
+      // 受ける側の軽減は3種あるのに、長らく reduction しか出していなかった。
+      // 「軽減61%」とだけ出るのに実際は84%減っている状態で、
+      // ボス軽減が効いていないように見えるという報告になった。
+      if (result.breakdown.bossGuard > 0) {
+        tags.push(`ボス軽減${Math.round(result.breakdown.bossGuard * 100)}%`);
+      }
+      if (result.breakdown.weakGuard > 0) {
+        tags.push(`弱点軽減${Math.round(result.breakdown.weakGuard * 100)}%`);
+      }
       if (result.breakdown.capped) tags.push('上限減衰');
       const suffix = tags.length ? `（${tags.join(' ')}）` : '';
       pushLog(

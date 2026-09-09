@@ -5572,6 +5572,50 @@
           b.finished && !b.victory && b.totalRounds <= 2, `${b.totalRounds} ラウンド / ${b.ruleBroken || '全滅'}`);
       }
 
+      // --- 受ける側の軽減が、内訳として出てくること (§5.8) ---
+      //
+      // ここが無いと戦闘ログに出せない。実際、長らく reduction しか出しておらず、
+      // 「軽減61%」とだけ出るのに実際は84%減っている状態になっていた。
+      // 遊ぶ側からは**ボス軽減が働いていないように見える**。
+      {
+        const atk = { stats: { atk: 5000 }, level: 255, element: 'none', isBoss: true };
+        const sk = { power: 150, element: 'none', scaling_stat: 'atk', damage_type: 'slash' };
+        const base = { def: 10000, level: 255, reduction: 0.6, element: 'none' };
+        // 乱数を止めるのは `random`。`randomRange` という名前は damage.js に無く、
+        // 書いても黙って無視されて 0.92〜0.93 の揺れが乗る（それで一度この検査が落ちた）。
+        const opt = { crit: false, random: 1 };
+
+        const plain = RPG.damage.calc({ attacker: atk, defender: Object.assign({}, base), skill: sk, options: opt });
+        const guarded = RPG.damage.calc({
+          attacker: atk, defender: Object.assign({}, base, { bossGuard: 0.5 }), skill: sk, options: opt });
+        assertTrue('ボス軽減: ダメージが実際に減る',
+          Math.abs(guarded.damage / plain.damage - 0.5) < 0.01,
+          `${plain.damage} → ${guarded.damage}（比 ${(guarded.damage / plain.damage).toFixed(3)}）`);
+        assertTrue('ボス軽減: 効いた割合が内訳に出る',
+          guarded.breakdown.bossGuard === 0.5, String(guarded.breakdown.bossGuard));
+        assertTrue('ボス軽減: 効いていないときは内訳に出ない',
+          plain.breakdown.bossGuard === 0, String(plain.breakdown.bossGuard));
+
+        // 防御無視でも軽減の経路は通ること。
+        // 画像の報告がまさに「防御無視 軽減61%」の一撃だった。
+        const pierce = RPG.damage.calc({ attacker: atk, defender: Object.assign({}, base), skill: sk,
+          options: Object.assign({ ignoreDefense: true }, opt) });
+        const pierceGuard = RPG.damage.calc({
+          attacker: atk, defender: Object.assign({}, base, { bossGuard: 0.5 }), skill: sk,
+          options: Object.assign({ ignoreDefense: true }, opt) });
+        assertTrue('ボス軽減: 防御無視の攻撃にも効く',
+          Math.abs(pierceGuard.damage / pierce.damage - 0.5) < 0.01,
+          `${pierce.damage} → ${pierceGuard.damage}（比 ${(pierceGuard.damage / pierce.damage).toFixed(3)}）`);
+
+        // ボス以外からは減らない
+        const fromMob = RPG.damage.calc({
+          attacker: Object.assign({}, atk, { isBoss: false }),
+          defender: Object.assign({}, base, { bossGuard: 0.5 }), skill: sk, options: opt });
+        assertTrue('ボス軽減: ボス以外からは減らない',
+          fromMob.damage === plain.damage && fromMob.breakdown.bossGuard === 0,
+          `${plain.damage} / ${fromMob.damage}`);
+      }
+
       // --- 敵の強化倍率は報酬に効かない ---
       {
         const plain = RPG.units.buildEnemyUnit('em_sentinel', 55, false, 0, 1);

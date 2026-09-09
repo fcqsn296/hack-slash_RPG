@@ -322,6 +322,12 @@
     const unique = uniqueMultiplier(attacker.uniqueBuffs || []);
 
     // --- ステップ4: 防御軽減 ---
+    // 受ける側の軽減が「実際に何割効いたか」を控える。
+    // ここを控えていなかったので、**戦闘ログが軽減(reduction)しか出せなかった**。
+    // 「軽減61%」とだけ出るのに実際は84%減っていて、
+    // ボス軽減が働いていないように見える、という報告につながった。
+    let bossGuardCut = 0;
+    let weakGuardCut = 0;
     let defense = options.ignoreDefense ? 1 : defenseMultiplier(defender.def, defender.level);
     // 系統ごとの貫通 (§5.8)。「防御崩し」が確率なのに対し、こちらは確定で少しずつ抜く。
     const preMods = attacker.elementMods || {};
@@ -376,7 +382,8 @@
     }
     // 「弱点耐性」— 弱点を突かれたときだけ、そのぶんを削り取る (§5.7)。
     if (rawElement > 1 && defender.weakGuard) {
-      element *= Math.max(0, 1 - Math.min(0.9, defender.weakGuard));
+      weakGuardCut = Math.min(0.9, defender.weakGuard);
+      element *= Math.max(0, 1 - weakGuardCut);
     }
 
     // 闘技場の「属性の否定」(§17)。
@@ -465,7 +472,8 @@
     if (attacker.fullHpFoePower) situational *= 1 + attacker.fullHpFoePower * hpRatio;
     // 「巨獣への備え」— ボスから受けるダメージを減らす (§5.8)。受ける側の値を見る。
     if (defender.bossGuard && attacker.isBoss) {
-      situational *= Math.max(0, 1 - Math.min(0.9, defender.bossGuard));
+      bossGuardCut = Math.min(0.9, defender.bossGuard);
+      situational *= Math.max(0, 1 - bossGuardCut);
     }
 
     // --- 追加ステップB: 被ダメージ軽減 (§3.1-3 無敵化の構築) ---
@@ -502,6 +510,8 @@
       breakdown: {
         base, tag: tag.multiplier, tagSums: tag.sums, unique,
         defense, element, critical, random, execute, situational, taken, reduction, levelGap,
+        // 受ける側の軽減の内訳。戦闘ログと画面がここを読む
+        bossGuard: bossGuardCut, weakGuard: weakGuardCut,
         capped: capped < raw,
       },
     };
