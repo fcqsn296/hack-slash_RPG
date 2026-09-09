@@ -163,6 +163,42 @@
       if (buff) return { skillId: buff.id, targets: RPG.battle.targetKind(buff.def) === 'none' ? [] : [actor] };
     }
 
+    // --- 2.5 号令: 味方全員にもう一度動く権利を配る (§12) ---
+    //
+    // ── なぜ要るのか ──
+    // オートは `mass_extra` を**一度も選べていなかった**。
+    // 攻撃技でもバフ系でもないので、どの分岐にも引っかからずに素通りしていた。
+    //
+    // 実データの支援（ミレーヌ）で測ると、長い戦いで1ラウンドに2回動きながら
+    // **威力140の岩塊圧を33回**撃っていた。手番はあるのに使い道が無い状態で、
+    // 本人の一番強い手——味方全員にもう一度動かせる技——が死んでいた。
+    //
+    // ── 撃ち続けにならないか ──
+    // ならない。号令はクールタイム持ち（5〜6ラウンド）で、候補は上で
+    // `skillReady` に絞ってある。配る権利も `grantedExtra` で1人1つ。
+    //
+    // ── バフより後に置く理由 ──
+    // 先に配ると、味方はバフが乗る前に動いてしまう。
+    // バフは持続が長く撃ち直さないので、1手ぶん待っても損はしない。
+    {
+      const others = allies.filter((/** @type {any} */ u) => u !== actor && u.alive);
+      // 全員がもう権利を持っているなら配る意味がない
+      const needy = others.filter((/** @type {any} */ u) => !u.grantedExtra);
+      if (needy.length) {
+        // 号令を複数持っていることがある（固有とクラス技）。
+        // 並び順で拾うと弱いほうを撃ち続けるので、**強い順に選ぶ**。
+        // クールタイムを戻すもの（味方の一番強い手をもう一度撃たせる）が最上位で、
+        // 次にバフの厚いもの。
+        const calls = skills.filter((s) => s.def.plugin === 'mass_extra')
+          .sort((a, b) => {
+            const reset = (/** @type {any} */ x) => ((x.def.params || {}).resetCooldowns ? 1 : 0);
+            if (reset(b) !== reset(a)) return reset(b) - reset(a);
+            return ((b.def.params || {}).buff || 0) - ((a.def.params || {}).buff || 0);
+          });
+        if (calls.length) return { skillId: calls[0].id, targets: [] };
+      }
+    }
+
     // --- 3. 攻撃: 無駄撃ちを避けつつ、最も削れる組み合わせを選ぶ ---
     const attacks = skills.filter((s) => isAttack(s.def));
     if (!attacks.length) {
