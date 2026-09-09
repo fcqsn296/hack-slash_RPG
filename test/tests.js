@@ -3063,9 +3063,11 @@
       // 主語の重複を防ぐ約束: 土台に 1girl / 1boy を書かない
       {
         const subjectWords = /\b(1girl|1boy|male focus|monster girl)\b/;
+        // 先頭40文字を出していた。いまは作品名がそれより後ろにあるので
+        // 漏れていないが、土台の語順を変えたら漏れる。中身は出さない。
         assertTrue('プロンプト: 土台に主語を含めない（主人公と矛盾するため）',
           !subjectWords.test(P.base.character) && !subjectWords.test(P.base.enemy),
-          `${P.base.character.slice(0, 40)}…`);
+          `味方 ${P.base.character.split(',').length} 語 / 敵 ${P.base.enemy.split(',').length} 語`);
       }
 
       // 主人公は男性、他は全員美少女 (§8.1)
@@ -3092,6 +3094,12 @@
         assertTrue('人の姿の敵用の土台がある',
           typeof P.base.enemyHuman === 'string' && P.base.enemyHuman.length > 0, '');
         // 抜いてよいのは「人ではない」と言っている語だけ。
+        // 検査の結果に土台の文字列をそのまま出さないこと。
+        // 中に画風の参考にした商業作品名が入っているので、
+        // 出すと**テストページを開いた人に見える**（ファイルには残らないので
+        // publish_check では拾えない種類の漏れ方をする）。
+        // 語の数だけを出す。どれが欠けたかは検査の名前が言っている。
+        const humanTagCount = P.base.enemyHuman.split(',').filter((/** @type {string} */ t) => t.trim()).length;
         const forbidden = ['glowing eyes', 'monster girl'];
         const leaked = forbidden.filter((t) => P.base.enemyHuman.indexOf(t) >= 0);
         assertTrue('人の土台に「人に見えない」ための語が残っていない',
@@ -3100,19 +3108,38 @@
         // 逆に、**塗りと体積の語は落とさないこと**。
         // 一度これを抜いたら、平坦で淡い、他の敵と並べられない絵になった。
         // 肉の厚みと陰影は画面全体の揃え方であって、人か怪物かとは関係が無い。
-        for (const need of ['thick thighs', 'wide hips', 'skindentation',
-          'zenless zone zero']) {
+        for (const need of ['thick thighs', 'wide hips', 'skindentation']) {
           assertTrue(`人の土台に塗りの指定 "${need}" が残っている`,
-            P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
+            P.base.enemyHuman.indexOf(need) >= 0, `${humanTagCount} 語`);
         }
+
+        // 画風・品質・切り出しの語も落とさないこと。
+        //
+        // ここは以前、語をそのまま並べて検査していた。その中に**画風の参考にした
+        // 商業作品名**が含まれていて、`data/artprompts.js` は公開対象外なのに
+        // **この検査の文字列だけが公開物に残っていた**（publish_check が拾う）。
+        //
+        // 語を名指しせずに済ませる。味方の土台と敵の土台が**共に**持っている語は、
+        // 個別の中身とは関係のない「画面全体の揃え方」なので、
+        // 人の姿の敵の土台にも必ず要る。共有している語の集合を実物から作り、
+        // それが欠けていないことだけを見る。名指しより強い検査にもなっている。
+        const tagsOf = (/** @type {string} */ t) =>
+          t.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+        const inEnemy = new Set(tagsOf(P.base.enemy));
+        const inHuman = new Set(tagsOf(P.base.enemyHuman));
+        const shared = tagsOf(P.base.character).filter((t) => inEnemy.has(t));
+        assertTrue('味方と敵の土台が共有する語がある', shared.length > 0, `${shared.length} 語`);
+        const dropped = shared.filter((t) => !inHuman.has(t));
+        assertTrue('人の土台が、共有している画風・品質の語を落としていない',
+          dropped.length === 0, `${shared.length} 語中 ${dropped.length} 語が欠け`);
         // エフェクトを持てない相手が淡くならないよう、光を明示している。
         assertTrue('人の土台に光の指定がある',
           /rim light/.test(P.base.enemyHuman) && /shadow/.test(P.base.enemyHuman),
-          P.base.enemyHuman);
+          `${humanTagCount} 語`);
         // 切り出しと画質の指定は落とさないこと。ここが抜けると透過に失敗する。
         for (const need of ['solo', 'full body', 'white background']) {
           assertTrue(`人の土台に "${need}" が残っている`,
-            P.base.enemyHuman.indexOf(need) >= 0, P.base.enemyHuman);
+            P.base.enemyHuman.indexOf(need) >= 0, `${humanTagCount} 語`);
         }
         // 塗りを潰す語を個別に書き戻さないための歯止め。
         const flatteners = ['flat even lighting', 'matte finish', 'flat lighting'];
@@ -3122,7 +3149,8 @@
 
       /* ===== 実在作品の混入を防ぐ歯止め ===== */
       {
-        // 画風タグに実在の作品名を使っている（土台の zenless zone zero）。
+        // 画風タグに実在の作品名を使っている（土台に1語入れてある。
+        // 名前はここには書かない——公開物に残ってしまうため）。
         // その状態で「何かの形」としか書かない枠を残すと、**その作品の
         // キャラクターで埋められる**。実際に元作品のマスコットが並んで出た。
         //

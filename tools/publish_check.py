@@ -45,12 +45,19 @@ SKIP_FILES = {
 TEXT_EXT = ('.js', '.html', '.css', '.md', '.py', '.json', '.webmanifest', '.bat')
 
 # 画風の参考にした商業作品名。公開物には残さない。
-BRANDS = re.compile(r'zenless|zone zero', re.I)
+#
+# 語をそのまま書くと、**この検査そのものが公開物に作品名を残す**ことになる。
+# 実際そうなっていて、自分自身と .gitignore を読み飛ばすことで辻褄を合わせていた。
+# 読み飛ばすと、その2ファイルに残っていても気付けない（実際に .gitignore の
+# 例示に残っていた）。分けて書けば、検査は自分自身も対象にできる。
+BRANDS = re.compile('|'.join(['zen' + 'less', 'zone' + ' zero']), re.I)
 
 SECRET = re.compile(r'pst-[A-Za-z0-9_-]{12,}')
 EMAIL = re.compile(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
 WINPATH = re.compile(r'[A-Za-z]:\\Users\\[^\s"\'\\]+')
-USER = re.compile(r'fcqsn', re.I)
+# 作品名と同じ理由で分けて書く。素で書くと、この検査自身が
+# 利用者名を公開物に残すことになる。
+USER = re.compile('fcq' + 'sn', re.I)
 
 PNG_SIG = b'\x89PNG\r\n\x1a\n'
 
@@ -157,7 +164,11 @@ def main():
         except Exception:
             continue
         # .gitignore と このファイル自身は、説明のため名前を書いてあるので除外
-        if rel in ('.gitignore', 'tools/publish_check.py'):
+        # 以前はここで '.gitignore' と 'tools/publish_check.py' を読み飛ばしていた。
+        # どちらも作品名を素で持っていたためだが、**どちらも公開されるファイル**
+        # なので、読み飛ばすと残っていることに気付けない。
+        # 語を分けて書いて素の一致を無くしたので、読み飛ばす必要がなくなった。
+        if rel in ():
             continue
         if BRANDS.search(s):
             brand.append(rel)
