@@ -20,7 +20,7 @@ RPG.data.nodeCategories = [
     id: 'stat', label: '基礎ステータス', icon: 'stat',
     terms: ['ステータス', 'HP', '体力', '攻撃力', '防御力', '魔力', 'ATK', 'DEF', 'atk', 'def', 'hp'],
     desc: 'HP・攻撃・防御・魔力そのものを伸ばす。どのビルドでも腐らない土台。',
-    kinds: ['stat_pct'],
+    kinds: ['stat_pct', 'stat_cost'],
   },
   {
     id: 'tag', label: '系統タグ', icon: 'tag',

@@ -14,7 +14,22 @@
   const HEAL_PARTY_COUNT = 2;
 
   /** バフ系のプラグイン */
-  const BUFF_PLUGINS = ['unique_buff', 'tag_buff', 'def_buff'];
+  // オートが「張り直す対象」として見るバフ。
+  //
+  // ── reduction_buff が抜けていた ──
+  // 被ダメージ軽減の技は8種あるのに、**オートでは一度も選ばれていなかった**。
+  // 攻撃技でもなく（power 0）、回復でもなく、この一覧にも無いので、
+  // どの分岐にも引っかからず手札の中で死んでいた。
+  // テオドラの『万人の盾』やネヴィアの『絶えぬ灯』といった、
+  // そのキャラの看板がまるごと使われない状態だった。
+  //
+  // 実測で見つけた: Lv120 の苛烈な条件でも、テオドラは
+  // 不動の砦[def_buff] と 重斬 しか撃っていなかった。
+  //
+  // barrier（動かぬ壁・大盾の宣誓）はここに入れていない。
+  // 障壁は持続を持たず buffActive で「もう張ってある」が判定できないため、
+  // 別の手当てが要る。1回に1つだけ変える。
+  const BUFF_PLUGINS = ['unique_buff', 'tag_buff', 'def_buff', 'reduction_buff'];
 
   /**
    * 攻撃技かどうか。
@@ -31,8 +46,14 @@
    */
   function buffActive(actor, skill) {
     const label = (skill.params && skill.params.label) || skill.name;
-    const has = (/** @type {any[]} */ list) => list.some((b) => b.label === label);
-    return has(actor.buffUnique) || has(actor.buffTags) || has(actor.statusEffects);
+    const has = (/** @type {any[]} */ list) => (list || []).some((b) => b.label === label);
+    // 軽減バフは buffReduction に積まれる（battle.js の addReductionBuff）。
+    // ここを見ないと「もう張ってある」が判定できず、毎ターン張り直す。
+    // 軽減技はクールダウンが持続+1なので実害は出にくいが、
+    // **判定は仕組みで正しくしておく**。クールダウン頼みにすると、
+    // 持続とCTの関係を将来変えたときに静かに壊れる。
+    return has(actor.buffUnique) || has(actor.buffTags)
+      || has(actor.statusEffects) || has(actor.buffReduction);
   }
 
   /**

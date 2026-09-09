@@ -93,18 +93,24 @@
     // prefix は編成ごとの先振り (A2)。PRIORITY より前に置く。
     // 既定は空なので、渡さなければ従来とまったく同じ結果になる。
     const pre = prefix || [];
+
+    // ── 順位どおりに振るには、1段ずつ・毎回先頭から見直す ──
+    //
+    // 上級のノードは初級＋中級に一定量の投資が要る。ノードごとに
+    // 振り切ってから次へ進む書き方だと、**上級の枝は解放される前に
+    // SPを使い切られて黙って落ちる**。実際 tr_double（双撃の理）が
+    // どの型でも0段だった。属性特化の tr_mastery_all なども同じ。
+    //
+    // 1段振るたびに先頭から見直せば、解放された瞬間に順位どおり拾える。
+    // 254SP × 340ノードでも一瞬で終わる。
     const order = pre
       .concat(PRIORITY.filter((id) => pre.indexOf(id) < 0));
-    while (progressed && guard++ < 500) {
-      progressed = false;
-      // 明示した順に振り、使い切れなかったぶんを定義順で埋める。
-      for (const nodeId of order.concat(
-        remainingNodes().filter((id) => order.indexOf(id) < 0))) {
-        while (RPG.tree.canInvest(charSave, nodeId).ok) {
-          charSave.tree[nodeId] = (charSave.tree[nodeId] || 0) + 1;
-          progressed = true;
-        }
-      }
+    while (guard++ < 2000) {
+      const all = order.concat(
+        remainingNodes().filter((id) => order.indexOf(id) < 0));
+      const next = all.find((id) => RPG.tree.canInvest(charSave, id).ok);
+      if (!next) break;
+      charSave.tree[next] = (charSave.tree[next] || 0) + 1;
     }
     return charSave;
   }
@@ -254,6 +260,43 @@
         },
       ],
     },
+
+    /* ── 支援を1つの型で代表させない (C1) ──
+     *
+     * A2 の時点では「支援入り」1つしか無く、終盤で遅いという結果だけが出ていた。
+     * だが支援と言っても仕事が違う。**バフで攻めを伸ばす**のと、
+     * **削られたぶんを戻す**のと、**そもそも削られないようにする**のは別物で、
+     * どれが効くかは「どれだけ削られるか」で変わる。
+     * 1つにまとめると「支援は遅い」で終わってしまうので、3つに分ける。
+     *
+     * どれも plain の**ディアナ1枠だけ**を置き換えたもの。比べる相手を揃える。
+     */
+    heal: {
+      label: '回復入り',
+      note: 'plain のディアナをネヴィアへ置き換えたもの。削られたぶんを戻す型。',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_zero', klass: 'cls_breaker' },
+        { id: 'ch_lg_nefeli', klass: 'cls_breaker' },
+        {
+          id: 'ch_lg_nevia', klass: 'cls_mender',       // 絶えぬ灯（再生・瀕死回復・ウェーブ回復）
+          prefix: ['tr_regen_hi', 'tr_low_hp_heal_hi', 'tr_wave_heal', 'tr_heal_power_hi'],
+        },
+      ],
+    },
+    guard: {
+      label: '防護入り',
+      note: 'plain のディアナをテオドラへ置き換えたもの。削られないようにする型。',
+      members: [
+        { id: 'ch_hero', klass: 'cls_breaker' },
+        { id: 'ch_lg_zero', klass: 'cls_breaker' },
+        { id: 'ch_lg_nefeli', klass: 'cls_breaker' },
+        {
+          id: 'ch_lg_theodora', klass: 'cls_guardian',  // 万人の盾（庇う・肩代わり・反射）
+          prefix: ['tr_guard_ally_hi', 'tr_damage_share', 'tr_back_guard', 'tr_shield_regen'],
+        },
+      ],
+    },
   };
 
   /**
@@ -338,6 +381,93 @@
           (RPG.data.skills[k] || {}).name || k).join('、'),
       },
     };
+  }
+
+  /* ============================================================
+     実データ由来の終盤ビルド
+     ============================================================ */
+
+  /**
+   * 実際に遊んでいる人の主人公（Lv255・限界突破0）をそのまま写したもの。
+   *
+   * ── なぜ要るのか ──
+   * 道具が組む想定ビルド（PRIORITY ＋ 定義順の穴埋め）は、SPを広く薄く配る。
+   * 実物は**噛み合わせを組む**。両者の差は桁で出た:
+   *
+   *            道具の想定    実データ
+   *   ATK        4,267      21,070
+   *   多段         なし     3回（双月の環×2）
+   *   上限突破     わずか     ×3.19
+   *
+   * この差のせいで、道具で「単騎では無理」と出た依頼が実物では
+   * **5ラウンド・無傷**で抜けられた。難度を道具に合わせて決めると、必ず甘くなる。
+   *
+   * ── 何を写したか ──
+   * ツリーとクラスの振り方はそのまま。装備は個体差があるので写さず、
+   * **双月の環×2（多段の要）＋ 竜の箱の最良**という骨格だけを再現する。
+   * 個体の厳選ぶんは再現しないので、実物よりやや弱く出る。
+   *
+   * 元データは _scratch/save_solo_20260908.json（git 管理外）。
+   */
+  const ENDGAME_TREE = {
+    tr_lifesteal: 1, tr_magi1: 3, tr_counter: 1, tr_reli1: 4, tr_adapt: 2,
+    tr_double: 1, tr_all_tag: 3, tr_extra: 3, tr_phys1: 3, tr_all_spread: 1,
+    tr_crit: 5, tr_ambush: 3, tr_first_round: 4,
+    // DEF→ATK と ATK→DEF を両方全振りする相互変換。ここが火力の芯。
+    tr_def_to_atk: 4, tr_atk_to_def: 4, tr_atk_to_def_mid: 4,
+    tr_def_to_atk_mid: 4, tr_def_to_atk_hi: 3,
+    tr_phys2: 4, tr_magi2: 4, tr_reli2: 4,
+    tr_grant_ragnarok: 1, tr_revive: 1, tr_fortress: 3, tr_guard: 5,
+    tr_boss_guard_mid: 4, tr_def_fortress: 5,
+    tr_grant_burst: 1, tr_grant_glacier: 1, tr_grant_gaia: 1,
+  };
+  const ENDGAME_KLASS = {
+    id: 'cls_breaker',
+    tree: {
+      bk_ruin: 1, bk_carry: 2, bk_cap: 8, bk_apex: 1, bk_high: 3,
+      bk_x_cap: 5, bk_x_high: 2, bk_x_lone: 1, bk_x_stable: 1,
+    },
+  };
+
+  /**
+   * その終盤ビルドで1体作る。
+   * @param {string} charId
+   * @param {number} [level]
+   * @param {number} [limitBreak]
+   */
+  function endgameUnit(charId, level, limitBreak) {
+    const uid = uidSource();
+    const charSave = {
+      id: charId, level: level == null ? RPG.data.maxLevelCap : level,
+      limitBreak: limitBreak == null ? 0 : limitBreak,
+      tree: Object.assign({}, ENDGAME_TREE),
+      klass: ENDGAME_KLASS.id,
+      klassTree: Object.assign({}, ENDGAME_KLASS.tree),
+      equipped: { weapon: [], armor: [], accessory: [] },
+    };
+    const plan = gearPlanFor(charSave.level);
+    const inventory = equipBest(charSave, plan.box, plan.rolls, uid, plan.plus);
+
+    // 双月の環×2。多段はこの装備からしか出ないので、骨格として明示的に着ける。
+    const def = RPG.data.uniqueEquips.uq_twin_moons;
+    if (def) {
+      const base = RPG.data.equipBases[def.base];
+      const worn = [];
+      for (let i = 0; i < 2; i++) {
+        const it = {
+          uid: uid.next(), base: def.base, name: def.name, slot: base.slot, tag: base.tag,
+          rarity: 'LEGEND', stats: Object.assign({}, def.stats), tagBonuses: [],
+          critRate: 0, capBreak: 0, reduction: 0, affixLines: [],
+          boxId: 'box_astral', setId: null, uniqueId: 'uq_twin_moons',
+          uniqueEffects: Object.assign({}, def.effects), locked: false, plus: plan.plus,
+        };
+        RPG.enhance.applyPlus(it);
+        inventory.push(it);
+        worn.push(it.uid);
+      }
+      charSave.equipped[base.slot] = worn;
+    }
+    return RPG.units.buildCharacterUnit(charSave, inventory);
   }
 
   /**
@@ -867,5 +997,6 @@
     boxSellValue, boxYield, economy, economyLevel, economyTable,
     COMPOSITIONS, compositionNames, buildComposition,
     runComposition, simulateComposition, PARTY_SEED,
+    ENDGAME_TREE, ENDGAME_KLASS, endgameUnit,
   };
 })(window.RPG);

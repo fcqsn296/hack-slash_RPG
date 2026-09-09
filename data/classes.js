@@ -104,7 +104,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'damage_share', value: 0.35 },
           { kind: 'stat_pct', stat: 'def', value: 0.6 },
-          { kind: 'stat_pct', stat: 'atk', value: -0.5 },
+          { kind: 'stat_cost', stat: 'atk', value: -0.5 },
         ],
         desc: '味方の被害を追加で35%肩代わりし DEF +60%。ただし ATK -50%',
       },
@@ -149,8 +149,8 @@ RPG.data.classes = {
           // 代償は必ず「そのクラスが痛い所」に置く。
           // 魔力だけを削っても守護者はほとんど困らないので、
           // 鉄血の構え（DEF→ATKと魔力）で作った火力ごと落とす。
-          { kind: 'stat_pct', stat: 'atk', value: -0.45 },
-          { kind: 'stat_pct', stat: 'magi_power', value: -0.45 },
+          { kind: 'stat_cost', stat: 'atk', value: -0.45 },
+          { kind: 'stat_cost', stat: 'magi_power', value: -0.45 },
         ],
         desc: '致死を60%で耐え、倒れてもHP50%で1度だけ復帰、被ダメージ -15%。' +
           'ただし ATK と魔力 -45%',
@@ -241,7 +241,7 @@ RPG.data.classes = {
         id: 'gd_a_wrath', name: '【極】血の裁定', cost: 7, maxLevel: 1,
         effects: [{ kind: 'reflect', value: 0.45 },
           { kind: 'counter', value: 0.5, power: 1.2 },
-          { kind: 'stat_pct', stat: 'def', value: -0.4 }],
+          { kind: 'stat_cost', stat: 'def', value: -0.4 }],
         desc: '受けたダメージの45%を返し、50%の確率で威力120%の反撃。ただし DEF -40%',
       },
     ],
@@ -309,7 +309,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'regen', value: 0.08 },
           { kind: 'heal_power', value: 0.5 },
-          { kind: 'stat_pct', stat: 'atk', value: -0.4 },
+          { kind: 'stat_cost', stat: 'atk', value: -0.4 },
         ],
         desc: '毎ラウンド最大HPの8%回復、回復量 +50%。ただし ATK -40%',
       },
@@ -349,7 +349,7 @@ RPG.data.classes = {
           { kind: 'guard_ally', value: 0.4 },
           { kind: 'overheal_shield', value: 0.6 },
           { kind: 'stat_pct', stat: 'hp', value: 0.5 },
-          { kind: 'stat_pct', stat: 'def', value: -0.5 },
+          { kind: 'stat_cost', stat: 'def', value: -0.5 },
         ],
         desc: '味方の被害を40%肩代わり、超過回復の60%が障壁に、最大HP +50%。ただし DEF -50%',
       },
@@ -512,7 +512,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'high_power_boost', value: 0.8 },
           { kind: 'cap_break', value: 0.6 },
-          { kind: 'stat_pct', stat: 'hp', value: -0.5 },
+          { kind: 'stat_cost', stat: 'hp', value: -0.5 },
         ],
         desc: '大技の火力 +80%、上限突破 +60%。ただし最大HP -50%',
       },
@@ -545,7 +545,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'foe_count_power', value: 0.18 },
           { kind: 'overkill_carry', value: 0.5 },
-          { kind: 'stat_pct', stat: 'def', value: -0.5 },
+          { kind: 'stat_cost', stat: 'def', value: -0.5 },
         ],
         desc: '敵1体につき火力 +18%、倒したときの超過ダメージを50%持ち越す。ただし DEF -50%',
       },
@@ -703,7 +703,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'status_power', value: 1.2 },
           { kind: 'vs_status_power', status: 'all', value: 0.25 },
-          { kind: 'stat_pct', stat: 'atk', value: -0.35 },
+          { kind: 'stat_cost', stat: 'atk', value: -0.35 },
         ],
         desc: '継続ダメージ +120%、弱体中の敵への火力 +25%。ただし ATK -35%',
       },
@@ -745,7 +745,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'self_curse_power', value: 0.3 },
           { kind: 'debuff_amp', value: 0.4 },
-          { kind: 'stat_pct', stat: 'hp', value: -0.45 },
+          { kind: 'stat_cost', stat: 'hp', value: -0.45 },
         ],
         desc: '自分の弱体1つにつき火力 +30%、弱体中の敵への火力 +40%。ただし最大HP -45%',
       },
@@ -841,7 +841,7 @@ RPG.data.classes = {
         id: 'hx_g_mark', name: '【極】万象呪印', cost: 7, maxLevel: 1,
         effects: [{ kind: 'sigil_burst', value: 0.06 },
           { kind: 'double_hits', value: 0.3 },
-          { kind: 'stat_pct', stat: 'magi_power', value: -0.35 }],
+          { kind: 'stat_cost', stat: 'magi_power', value: -0.35 }],
         desc: '刻印の炸裂が相手の最大HPの6%に、30%で技がもう一度出る。ただし魔力 -35%',
       },
     ],
@@ -909,7 +909,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'extra_action', value: 0.35 },
           { kind: 'buff_duration', value: 2 },
-          { kind: 'stat_pct', stat: 'atk', value: -0.45 },
+          { kind: 'stat_cost', stat: 'atk', value: -0.45 },
         ],
         desc: '35%で再行動、味方バフの持続 +2ターン。ただし ATK -45%',
       },
@@ -948,7 +948,7 @@ RPG.data.classes = {
           { kind: 'first_hit_crit', value: 2 },
           { kind: 'wave_power', value: 0.5 },
           { kind: 'round_stack', value: 0.12 },
-          { kind: 'stat_pct', stat: 'hp', value: -0.4 },
+          { kind: 'stat_cost', stat: 'hp', value: -0.4 },
         ],
         desc: 'ウェーブごとに確定会心2回、ボス戦の火力 +50%、ラウンドごとに +12%。ただし最大HP -40%',
       },
@@ -1108,7 +1108,7 @@ RPG.data.classes = {
         effects: [
           { kind: 'crit', value: 0.5 },
           { kind: 'crit_damage', value: 1.2 },
-          { kind: 'stat_pct', stat: 'def', value: -0.6 },
+          { kind: 'stat_cost', stat: 'def', value: -0.6 },
         ],
         desc: 'クリティカル率 +50%、倍率 +1.2。ただし DEF -60%',
       },
@@ -1147,7 +1147,7 @@ RPG.data.classes = {
           { kind: 'double_hits', value: 0.35 },
           { kind: 'ambush', value: 0.4 },
           { kind: 'crit_spread', value: 0.2 },
-          { kind: 'stat_pct', stat: 'hp', value: -0.45 },
+          { kind: 'stat_cost', stat: 'hp', value: -0.45 },
         ],
         desc: '35%で技がもう一度出る、1R目に40%で再行動、会心が20%こぼれる。ただし最大HP -45%',
       },

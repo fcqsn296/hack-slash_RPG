@@ -115,9 +115,19 @@
 
   function measureTopbar() {
     const bar = $('#topbar');
-    if (!bar) return;
-    const h = Math.round(bar.getBoundingClientRect().height);
-    document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    if (bar) {
+      const h = Math.round(bar.getBoundingClientRect().height);
+      document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    }
+    // 下部のタブバーも同じ理由で実測して渡す。
+    // PCで列を独立してスクロールさせるとき、列の高さは
+    // 「画面の高さ − 上部バー − タブバー」で決まる。
+    // タブバーの高さは safe-area のぶん端末で変わるので、固定値を書けない。
+    const rail = document.querySelector('.tab-rail');
+    if (rail) {
+      const rh = Math.round(rail.getBoundingClientRect().height);
+      document.documentElement.style.setProperty('--rail-h', rh + 'px');
+    }
   }
 
   function refreshTopbar() {

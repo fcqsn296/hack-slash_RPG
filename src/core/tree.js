@@ -317,7 +317,7 @@
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
     'revive', 'round_stack', 'shield_regen', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
-    'start_shield', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
+    'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
     'taunt', 'thorns', 'triage', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
@@ -338,6 +338,10 @@
   function effectsOf(defs, levels) {
     /** @type {Record<string, number>} */
     const statPct = { hp: 0, atk: 0, def: 0, magi_power: 0 };
+    // 代償。statPct と別に持つのは、**効かせる場所が違う**ため。
+    // statPct は素の値へ、statCost は装備・変換・ミラーを終えた最終値へ効く。
+    /** @type {Record<string, number>} */
+    const statCost = { hp: 0, atk: 0, def: 0, magi_power: 0 };
     /** @type {Array<{tag: string, value: number, matchType: null}>} */
     const tagBonuses = [];
     /** @type {Record<string, number>} */
@@ -568,6 +572,7 @@
         const amount = e.value * level;
         switch (e.kind) {
           case 'stat_pct': statPct[e.stat] += amount; break;
+          case 'stat_cost': statCost[e.stat] += amount; break;
           case 'tag_bonus': tagSums[e.tag] += amount; break;
           case 'tag_all':
             tagSums.phys += amount; tagSums.magi += amount; tagSums.reli += amount;
@@ -822,7 +827,7 @@
     passives.counterAll = Math.min(1, passives.counterAll);
 
     return {
-      statPct, tagBonuses, crit, critDamage, capBreak,
+      statPct, statCost, tagBonuses, crit, critDamage, capBreak,
       execute, reduction, skills, passives, situational, elementMods,
     };
   }
@@ -850,6 +855,7 @@
 
     const out = {
       statPct: Object.assign({}, base.statPct),
+      statCost: Object.assign({}, base.statCost),
       tagBonuses: base.tagBonuses.concat(add.tagBonuses),
       crit: base.crit + add.crit,
       critDamage: base.critDamage + add.critDamage,
@@ -864,6 +870,9 @@
 
     for (const k of Object.keys(add.statPct)) {
       out.statPct[k] = (out.statPct[k] || 0) + add.statPct[k];
+    }
+    for (const k of Object.keys(add.statCost)) {
+      out.statCost[k] = (out.statCost[k] || 0) + add.statCost[k];
     }
     for (const id of add.skills) {
       if (!out.skills.includes(id)) out.skills.push(id);

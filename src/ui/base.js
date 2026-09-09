@@ -33,8 +33,17 @@
    */
   const IDENTIFY_SHOW_MAX = 60;
 
-  /** 所持装備の一覧に一度に並べる上限 (§7.9)。理由は上と同じ。 */
-  const INVENTORY_SHOW_MAX = 120;
+  /**
+   * 所持装備の一覧の1ページぶん (§7.9)。
+   *
+   * ここは長いあいだ「上限120個」で、**121個目以降には到達できなかった**。
+   * 絞り込みで先頭へ持ってくるしかなく、2,205個持っている実データでは
+   * 一覧が事実上の飾りになっていた。ページ送りに変えて全部へ届くようにした。
+   *
+   * 60 にしたのは、行表示（dense）ならスマホでも1ページが数画面で済むため。
+   * カード表示は1枚が約290pxあるので、ここを増やすと縦が一気に伸びる。
+   */
+  const INVENTORY_PAGE_SIZE = 60;
 
   let lastIdentified = [];
   /** @type {{count: number, gold: number, protectedCount: number}|null} 直近の自動売却の結果 */
@@ -66,6 +75,11 @@
   /** インベントリの並べ替えと絞り込み */
   const gearView = {
     sort: 'power',
+    // 何ページ目を見ているか。絞り込み・並べ替えを変えたら 0 に戻す。
+    page: 0,
+    // 一覧の密度。null は「画面幅で決める」（狭い画面では行、広い画面ではカード）。
+    // 触った時点で true/false に固定する。
+    dense: /** @type {boolean|null} */ (null),
     slot: /** @type {string|null} */ (null),
     tag: /** @type {string|null} */ (null),
     rarity: /** @type {string|null} */ (null),
@@ -143,8 +157,17 @@
   /** 「その他」の引き出しが開いているか */
   let drawerOpen = false;
 
+  /**
+   * 最後に描いた根。スワイプの handler は画面の要素ではなく document に
+   * 付くので、呼ばれた時点で root を持っていない。ここから取る。
+   * @type {HTMLElement|null}
+   */
+  let lastRoot = null;
+
   /** @param {HTMLElement} root */
   function render(root) {
+    lastRoot = root;
+    installEdgeSwipe();
     applyBackdrop();
 
     /** @param {any} t */
@@ -447,8 +470,75 @@
         ),
         h('span.char-current-mark', { text: charListOpen ? '▲' : '▼ 他のキャラ' })
       ),
+      // 覆い。狭い画面ではキャラ一覧が横から出る板になるので、
+      // 外を触ったら閉じられるようにする。広い画面では CSS が消す。
+      charListOpen
+        ? h('div.char-scrim', { onClick: () => { charListOpen = false; render(root); } })
+        : null,
       h('div.char-body', h('div.char-search-row', search), pillBox, listBox)
     );
+  }
+
+  /**
+   * 画面の左端からのスワイプでキャラ一覧を出す (§15)。
+   *
+   * ── なぜ要るのか ──
+   * 狭い画面では一覧を畳んでいる（畳まないと20人ぶんの行がツリーの上に
+   * 積まれて 1,000px 以上になる）。畳んだぶん、キャラを変えるたびに
+   * 「上まで戻る → 開く → 選ぶ」の3手が要る。
+   * 端から引き出せれば、画面のどこにいても1手で開く。
+   *
+   * ── 縦スクロールを邪魔しないこと ──
+   * 指が最初に動いた向きで判定して、縦のほうが大きければ**その指は捨てる**。
+   * ここを見ないと、一覧を縦に送るつもりの指がパネルを開いてしまう。
+   *
+   * 途中経過は追わず、しきい値を越えた時点で開閉する。
+   * 板の動きは CSS の transition が受け持つ。
+   */
+  let edgeSwipeReady = false;
+  function installEdgeSwipe() {
+    if (edgeSwipeReady || typeof document === 'undefined') return;
+    edgeSwipeReady = true;
+
+    /** 端から始まったか／向きが決まったか／捨てた指か */
+    let x0 = 0, y0 = 0, fromEdge = false, axis = '', tracking = false;
+
+    // 3ペインに開く幅では畳んでいないので、そもそも働かせない
+    const narrow = () => window.innerWidth <= 860;
+    // キャラ一覧を持つ画面でだけ効かせる
+    const hasSelector = () => !!document.querySelector('.char-selector');
+
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1 || !narrow() || !hasSelector()) { tracking = false; return; }
+      const t = e.touches[0];
+      x0 = t.clientX; y0 = t.clientY; axis = '';
+      // 28px は親指の腹で狙える幅。ここを広くすると、
+      // 一覧の中で横に払う操作まで拾ってしまう
+      fromEdge = x0 <= 28;
+      tracking = fromEdge || charListOpen;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!tracking || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - x0;
+      const dy = t.clientY - y0;
+      if (!axis) {
+        // 12px 動くまでは向きを決めない。決め打ちが早いと誤判定する
+        if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (axis === 'y') { tracking = false; return; }
+      }
+      if (!charListOpen && fromEdge && dx > 60) {
+        charListOpen = true; tracking = false;
+        if (lastRoot) render(lastRoot);
+      } else if (charListOpen && dx < -60) {
+        charListOpen = false; tracking = false;
+        if (lastRoot) render(lastRoot);
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => { tracking = false; }, { passive: true });
   }
 
   /**
@@ -2730,12 +2820,24 @@
     const equippedUids = new Set(unit.equippedItems.map((/** @type {any} */ i) => i.uid));
     const inventory = applyGearView(save.inventory, owner);
 
-    return h('div.pane.pane-split',
+    // 3ペイン (§7.9)。左＝誰を、中＝何を持っているか、右＝いま何を着ているか。
+    // 所持装備を中央（広い側）に置くのは、カード表示が横に並ぶ必要があるため。
+    // 着ている側は行の集まりなので、狭い列でも読める。
+    return h('div.pane.pane-split.pane-3',
       h('div.col-left',
         h('h3', { text: 'キャラクター' }),
         charSelector(root)
       ),
-      h('div.col-right',
+      h('div.col-main',
+      h('div.col-mid',
+        h('div.section-head',
+          h('h3', { text: `所持装備（${inventory.length} / ${save.inventory.length}）` }),
+          bulkSellButton(root, inventory, owner)
+        ),
+        gearToolbar(root, save.inventory),
+        inventoryList(root, inventory, owner, equippedUids)
+      ),
+      h('div.col-far',
         h('div.char-detail',
           W.standee(unit),
           h('div.char-detail-info',
@@ -2812,60 +2914,132 @@
           }
           return h('div.slot-group', h('h4', W.icon(W.SLOT_ICON[slot]), h('em', { text: RPG.units.SLOT_LABEL[slot] })), h('div.slot-cells', cells));
         })),
-        // ルールで売る側 (§7.4)。すぐ下の「表示中をまとめて売却」は
+        // ルールで売る側 (§7.4)。中央の「表示中をまとめて売却」は
         // 絞り込みの結果を無条件に売るので、性格が違う。
-        autoSellSection(root),
-
-        h('div.section-head',
-          h('h3', { text: `所持装備（${inventory.length} / ${save.inventory.length}）` }),
-          bulkSellButton(root, inventory, owner)
-        ),
-        // 一覧にも上限を設ける (§7.9)。
-        // 周回を続けると所持数は数百に達し、全部並べるとスマホが固まる。
-        // 絞り込みと並べ替えがあるので、見たいものは上位に持ってこられる。
-        // 何順の上位なのかを書く。並べ替えを増やしたので、
-        // 「上位120個」だけでは何の上位なのか分からない。
-        inventory.length > INVENTORY_SHOW_MAX
-          ? h('p.hint.hint-sm', {
-              text: `${(SORTS.find((x) => x.id === gearView.sort) || {}).label || ''}`
-                + `の上位 ${INVENTORY_SHOW_MAX} 個を表示しています`
-                + `（該当 ${inventory.length} 個）。並べ替えと絞り込みで目的の装備を先頭へ持ってこられます。`,
-            })
-          : null,
-        gearToolbar(root, save.inventory),
-        inventory.length === 0
-          ? h('p.empty', {
-              text: save.inventory.length === 0
-                ? '装備がありません。宝箱を鑑定しましょう。'
-                : '条件に合う装備がありません。絞り込みを外してください。',
-            })
-          : h('div.item-grid', inventory.slice(0, INVENTORY_SHOW_MAX).map((/** @type {any} */ item) =>
-              h('div.inv-entry' + (item.locked ? '.is-locked' : ''),
-                W.itemCard(item, {
-                  equippedBy: owner[item.uid],
-                  selected: equippedUids.has(item.uid),
-                  locked: item.locked,
-                }),
-                h('div.inv-actions',
-                  W.button(equippedUids.has(item.uid) ? '装備中' : '装備する', () => {
-                    RPG.state.equip(selectedChar, item.uid);
-                    render(root);
-                  }, { disabled: equippedUids.has(item.uid) }),
-                  W.button(item.locked ? 'ロック中' : 'ロック', () => {
-                    RPG.state.toggleLock(item.uid);
-                    render(root);
-                  }, { variant: 'ghost', title: item.locked ? 'ロックを解除' : 'ロックして一括売却から守る' }),
-                  W.button('売却', () => {
-                    if (item.locked) { RPG.app.toast('ロック中の装備は売却できません'); return; }
-                    const gold = RPG.state.sell(item.uid);
-                    RPG.app.toast(`売却して ${gold.toLocaleString()} G を得た`);
-                    RPG.app.refreshTopbar();
-                    render(root);
-                  }, { variant: 'ghost', disabled: !!item.locked })
-                )
-              )
-            ))
+        autoSellSection(root)
       )
+      )
+    );
+  }
+
+  /**
+   * 所持装備の一覧。ページ送りと、カード／行の切り替えを持つ (§7.9)。
+   *
+   * ── なぜ作り直したか ──
+   * 以前は「上位120個」で打ち切っていて、**121個目以降へは到達できなかった**。
+   * 実データ（2,205個）では一覧が飾りになっていた。
+   *
+   * もう1つは縦の長さ。カードは中身（ステータスと副オプション）で高さが決まり
+   * 1枚 約290px ある。実測で、装備タブの中身は
+   *   PC(1440px幅・4列)  10,832px
+   *   スマホ(375px・1列) 39,546px
+   * あった。ページを分けるだけでは1枚の大きさが変わらないので、
+   * **並べるものを行に落とせる**ようにしてある。
+   * 行には名前・部位・レア度・スコアだけを出す。中身を見たいときは
+   * カードへ戻せばよく、情報を取り上げてはいない。
+   *
+   * @param {HTMLElement} root
+   * @param {any[]} inventory 絞り込みと並べ替えを終えたもの
+   * @param {Record<number, string>} owner
+   * @param {Set<number>} equippedUids
+   */
+  function inventoryList(root, inventory, owner, equippedUids) {
+    if (inventory.length === 0) {
+      return h('p.empty', {
+        text: RPG.state.get().inventory.length === 0
+          ? '装備がありません。宝箱を鑑定しましょう。'
+          : '条件に合う装備がありません。絞り込みを外してください。',
+      });
+    }
+
+    const pages = Math.max(1, Math.ceil(inventory.length / INVENTORY_PAGE_SIZE));
+    // 絞り込みでページ数が減ったとき、範囲の外に取り残されないようにする
+    const page = Math.min(gearView.page, pages - 1);
+    gearView.page = page;
+    const shown = inventory.slice(page * INVENTORY_PAGE_SIZE, (page + 1) * INVENTORY_PAGE_SIZE);
+
+    // 密度の既定は画面幅で決める。狭い画面ではカードが1列に積まれて
+    // 1ページが数万pxになるため、行から始める。
+    const dense = gearView.dense === null
+      ? (typeof window !== 'undefined' && window.innerWidth < 861)
+      : gearView.dense;
+
+    /** その装備に対してできること。カードでも行でも同じ並び。 */
+    const actions = (/** @type {any} */ item) => h('div.inv-actions',
+      W.button(equippedUids.has(item.uid) ? '装備中' : '装備する', () => {
+        RPG.state.equip(selectedChar, item.uid);
+        render(root);
+      }, { disabled: equippedUids.has(item.uid) }),
+      W.button(item.locked ? 'ロック中' : 'ロック', () => {
+        RPG.state.toggleLock(item.uid);
+        render(root);
+      }, { variant: 'ghost', title: item.locked ? 'ロックを解除' : 'ロックして一括売却から守る' }),
+      W.button('売却', () => {
+        if (item.locked) { RPG.app.toast('ロック中の装備は売却できません'); return; }
+        const gold = RPG.state.sell(item.uid);
+        RPG.app.toast(`売却して ${gold.toLocaleString()} G を得た`);
+        RPG.app.refreshTopbar();
+        render(root);
+      }, { variant: 'ghost', disabled: !!item.locked })
+    );
+
+    const go = (/** @type {number} */ to) => {
+      gearView.page = Math.max(0, Math.min(pages - 1, to));
+      render(root);
+    };
+
+    // h() は DOM 要素を返すので、同じ変数を2か所に置くと**下にしか出ない**
+    // （2回目の挿入で1か所目から移動する）。毎回作り直す。
+    const pager = () => h('div.inv-pager',
+      W.button('前へ', () => go(page - 1), { variant: 'ghost', disabled: page === 0 }),
+      h('span.inv-pager-at', {
+        text: `${page + 1} / ${pages} ページ`
+          + `（${page * INVENTORY_PAGE_SIZE + 1}〜${page * INVENTORY_PAGE_SIZE + shown.length}`
+          + ` / 該当 ${inventory.length} 個）`,
+      }),
+      W.button('次へ', () => go(page + 1), { variant: 'ghost', disabled: page >= pages - 1 })
+    );
+
+    return h('div.inv-list',
+      h('div.inv-list-head',
+        h('span.hint.hint-sm', {
+          text: `${(SORTS.find((x) => x.id === gearView.sort) || {}).label || ''}順`,
+        }),
+        W.button(dense ? 'カードで見る' : '行で見る', () => {
+          gearView.dense = !dense;
+          render(root);
+        }, { variant: 'ghost' })
+      ),
+      pager(),
+      dense
+        ? h('div.inv-rows', shown.map((/** @type {any} */ item) =>
+            h('div.inv-row' + (item.locked ? '.is-locked' : '')
+              + (equippedUids.has(item.uid) ? '.is-equipped' : ''),
+              h('div.inv-row-main',
+                h('span.inv-row-name', {
+                  style: { color: (RPG.data.rarities[item.rarity] || RPG.data.rarities.COMMON).color },
+                  text: item.name + (item.plus ? ` +${item.plus}` : ''),
+                }),
+                h('span.inv-row-sub', {
+                  text: `${RPG.units.SLOT_LABEL[item.slot]} / スコア ${RPG.gear.score(item)}`
+                    + (owner[item.uid] ? ` / ${owner[item.uid]}` : ''),
+                })
+              ),
+              actions(item)
+            )
+          ))
+        : h('div.item-grid', shown.map((/** @type {any} */ item) =>
+            h('div.inv-entry' + (item.locked ? '.is-locked' : ''),
+              W.itemCard(item, {
+                equippedBy: owner[item.uid],
+                selected: equippedUids.has(item.uid),
+                locked: item.locked,
+              }),
+              actions(item)
+            )
+          )),
+      // 下にも置く。1ページ60個を見終えた指は、いちばん下にある
+      pager()
     );
   }
 
@@ -3054,7 +3228,9 @@ ${nextCost.toLocaleString()} G
     const pill = (label, active, onClick) =>
       h('button.pill' + (active ? '.is-on' : ''), { onClick, text: label });
 
-    const rerender = () => render(root);
+    // 絞り込みや並べ替えを変えたら1ページ目へ戻す。
+    // 残したままだと「5ページ目のまま条件を絞って空になる」が起きる。
+    const rerender = () => { gearView.page = 0; render(root); };
 
     return h('div.gear-toolbar',
       // 並べ替えは選択式にする (§7.4)。
@@ -3275,12 +3451,23 @@ ${nextCost.toLocaleString()} G
     const available = totalSp - spent;
     const resetCost = RPG.tree.resetCost(charSave.level);
 
-    return h('div.pane.pane-split',
+    // 3ペイン (§7.9)。左＝誰を、中＝どこへ振るか、右＝いまどうなっているか。
+    // 振る操作（クラス・技順・ツリー）と、それを見ながら確かめる読み取り
+    // （残りSP・組み立ての要約・ダメージの内訳）を左右に分ける。
+    // 以前は全部が1本に積まれていて、ツリーの下のほうを触るたびに
+    // 要約を見るために画面の上まで戻る必要があった。
+    return h('div.pane.pane-split.pane-3',
       h('div.col-left',
         h('h3', { text: 'キャラクター' }),
         charSelector(root)
       ),
-      h('div.col-right',
+      h('div.col-main',
+      h('div.col-mid',
+        skillOrderPanel(root, charSave, unit),
+        classPanel(root, charSave),
+        treeBrowser(root, charSave)
+      ),
+      h('div.col-far',
         h('div.build-head',
           W.portrait(def, 'md'),
           h('div.build-head-info',
@@ -3325,10 +3512,8 @@ ${nextCost.toLocaleString()} G
         ),
 
         buildSummary(unit),
-        damageBreakdown(root, unit, charSave),
-        skillOrderPanel(root, charSave, unit),
-        classPanel(root, charSave),
-        treeBrowser(root, charSave)
+        damageBreakdown(root, unit, charSave)
+      )
       )
     );
   }
