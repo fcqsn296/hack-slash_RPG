@@ -5581,6 +5581,28 @@
         assertTrue('クエスト: enemyScale で報酬は増えない',
           scaled.gold === plain.gold && scaled.exp === plain.exp,
           `G ${plain.gold}→${scaled.gold} / EXP ${plain.exp}→${scaled.exp}`);
+
+        // ステータス別の倍率 (§10.3)。
+        // まとめて上げると ATK も一緒に上がり、終わらぬ見張りでは
+        // 敵の1発が味方の最大HPの478%になって一撃死の二択になった。
+        // 「HPだけ厚くして、殴り合いは成立させる」を書けるようにしてある。
+        const hpOnly = RPG.units.buildEnemyUnit('em_sentinel', 55, false, 0, { hp: 10 });
+        assertTrue('クエスト: enemyScale はステータスごとに書ける',
+          hpOnly.maxHp === plain.maxHp * 10
+          && hpOnly.stats.atk === plain.stats.atk
+          && hpOnly.stats.def === plain.stats.def,
+          `HP ${plain.maxHp}→${hpOnly.maxHp} / ATK ${plain.stats.atk}→${hpOnly.stats.atk}`);
+        assertTrue('クエスト: 書かなかったステータスは等倍のまま',
+          RPG.units.buildEnemyUnit('em_sentinel', 55, false, 0, {}).maxHp === plain.maxHp, '');
+        assertTrue('クエスト: ステータス別でも報酬は増えない',
+          hpOnly.gold === plain.gold && hpOnly.exp === plain.exp, '');
+
+        // 挑む前に何が厚いのか読めること。数値でも表でも文言が出る。
+        assertTrue('クエスト: ステータス別の倍率が条件として表示される',
+          RPG.quest.ruleLabels({ rules: {}, enemyScale: { hp: 10 } }).indexOf('敵HP×10') >= 0,
+          RPG.quest.ruleLabels({ rules: {}, enemyScale: { hp: 10 } }).join(' / '));
+        assertTrue('クエスト: 数値の倍率も従来どおり表示される',
+          RPG.quest.ruleLabels({ rules: {}, enemyScale: 3 }).indexOf('敵能力×3') >= 0, '');
       }
 
       // --- 初回クリア報酬 ---

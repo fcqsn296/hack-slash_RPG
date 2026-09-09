@@ -444,8 +444,26 @@
     const def = RPG.data.enemies[enemyId];
     const stats = statsAtLevel(def, level);
     // クエストの高難度指定はここで乗せる。報酬は倍率で膨らませない（周回の抜け道になるため）。
-    const mult = (isBoss ? RPG.data.bossStatMultiplier : 1) * (scale == null ? 1 : scale);
-    for (const key of Object.keys(stats)) stats[key] = Math.floor(stats[key] * mult);
+    // 難度倍率は **ステータスごとに指定できる** (§10.3)。
+    //
+    //   enemyScale: 10            … 全部10倍（従来どおり）
+    //   enemyScale: { hp: 10 }    … HPだけ10倍。書かないステータスは等倍
+    //
+    // ── なぜ分けられるようにしたか ──
+    // まとめて上げると ATK も一緒に上がる。終わらぬ見張りを10倍にしたとき、
+    // 敵の1発が主人公の**最大HPの478%**になり、「一度でも動かれたら死ぬ」
+    // 二択になった（削り合いにならず、HPも防御も意味を持たない）。
+    // HPだけを上げれば「敵が生き残って動く」を作れて、殴り合いは成立する。
+    const bossMult = isBoss ? RPG.data.bossStatMultiplier : 1;
+    /** @param {string} key */
+    const scaleFor = (key) => {
+      if (scale == null) return 1;
+      if (typeof scale === 'number') return scale;
+      return scale[key] == null ? 1 : scale[key];
+    };
+    for (const key of Object.keys(stats)) {
+      stats[key] = Math.floor(stats[key] * bossMult * scaleFor(key));
+    }
 
     return {
       side: 'enemy',

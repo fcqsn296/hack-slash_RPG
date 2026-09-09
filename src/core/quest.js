@@ -167,7 +167,19 @@
     if (r.allAlive) out.push('全員生存');
     if (r.noAuto) out.push('オート禁止');
     if (quest.enemyLv) out.push(`敵Lv${quest.enemyLv}`);
-    if (quest.enemyScale && quest.enemyScale !== 1) out.push(`敵能力×${quest.enemyScale}`);
+    // 難度倍率はステータスごとにも書ける (§10.3)。挑む前に何が厚いのか読めるようにする。
+    //   10          → 「敵能力×10」
+    //   { hp: 10 }  → 「敵HP×10」
+    if (quest.enemyScale && quest.enemyScale !== 1) {
+      if (typeof quest.enemyScale === 'number') {
+        out.push(`敵能力×${quest.enemyScale}`);
+      } else {
+        const parts = Object.keys(quest.enemyScale)
+          .filter((k) => quest.enemyScale[k] !== 1)
+          .map((k) => `敵${RPG.units.STAT_LABEL[k] || k}×${quest.enemyScale[k]}`);
+        for (const t of parts) out.push(t);
+      }
+    }
     return out;
   }
 
