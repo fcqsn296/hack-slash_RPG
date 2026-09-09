@@ -335,6 +335,32 @@ RPG.data.skillTree = [
     effects: [{ kind: 'grant_skill', skill: 'sk_sigil_edge', value: 1 }],
     desc: 'アクティブ技「刻印刃」を習得（刻印を2つ刻む）',
   },
+  // ── 手番を配る3本 (§9.1) ──
+  //
+  // 支援は「バフを1回張ったら、あとは弱い攻撃を撃つだけ」になっていた。
+  // 手番を配る技はクラス技と固有技にしか無く、ツリーからは取れなかった。
+  // 帯ごとに配る範囲と待ち時間を変えて、育つほど配れる相手が増える形にする。
+  //
+  // どれも自分には配れない。自分の手番を増やすのは下の「前借りの型」の役目で、
+  // あちらは次のラウンドを失う代償を払っている。
+  {
+    id: 'tr_grant_relay', tier: 'basic', name: '継ぎの型', cost: 3, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_tree_relay', value: 1 }],
+    desc: 'アクティブ技「継ぐ手」を習得（味方1人がもう一度行動できる。CT2）',
+  },
+  {
+    id: 'tr_grant_urge', tier: 'mid', name: '鼓舞の型', cost: 4, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_tree_urge', value: 1 }],
+    desc: 'アクティブ技「鼓舞の一声」を習得（味方1人がもう一度行動でき、火力+25%。CT3）',
+  },
+  {
+    // 待ち時間が長いぶん、配る相手が増える。累撃型や大技型を1人抱える編成ほど効く。
+    // 実測（累撃型＋支援2人・回廊5連戦）では、敵HP×1000 で 18R → 10〜14R。
+    // 累撃が ×128 で頭打ちになるので、並べても青天井にはならない。
+    id: 'tr_grant_march', tier: 'high', name: '総駆けの型', cost: 6, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_tree_all_march', value: 1 }],
+    desc: 'アクティブ技「総駆けの合図」を習得（自分以外の味方全員がもう一度行動できる。CT5）',
+  },
   {
     id: 'tr_grant_tempo', tier: 'high', name: '前借りの型', cost: 4, maxLevel: 1,
     effects: [{ kind: 'grant_skill', skill: 'sk_stolen_tempo', value: 1 }],

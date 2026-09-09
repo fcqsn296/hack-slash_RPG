@@ -195,7 +195,25 @@
             if (reset(b) !== reset(a)) return reset(b) - reset(a);
             return ((b.def.params || {}).buff || 0) - ((a.def.params || {}).buff || 0);
           });
-        if (calls.length) return { skillId: calls[0].id, targets: [] };
+        if (calls.length) {
+          const pick = calls[0];
+          // 単体版は「誰に渡すか」を選ぶ (§9.1)。
+          // いちばん火力の出る味方に渡す。累撃型を抱えている編成なら
+          // その1人へ集めるのが正しく、そうでなくても素直に強い相手になる。
+          // 段を積んでいる相手（累撃）は、まだ上限に届いていないほど価値が高い。
+          if (RPG.battle.targetKind(pick.def) === 'ally') {
+            const score = (/** @type {any} */ u) => {
+              const atk = Math.max(u.stats.atk || 0, u.stats.magi_power || 0);
+              // 累撃型は渡すほど倍率が上がるので、上限までは優先して渡す
+              const esc = (u.passives && u.passives.escalate > 1)
+                && (u.escalateStack || 0) < 8 ? 2 : 1;
+              return atk * esc;
+            };
+            const best = needy.slice().sort((a, b) => score(b) - score(a))[0];
+            return { skillId: pick.id, targets: [best] };
+          }
+          return { skillId: pick.id, targets: [] };
+        }
       }
     }
 

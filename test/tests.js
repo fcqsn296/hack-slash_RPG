@@ -5572,6 +5572,26 @@
           b.finished && !b.victory && b.totalRounds <= 2, `${b.totalRounds} ラウンド / ${b.ruleBroken || '全滅'}`);
       }
 
+      // --- 手番を配る技 (§9.1) ---
+      //
+      // **自分に配れてしまうと、支援役が1人で手番を無限に増やせる。**
+      // 自分の手番を増やすのは「刻の前借り」の役目で、あちらは次のラウンドを
+      // 失う代償を払っている。ここが抜けると代償なしの無限行動になる。
+      {
+        for (const id of ['sk_tree_relay', 'sk_tree_urge', 'sk_tree_all_march']) {
+          const sk = RPG.data.skills[id];
+          assertTrue(`手番配り「${sk ? sk.name : id}」: 自分には配らない`,
+            !!(sk && sk.params && sk.params.excludeSelf), id);
+          assertTrue(`手番配り「${sk ? sk.name : id}」: 待ち時間がある`,
+            !!(sk && sk.cooldown > 0), sk ? String(sk.cooldown) : '—');
+        }
+        // 単体版は相手を選ぶ、全体版は選ばせない
+        assertTrue('手番配り: 単体版は味方を選ぶ',
+          RPG.battle.targetKind(RPG.data.skills.sk_tree_relay) === 'ally', '');
+        assertTrue('手番配り: 全体版は対象を選ばせない',
+          RPG.battle.targetKind(RPG.data.skills.sk_tree_all_march) === 'none', '');
+      }
+
       // --- 累撃 (§5.23) ---
       //
       // 「1発を強くする投資」は、これまでどれも多段が上から掛け算していたので、

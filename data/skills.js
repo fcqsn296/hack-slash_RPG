@@ -485,6 +485,42 @@ RPG.data.skills = {
     desc: '【ツリー】3ターンの間、パーティ全員の被ダメージを40%軽減する。',
   },
 
+  // ── 手番を配る3本 (§9.1) ──
+  //
+  // 支援は「バフを1回張ったら、あとは弱い攻撃を撃つだけ」になっていた
+  // （実測でミレーヌが威力140の技を33回撃っていた）。
+  // 手番を配る技はクラス技と固有技にしか無く、ツリーから取れなかったのが原因。
+  //
+  // 帯ごとに配る範囲と待ち時間を変えて、育つほど配れる相手が増える形にした。
+  // **どれも自分には配れない。** 自分の手番を増やすのは `刻の前借り` の役目で、
+  // あちらは「次のラウンドを失う」代償を払っている。
+  // 代償なしに自分へ配れると、支援役が1人で手番を無限に増やせてしまう。
+  sk_tree_relay: {
+    name: '継ぐ手', kind: 'active', plugin: 'mass_extra', tree: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 0, crit_rate: 0,
+    params: { single: true, excludeSelf: true, buff: 0, turns: 1 },
+    cooldown: 2,
+    desc: '【ツリー】味方1人がこのラウンド中にもう一度行動できる。自分には使えない。',
+  },
+  sk_tree_urge: {
+    name: '鼓舞の一声', kind: 'active', plugin: 'mass_extra', tree: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 0, crit_rate: 0,
+    params: { single: true, excludeSelf: true, buff: 0.25, turns: 2 },
+    cooldown: 3,
+    desc: '【ツリー】味方1人がもう一度行動でき、火力+25%（2ターン）。自分には使えない。',
+  },
+  sk_tree_all_march: {
+    name: '総駆けの合図', kind: 'active', plugin: 'mass_extra', tree: true,
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 0, crit_rate: 0,
+    params: { excludeSelf: true, buff: 0, turns: 1 },
+    cooldown: 5,
+    desc: '【ツリー】自分以外の味方全員がこのラウンド中にもう一度行動できる。'
+      + '火力は上がらない。',
+  },
+
   sk_tree_storm: {
     name: '乱れ撃ち', kind: 'active', plugin: 'all_enemies', tree: true,
     scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
