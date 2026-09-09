@@ -5572,6 +5572,50 @@
           b.finished && !b.victory && b.totalRounds <= 2, `${b.totalRounds} ラウンド / ${b.ruleBroken || '全滅'}`);
       }
 
+      // --- 配った追加行動は、そのラウンドのうちに使われる (§12) ---
+      //
+      // grantedExtra は「そのキャラの手番が終わるとき」にしか見ていなかったので、
+      // **既に動き終えた味方に配ると、そのラウンドでは何も起きなかった**。
+      // 号令役が隊列の最後にいると一度も噛み合わず、遊ぶ側からは
+      // 「再行動の表示だけ出て動かない」ように見えていた。
+      {
+        const mk = (/** @type {string} */ id, /** @type {any} */ tree) => {
+          const cs = { id, level: 100, limitBreak: 0, tree: tree || {},
+            klass: null, klassTree: {}, equipped: { weapon: [], armor: [], accessory: [] } };
+          return RPG.units.buildCharacterUnit(cs, []);
+        };
+        // 3人目（最後尾）だけが号令を持つ、いちばん噛み合わなかった配置
+        const party = [mk('ch_hero'), mk('ch_rizel'), mk('ch_gald', { tr_grant_march: 1 })];
+        const b = RPG.battle.start({ fieldId: Object.keys(RPG.data.fields)[0],
+          waves: 1, party, bossFinale: false, seed: 3 });
+        // 敵を1体に絞って硬くする。倒しきるとウェーブが終わって手番が無くなり、
+        // 何を測っているのか分からなくなる（実際それで検査ごと落ちた）
+        const tough = RPG.units.buildEnemyUnit('em_sentinel', 100, false, 0, 1);
+        tough.maxHp = 1000000000; tough.hp = tough.maxHp;
+        b.enemies.splice(0, b.enemies.length, tough);
+        // 1人目と2人目を動かす（普通の攻撃）
+        let guard = 0;
+        while (guard++ < 8) {
+          const me = RPG.battle.currentActor(b);
+          if (!me || me.id === 'ch_gald') break;   // 3人目の番まで進める
+          const atk = (me.skills || []).find((/** @type {string} */ sid) => {
+            const sk = RPG.data.skills[sid];
+            return sk && sk.power > 0 && sk.plugin !== 'heal';
+          });
+          RPG.battle.commandSkill(b, atk, [b.enemies[0]], { auto: true });
+        }
+        const third = RPG.battle.currentActor(b);
+        assertTrue('号令: 3人目の手番になっている', third && third.id === 'ch_gald',
+          third ? third.id : 'なし');
+        // 最後尾が号令を撃つ
+        RPG.battle.commandSkill(b, 'sk_tree_all_march', [], { auto: true });
+        const next = RPG.battle.currentActor(b);
+        assertTrue('号令: 動き終えた味方へ手番が戻る（敵の番にならない）',
+          !!next && next.side === 'party', next ? next.name : '敵の番になった');
+        assertTrue('号令: 戻る先は配られた本人',
+          !!next && ['ch_hero', 'ch_rizel'].indexOf(next.id) >= 0, next ? next.id : '—');
+      }
+
       // --- 手番を配る技 (§9.1) ---
       //
       // **自分に配れてしまうと、支援役が1人で手番を無限に増やせる。**

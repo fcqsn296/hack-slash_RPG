@@ -3076,6 +3076,29 @@
     skipDeadActors(battle);
 
     if (battle.actorIndex >= battle.party.length) {
+      // ── 配られた追加行動を、**そのラウンドのうちに**使わせる (§12) ──
+      //
+      // `grantedExtra` は「そのキャラの手番が終わるとき」にしか見ていなかったので、
+      // **既に動き終えた味方に配ると、そのラウンドでは何も起きなかった**。
+      // 権利は消えずに残るので、次のラウンドの手番後に発動する——
+      // 遊ぶ側からは「再行動の表示だけ出て動かない」「次のラウンドに
+      // 100%で再行動するバフを配っているだけ」に見える。実際そう報告された。
+      //
+      // 号令役が隊列の最後にいると、配る相手は全員すでに動き終えているので、
+      // **一度も噛み合わない**。技の説明は「このラウンド中にもう一度行動でき」なので、
+      // 実装のほうが説明に追いついていなかった。
+      //
+      // ラウンドが終わる直前に、権利を持ったまま残っている味方がいれば
+      // そこへ戻す。権利はここで使い切るので、1回の号令で増える手番は1つのまま。
+      const waiting = battle.party.findIndex((/** @type {any} */ u) =>
+        u.alive && u.grantedExtra);
+      if (waiting >= 0) {
+        battle.party[waiting].grantedExtra = false;
+        battle.actorIndex = waiting;
+        pushLog(battle, `${battle.party[waiting].name} は続けて動いた！`, 'buff');
+        pushEvent(battle, { type: 'extra', key: battle.party[waiting].key });
+        return;
+      }
       runEnemyPhase(battle);
     }
   }
