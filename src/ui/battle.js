@@ -699,7 +699,8 @@
       const firstClear = questDone && !RPG.quest.isCleared(battle.questId);
       return h('div.result-panel',
         h('h2', {
-          text: battle.ruleBroken ? '条件失敗' : (battle.victory ? '勝利' : '敗北'),
+          text: battle.stalemate ? '決着せず'
+            : (battle.ruleBroken ? '条件失敗' : (battle.victory ? '勝利' : '敗北')),
         }),
         battle.ruleBroken ? h('p.quest-block', { text: battle.ruleBroken }) : null,
         firstClear

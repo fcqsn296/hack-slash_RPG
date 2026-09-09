@@ -49,6 +49,26 @@
    */
   const HARD_HIT_RATIO = 1.25;
 
+  /**
+   * 膠着を打ち切るラウンド数。
+   *
+   * ── なぜ要るか ──
+   * 闘技場は1戦きりで逃げ場が無いぶん、**勝てないが死にもしない**編成が成立する。
+   * 1発の被害は maxHitRatio で頭を押さえてあるので、削りきれない相手に
+   * 回復役を連れて入ると、どちらも決着できない。実際「虹を喰らう獣」で
+   * 3,800ラウンド走っても終わらない戦闘があり、検証テストが長く落ち続けていた
+   * （原因は吸収ではなく、これ）。
+   *
+   * 制限時間を持つボスは7体中2体だけ（終刻の審判者8R・闘技場の主18R）で、
+   * 残る5体はいつまでも続けられる。全部に enrageRound を配ると
+   * 「時間内に殺しきる」以外の解き方を潰すので、そちらは採らなかった。
+   *
+   * 99 にしてあるのは **通る編成が一度も踏まないため**。
+   * 実測での決着は最長でも20ラウンド台に収まる。
+   * つまりこれは難易度ではなく、終わらない戦闘を終わらせるためだけの栓。
+   */
+  const STALEMATE_ROUNDS = 99;
+
   /** ハードモードで戦利品が出る確率。 */
   const HARD_DROP_RATE = 0.2;
 
@@ -186,6 +206,10 @@
       // 実効値。ハードはここで上書きし、battle.js はこちらを見る。
       actionsPerRound: (def.actionsPerRound || 1) + (hard ? HARD_ACTIONS : 0),
       maxHitRatio: Math.min(0.95, def.maxHitRatio * (hard ? HARD_HIT_RATIO : 1)),
+      // 決着しない戦闘の栓。rules.maxRounds ではなく arena 側に持つのは、
+      // 画面が「ラウンド N / 99」と出して**挑戦条件に見えてしまう**ため。
+      // 遊ぶ側が数えて立ち回るものではない。
+      stalemateRounds: STALEMATE_ROUNDS,
     };
     battle.totalWaves = 1;
     battle.wave = 1;
@@ -263,7 +287,8 @@
 
   RPG.arena = {
     bosses, boss, canChallenge, record, clearedCount,
-    gimmickLines, start, finish, canChallengeHard,
+    gimmickLines,
+    STALEMATE_ROUNDS, start, finish, canChallengeHard,
     HARD_SCALE, HARD_ADD_SCALE, HARD_ACTIONS, HARD_HIT_RATIO, HARD_DROP_RATE, CAP_ITEM,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

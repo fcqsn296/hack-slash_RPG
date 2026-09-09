@@ -3329,6 +3329,23 @@
    * @returns {boolean}
    */
   function hitRoundLimit(battle) {
+    // 闘技場の膠着を打ち切る (§17)。依頼のラウンド制限とは別物で、
+    // 遊ぶ側に見せない・数えさせない。理由は arena.js の STALEMATE_ROUNDS に書いた。
+    if (battle.arena && battle.arena.stalemateRounds
+        && battle.totalRounds >= battle.arena.stalemateRounds) {
+      battle.finished = true;
+      battle.victory = false;
+      battle.phase = 'result';
+      // 全員生きているのに戦闘が終わるので、**理由を出さないと事故に見える**。
+      // 依頼の縛りと同じ器（ruleBroken）に載せるが、見出しは分ける（stalemate）。
+      // 条件を破ったわけではないため。
+      battle.stalemate = true;
+      battle.ruleBroken = `${battle.arena.stalemateRounds} ラウンド戦っても決着がつかなかった`;
+      pushLog(battle, battle.ruleBroken, 'defeat');
+      pushLog(battle, 'この編成では削りきれない。攻め手を組み直すこと', 'info');
+      pushEvent(battle, { type: 'wave', text: 'DRAW', result: true, lost: true });
+      return true;
+    }
     if (!battle.rules.maxRounds) return false;
     if (battle.totalRounds < battle.rules.maxRounds) return false;
     failQuest(battle, `${battle.rules.maxRounds} ラウンド以内に決着がつかなかった`);

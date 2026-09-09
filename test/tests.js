@@ -6217,6 +6217,42 @@
         assertTrue(`闘技場: ${d.name} が決着する`, stalled === 0, `${rounds} ラウンド`);
         assertTrue(`闘技場: ${d.name} に勝てる`, won > 0, `${rounds} ラウンド`);
       }
+
+      // 決着しない戦闘を打ち切る (§17)。
+      //
+      // 闘技場は1戦きりなので、**削りきれないが死にもしない**編成が成立する。
+      // ボスの一撃は maxHitRatio で頭を押さえてあるため、回復が上回れば永遠に続く。
+      // 「虹を喰らう獣」で3,800ラウンド走った実例がある。
+      //
+      // 自然な膠着を釣ると乱数とセーブ次第で再現しないので、
+      // **打ち切り値だけを短くして仕組みそのもの**を見る。
+      {
+        RPG.rng.seed(4000);
+        const b = RPG.arena.start('ar_prism_eater');
+        b.arena.stalemateRounds = 5;
+        const boss = b.enemies[0];
+        boss.maxHp = 1e15;                  // 削りきれない相手
+        boss.hp = 1e15;
+        b.arena.maxHitRatio = 0.0001;       // ボスの一撃を1に潰して、味方が死なないようにする
+        let guard = 0;
+        while (!b.finished && guard++ < 5000) {
+          const a = RPG.autoplay.chooseAction(b);
+          if (!a) break;
+          RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+        }
+        assertTrue('闘技場: 決着しない戦闘が打ち切られる',
+          b.finished && !b.victory && b.totalRounds === 5,
+          `${b.totalRounds} ラウンド / 決着 ${b.finished} / 勝利 ${b.victory}`);
+      }
+
+      // 打ち切りは難易度ではなく栓なので、**仕掛けの制限時間より必ず遠い**こと。
+      // 近づけると「時間内に殺しきる」以外の解き方を潰してしまう。
+      assertTrue('闘技場: 打ち切りが仕掛けの制限時間を先取りしない',
+        defs.every((/** @type {any} */ d) =>
+          !(d.gimmicks || {}).enrageRound
+          || d.gimmicks.enrageRound < RPG.arena.STALEMATE_ROUNDS),
+        `打ち切り ${RPG.arena.STALEMATE_ROUNDS} ラウンド`);
+
       RPG.rng.seed(null);
 
       if (backupSave === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
