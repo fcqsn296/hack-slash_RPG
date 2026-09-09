@@ -3973,6 +3973,11 @@ body.has-backdrop { background: transparent; }
    新しい版は「待機中」になり、タブを全部閉じるまで動き出さない。
    開いたまま使う人にはいつまでも古い版が配られるので、
    押せば入れ替えられる場所を出す。 */
+.data-version { color: var(--text-dim); font-size: 12px; margin: 2px 0 8px; }
+/* 古い版で動いているときは目立たせる。ここを読み飛ばされると、
+   「機能が無い」と「更新が届いていない」の区別が付かないままになる */
+.data-version.is-stale { color: var(--ember, #e8c06a); }
+
 .update-bar {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);

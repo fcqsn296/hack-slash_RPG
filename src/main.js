@@ -270,6 +270,42 @@
     );
   }
 
+  /**
+   * いま動いている版を表示する行 (§14)。
+   *
+   * Service Worker に聞く。ページ側に版を書き写すと、上げ忘れて
+   * **嘘の版を表示する**ようになるので、聞きに行く形にしてある。
+   * 待機中の新しい版があれば、それも知らせる（押せば当たる）。
+   */
+  function versionLine() {
+    const el = h('p.data-version', { text: '版を確認しています…' });
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      el.textContent = '版: 直接開いています（更新の仕組みは働きません）';
+      return el;
+    }
+    const ch = new MessageChannel();
+    ch.port1.onmessage = (ev) => {
+      const v = ev.data && ev.data.version;
+      el.textContent = '版: ' + (v || '不明');
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (reg && reg.waiting) {
+          el.textContent += '（新しい版が待機中。下の「更新する」で当たります）';
+          el.classList.add('is-stale');
+        }
+      });
+    };
+    navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+    // 古い版の Service Worker は GET_VERSION を知らないので返事が来ない。
+    // その場合こそ「更新が届いていない」ので、そう言い切ってよい。
+    setTimeout(() => {
+      if (el.textContent === '版を確認しています…') {
+        el.textContent = '版: 古い版で動いています（更新が届いていません）';
+        el.classList.add('is-stale');
+      }
+    }, 1500);
+    return el;
+  }
+
   function showDataDialog() {
     const overlay = h('div.modal-overlay');
     const status = h('p.data-status');
@@ -333,6 +369,17 @@
       h('div.modal.modal-wide',
         h('h2', { text: 'データ管理' }),
         h('p.modal-sub', { text: RPG.savefile.summarize(save) }),
+
+        // いま動いている版 (§14)。
+        //
+        // ── なぜここに出すのか ──
+        // 端末が何版で動いているかを知る手段がどこにも無かった。
+        // 「実装したはずの機能が出てこない」という報告が何度も来ていて、
+        // そのたびに原因は古いキャッシュが配られ続けていたこと。
+        // 版が見えれば「更新が届いていないだけ」だと一目で切り分けられる。
+        //
+        // 版は sw.js の CACHE_VERSION が唯一の出どころ。聞きに行って答えを貼る。
+        versionLine(),
 
         // 読めなかったセーブが退避されているときだけ出す (§16)。
         // 黙って新規データで始まると、プレイヤーは「消えた」としか分からない。

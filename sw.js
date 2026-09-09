@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v145';
+const CACHE_VERSION = 'v146';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -333,6 +333,19 @@ self.addEventListener('activate', (event) => {
  */
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+
+  // いま動いている版を答える (§14)。
+  //
+  // ── なぜ要るのか ──
+  // 端末が何版で動いているかを知る手段がどこにも無かった。
+  // 実際に「実装したはずの機能が出てこない」という報告が何度も来ていて、
+  // そのたびに原因は**古いキャッシュが配られ続けていたこと**だった。
+  // 版が画面に出ていれば、遊ぶ側も作る側も一目で切り分けられる。
+  //
+  // 版はここ（CACHE_VERSION）が唯一の出どころ。別の場所へ書き写すと必ずずれる。
+  if (event.data && event.data.type === 'GET_VERSION' && event.ports && event.ports[0]) {
+    event.ports[0].postMessage({ version: CACHE_VERSION });
+  }
 });
 
 self.addEventListener('fetch', (event) => {
