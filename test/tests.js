@@ -10118,6 +10118,24 @@
       mentions('gl_level_gap', String(RPG.damage.LEVEL_GAP_FREE), '格上補正の無傷幅が実装と一致');
       mentions('gl_combo', String(RPG.battle.COMBO_MAX), 'コンボ最大段数が実装と一致');
       mentions('gl_combo', `${Math.round(RPG.battle.COMBO_STEP * 100)}%`, 'コンボ1段の伸びが実装と一致');
+      // 弱体の上限。ここを動かすと本文がずれる。
+      // 0.035 * 100 は 3.5000000000000004 になるので、丸めてから突き合わせる。
+      const pct = (/** @type {number} */ v) => String(Number((v * 100).toFixed(2))) + '%';
+      mentions('gl_status_kinds', pct(RPG.battle.STATUS_CAP.poison), '毒の上限が実装と一致');
+      mentions('gl_status_kinds', pct(RPG.battle.STATUS_CAP.burn), '火傷の上限が実装と一致');
+      // 6種すべてが載っていること。data/statuses.js から組み立てているので
+      // 種類を足したら自動で載るが、載らなくなったらここで気付く
+      {
+        const body = (gl.gl_status_kinds ? gl.gl_status_kinds.body : []).join(' ');
+        const missing = RPG.data.statusKinds
+          .filter((/** @type {string} */ k) => body.indexOf(RPG.data.statuses[k].label) < 0);
+        assertTrue('用語「弱体の種類」: 6種すべての説明が載っている',
+          missing.length === 0, missing.join('、'));
+        const wrong = RPG.data.statusKinds
+          .filter((/** @type {string} */ k) => body.indexOf(RPG.data.statuses[k].desc) < 0);
+        assertTrue('用語「弱体の種類」: 説明が data/statuses.js と一字一句一致する',
+          wrong.length === 0, wrong.join('、'));
+      }
       mentions('gl_sigil', String(RPG.battle.SIGIL_THRESHOLD), '刻印の炸裂数が実装と一致');
       mentions('gl_power_tier', String(RPG.battle.LOW_POWER), '小技のしきい値が実装と一致');
       mentions('gl_power_tier', String(RPG.battle.HIGH_POWER), '大技のしきい値が実装と一致');

@@ -14,31 +14,33 @@
 // コンボを繋ぐ手段としてはどれを選んでも腐らない。
 //
 // ratio の意味は種類ごとに違う（下の desc に書いてある）。
+// desc は **図鑑の用語集にそのまま出る**（data/glossary.js の gl_status_kinds が
+// ここから本文を組み立てる）。開発者向けの語ではなく、遊ぶ側が読む文で書くこと。
 // 新しい異常を足すときは、ここに1つ書いて battle.js の該当箇所に処理を1本足すこと。
 RPG.data.statuses = {
   poison: {
     label: '毒', color: '#9be86a',
-    desc: 'ラウンド終了時に最大HPの ratio ぶんのダメージ',
+    desc: 'ラウンド終了時に最大HPの割合ぶんのダメージ',
   },
   burn: {
     label: '火傷', color: '#ff8a4c',
-    desc: '攻撃技を使うたびに最大HPの ratio ぶんのダメージ。動くほど焼ける',
+    desc: '攻撃技を使うたびに最大HPの割合ぶんのダメージ。動くほど焼ける',
   },
   bleed: {
     label: '出血', color: '#ff5c7a',
-    desc: '被弾するたびに、受けたダメージの ratio ぶんが追加で入る',
+    desc: '被弾するたびに、受けたダメージの割合ぶんが追加で入る',
   },
   paralyze: {
     label: '麻痺', color: '#ffe066',
-    desc: 'ratio の確率で行動できない',
+    desc: '一定の確率で行動できない',
   },
   freeze: {
     label: '凍結', color: '#7fd6ff',
-    desc: '受けるダメージが ratio ぶん増える。味方全員の火力を底上げできる',
+    desc: '受けるダメージが割合ぶん増える。味方全員の火力を底上げできる',
   },
   curse: {
     label: '呪詛', color: '#c58cff',
-    desc: '回復量とHP吸収が ratio ぶん減る',
+    desc: '回復量とHP吸収が割合ぶん減る',
   },
 };
 
