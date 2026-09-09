@@ -112,6 +112,7 @@ body::after {
 /* 動きを嫌う設定なら止める */
 @media (prefers-reduced-motion: reduce) {
   body::before { animation: none; }
+  .char-selector .char-body { transition: none; }
 }
 
 #app {
@@ -932,6 +933,8 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
 .char-selector { display: grid; gap: 8px; }
 .char-body { display: grid; gap: 8px; }
+/* 覆いは狭い画面の板のためだけのもの。広い画面では一覧が常に見えている */
+.char-scrim { display: none; }
 /* 広い画面では左右に並ぶので畳む理由が無い。既定では出さない。 */
 .char-current { display: none; }
 .char-search-row { display: grid; }
@@ -2783,7 +2786,41 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
     font-size: 11px;
     white-space: nowrap;
   }
-  .char-selector:not(.is-open) .char-body { display: none; }
+  /* --- キャラ一覧は横から出る板にする (§15) ---
+
+     以前は畳んだ中身をその場で開いていた（display の切り替え）。
+     開いた瞬間に下の内容が 1,000px 押し下がるので、
+     「選ぶ → 閉じる → さっき見ていた場所を探し直す」になっていた。
+
+     板にすると下の内容が動かない。左端からのスワイプでも開く
+     （ジェスチャは base.js の installEdgeSwipe）。 */
+  .char-selector .char-body {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: min(86vw, 340px);
+    /* タブバーが 60。その上に出す */
+    z-index: 70;
+    margin: 0;
+    padding: 14px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    background: var(--bg-panel);
+    border-right: 1px solid var(--line);
+    box-shadow: 12px 0 32px -18px #000;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-101%);
+    transition: transform .22s ease;
+  }
+  .char-selector.is-open .char-body { transform: none; }
+
+  .char-scrim {
+    /* 既定は display:none で消してある。狭い画面でだけ出す。
+       position だけ書いても display:none は覆せない */
+    display: block;
+    position: fixed; inset: 0; z-index: 69;
+    background: rgba(0, 0, 0, .5);
+  }
   .slot-row { grid-template-columns: 1fr; }
   .party-slots { grid-template-columns: repeat(2, 1fr); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }

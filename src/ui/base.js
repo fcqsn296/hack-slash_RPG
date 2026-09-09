@@ -157,8 +157,17 @@
   /** 「その他」の引き出しが開いているか */
   let drawerOpen = false;
 
+  /**
+   * 最後に描いた根。スワイプの handler は画面の要素ではなく document に
+   * 付くので、呼ばれた時点で root を持っていない。ここから取る。
+   * @type {HTMLElement|null}
+   */
+  let lastRoot = null;
+
   /** @param {HTMLElement} root */
   function render(root) {
+    lastRoot = root;
+    installEdgeSwipe();
     applyBackdrop();
 
     /** @param {any} t */
@@ -461,8 +470,75 @@
         ),
         h('span.char-current-mark', { text: charListOpen ? '▲' : '▼ 他のキャラ' })
       ),
+      // 覆い。狭い画面ではキャラ一覧が横から出る板になるので、
+      // 外を触ったら閉じられるようにする。広い画面では CSS が消す。
+      charListOpen
+        ? h('div.char-scrim', { onClick: () => { charListOpen = false; render(root); } })
+        : null,
       h('div.char-body', h('div.char-search-row', search), pillBox, listBox)
     );
+  }
+
+  /**
+   * 画面の左端からのスワイプでキャラ一覧を出す (§15)。
+   *
+   * ── なぜ要るのか ──
+   * 狭い画面では一覧を畳んでいる（畳まないと20人ぶんの行がツリーの上に
+   * 積まれて 1,000px 以上になる）。畳んだぶん、キャラを変えるたびに
+   * 「上まで戻る → 開く → 選ぶ」の3手が要る。
+   * 端から引き出せれば、画面のどこにいても1手で開く。
+   *
+   * ── 縦スクロールを邪魔しないこと ──
+   * 指が最初に動いた向きで判定して、縦のほうが大きければ**その指は捨てる**。
+   * ここを見ないと、一覧を縦に送るつもりの指がパネルを開いてしまう。
+   *
+   * 途中経過は追わず、しきい値を越えた時点で開閉する。
+   * 板の動きは CSS の transition が受け持つ。
+   */
+  let edgeSwipeReady = false;
+  function installEdgeSwipe() {
+    if (edgeSwipeReady || typeof document === 'undefined') return;
+    edgeSwipeReady = true;
+
+    /** 端から始まったか／向きが決まったか／捨てた指か */
+    let x0 = 0, y0 = 0, fromEdge = false, axis = '', tracking = false;
+
+    // 3ペインに開く幅では畳んでいないので、そもそも働かせない
+    const narrow = () => window.innerWidth <= 860;
+    // キャラ一覧を持つ画面でだけ効かせる
+    const hasSelector = () => !!document.querySelector('.char-selector');
+
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1 || !narrow() || !hasSelector()) { tracking = false; return; }
+      const t = e.touches[0];
+      x0 = t.clientX; y0 = t.clientY; axis = '';
+      // 28px は親指の腹で狙える幅。ここを広くすると、
+      // 一覧の中で横に払う操作まで拾ってしまう
+      fromEdge = x0 <= 28;
+      tracking = fromEdge || charListOpen;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!tracking || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - x0;
+      const dy = t.clientY - y0;
+      if (!axis) {
+        // 12px 動くまでは向きを決めない。決め打ちが早いと誤判定する
+        if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (axis === 'y') { tracking = false; return; }
+      }
+      if (!charListOpen && fromEdge && dx > 60) {
+        charListOpen = true; tracking = false;
+        if (lastRoot) render(lastRoot);
+      } else if (charListOpen && dx < -60) {
+        charListOpen = false; tracking = false;
+        if (lastRoot) render(lastRoot);
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => { tracking = false; }, { passive: true });
   }
 
   /**
