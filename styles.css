@@ -803,6 +803,48 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .inv-actions { display: flex; gap: 8px; }
 .inv-actions .btn { flex: 1; }
 
+/* --- 所持装備の一覧: ページ送りと行表示 (§7.9) ---
+
+   カードは中身（ステータスと副オプション）で高さが決まり、1枚が約290pxある。
+   実測で装備タブの中身は PC 10,832px / スマホ 39,546px あった。
+   ページを分けるだけでは1枚の大きさが変わらないので、行に落とせるようにした。
+   行は名前・部位・スコアだけを出す。中身はカードへ戻せば見られる。 */
+.inv-list { display: grid; gap: 10px; }
+.inv-list-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.inv-pager {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+.inv-pager-at { color: var(--text-dim); font-size: 12px; }
+
+.inv-rows { display: grid; gap: 6px; }
+.inv-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: rgba(255, 255, 255, .02);
+}
+/* 名前が長くても行を押し広げないよう、伸びる側を明示して縮む許可を出す */
+.inv-row-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.inv-row-name {
+  font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.inv-row-sub { color: var(--text-dim); font-size: 12px; }
+.inv-row .inv-actions { flex: 0 0 auto; }
+.inv-row.is-locked { border-style: dashed; }
+.inv-row.is-equipped { border-color: var(--gold); }
+
+@media (max-width: 560px) {
+  /* 狭い画面では、行の中でボタンを下へ折り返す。
+     横に3つ並べると名前の幅が数文字ぶんしか残らない。 */
+  .inv-row { flex-wrap: wrap; }
+  .inv-row .inv-actions { flex: 1 1 100%; }
+}
+
 /* ---------------- 装備タブ ---------------- */
 
 .char-list { display: grid; gap: 6px; }
