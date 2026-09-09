@@ -660,9 +660,15 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
    高さは「画面 − 上部バー − タブバー」。どちらも中身と端末で変わるので
    実測値を main.js から CSS 変数で受け取る（--topbar-h / --rail-h）。 */
+/* 3ペイン (§7.9)。中央と右をまとめる器を1つ挟んである。
+   狭い画面へ落ちたとき、その2つを1本のスクロールにまとめ直すため。 */
+.pane-3 { grid-template-columns: 230px minmax(0, 1fr); }
+.col-main { display: grid; gap: 24px; align-items: start; }
+
 @media (min-width: 861px) {
   .pane-split > .col-left,
-  .pane-split > .col-right {
+  .pane-split > .col-right,
+  .pane-split > .col-main {
     position: sticky;
     top: calc(var(--topbar-h, 56px) + 12px);
     max-height: calc(100vh - var(--topbar-h, 56px) - var(--rail-h, 55px) - 24px);
@@ -689,6 +695,47 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
      列の下端はタブバーに掛からないよう max-height 側で避けてある。 */
   #app:has(.pane-split) { padding-bottom: 0; }
   #app:has(.pane-split) .base-body { padding-bottom: 0; }
+}
+
+/* 3列に開かない幅では、中央と右が1本に積まれる。
+   このとき **右の中身を先に** 出す。3ペインのために中央へ移したものは、
+   もともと画面の下のほうにあったものだから。
+     装備   … 先に自分の装備枠、次に所持装備の一覧（元の順）
+     ビルド … 先に要約と残りSP、次にツリー（元の順）
+   これを入れないと、スマホで「いきなり所持装備2205個の一覧から始まる」。 */
+@media (max-width: 1199px) {
+  .pane-3 > .col-main > .col-far { order: -1; }
+}
+
+/* --- 3ペインは横幅が要る ---
+
+   861〜1199px では中央と右を1本にまとめて2ペインのまま出す。
+   ここで3列にすると中央が 300px を割り、装備カード（最小240px）が
+   1列になって、分けた意味が無くなる。
+
+   1200px 以上で右を独立させる。器 (.col-main) 側のスクロールは外して、
+   子の2つがそれぞれスクロールする形に切り替える。 */
+@media (min-width: 1200px) {
+  .pane-3 > .col-main {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    /* 器は入れ物に戻す。スクロールは子が持つ */
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .pane-3 .col-mid,
+  .pane-3 .col-far {
+    position: sticky;
+    top: calc(var(--topbar-h, 56px) + 12px);
+    max-height: calc(100vh - var(--topbar-h, 56px) - var(--rail-h, 55px) - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 6px;
+  }
+
+  .pane-3 .col-far .sp-bar { top: 0; }
 }
 
 /* ---------------- 出撃 ---------------- */

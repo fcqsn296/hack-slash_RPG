@@ -2744,12 +2744,24 @@
     const equippedUids = new Set(unit.equippedItems.map((/** @type {any} */ i) => i.uid));
     const inventory = applyGearView(save.inventory, owner);
 
-    return h('div.pane.pane-split',
+    // 3ペイン (§7.9)。左＝誰を、中＝何を持っているか、右＝いま何を着ているか。
+    // 所持装備を中央（広い側）に置くのは、カード表示が横に並ぶ必要があるため。
+    // 着ている側は行の集まりなので、狭い列でも読める。
+    return h('div.pane.pane-split.pane-3',
       h('div.col-left',
         h('h3', { text: 'キャラクター' }),
         charSelector(root)
       ),
-      h('div.col-right',
+      h('div.col-main',
+      h('div.col-mid',
+        h('div.section-head',
+          h('h3', { text: `所持装備（${inventory.length} / ${save.inventory.length}）` }),
+          bulkSellButton(root, inventory, owner)
+        ),
+        gearToolbar(root, save.inventory),
+        inventoryList(root, inventory, owner, equippedUids)
+      ),
+      h('div.col-far',
         h('div.char-detail',
           W.standee(unit),
           h('div.char-detail-info',
@@ -2826,16 +2838,10 @@
           }
           return h('div.slot-group', h('h4', W.icon(W.SLOT_ICON[slot]), h('em', { text: RPG.units.SLOT_LABEL[slot] })), h('div.slot-cells', cells));
         })),
-        // ルールで売る側 (§7.4)。すぐ下の「表示中をまとめて売却」は
+        // ルールで売る側 (§7.4)。中央の「表示中をまとめて売却」は
         // 絞り込みの結果を無条件に売るので、性格が違う。
-        autoSellSection(root),
-
-        h('div.section-head',
-          h('h3', { text: `所持装備（${inventory.length} / ${save.inventory.length}）` }),
-          bulkSellButton(root, inventory, owner)
-        ),
-        gearToolbar(root, save.inventory),
-        inventoryList(root, inventory, owner, equippedUids)
+        autoSellSection(root)
+      )
       )
     );
   }
@@ -3369,12 +3375,23 @@ ${nextCost.toLocaleString()} G
     const available = totalSp - spent;
     const resetCost = RPG.tree.resetCost(charSave.level);
 
-    return h('div.pane.pane-split',
+    // 3ペイン (§7.9)。左＝誰を、中＝どこへ振るか、右＝いまどうなっているか。
+    // 振る操作（クラス・技順・ツリー）と、それを見ながら確かめる読み取り
+    // （残りSP・組み立ての要約・ダメージの内訳）を左右に分ける。
+    // 以前は全部が1本に積まれていて、ツリーの下のほうを触るたびに
+    // 要約を見るために画面の上まで戻る必要があった。
+    return h('div.pane.pane-split.pane-3',
       h('div.col-left',
         h('h3', { text: 'キャラクター' }),
         charSelector(root)
       ),
-      h('div.col-right',
+      h('div.col-main',
+      h('div.col-mid',
+        skillOrderPanel(root, charSave, unit),
+        classPanel(root, charSave),
+        treeBrowser(root, charSave)
+      ),
+      h('div.col-far',
         h('div.build-head',
           W.portrait(def, 'md'),
           h('div.build-head-info',
@@ -3419,10 +3436,8 @@ ${nextCost.toLocaleString()} G
         ),
 
         buildSummary(unit),
-        damageBreakdown(root, unit, charSave),
-        skillOrderPanel(root, charSave, unit),
-        classPanel(root, charSave),
-        treeBrowser(root, charSave)
+        damageBreakdown(root, unit, charSave)
+      )
       )
     );
   }
