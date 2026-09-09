@@ -353,6 +353,9 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .chip-tag[data-tag="magi"] { color: #8fb8ff; border-color: #8fb8ff55; }
 .chip-tag[data-tag="reli"] { color: #d8a6ff; border-color: #d8a6ff55; }
 .chip-buff { color: var(--ok); border-color: #4ee08a55; }
+/* 累撃の段 (§5.23)。バフとは別の色にする。
+   「いま何倍か」は撃つ判断に直結するので、他の札に埋もれさせない */
+.chip-escalate { color: var(--gold); border-color: #e8c46a77; font-weight: 600; }
 .chip-debuff { color: var(--danger); border-color: #ff6b6b55; }
 
 /* 対象を選んでいるあいだの相性。色だけに頼らず「有利／不利／等倍」の語も出す
@@ -857,6 +860,14 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
    実測で装備タブの中身は PC 10,832px / スマホ 39,546px あった。
    ページを分けるだけでは1枚の大きさが変わらないので、行に落とせるようにした。
    行は名前・部位・スコアだけを出す。中身はカードへ戻せば見られる。 */
+/* 噛み合っていない投資を知らせる一行（累撃と多段など）。
+   埋もれると「装備しているのに効かない」という不具合に見える */
+.build-warn {
+  border-left: 3px solid var(--gold);
+  padding-left: 8px;
+  color: var(--text);
+}
+
 .inv-list { display: grid; gap: 10px; }
 .inv-list-head {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;

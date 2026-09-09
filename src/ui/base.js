@@ -4212,6 +4212,13 @@ ${nextCost.toLocaleString()} G
         continue;
       }
       if (typeof v === 'object') continue;
+
+      // 累撃だけは書き方が違う (§5.23)。「+2」ではなく「1回ごとに2倍・最大128倍」。
+      // ここを既定の書式に任せると、何が起きるのか読めない札になる。
+      if (kind === 'escalate') {
+        notes.push(`累撃 1回ごとに${v}倍（最大${RPG.battle.ESCALATE_CAP}倍）`);
+        continue;
+      }
       notes.push(d.fmt === 'flag' ? d.label : `${d.label} ${show(v, d.fmt)}`);
     }
     return notes;
@@ -4267,6 +4274,12 @@ ${nextCost.toLocaleString()} G
     // いまは data/effectkinds.js が唯一の出どころで、ここは読むだけ。
     const passiveNotes = collectPassiveNotes(unit);
 
+    // 累撃を取ると多段は一切出ない (§5.23)。
+    // 装備や他のノードで多段を積んでいても働かないので、ここで知らせる。
+    // 黙っていると「双月の環を着けているのに連撃が出ない」という
+    // 原因の分からない不具合に見える。
+    const deadHits = (unit.passives.escalate > 1) && (unit.passives.doubleHits > 0);
+
     // ツリーで習得したアクティブ技
     const granted = (unit.skills || []).filter((/** @type {string} */ id) => RPG.data.skills[id].tree);
 
@@ -4282,6 +4295,12 @@ ${nextCost.toLocaleString()} G
       notes.length ? h('div.element-notes', notes.map((t) => h('span.chip.chip-strategy', { text: t }))) : null,
       passiveNotes.length
         ? h('div.element-notes', passiveNotes.map((t) => h('span.chip.chip-passive', { text: t })))
+        : null,
+      deadHits
+        ? h('p.hint.hint-sm.build-warn', {
+            text: '累撃を取っているあいだは多段が出ません。'
+              + `いま積んでいる多段（+${Math.round(unit.passives.doubleHits * 100)}%）は働きません。`,
+          })
         : null,
       granted.length
         ? h('div.granted-skills',

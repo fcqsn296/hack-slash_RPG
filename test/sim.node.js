@@ -242,8 +242,13 @@ function repeat(n, fn, opts) {
     return x.length ? x[x.length >> 1] : null;
   };
   const wins = rows.filter((r) => r.win);
+  // 何人で測ったか。**単騎の値を編成の話に使わない**ための目印。
+  // 「単騎の1ラウンド量 ÷ 相手の総HP」で所要ラウンドを見積もり、
+  // 4人ぶんの手数もDEFも入れずに 28R と出して、実測の 4R と7倍ずれたことがある。
+  const size = rows.length && rows[0].battle ? rows[0].battle.party.length : null;
   return {
     n,
+    partySize: size,
     win: wins.length,
     rounds: med(wins.map((r) => r.rounds)),
     minHp: med(rows.map((r) => r.minHp)),
@@ -255,9 +260,10 @@ function repeat(n, fn, opts) {
   };
 }
 
-/** repeat の結果を1行にする。 */
+/** repeat の結果を1行にする。人数が1なら明示する（編成の話と混ぜないため）。 */
 function fmt(r) {
-  return '突破 ' + String(r.win + '/' + r.n).padStart(6)
+  return (r.partySize === 1 ? '単騎 ' : '')
+    + '突破 ' + String(r.win + '/' + r.n).padStart(6)
     + (r.rounds != null ? ' 中央 ' + String(r.rounds + 'R').padStart(4) : '   ——  ')
     + ' 倒れた/戦 ' + r.downed.toFixed(1)
     + ' 最低HP ' + String((r.minHp * 100).toFixed(0) + '%').padStart(5)
@@ -282,6 +288,23 @@ function calc(arg) {
 }
 
 /**
+ * その技が「ダメージ上限の減衰を受けない」ものか。
+ *
+ * 「終焉の一撃」（クラス技・威力800）は減衰を受けないので、上限まわりの
+ * 比較に使うと結論が丸ごと変わる。ツリー技の「終焉」（威力520）と
+ * 取り違えたまま梯子を組み、上限の値を1桁見誤ったことがある。
+ * **上限の話をするときは、必ずここで確かめてから技を選ぶこと。**
+ * @param {string|object} skill 技IDか技そのもの
+ */
+function ignoresCap(skill) {
+  const R = RPG();
+  const s = typeof skill === 'string' ? R.data.skills[skill] : skill;
+  if (!s) return false;
+  return !!(s.noCapDecay || s.ignoreCap
+    || /上限.*(減衰|突破).*(受けない|無視)|減衰を受けない/.test(s.desc || ''));
+}
+
+/**
  * 状態異常の割合の上限。
  *
  * `battle.statusRatio` は **読むたびに** ここで丸める。何%載せても上限止まりで、
@@ -301,6 +324,6 @@ function table(head, rows) {
 }
 
 module.exports = {
-  load, RPG, useSave, invest, run, repeat, fmt, calc, statusCap, table,
+  load, RPG, useSave, invest, run, repeat, fmt, calc, statusCap, ignoresCap, table,
   get ctx() { return ctx; },
 };

@@ -301,6 +301,7 @@
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
     'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
     'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
+    'escalate',
     'dual_element', 'element_adapt', 'element_convert', 'element_crit', 'element_mastery',
     'element_pierce', 'element_power', 'element_resist', 'evade', 'execute', 'extra_action',
     'first_hit_crit', 'first_round_power', 'foe_count_power', 'focus_power',
@@ -370,6 +371,7 @@
       chain: 0,            // 単体攻撃が他の敵にも及ぶ割合
       guardBreak: 0,       // 攻撃時に防御を無視する確率
       doubleHits: 0,       // 攻撃技の追加発動回数
+      escalate: 0,         // 撃つたびに前回の倍。多段とは同時に働かない (§5.23)
       atkScale: 1,         // ATKへの倍率（二回攻撃の代償など）
       openingBuff: 0,      // 戦闘開始時に得る固有バフ
       // 小技の使い道 (§4.3)。威力100%以下の技だけに効く。
@@ -592,6 +594,10 @@
           case 'extra_action': passives.extraActionRate += amount; break;
           case 'thorns': passives.thorns += amount; break;
           case 'double_hits': passives.doubleHits += amount; break;
+          // 倍率なので足さない。複数の出どころがあっても強いほうを採る。
+          // 比べ方は他の max 種別と揃えて amount（value×レベル）。
+          // ただし倍率なのでレベルで伸ばすと跳ね上がる。maxLevel 1 で使うこと
+          case 'escalate': passives.escalate = Math.max(passives.escalate, amount); break;
           case 'last_stand': passives.lastStand = capped(passives.lastStand, amount); break;
           case 'wave_heal': passives.waveHeal += amount; break;
           case 'chain': passives.chain += amount; break;

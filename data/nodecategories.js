@@ -97,7 +97,7 @@ RPG.data.nodeCategories = [
     terms: ['行動回数', '手数', '連撃', '追撃', '再行動', '多段', 'ヒット数'],
     desc: '殴り方そのものを書き換える枝。回数・対象・防御の抜き方が変わる。',
     kinds: [
-      'double_hits', 'chain', 'chain_power', 'extra_action', 'ambush',
+      'double_hits', 'escalate', 'chain', 'chain_power', 'extra_action', 'ambush',
       'kill_extra_action', 'all_spread', 'guard_break', 'execute',
       'counter', 'counter_all', 'counter_power', 'overkill_carry',
     ],

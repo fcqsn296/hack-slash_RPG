@@ -617,6 +617,14 @@
         h('span.name', { text: u.name }),
         W.hpBar(u.hp, u.maxHp, null, prevHp[u.key]),
         h('div.chips',
+          // 累撃の段 (§5.23)。**いま何倍なのかが見えないと撃つ判断ができない。**
+          // 次の一撃の倍率を出す（撃った後に上がるので、表示は「これから乗る値」）。
+          u.passives && u.passives.escalate > 1
+            ? h('span.chip.chip-escalate', {
+                text: '累撃 ×' + Math.min(RPG.battle.ESCALATE_CAP,
+                  Math.pow(u.passives.escalate, u.escalateStack || 0)),
+              })
+            : null,
           ...u.buffUnique.map((/** @type {any} */ b) => h('span.chip.chip-buff', { text: b.label })),
           ...u.buffTags.map((/** @type {any} */ b) => h('span.chip.chip-buff', { text: b.label })),
           ...u.statusEffects.map((/** @type {any} */ s) => h('span.chip.chip-buff', { text: s.label }))

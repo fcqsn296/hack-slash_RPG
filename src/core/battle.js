@@ -44,6 +44,23 @@
   // THREAT_MAX が 4 なので、4人編成でボスの攻撃の 4/(4+1+1+1) = 57% を集められる。
   // 実測 2.78発/ラウンド（ボスは5回動く）。上限を決めるときは
   // **単騎ではなくこの倍率込みで**測ること。単騎の数字で決めると3倍ずれる。
+  /**
+   * 「累撃」の倍率の上限 (§5.23)。
+   *
+   * 撃つたびに前回の倍になるので、放っておくと 2^12 = 4096倍まで行き、
+   * 長い戦いが必ず勝ちになる。頭を押さえる。
+   *
+   * ── なぜ128なのか ──
+   * 勝敗の面では ×64 で頭打ちになる（4人編成の実測で ×64/×128/×256 が同じ結果）。
+   * それでも128にしてあるのは **1発の重さ** のため。
+   * 実データの主人公が闘技場の主（ハード）へ防御無視で撃つと
+   *   ×16  → 6,110,567    多段型の1ラウンド(6,906,056)にすら届かない
+   *   ×128 → 38,844,826   多段型の1ラウンドの5.6倍
+   * 多段を全部捨てた型の到達点として、×16 は軽すぎる。
+   * 勝敗を動かさずに重さだけを与えられる値が128。
+   */
+  const ESCALATE_CAP = 128;
+
   const THORNS_CAP_RATIO = 300;
 
   // 反射1発の上限 (§5.19)。自分の最大HPの何倍まで返せるか。
@@ -2788,6 +2805,23 @@
     // 読み取った倍率は powerScale へ流す。ダメージ計算そのものは触らない。
     if (cb.scale !== 1) ctx.comboScale = cb.scale;
 
+    // ── 「累撃」— 撃つたびに前回の倍 (§5.23) ──
+    //
+    // 多段（double_hits）とは同時に働かない。**排他を仕掛けの側が持っている**ので、
+    // 代償も排他フラグも要らない。取った時点で別の型になる。
+    //
+    // 伸ばす先も多段とは違う。多段が伸ばすのは「1手あたりの回数」だが、
+    // こちらは **手番の数**。再行動・奇襲・手番の前借りに使い道が出る。
+    if (attackSkill && actor.passives && actor.passives.escalate > 1) {
+      const step = actor.passives.escalate;
+      const mul = Math.min(ESCALATE_CAP, Math.pow(step, actor.escalateStack || 0));
+      // comboScale は ctx.damage が powerScale へ掛ける口。ここを借りる
+      ctx.comboScale = (ctx.comboScale || 1) * mul;
+      actor.escalateStack = (actor.escalateStack || 0) + 1;
+      if (mul > 1) pushLog(battle, `${actor.name} の累撃 ×${mul}`, 'sub');
+      pushEvent(battle, { type: 'escalate', key: actor.key, mul });
+    }
+
     const runOnce = () => {
       if (plugin) {
         plugin.execute(ctx);
@@ -2830,7 +2864,11 @@
     }
 
     // --- パッシブ: 連撃（攻撃技だけがもう一度発動する）---
-    const extraHits = (actor.passives && actor.passives.doubleHits) || 0;
+    // 累撃を持っているあいだは多段が出ない (§5.23)。
+    // 装備で多段を積んでいても働かないので、ビルド画面で分かるようにしてある。
+    const extraHits = (actor.passives && actor.passives.escalate > 1)
+      ? 0
+      : ((actor.passives && actor.passives.doubleHits) || 0);
     if (extraHits > 0 && attackSkill) {
       for (let i = 0; i < extraHits; i++) {
         if (!actor.alive) break;
@@ -3334,6 +3372,6 @@
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage, checkWaveCleared, shapePool,
-    THORNS_CAP_RATIO, REFLECT_CAP_RATIO, REFLECT_LEVEL_RATE, STATUS_CAP,
+    THORNS_CAP_RATIO, REFLECT_CAP_RATIO, REFLECT_LEVEL_RATE, STATUS_CAP, ESCALATE_CAP,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

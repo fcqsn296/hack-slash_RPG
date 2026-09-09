@@ -1088,7 +1088,7 @@
         'execute', 'reduction', 'lifesteal', 'regen', 'counter', 'revive', 'extra_action',
         'grant_skill', 'element_adapt', 'element_mastery', 'chaos',
         // 特殊パッシブ
-        'thorns', 'last_stand', 'wave_heal', 'chain', 'guard_break', 'double_hits', 'opening_buff',
+        'thorns', 'last_stand', 'wave_heal', 'chain', 'guard_break', 'double_hits', 'escalate', 'opening_buff',
         'low_hp_power', 'high_hp_power', 'boss_slayer', 'debuff_amp', 'first_round_power',
         'element_pierce',
         // 小技の使い道 (§4.3)
@@ -5570,6 +5570,65 @@
         }
         assertTrue('クエスト: ラウンド制限を超えると失敗になる',
           b.finished && !b.victory && b.totalRounds <= 2, `${b.totalRounds} ラウンド / ${b.ruleBroken || '全滅'}`);
+      }
+
+      // --- 累撃 (§5.23) ---
+      //
+      // 「1発を強くする投資」は、これまでどれも多段が上から掛け算していたので、
+      // 単発型は多段型の下位互換にしかならなかった。この節は仕掛け自身が多段を
+      // 殺すので、代償も排他フラグも無しに別の型になる。
+      // **その排他が働いていること**が、この検査の一番の目的。
+      {
+        const build = (/** @type {any} */ tree) => {
+          const cs = { id: 'ch_hero', level: 255, limitBreak: 0, tree,
+            klass: null, klassTree: {}, equipped: { weapon: [], armor: [], accessory: [] } };
+          return RPG.units.buildCharacterUnit(cs, []);
+        };
+        const plain = build({});
+        const esc = build({ tr_escalate: 1 });
+        assertTrue('累撃: パッシブが届いている',
+          esc.passives.escalate === 2 && plain.passives.escalate === 0,
+          `${plain.passives.escalate} → ${esc.passives.escalate}`);
+
+        // 段が上がるほど重くなり、上限で止まること
+        const seq = [];
+        for (let n = 0; n <= 9; n++) {
+          seq.push(Math.min(RPG.battle.ESCALATE_CAP, Math.pow(2, n)));
+        }
+        assertTrue('累撃: 倍率が上限で止まる',
+          seq[7] === RPG.battle.ESCALATE_CAP && seq[9] === RPG.battle.ESCALATE_CAP,
+          seq.join('→'));
+
+        // 排他。累撃を持つあいだ多段は出ない
+        {
+          // 1発で沈むと「残っている敵がいない」で追撃が省かれ、
+          // 多段を持っていても連撃が出ない。対照が成立するよう硬くする
+          const foe = RPG.units.buildEnemyUnit('em_sentinel', 100, false, 0, 1);
+          foe.maxHp = 100000000; foe.hp = foe.maxHp;
+          const hits = (/** @type {any} */ unit) => {
+            const b = RPG.battle.start({ fieldId: Object.keys(RPG.data.fields)[0],
+              waves: 1, party: [JSON.parse(JSON.stringify(unit))], bossFinale: false, seed: 5 });
+            b.enemies.splice(0, b.enemies.length, JSON.parse(JSON.stringify(foe)));
+            const before = b.log.length;
+            // **オートに任せない。** 最初の手にバフ（闘気集中）を選ぶので、
+            // 攻撃技が出ず連撃も出ない。ここで見たいのは多段の有無だけなので、
+            // 攻撃技を名指しで撃たせる
+            const atk = (unit.skills || []).find((/** @type {string} */ id) => {
+              const sk = RPG.data.skills[id];
+              return sk && sk.power > 0 && sk.plugin !== 'heal';
+            });
+            RPG.battle.commandSkill(b, atk, [b.enemies[0]], { auto: true });
+            return b.log.slice(before)
+              .filter((/** @type {any} */ l) => /連撃/.test((typeof l === 'string' ? l : l.text) || ''))
+              .length;
+          };
+          const multi = build({});
+          multi.passives.doubleHits = 2;
+          const both = build({ tr_escalate: 1 });
+          both.passives.doubleHits = 2;
+          assertTrue('累撃: 多段だけなら連撃が出る', hits(multi) > 0, `${hits(multi)} 回`);
+          assertTrue('累撃: 累撃を持つと多段が出ない', hits(both) === 0, `${hits(both)} 回`);
+        }
       }
 
       // --- 受ける側の軽減が、内訳として出てくること (§5.8) ---

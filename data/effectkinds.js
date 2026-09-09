@@ -105,6 +105,9 @@ RPG.data.effectKinds = {
   debuff_spread: { to: 'passives', shape: 'add', uniq: 'debuffSpread', route: 'passives', key: 'debuffSpread', label: '弱体が隣へ伝染', fmt: 'pct' },
   def_to_atk: { to: 'passives', shape: 'add', uniq: null, key: 'defToAtk', label: 'DEFをATKへ上乗せ', fmt: 'pct' },
   double_hits: { to: 'passives', shape: 'add', uniq: 'doubleHits', route: 'passives', key: 'doubleHits', label: '同じ技がもう一度', fmt: 'pct' },
+  // 値は「1回ごとに何倍になるか」。多段（double_hits）を殺すので同時には持てない。
+  // 上限は battle.js の ESCALATE_CAP（×128）。
+  escalate: { to: 'passives', shape: 'max', uniq: null, key: 'escalate', label: '撃つたびに前回の倍（多段は出ない）', fmt: 'num' },
   dual_element: { to: 'build', shape: 'special', needs: ["element"], uniq: null },
   element_adapt: { to: 'build', shape: 'add', uniq: 'elementAdapt', route: 'build' },
   element_convert: { to: 'build', shape: 'special', needs: ["element"], uniq: null },
