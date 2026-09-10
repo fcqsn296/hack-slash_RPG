@@ -5518,6 +5518,26 @@
         }
       }
 
+      // --- どのフィールドにも依頼が1件はあるか (§10.3) ---
+      //
+      // フィールドを増やしたときに依頼を足し忘れると、その帯だけ
+      // 「回るだけの場所」になる。実際に封絶の浅層(20)・封絶区画(130)・
+      // 還らぬ位相(250)の3つが長く空いていた（拡張ロードマップ D1/D2 で埋めた）。
+      //
+      // いまは全12フィールドが埋まっているので、**空きが出たら落ちる**検査にしてある。
+      // 新しいフィールドを足すときは依頼も一緒に考えること。
+      {
+        const used = new Set(RPG.quest.all()
+          .map((/** @type {any} */ q) => q.fieldId).filter(Boolean));
+        const noQuest = Object.keys(RPG.data.fields)
+          .filter((/** @type {string} */ f) => !used.has(f));
+        assertTrue('クエスト: どのフィールドにも依頼がある',
+          noQuest.length === 0,
+          noQuest.length
+            ? '空いている: ' + noQuest.map((/** @type {string} */ f) => RPG.data.fields[f].name).join('、')
+            : `${Object.keys(RPG.data.fields).length} フィールドすべてに依頼がある`);
+      }
+
       // --- 達成条件型: レベルが上がっても詰まない (§10.3-2) ---
       {
         const gapQuest = RPG.quest.challenges()[0];
