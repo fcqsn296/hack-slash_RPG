@@ -5518,25 +5518,24 @@
         }
       }
 
-      // --- 依頼の無いフィールドが残っていないか (§10.3) ---
+      // --- どのフィールドにも依頼が1件はあるか (§10.3) ---
       //
       // フィールドを増やしたときに依頼を足し忘れると、その帯だけ
-      // 「回るだけの場所」になる。実際に封絶の浅層(推奨20)と封絶区画(推奨130)が
-      // その状態で放置されていた（拡張ロードマップ D1/D2 で埋めた）。
+      // 「回るだけの場所」になる。実際に封絶の浅層(20)・封絶区画(130)・
+      // 還らぬ位相(250)の3つが長く空いていた（拡張ロードマップ D1/D2 で埋めた）。
       //
-      // 例外は還らぬ位相のみ。ここは臨界の際・終わりなき回廊と並ぶ追随狩場で、
-      // まだ何を問う場所か決めていない。**増やさない**ための検査なので、
-      // 新しく空きが出たらここが落ちる。
+      // いまは全12フィールドが埋まっているので、**空きが出たら落ちる**検査にしてある。
+      // 新しいフィールドを足すときは依頼も一緒に考えること。
       {
         const used = new Set(RPG.quest.all()
           .map((/** @type {any} */ q) => q.fieldId).filter(Boolean));
         const noQuest = Object.keys(RPG.data.fields)
           .filter((/** @type {string} */ f) => !used.has(f));
-        assertTrue('クエスト: 依頼の無いフィールドが増えていない',
-          noQuest.length <= 1 && noQuest.every((/** @type {string} */ f) => f === 'fl_beyond'),
+        assertTrue('クエスト: どのフィールドにも依頼がある',
+          noQuest.length === 0,
           noQuest.length
-            ? noQuest.map((/** @type {string} */ f) => RPG.data.fields[f].name).join('、')
-            : 'すべてのフィールドに依頼がある');
+            ? '空いている: ' + noQuest.map((/** @type {string} */ f) => RPG.data.fields[f].name).join('、')
+            : `${Object.keys(RPG.data.fields).length} フィールドすべてに依頼がある`);
       }
 
       // --- 達成条件型: レベルが上がっても詰まない (§10.3-2) ---
