@@ -3761,6 +3761,96 @@
         delete RPG.data.fields.__test_field;
       }
 
+      // --- 記録 (§13.2) ---
+      //
+      // 物語の進行から導出する箱。セーブには何も足していないので、
+      // 「導出が本当に効いているか」と「書いたものが届くか」を両方見る。
+      {
+        const all = RPG.data.records || {};
+        const ids = Object.keys(all);
+
+        assertTrue('記録: 図鑑の区分として存在する',
+          RPG.codex.SECTIONS.some((/** @type {any} */ x) => x.id === 'record'),
+          `${ids.length} 件`);
+
+        // 収集率は周回側の指標。記録は物語モードでしか手に入らないので、
+        // 数に入れると周回しか遊んでいない人の達成率が下がる。
+        assertTrue('記録: 収集率には数えない',
+          !RPG.codex.SECTIONS.find((/** @type {any} */ x) => x.id === 'record').collect &&
+          RPG.codex.totalProgress().total ===
+            Object.keys(RPG.data.characters).length +
+            Object.keys(RPG.data.enemies).length +
+            Object.keys(RPG.data.fields).length,
+          `分母 ${RPG.codex.totalProgress().total}`);
+
+        assertTrue('記録: どれにも品名・一文・本文がある',
+          ids.every((id) => all[id].name && all[id].short &&
+            Array.isArray(all[id].body) && all[id].body.length > 0),
+          `${ids.length} 件`);
+
+        // 関連の飛び先は敵か用語しかない。綴りを間違えると黙って消えるので固定する。
+        {
+          const bad = [];
+          for (const id of ids) {
+            for (const sid of all[id].see || []) {
+              if (!RPG.data.enemies[sid] && !RPG.data.glossary[sid]) bad.push(`${id}→${sid}`);
+            }
+          }
+          assertTrue('記録: 関連の飛び先が実在する', bad.length === 0, bad.join('、'));
+        }
+
+        // ── 手に入れたことを知らせられるか ──
+        // 通知は「シーンを再生する前後の差」で出している (src/main.js)。
+        // どのシーンも起こさない旗に紐づけた記録は、増えても誰にも知らされない。
+        {
+          /** @type {any[]} */
+          const scenes = [];
+          for (const c of RPG.data.story.chapters) {
+            for (const sc of c.scenes || []) scenes.push(sc);
+          }
+          const silent = ids.filter((id) => {
+            const w = all[id].when || {};
+            if (w.scene) return !scenes.some((sc) => sc.id === w.scene);
+            if (w.chapter) return !RPG.data.story.chapters.some((c) => c.id === w.chapter);
+            if (w.flag) {
+              return !scenes.some((sc) => {
+                const t = sc.when || {};
+                return t.flag === w.flag || (t.flags || []).indexOf(w.flag) >= 0;
+              });
+            }
+            return true;   // when が無いものは永久に手に入らない
+          });
+          assertTrue('記録: 手に入れたことを知らせられる', silent.length === 0,
+            silent.length ? silent.join('、') : `${ids.length} 件すべてシーンに紐づく`);
+        }
+
+        // ── 導出そのもの ──
+        {
+          const p = RPG.state.storyProfile();
+          const kept = p.progress;
+          p.progress = { flags: {}, scenes: {}, cleared: {} };
+          assertTrue('記録: 始めていなければ1つも持っていない',
+            RPG.codex.progress('record').found === 0, '');
+
+          const sample = ids.find((id) => (all[id].when || {}).flag);
+          p.progress.flags[all[sample].when.flag] = true;
+          assertTrue('記録: 旗が立つと手に入る',
+            RPG.codex.recordHeld(sample), `${all[sample].name}`);
+
+          // 周回側から読めること。物語で拾って周回で読み返すのが狙いなので、
+          // ここが切れていると記録は物語モードでしか開けない。
+          const mode = RPG.state.get().mode;
+          RPG.state.setMode('run');
+          assertTrue('記録: 周回側からも読める', RPG.codex.recordHeld(sample), '');
+          if (mode === 'story') RPG.state.setMode('story');
+
+          p.progress = kept;
+        }
+
+        assertTrue('記録: 未知のIDでも例外にならない',
+          RPG.codex.recordHeld('__nope') === false, '');
+      }
+
       // --- 未知のIDを渡しても落ちない ---
       assertTrue('図鑑: 未知のIDでも例外にならない',
         RPG.codex.enemySeen('__nope') === false &&

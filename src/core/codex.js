@@ -27,6 +27,13 @@
     { id: 'enemy', label: '敵', collect: true },
     { id: 'field', label: 'フィールド', collect: true },
     { id: 'system', label: '用語', collect: false },
+    // 記録 (§13.2)。物語を進めると増える世界の説明。
+    //
+    // ── なぜ収集率に数えないのか ──
+    // 記録は**物語モードでしか手に入らない**。数に入れると、周回しか遊んでいない人の
+    // 図鑑の達成率が、この区分を足した日に下がる。既にある数字の意味を変えないため、
+    // 区分の中だけで「3 / 8」と数える。
+    { id: 'record', label: '記録', collect: false },
     { id: 'story', label: '物語', collect: false },
   ];
 
@@ -132,6 +139,11 @@
       const ids = Object.keys(RPG.data.fields);
       return { found: ids.filter(fieldSeen).length, total: ids.length };
     }
+    // 記録は収集率(totalProgress)には数えないが、区分の中では数える。
+    if (section === 'record') {
+      const ids = Object.keys(RPG.data.records || {});
+      return { found: ids.filter(recordHeld).length, total: ids.length };
+    }
     return { found: 0, total: 0 };
   }
 
@@ -164,6 +176,60 @@
   }
 
   /**
+   * 記録を手に入れているか (§13.2)。
+   *
+   * ── セーブに何も足さない ──
+   * 物語の進行から導出する。図鑑の設計方針（このファイルの冒頭）どおり、
+   * 持つのは「どこまで見たか」だけにする。
+   *
+   * 進行は `save.story.progress` にあり、`storyProfile()` はモードを問わず
+   * そこを返すので、**周回側からも同じ判定ができる**。
+   * 物語で拾ったものを周回で読み返せるのは、これが理由。
+   *
+   * @param {string} id
+   * @returns {boolean}
+   */
+  function recordHeld(id) {
+    const def = (RPG.data.records || {})[id];
+    if (!def || !def.when) return false;
+    const p = RPG.state.storyProfile();
+    const g = (p && p.progress) || {};
+    const w = def.when;
+    if (w.flag) return !!(g.flags && g.flags[w.flag]);
+    if (w.scene) return !!(g.scenes && g.scenes[w.scene]);
+    if (w.chapter) return !!(g.cleared && g.cleared[w.chapter]);
+    return false;
+  }
+
+  /**
+   * 記録の一覧。宣言順＝手に入る順に並べる。
+   * まだ手に入っていないものも器だけ返す（一覧側で伏せる）。
+   * @returns {Array<{id: string, def: any, held: boolean}>}
+   */
+  function records() {
+    const all = RPG.data.records || {};
+    return Object.keys(all).map((id) => ({ id, def: all[id], held: recordHeld(id) }));
+  }
+
+  /**
+   * 記録の関連項目を、飛び先ごとに解いて返す。
+   * `see` には敵ID（em_/bs_）と用語ID（gl_）が混ざる。
+   * @param {any} def
+   * @returns {Array<{kind: string, id: string, label: string}>}
+   */
+  function recordLinks(def) {
+    /** @type {Array<{kind: string, id: string, label: string}>} */
+    const out = [];
+    for (const sid of def.see || []) {
+      const enemy = (RPG.data.enemies || {})[sid];
+      if (enemy) { out.push({ kind: 'enemy', id: sid, label: enemy.name }); continue; }
+      const term = (RPG.data.glossary || {})[sid];
+      if (term) out.push({ kind: 'system', id: sid, label: term.term });
+    }
+    return out;
+  }
+
+  /**
    * 用語を区分ごとにまとめて返す。
    * 並び順は `glossaryGroups` の宣言順＝読んでほしい順。
    * @returns {Array<{group: any, entries: Array<{id: string, def: any}>}>}
@@ -180,6 +246,7 @@
 
   RPG.codex = {
     SECTIONS,
+    recordHeld, records, recordLinks,
     record, enemyEntry, enemySeen, characterOwned, fieldEntry, fieldSeen,
     enemyHabitats, enemyPreview, progress, totalProgress, glossaryByGroup,
   };

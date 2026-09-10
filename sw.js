@@ -63,6 +63,7 @@ const PRECACHE = [
   './data/quests.js',
   './data/glossary.js',
   './data/story.js',
+  './data/records.js',
   './data/tower.js',
   './data/arena.js',
   './data/art.js',

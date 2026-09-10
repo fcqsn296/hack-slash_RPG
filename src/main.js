@@ -637,11 +637,23 @@
     RPG.ui.worldmap.unmount();
     showOnly('screen-story');
 
+    // 記録 (§13.2) は物語の進行から導出するので、増えたことを誰も知らせない。
+    // 拾った実感が要るのはここなので、**再生の前後で差を取って**知らせる。
+    //
+    // シーンの前に控えるのは、シーンを起こした旗そのものが記録の解放条件に
+    // なっているため（例: gnaw_slain は ch1_boss を起こし、同時に
+    // 「ガルクの未消化物」を開ける）。finish の後だけを見ても差が出ない。
+    const heldBefore = new Set(RPG.codex.records()
+      .filter((/** @type {any} */ r) => r.held).map((/** @type {any} */ r) => r.id));
+
     RPG.ui.story.play($('#screen-story'), scene, () => {
       const res = RPG.story.finish(scene);
       if (res.cleared) {
         const c = RPG.story.chapterDef(res.cleared);
         toast(`${c ? c.name : res.cleared} クリア`);
+      }
+      for (const r of RPG.codex.records()) {
+        if (r.held && !heldBefore.has(r.id)) toast(`記録を手に入れた — ${r.def.name}`);
       }
       // then.enterMap があればそこへ。無ければ今いる場所へ戻る。
       showMap(res.enterMap);
