@@ -1246,15 +1246,20 @@
   }
 
   /**
-   * 用語集 (§13.2)。
+   * 改行をそのまま出す。記録の本文用 (§13.2)。
    *
-   * ── なぜ一覧＋詳細ではなく、開閉する一覧なのか ──
-   * キャラや敵と違って、用語は「どれを見たいか」が最初から分かっていない。
-   * 名前だけ並べても、どれが自分の知りたいものなのか判断できない。
-   * そこで見出しの下に一行だけ要約を常に出し、押すと本文が開く形にした。
-   * 一覧をなぞるだけで、読むべき項目が自分で見つかる。
-   * @param {HTMLElement} root
+   * 強調は通さない。フレーバーに太字が混ざると、そこだけ説明書の声になる。
+   * @param {string} text
    */
+  function lines(text) {
+    const out = [];
+    String(text).split('\n').forEach((line, i) => {
+      if (i > 0) out.push(h('br'));
+      out.push(line);
+    });
+    return out;
+  }
+
   /**
    * 記録 (§13.2)。物語で拾った、世界の説明の置き場。
    *
@@ -1298,7 +1303,9 @@
             ),
             open ? h('div.glossary-body',
               def.from ? h('p.record-from', { text: `——${def.from}` }) : null,
-              def.body.map((/** @type {string} */ para) => h('p', emphasize(para))),
+              // 記録は**行で切る文体**なので、改行をそのまま出す (§13.2)。
+              // 用語集のように句点で流すと、原文の間合いが消えてただの説明文になる。
+              def.body.map((/** @type {string} */ para) => h('p.record-para', lines(para))),
               (() => {
                 const links = RPG.codex.recordLinks(def);
                 return links.length ? h('div.glossary-see',
@@ -1327,6 +1334,16 @@
     );
   }
 
+  /**
+   * 用語集 (§13.2)。
+   *
+   * ── なぜ一覧＋詳細ではなく、開閉する一覧なのか ──
+   * キャラや敵と違って、用語は「どれを見たいか」が最初から分かっていない。
+   * 名前だけ並べても、どれが自分の知りたいものなのか判断できない。
+   * そこで見出しの下に一行だけ要約を常に出し、押すと本文が開く形にした。
+   * 一覧をなぞるだけで、読むべき項目が自分で見つかる。
+   * @param {HTMLElement} root
+   */
   function codexGlossary(root) {
     const all = RPG.data.glossary || {};
     if (codexView.scrollToTerm) {
