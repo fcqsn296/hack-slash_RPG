@@ -1149,7 +1149,8 @@
     const total = RPG.codex.totalProgress();
 
     return h('div.pane',
-      W.heading('図鑑', '出会ったキャラクター・敵・フィールドの記録と、システム用語の説明。'),
+      W.heading('図鑑', '出会ったキャラクター・敵・フィールドの控えと、システム用語の説明。'
+        + '物語で拾った記録も、ここから読み返せる。'),
       h('div.codex-progress',
         h('div.codex-bar', h('div.codex-bar-fill', { style: { width: (total.rate * 100).toFixed(1) + '%' } })),
         h('span', { text: `収集率 ${total.found} / ${total.total}（${Math.round(total.rate * 100)}%）` })
@@ -1163,13 +1164,15 @@
         });
       })),
       // 用語と物語には「未発見」が無いので、切り替えごと出さない
-      codexView.section === 'system' || codexView.section === 'story' ? null : h('div.toolbar-row',
+      codexView.section === 'system' || codexView.section === 'story'
+        || codexView.section === 'record' ? null : h('div.toolbar-row',
         h('button.pill' + (codexView.showUnknown ? '.is-on' : ''), {
           onClick: () => { codexView.showUnknown = !codexView.showUnknown; render(root); },
           text: '未発見も表示',
         })
       ),
       codexView.section === 'system' ? codexGlossary(root)
+        : codexView.section === 'record' ? codexRecords(root)
         : codexView.section === 'story' ? codexStory(root)
         : [
           codexView.selected ? codexDetail(root) : null,
@@ -1252,6 +1255,78 @@
    * 一覧をなぞるだけで、読むべき項目が自分で見つかる。
    * @param {HTMLElement} root
    */
+  /**
+   * 記録 (§13.2)。物語で拾った、世界の説明の置き場。
+   *
+   * ── まだ手に入れていないものは並べない ──
+   * 読み返し（物語）と同じ理由。品名だけで先が透ける
+   * （「ウーヌスの掌」が一覧にあれば、ウーヌスに何が起きるか分かってしまう）。
+   * 代わりに件数だけ出して、まだ増えることは伝える。
+   * @param {HTMLElement} root
+   */
+  function codexRecords(root) {
+    const all = RPG.codex.records();
+    const held = all.filter((r) => r.held);
+    const p = RPG.codex.progress('record');
+
+    if (held.length === 0) {
+      return h('div.glossary',
+        h('p.empty', {
+          text: '記録はまだありません。拠点の「物語」を進めると、'
+            + '拾ったものがここに残ります。',
+        })
+      );
+    }
+
+    return h('div.glossary',
+      h('section.glossary-group',
+        h('h3.glossary-group-name', { text: `記録　${p.found} / ${p.total}` }),
+        h('p.glossary-group-desc', {
+          text: '物語の道中で手に入れたもの。'
+            + 'この世界がどうしてこうなっているかは、だいたいここに書いてある。',
+        }),
+        h('div.glossary-list', held.map(({ id, def }) => {
+          const open = codexView.selected === id;
+          return h('div.glossary-item' + (open ? '.is-open' : ''),
+            h('button.glossary-head.record-head', {
+              onClick: () => { codexView.selected = open ? null : id; render(root); },
+            },
+              h('span.record-icon', { text: def.icon || '記', style: { color: def.color || '' } }),
+              h('span.glossary-term', { text: def.name }),
+              h('span.glossary-short', { text: def.short }),
+              h('span.glossary-mark', { text: open ? '−' : '＋' })
+            ),
+            open ? h('div.glossary-body',
+              def.from ? h('p.record-from', { text: `——${def.from}` }) : null,
+              def.body.map((/** @type {string} */ para) => h('p', emphasize(para))),
+              (() => {
+                const links = RPG.codex.recordLinks(def);
+                return links.length ? h('div.glossary-see',
+                  h('span.glossary-see-label', { text: '関連' }),
+                  links.map((l) => h('button.glossary-link', {
+                    text: l.label,
+                    onClick: () => {
+                      // 敵は一覧の区分が違うので、飛び先の区分ごと切り替える。
+                      // 見ていない敵へは飛ばさない（図鑑の伏せ方を壊さないため）。
+                      if (l.kind === 'enemy' && !RPG.codex.enemySeen(l.id)) {
+                        RPG.app.toast('まだ出会っていない相手です');
+                        return;
+                      }
+                      codexView.section = l.kind;
+                      codexView.selected = l.id;
+                      codexView.scrollToTerm = l.kind === 'system';
+                      render(root);
+                    },
+                  }))
+                ) : null;
+              })()
+            ) : null
+          );
+        }))
+      )
+    );
+  }
+
   function codexGlossary(root) {
     const all = RPG.data.glossary || {};
     if (codexView.scrollToTerm) {
