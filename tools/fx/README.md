@@ -1,20 +1,31 @@
 # 被弾エフェクトの素材
 
-`assets/ui/fx-cut.webp` — 斬撃の弧。128px × 12コマ（1536×128）。**白で描いてある。**
+系統ごとに1枚ずつ。どれも 128px × 12コマ（1536×128）で、**白で描いてある。**
+
+| 系統 | 素材 | 形 | 大きさ |
+|---|---|---|---|
+| 物理 `phys` | `assets/ui/fx-phys.webp` | 斬撃の弧 | 12.4KB |
+| 魔術 `magi` | `assets/ui/fx-magi.webp` | 広がる波紋（3枚をずらす） | 22.0KB |
+| 理 `reli` | `assets/ui/fx-reli.webp` | 締まる輪と6つの刻み | 24.1KB |
+
+どの系統が来るかは技の `damage_type` で決まる（`src/core/battle.js` が
+`kind: skill.damage_type || 'phys'` で載せる）。実データの内訳は phys 65 / magi 47 / reli 22 で、
+**3枚とも実際に表示される**。
 
 ## なぜ白なのか
 
 属性色は JS が `--fx` に差し込む（`src/ui/battle.js` の `burst()`）。
 7属性ぶんの絵を持つのは無理なので、**白い1枚をCSSのマスクにして、地を `var(--fx)` で塗る**。
-`styles.css` の `.fx-burst.is-phys` がそれ。**JS側は1行も変えていない。**
+`styles.css` の `.fx-burst.is-phys / .is-magi / .is-reli` がそれ。**JS側は1行も変えていない。**
 
 ## 作り方
 
 Unity（6000.6.0f1 / URP）で描き出している。`render.cs` の中身を Unity の
-MCP 経由か、エディタ拡張として実行すると `_scratch/fx/cut_00..11.png` が出る。
+MCP 経由か、エディタ拡張として実行すると `_scratch/fx/<系統>_00..11.png` が出る。
 
 ```bash
-python tools/fx/pack.py        # 連番 → assets/ui/fx-cut.webp
+python tools/fx/pack.py          # 3系統ぶんまとめて
+python tools/fx/pack.py phys     # 1系統だけ
 ```
 
 ## Unity で踏んだ罠
