@@ -2280,12 +2280,46 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .fx-burst.is-heavy { width: 148px; height: 148px; margin: -74px 0 0 -74px;
   animation-duration: 0.62s; }
 
-/* 系統で形を変える。物理は縦に裂け、魔術は丸く広がり、理は輪で締める。 */
-.fx-burst.is-phys { border-radius: 46% 54% 50% 50% / 8% 8% 92% 92%; }
-.fx-burst.is-reli {
-  background: none;
-  border: 3px solid var(--fx);
-  box-shadow: 0 0 18px var(--fx), inset 0 0 18px var(--fx);
+/* 系統で形を変える。物理は斬撃の弧、魔術は広がる波紋、理は締まる輪。
+ *
+ * ── 3系統とも Unity で描き出した12コマに差し替えてある (§14.3) ──
+ * 属性色は JS が --fx に差し込む仕組みなので、7属性ぶんの絵は持てない。
+ * **白で描いた1枚をマスクにして、地を var(--fx) で塗る**と、既存の色分けが
+ * そのまま効く。src/ui/battle.js は1行も変えていない。
+ *
+ * 素材は 128px×12コマ＝1536×128 の WebP（合計59KB）。
+ * 生成は tools/fx/render.cs（Unity）→ tools/fx/pack.py。罠は tools/fx/README.md。
+ */
+.fx-burst.is-phys, .fx-burst.is-magi, .fx-burst.is-reli {
+  width: 128px; height: 128px; margin: -64px 0 0 -64px;
+  border-radius: 0;
+  /* 平らな var(--fx) だけだと、暗い属性色（闇・土）で沈む。
+     芯を白に寄せて、外へ向かって属性色へ落とす。形はマスクが決めるので、
+     ここは「どんな色で塗るか」だけを持てばよい。 */
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--fx) 25%, #fff) 0%,
+    var(--fx) 45%,
+    color-mix(in srgb, var(--fx) 80%, #000) 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 1536px 128px;
+  mask-size: 1536px 128px;
+  /* コマ送り。steps(12) で 0 → -1408px まで 128px ずつ動く */
+  animation: fx-sheet 0.46s steps(12) forwards;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--fx) 85%, transparent))
+          drop-shadow(0 0 2px rgba(255, 255, 255, 0.55));
+}
+.fx-burst.is-phys { -webkit-mask-image: url(assets/ui/fx-phys.webp); mask-image: url(assets/ui/fx-phys.webp); }
+.fx-burst.is-magi { -webkit-mask-image: url(assets/ui/fx-magi.webp); mask-image: url(assets/ui/fx-magi.webp); }
+.fx-burst.is-reli { -webkit-mask-image: url(assets/ui/fx-reli.webp); mask-image: url(assets/ui/fx-reli.webp); }
+
+.fx-burst.is-phys.is-heavy, .fx-burst.is-magi.is-heavy, .fx-burst.is-reli.is-heavy {
+  width: 188px; height: 188px; margin: -94px 0 0 -94px;
+  animation-duration: 0.62s;
+}
+@keyframes fx-sheet {
+  from { -webkit-mask-position: 0 0; mask-position: 0 0; }
+  to   { -webkit-mask-position: -1536px 0; mask-position: -1536px 0; }
 }
 
 @keyframes fx-burst {
