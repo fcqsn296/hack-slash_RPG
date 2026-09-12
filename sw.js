@@ -297,6 +297,12 @@ const PRECACHE = [
   './assets/bg/screen-party.webp',
   './assets/bg/screen-quest.webp',
   './assets/bg/screen-tower.webp',
+  './assets/map/tile-floor.webp',
+  './assets/map/tile-grass.webp',
+  './assets/map/tile-road.webp',
+  './assets/map/tile-stair.webp',
+  './assets/map/tile-wall.webp',
+  './assets/map/tile-water.webp',
 ];
 
 self.addEventListener('install', (event) => {

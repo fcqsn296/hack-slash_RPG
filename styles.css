@@ -3788,9 +3788,20 @@ body.has-backdrop { background: transparent; }
 }
 
 /* ===== マップ探索 (§20) =====
-   タイルは色で塗り分けているだけ。本物のタイル画像を用意したら
-   .wm-cell に background-image を足すだけで済む。
-   マップの形式も worldmap.js も変えなくてよい。 */
+ *
+ * タイルは Unity で描いた絵を貼っている（assets/map/tile-*.webp、合計16KB）。
+ * 生成は tools/fx/render_tiles.cs → tools/fx/pack_tiles.py。
+ *
+ * ── 1枚に4通り入っている ──
+ * 同じ種類のマスが並ぶと機械的に見えるので、256x256 の中へ 128px の絵を
+ * 2x2 で詰め、**マスの位置から1枚を選ぶ**（worldmap.js が --v を渡す）。
+ *
+ * ── 隙間と角丸を外した ──
+ * 色のチップが並んでいるように見えていた原因がこれ。1pxの隙間と2pxの角丸が
+ * あると、絵を貼っても「マスの集まり」に見えて地面にならない。
+ * 歩けるかどうかは絵の明暗で分かる（明るい床・道・草／沈んだ壁・水）。
+ *
+ * 色（--tile）は下敷きとして残してある。絵が来なかったときも地図は読める。 */
 .wm-head { display: grid; gap: 4px; margin-bottom: 10px; }
 .wm-head h2 { margin: 0; }
 
@@ -3808,11 +3819,26 @@ body.has-backdrop { background: transparent; }
   display: grid;
   grid-template-columns: repeat(var(--cols), var(--cell, 28px));
   grid-template-rows: repeat(var(--rows), var(--cell, 28px));
-  gap: 1px;
   width: max-content;
   margin: 0 auto;
 }
-.wm-cell { background: var(--tile); border-radius: 2px; }
+.wm-cell {
+  background-color: var(--tile);
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+}
+/* 4通りのどれを出すか。**計算式(round())ではなくクラスで選ぶ** ——
+   CSS の round() は対応が新しく、古い携帯で1枚目に寄ってしまう。 */
+.wm-cell.v0 { background-position: 0 0; }
+.wm-cell.v1 { background-position: 100% 0; }
+.wm-cell.v2 { background-position: 0 100%; }
+.wm-cell.v3 { background-position: 100% 100%; }
+.t-floor { background-image: url(assets/map/tile-floor.webp); }
+.t-grass { background-image: url(assets/map/tile-grass.webp); }
+.t-road  { background-image: url(assets/map/tile-road.webp); }
+.t-wall  { background-image: url(assets/map/tile-wall.webp); }
+.t-water { background-image: url(assets/map/tile-water.webp); }
+.t-stair { background-image: url(assets/map/tile-stair.webp); }
 
 /* 用のあるマスだけ光らせる。済ませたものは印を消すので、
    光っていれば必ず何かある、という約束にする。 */
@@ -3826,8 +3852,9 @@ body.has-backdrop { background: transparent; }
   position: absolute;
   width: var(--cell, 28px);
   height: var(--cell, 28px);
-  left: calc(var(--x) * (var(--cell, 28px) + 1px));
-  top: calc(var(--y) * (var(--cell, 28px) + 1px));
+  /* 隙間を外したので、マスの幅だけで位置が決まる */
+  left: calc(var(--x) * var(--cell, 28px));
+  top: calc(var(--y) * var(--cell, 28px));
   transition: left .12s linear, top .12s linear;
   pointer-events: none;
 }

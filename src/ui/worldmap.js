@@ -244,7 +244,17 @@
         const t = RPG.worldmap.tileAt(m, x, y);
         const ev = RPG.worldmap.eventAt(m, x, y);
         const done = ev && RPG.worldmap.isDone(ev);
-        const cell = h('div.wm-cell', { style: `--tile: ${t.color}` });
+        // 種類ごとの絵を貼る (§20)。tileAt は性質だけを返すので、
+        // 種類の名前は legend から直に引く（core を触らずに済む）。
+        const kind = (m.legend || {})[m.tiles[y][x]] || 'wall';
+        // 同じ種類が並ぶと機械的に見えるので、**位置から4通りのどれかを選ぶ**。
+        // 乱数にすると描き直すたびに地面が変わって落ち着かない。
+        // 素数を掛けて混ぜるだけの単純な式でも、規則性は目に見えなくなる。
+        const variant = (x * 7 + y * 13 + m.tiles.length * 3) % 4;
+        const cell = h('div.wm-cell.t-' + kind + '.v' + variant, {
+          // 色は絵が来なかったときの下敷きとして残す
+          style: `--tile: ${t.color}`,
+        });
         // 済ませたものは印を消す。開けた宝箱がいつまでも光っていると
         // 「まだ何かある」と誤解させる。
         if (ev && !done) cell.classList.add('is-event', 'ev-' + ev.kind);
