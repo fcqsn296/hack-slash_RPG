@@ -297,6 +297,7 @@ const PRECACHE = [
   './assets/bg/screen-party.webp',
   './assets/bg/screen-quest.webp',
   './assets/bg/screen-tower.webp',
+  './assets/map/events.webp',
   './assets/map/tile-floor.webp',
   './assets/map/tile-grass.webp',
   './assets/map/tile-road.webp',
