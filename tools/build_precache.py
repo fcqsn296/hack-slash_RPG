@@ -72,7 +72,9 @@ def collect():
     # bg は画面の背景 (§1.3)。実行時に探索するので index.html からは辿れない。
     # 実行時キャッシュでも一度見れば貯まるが、それだと
     # 「初めて開いた画面が圏外だと絵が無い」ことになる。合計450KB程度なので先に入れる。
-    for sub in ('ui', 'characters', 'enemies', 'pwa', 'bg'):
+    # map はマップのタイル (§20)。styles.css から参照しているので、
+    # index.html を辿るだけでは拾えない。bg と同じ理由でここに並べる。
+    for sub in ('ui', 'characters', 'enemies', 'pwa', 'bg', 'map'):
         d = os.path.join(ROOT, 'assets', sub)
         if not os.path.isdir(d):
             continue
