@@ -260,8 +260,32 @@
     });
   }
 
+  /**
+   * 狭い画面で「操作」の板を開いているか (§15)。
+   *
+   * 中身はオート・高速・撤退。**毎手番は触らない**ものだけを入れている。
+   * ラウンド数と弱点コンボの段は出したまま——制限つきの依頼では
+   * ラウンドを数えながら戦うので、隠すと数えられない。
+   */
+  let drawerOpen = false;
+
+  /** 端からのスワイプを取り付ける。判定は RPG.dom.edgeSwipe が持つ */
+  let swipeReady = false;
+  function installDrawerSwipe() {
+    if (swipeReady) return;
+    swipeReady = true;
+    RPG.dom.edgeSwipe({
+      // 板を畳んでいる幅で、戦闘の画面が出ているときだけ
+      enabled: () => window.innerWidth <= 680 && !!document.querySelector('.battle'),
+      isOpen: () => drawerOpen,
+      open: () => { drawerOpen = true; render(); },
+      close: () => { drawerOpen = false; render(); },
+    });
+  }
+
   function render() {
     if (!root || !battle) return;
+    installDrawerSwipe();
     const f = battle.field;
     const rules = battle.rules || {};
     applyBattleBackdrop();
@@ -291,31 +315,49 @@
               ? `ラウンド ${battle.totalRounds} / ${rules.maxRounds}`
               : `ラウンド ${battle.round}`,
           }),
-          h('div.battle-toggles',
-            // オート禁止クエストではトグル自体を出さない
-            rules.noAuto ? null : toggle(autoToggleLabel(), settings().auto, () => {
-              const on = !settings().auto;
-              if (on && !claimAuto()) {
-                RPG.app.toast(autoBlockReason() || 'オートを使えません');
-                return;
-              }
-              RPG.state.updateSettings({ auto: on });
-              if (on) pendingSkill = null;
+          // 取っ手。狭い画面では下の板を開く。広い画面では CSS が消す (§15)。
+          //
+          // **スワイプだけにしない。** 引き出しの中に撤退が入るので、
+          // そこに何かがあると分からない形にすると、逃げたいときに逃げられない。
+          h('button.battle-drawer-handle', {
+            onClick: () => { drawerOpen = !drawerOpen; render(); },
+            'aria-label': drawerOpen ? '操作を閉じる' : '操作を開く',
+            text: drawerOpen ? '✕' : '≡',
+          }),
+          // オートと高速と撤退。毎手番は触らないので、狭い画面では横から引き出す。
+          h('div.battle-drawer' + (drawerOpen ? '.is-open' : ''),
+            h('div.battle-toggles',
+              // オート禁止クエストではトグル自体を出さない
+              rules.noAuto ? null : toggle(autoToggleLabel(), settings().auto, () => {
+                const on = !settings().auto;
+                if (on && !claimAuto()) {
+                  RPG.app.toast(autoBlockReason() || 'オートを使えません');
+                  return;
+                }
+                RPG.state.updateSettings({ auto: on });
+                if (on) pendingSkill = null;
+                drawerOpen = false;
+                render();
+                scheduleAuto();
+              }),
+              toggle('高速', settings().fast, () => {
+                RPG.state.updateSettings({ fast: !settings().fast });
+                render();
+                scheduleAuto();
+              })
+            ),
+            W.button('撤退', () => {
+              if (!confirm('撤退しますか？ ここまでの報酬は保持されます。')) return;
+              stopAuto();
+              drawerOpen = false;
+              RPG.battle.retreat(battle);
               render();
-              scheduleAuto();
-            }),
-            toggle('高速', settings().fast, () => {
-              RPG.state.updateSettings({ fast: !settings().fast });
-              render();
-              scheduleAuto();
-            })
+            }, { variant: 'ghost' })
           ),
-          W.button('撤退', () => {
-            if (!confirm('撤退しますか？ ここまでの報酬は保持されます。')) return;
-            stopAuto();
-            RPG.battle.retreat(battle);
-            render();
-          }, { variant: 'ghost' })
+          // 覆い。板の外を触ったら閉じる。広い画面では CSS が消す
+          drawerOpen
+            ? h('div.battle-scrim', { onClick: () => { drawerOpen = false; render(); } })
+            : null
         ),
         battle.quest
           ? h('div.battle-rules', RPG.quest.ruleLabels(battle.quest)

@@ -2430,6 +2430,10 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .battle-wave { color: var(--gold); }
 .battle-round { color: var(--text-dim); }
 .battle-top .btn { margin-left: auto; }
+/* 操作の引き出し (§15)。広い画面では畳まず、そのまま横に並べる。
+   取っ手と覆いは狭い画面だけのものなので出さない。 */
+.battle-drawer { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.battle-drawer-handle, .battle-scrim { display: none; }
 
 .enemy-row {
   display: flex;
@@ -2788,6 +2792,55 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   #topbar-right { gap: 6px; }
   .tab { padding: 9px 12px; font-size: 13px; }
   /* 味方カードは横並びのままで良いが、敵は縦構図なので幅を詰めて横に並べ続ける */
+  /* ── 操作（オート・高速・撤退）は横から引き出す (§15) ──
+   *
+   * 毎手番は触らないものを画面から下ろす。実測で見出しは 119 → 56px、
+   * ページの丈は 1181 → 994px になり、技の一覧の先頭を出すスクロールが
+   * 139 → 76px に縮む。
+   *
+   * **ログは引き出しに入れない。** 読み返すときは長文をまとめて見たいので、
+   * 幅の狭い板では用を成さない。最下部に置いて大きく取る（下の .battle-log）。
+   *
+   * 判定は RPG.dom.edgeSwipe（ビルド画面のキャラ一覧と共用）。
+   * 取っ手も残す——撤退が中に入るので、スワイプだけだと逃げ道が見えなくなる。 */
+  .battle-drawer-handle {
+    display: block;
+    margin-left: auto;
+    width: 40px; height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(10, 12, 17, 0.72);
+    color: var(--text);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .battle-drawer {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 208px;
+    margin: 0;
+    padding: 18px 14px;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(8, 10, 14, 0.96);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+  .battle-drawer.is-open { transform: none; }
+  .battle-drawer .battle-toggles { flex-direction: column; align-items: stretch; gap: 10px; margin-left: 0; }
+  .battle-drawer .btn { margin-left: 0; width: 100%; }
+  .battle-scrim {
+    display: block;
+    position: fixed; inset: 0; z-index: 39;
+    background: rgba(0, 0, 0, 0.42);
+  }
+
   /* ── 戦闘中は上部バーを畳む ──
    * 103px（上余白14+ロゴ26+すき間8+右の行44+下余白10）を丸ごと空ける。
    * 戦闘中に要るものが無い: 所持金と宝箱は動かず（払い出しは結果画面）、
@@ -2911,8 +2964,16 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   .command-panel { order: 8; }
   .battle-log {
     order: 9;
-    /* 190px は画面の3割。読み返しは戦闘後でもできるので、ここでは低くする */
-    height: 124px;
+    /* ── ここは大きく取る ──
+     * 引き出しに入れる案を捨てた理由がこれ。読み返したいときは
+     * **できるだけ長文をまとめて見たい**ので、幅の狭い板では用を成さない。
+     * コマンドより下にあるので、大きく取っても戦闘中の操作を押し下げない。
+     * スクロールしてここへ合わせれば、画面いっぱいで読める。
+     *
+     * dvh を使うのは、スマホのURLバーの出入りで 100vh が狂うため。
+     * 対応していない端末には vh が残る（順に書いて後ろを勝ちにする）。 */
+    height: 86vh;
+    height: 86dvh;
     margin-bottom: 0;
   }
   .item-grid, .box-grid { grid-template-columns: 1fr; }

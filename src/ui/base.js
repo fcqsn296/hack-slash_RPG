@@ -488,57 +488,20 @@
    * 「上まで戻る → 開く → 選ぶ」の3手が要る。
    * 端から引き出せれば、画面のどこにいても1手で開く。
    *
-   * ── 縦スクロールを邪魔しないこと ──
-   * 指が最初に動いた向きで判定して、縦のほうが大きければ**その指は捨てる**。
-   * ここを見ないと、一覧を縦に送るつもりの指がパネルを開いてしまう。
-   *
-   * 途中経過は追わず、しきい値を越えた時点で開閉する。
-   * 板の動きは CSS の transition が受け持つ。
+   * 判定そのものは RPG.dom.edgeSwipe が持つ（戦闘の引き出しと共用）。
    */
   let edgeSwipeReady = false;
   function installEdgeSwipe() {
     if (edgeSwipeReady || typeof document === 'undefined') return;
     edgeSwipeReady = true;
-
-    /** 端から始まったか／向きが決まったか／捨てた指か */
-    let x0 = 0, y0 = 0, fromEdge = false, axis = '', tracking = false;
-
-    // 3ペインに開く幅では畳んでいないので、そもそも働かせない
-    const narrow = () => window.innerWidth <= 860;
-    // キャラ一覧を持つ画面でだけ効かせる
-    const hasSelector = () => !!document.querySelector('.char-selector');
-
-    document.addEventListener('touchstart', (e) => {
-      if (e.touches.length !== 1 || !narrow() || !hasSelector()) { tracking = false; return; }
-      const t = e.touches[0];
-      x0 = t.clientX; y0 = t.clientY; axis = '';
-      // 28px は親指の腹で狙える幅。ここを広くすると、
-      // 一覧の中で横に払う操作まで拾ってしまう
-      fromEdge = x0 <= 28;
-      tracking = fromEdge || charListOpen;
-    }, { passive: true });
-
-    document.addEventListener('touchmove', (e) => {
-      if (!tracking || e.touches.length !== 1) return;
-      const t = e.touches[0];
-      const dx = t.clientX - x0;
-      const dy = t.clientY - y0;
-      if (!axis) {
-        // 12px 動くまでは向きを決めない。決め打ちが早いと誤判定する
-        if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
-        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-        if (axis === 'y') { tracking = false; return; }
-      }
-      if (!charListOpen && fromEdge && dx > 60) {
-        charListOpen = true; tracking = false;
-        if (lastRoot) render(lastRoot);
-      } else if (charListOpen && dx < -60) {
-        charListOpen = false; tracking = false;
-        if (lastRoot) render(lastRoot);
-      }
-    }, { passive: true });
-
-    document.addEventListener('touchend', () => { tracking = false; }, { passive: true });
+    RPG.dom.edgeSwipe({
+      // 3ペインに開く幅では畳んでいないので、そもそも働かせない。
+      // キャラ一覧を持つ画面でだけ効かせる
+      enabled: () => window.innerWidth <= 860 && !!document.querySelector('.char-selector'),
+      isOpen: () => charListOpen,
+      open: () => { charListOpen = true; if (lastRoot) render(lastRoot); },
+      close: () => { charListOpen = false; if (lastRoot) render(lastRoot); },
+    });
   }
 
   /**
