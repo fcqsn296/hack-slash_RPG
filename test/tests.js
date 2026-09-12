@@ -1187,6 +1187,27 @@
         RPG.battle.statusRatio(dummy, 'paralyze') < 1,
         `ratio 9.0 を与えても 実効 ${RPG.battle.statusRatio(dummy, 'paralyze')}`);
 
+      // --- 異常の強さは `ratio` に入る (§5.8) ---
+      //
+      // statusEffects には2種類が混ざる。毒・火傷などの異常は `ratio`、
+      // 防御バフのように相乗りしているものは `value` を持つ。
+      //
+      // **画面側でこれを取り違えた。** 戦闘の「掛かっているもの」の板
+      // (src/ui/battle.js の inspect) が `value` を見ていて、
+      // 異常の側が軒並み空欄になっていた。読む側が迷わないよう、
+      // どちらに入るのかをここで固定する。
+      {
+        dummy.statusEffects = [];
+        RPG.battle.inflict(fakeBattle, caster, dummy, 'poison', 3, 0.04);
+        const eff = dummy.statusEffects.find((/** @type {any} */ e) => e.kind === 'poison');
+        assertTrue('§5.8 異常の強さは ratio に入る（value ではない）',
+          eff && eff.ratio > 0 && eff.value === undefined,
+          `ratio=${eff && eff.ratio} / value=${eff && eff.value}`);
+        assertTrue('§5.8 異常には label と turns が必ず付く',
+          !!(eff && eff.label && eff.turns > 0),
+          `${eff && eff.label} / 残り${eff && eff.turns}`);
+      }
+
       // 撒き直しに意味は残っているか（強いほうへ更新される）
       dummy.statusEffects = [];
       RPG.battle.inflict(fakeBattle, caster, dummy, 'poison', 3, 0.05);

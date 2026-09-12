@@ -2542,6 +2542,32 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .party-card.is-active { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(240, 193, 75, 0.14); }
 .party-card.is-dead { opacity: 0.3; filter: grayscale(1); }
 .party-card.is-targetable { cursor: pointer; border-color: var(--ok); animation: pulse-ally 1.1s ease-in-out infinite; }
+/* 顔は「掛かっているものを見る」入口 (§14.3)。
+   カードの当たり判定（対象の選択）とは別なので、押せることが分かる程度に留める。 */
+.is-inspect { cursor: pointer; transition: box-shadow 0.15s, transform 0.08s; }
+.is-inspect:hover { box-shadow: 0 0 0 2px rgba(240, 193, 75, 0.5); }
+.is-inspect:active { transform: scale(0.96); }
+.is-inspect:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* 掛かっているものの一覧。ラベル・値・残りターンの3列で読む */
+.modal-sheet { text-align: left; }
+.sheet-top { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.sheet-who h2 { margin: 0; }
+.sheet-body { display: grid; gap: 2px; max-height: 52vh; overflow-y: auto; }
+.sheet-head {
+  margin: 10px 0 2px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; color: var(--gold);
+}
+.sheet-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+  align-items: baseline; padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+.sheet-value { color: var(--accent); font-variant-numeric: tabular-nums; }
+.sheet-turns { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.sheet-empty { margin: 10px 0; color: var(--text-dim); font-size: 13px; }
+
 .party-card-info { flex: 1; display: grid; gap: 3px; }
 .party-card-info .name { font-size: 13px; font-weight: 600; }
 

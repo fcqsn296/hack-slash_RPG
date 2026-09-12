@@ -604,7 +604,7 @@
       role: clickable ? 'button' : null,
       tabindex: clickable ? '0' : null,
     },
-      W.enemyArt(e, { boss: e.isBoss }),
+      makeInspectable(W.enemyArt(e, { boss: e.isBoss }), e),
       h('div.enemy-info',
         h('span.name', { text: e.name + (e.isBoss ? ' 👑' : '') }),
         h('span.lv', { text: 'Lv' + e.level }),
@@ -639,7 +639,7 @@
       role: clickable ? 'button' : null,
       tabindex: clickable ? '0' : null,
     },
-      W.portrait(u, 'md'),
+      makeInspectable(W.portrait(u, 'md'), u),
       h('div.party-card-info',
         h('span.name', { text: u.name }),
         W.hpBar(u.hp, u.maxHp, null, prevHp[u.key]),
@@ -883,6 +883,110 @@
         );
       }))
     );
+  }
+
+  /**
+   * 顔を押したら、掛かっているものを全部出す (§14.3)。
+   *
+   * ── なぜ要るか ──
+   * 狭い画面で味方カードを2列にしたぶん、札の並びが横スクロールになった。
+   * 何が掛かっているかを読むのに指で送ることになり、戦闘中には間に合わない。
+   * 敵側はもっと素朴で、**毒と防御崩壊しか出していなかった**——
+   * 相手に何が入っているかが分からないと、次の手を組み立てられない。
+   *
+   * ── 入口を顔だけにする理由 ──
+   * カードそのものは対象の選択に使っている。カード全体を入口にすると、
+   * 技の相手を選ぶ操作を奪う。**顔だけ**を入口にして、そこでクリックを止める。
+   *
+   * 描き直しに巻き込まれないよう、板は render() の外で body へ挿す。
+   * @param {any} u
+   */
+  function inspect(u) {
+    const rows = [];
+    const turns = (t) => (t > 0 ? `残り${t}ターン` : '');
+    const pct = (v) => (v >= 0 ? '+' : '') + Math.round(v * 100) + '%';
+
+    const section = (title, items) => {
+      if (!items.length) return;
+      rows.push(h('h3.sheet-head', { text: title }));
+      for (const it of items) rows.push(h('div.sheet-row',
+        h('span.sheet-label', { text: it.label }),
+        h('span.sheet-value', { text: it.value }),
+        h('span.sheet-turns', { text: it.turns || '' })
+      ));
+    };
+
+    section('火力（固有）', (u.buffUnique || []).map((/** @type {any} */ b) => ({
+      label: b.label, value: pct(b.value), turns: turns(b.turns),
+    })));
+    section('火力（系統）', (u.buffTags || []).map((/** @type {any} */ b) => ({
+      label: b.label,
+      value: `[${(RPG.damage.TAG_LABEL || {})[b.tag] || b.tag}] ${pct(b.value)}`,
+      turns: turns(b.turns),
+    })));
+    section('被ダメージ軽減', (u.buffReduction || []).map((/** @type {any} */ b) => ({
+      label: b.label, value: pct(b.value), turns: turns(b.turns),
+    })));
+    // statusEffects は2種類が混ざる。毒・火傷などの異常は強さを `ratio` で持ち、
+    // 防御バフのように statusEffects へ相乗りしているものは `value` を持つ。
+    // 取り違えると、異常の側が「+0%」と出る（実際に一度そう書いた）。
+    section('状態', (u.statusEffects || []).map((/** @type {any} */ st) => ({
+      label: st.label,
+      value: st.ratio != null
+        // 異常の割合は**読むたびに上限で丸められる** (§5.8)。丸めた後を出す
+        ? pct(RPG.battle.statusRatio(u, st.kind))
+        : (st.value != null ? pct(st.value) : ''),
+      turns: turns(st.turns),
+    })));
+
+    /** @type {any[]} */
+    const other = [];
+    if (u.defIgnoredTurns > 0) other.push({ label: '防御崩壊', value: '防御を無視される', turns: turns(u.defIgnoredTurns) });
+    if (u.shield > 0) other.push({ label: '障壁', value: u.shield.toLocaleString() + ' 肩代わり', turns: '' });
+    if (u.escalateStack > 0 && u.passives && u.passives.escalate > 1) {
+      other.push({
+        label: '累撃', turns: '',
+        value: '×' + Math.min(RPG.battle.ESCALATE_CAP, Math.pow(u.passives.escalate, u.escalateStack)),
+      });
+    }
+    section('その他', other);
+
+    if (!rows.length) rows.push(h('p.sheet-empty', { text: '掛かっているものはありません。' }));
+
+    const overlay = h('div.modal-overlay');
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.appendChild(h('div.modal.modal-sheet',
+      h('div.sheet-top',
+        u.side === 'party' ? W.portrait(u, 'md') : W.enemyArt(u, { boss: u.isBoss }),
+        h('div.sheet-who',
+          h('h2', { text: u.name }),
+          h('p.modal-sub', { text: `Lv${u.level}　${u.hp.toLocaleString()} / ${u.maxHp.toLocaleString()}` })
+        )
+      ),
+      h('div.sheet-body', rows),
+      h('div.modal-actions', W.button('閉じる', close, { variant: 'ghost' }))
+    ));
+    document.body.appendChild(overlay);
+  }
+
+  /**
+   * 顔を「掛かっているものを見る」入口にする。
+   * カードの当たり判定を奪わないよう、ここでクリックを止める。
+   * @param {HTMLElement} face
+   * @param {any} u
+   */
+  function makeInspectable(face, u) {
+    face.classList.add('is-inspect');
+    face.setAttribute('role', 'button');
+    face.setAttribute('tabindex', '0');
+    face.setAttribute('aria-label', u.name + ' に掛かっているものを見る');
+    face.addEventListener('click', (e) => { e.stopPropagation(); inspect(u); });
+    face.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault(); e.stopPropagation(); inspect(u);
+    });
+    return face;
   }
 
   /** @param {string} skillId */
