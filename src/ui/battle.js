@@ -89,7 +89,34 @@
     snapshotHp();
     fn();
     render();
+    keepEnemiesInView();
     playEffects();
+  }
+
+  /**
+   * 演出が始まる前に、敵の行を画面へ戻す (§14.3)。
+   *
+   * ── なぜ要るか ──
+   * 狭い画面では、上から 見出し119 + コンボ30 + 敵251 + 味方124 で 524px を使う。
+   * 640px の画面に残るのは116pxで、**技の一覧を出しただけで敵が画面の外へ出る**
+   * （技8本なら一覧だけで816px）。技を押したあと自分で上へ戻らないと
+   * 演出が見えない、という報告があった。
+   *
+   * 同時に収める方法は無いので、**手でやっていたスクロールを機械にやらせる**。
+   *
+   * ── 既に見えているときは動かさない ──
+   * 毎回スクロールすると、指で見たい所を出しているときに横取りになる。
+   * 8割がた見えていれば触らない。
+   */
+  function keepEnemiesInView() {
+    if (!root || window.innerWidth > 680) return;
+    const row = root.querySelector('.enemy-row');
+    if (!row) return;
+    const r = row.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const shown = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    if (shown >= Math.min(r.height, vh) * 0.8) return;
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   /** 現在のHPを覚えておく。次の描画でゴーストバーの起点になる。 */

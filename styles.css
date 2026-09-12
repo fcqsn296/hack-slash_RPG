@@ -2797,7 +2797,79 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   .enemy-info .lv { font-size: 10px; }
   .enemy-glyph { font-size: 28px; }
   .battle { padding: 12px; }
-  .command-buttons { grid-template-columns: 1fr; }
+  /* ── 技の一覧に上限を付けて、中でスクロールさせる ──
+   *
+   * 1列だと8本で816px（実測・ボタン82px）。画面640pxに対して
+   * 一覧を出しただけで敵が583px上へ消える。
+   *
+   * **2列は試して捨てた。** 幅が半分になるぶん技名と札が折り返して
+   * ボタンが82→128pxに伸び、816→690pxしか縮まないうえ、
+   * 段の高さが揃わず読みにくくなった（実測 163x128 と 108x128）。
+   *
+   * 代わりに一覧の高さを切って、中を送らせる。技が何本あっても
+   * ページの丈が伸びないので、敵までのスクロールが一定に収まる。 */
+  .command-buttons {
+    grid-template-columns: 1fr;
+    max-height: 42vh;
+    overflow-y: auto;
+    /* 影で「まだ下にある」ことを示す。切っただけだと最後の技に気付けない */
+    mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 18px), transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 18px), transparent 100%);
+    padding-bottom: 10px;
+  }
+
+  /* ── 狭い画面では、ログを最後へ回す ──
+   *
+   * DOM の並びは 見出し → 敵 → ログ → 味方 → コマンド で、
+   * **敵とコマンドのあいだにログが190px挟まっていた**。
+   * コマンドを押せる位置までスクロールすると敵が画面の上へ出てしまい、
+   * 「技を選んでから急いで上へ戻らないと演出が見えない」状態になっていた。
+   *
+   * 実測(375x640): コマンドを全部出すのに388pxのスクロールが必要で、
+   * そのとき敵の行は -51〜200（上が51px切れる）。
+   * ログを最後へ回すと必要なスクロールは134pxになり、敵は187〜438に収まる。
+   *
+   * 並べ替えは order でやる。DOM を触るとログの追従スクロール(§14.3)や
+   * 読み上げの順序まで巻き込むので、**見た目の順だけ**を変える。 */
+  /* ── 戦闘の見出しが1行に収まらず、縦に潰れていた ──
+   *
+   * .battle-top は nowrap の flex 一行で、子が5つある
+   * （場所の名前・ウェーブ・ラウンド・トグル・撤退）。
+   * 375px では取り分が足りず、**「始まりの草原」が幅15px・高さ144pxになって
+   * 1文字ずつ縦に折り返していた**。見出しだけで157pxを使っていた正体がこれ。
+   *
+   * 折り返しを許して2段にする。場所の名前が1段目、残りが2段目。 */
+  .battle-top {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    font-size: 11.5px;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .battle-field { flex: 1 1 100%; font-size: 14px; }
+  .battle-wave { flex: 1 1 auto; min-width: 0; }
+  .battle-round { white-space: nowrap; }
+
+  /* 技の説明は2〜3行になり、1本あたり50px前後を使う。
+     5本並ぶと一覧だけで281pxになり、敵と同時に画面へ入らない。
+     説明は消さずに1行へ詰める（何の技かは名前と札で足りるが、
+     説明が無いと「どれが回復か」を思い出せない）。 */
+  .skill-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .skill-btn { padding: 8px 10px; gap: 3px; }
+
+  .battle { display: flex; flex-direction: column; }
+  .command-panel { order: 8; }
+  .battle-log {
+    order: 9;
+    /* 190px は画面の3割。読み返しは戦闘後でもできるので、ここでは低くする */
+    height: 124px;
+    margin-bottom: 0;
+  }
   .item-grid, .box-grid { grid-template-columns: 1fr; }
   .gacha-panel { grid-template-columns: 1fr; gap: 16px; padding: 14px; }
   .pull-grid, .node-grid { grid-template-columns: 1fr; }
