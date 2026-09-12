@@ -301,15 +301,6 @@
     replace(root,
       h('div.battle', { style: { background: fieldWash(f, 0.34) } },
         h('div.battle-top',
-          // 闘技場は戦闘の器としてフィールドを1つ借りているだけなので、
-          // そのまま出すと関係のない地名が並ぶ (§17)。
-          h('span.battle-field', {
-            text: battle.arena ? battle.arena.def.name
-              : (battle.quest ? battle.quest.name : f.name),
-          }),
-          battle.arena
-            ? h('span.battle-wave', { text: battle.arena.def.title })
-            : h('span.battle-wave', { text: `ウェーブ ${battle.wave} / ${battle.totalWaves}` }),
           h('span.battle-round', {
             text: rules.maxRounds
               ? `ラウンド ${battle.totalRounds} / ${rules.maxRounds}`
@@ -326,6 +317,21 @@
           }),
           // オートと高速と撤退。毎手番は触らないので、狭い画面では横から引き出す。
           h('div.battle-drawer' + (drawerOpen ? '.is-open' : ''),
+            // 場所の名前とウェーブも下ろしてある。戦闘中に見る頻度が
+            // 一番低いので、ここが空けやすい（見出しが 77 → 50px 前後）。
+            //
+            // **闘技場ではボスの名と称号がここに入る** (§17)。
+            // 相手の名前も板を開かないと出なくなるが、頻度で選んだ割り切り。
+            //
+            // 闘技場は戦闘の器としてフィールドを1つ借りているだけなので、
+            // そのまま出すと関係のない地名が並ぶ。
+            h('span.battle-field', {
+              text: battle.arena ? battle.arena.def.name
+                : (battle.quest ? battle.quest.name : f.name),
+            }),
+            battle.arena
+              ? h('span.battle-wave', { text: battle.arena.def.title })
+              : h('span.battle-wave', { text: `ウェーブ ${battle.wave} / ${battle.totalWaves}` }),
             h('div.battle-toggles',
               // オート禁止クエストではトグル自体を出さない
               rules.noAuto ? null : toggle(autoToggleLabel(), settings().auto, () => {
