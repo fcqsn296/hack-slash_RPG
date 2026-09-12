@@ -200,6 +200,16 @@
       const el = document.getElementById(s);
       if (el) el.classList.toggle('hidden', s !== id);
     }
+    // 戦闘中だけ上部バーを畳む目印 (§14.3)。
+    //
+    // 狭い画面では上部バーが103pxあり、640pxの1/6を占める。
+    // ところが戦闘中に要るものが何も無い——所持金と宝箱は戦闘では動かず
+    // （払い出しは結果画面に出る）、オートの残量は戦闘側のトグルが
+    // 「オート (20)」として出している。データ画面も戦闘中には開かない。
+    //
+    // 隠すのは狭い画面だけ（styles.css 側で絞っている）。PCでは余裕がある。
+    document.body.classList.toggle('in-battle', id === 'screen-battle');
+
     // unmount は何度呼んでも安全（keyHandler が無ければ何もしない）。
     if (id !== 'screen-map' && RPG.ui.worldmap) RPG.ui.worldmap.unmount();
   }

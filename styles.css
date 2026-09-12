@@ -2788,6 +2788,13 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   #topbar-right { gap: 6px; }
   .tab { padding: 9px 12px; font-size: 13px; }
   /* 味方カードは横並びのままで良いが、敵は縦構図なので幅を詰めて横に並べ続ける */
+  /* ── 戦闘中は上部バーを畳む ──
+   * 103px（上余白14+ロゴ26+すき間8+右の行44+下余白10）を丸ごと空ける。
+   * 戦闘中に要るものが無い: 所持金と宝箱は動かず（払い出しは結果画面）、
+   * オートの残量は戦闘側のトグルが出している。
+   * 目印は src/main.js の showOnly が付ける。 */
+  body.in-battle #topbar { display: none; }
+
   /* ── 味方は2人ずつ並べる ──
    *
    * 1人1行だと、4人編成で 90px × 4 + すき間 = 396px。
