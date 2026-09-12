@@ -2430,10 +2430,19 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .battle-wave { color: var(--gold); }
 .battle-round { color: var(--text-dim); }
 .battle-top .btn { margin-left: auto; }
-/* 操作の引き出し (§15)。広い画面では畳まず、そのまま横に並べる。
-   取っ手と覆いは狭い画面だけのものなので出さない。 */
-.battle-drawer { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+/* 操作の引き出し (§15)。広い画面では畳まず、見出しにそのまま並べる。
+ *
+ * display:contents で板そのものを消し、子を見出しの flex 項目にする。
+ * **DOM の並びと見た目の並びを切り離す**ため、順序は order で決める——
+ * 狭い画面では板が fixed になって DOM 順が効かなくなるので、
+ * 広い画面の並びをここで明示しておく必要がある。 */
+.battle-drawer { display: contents; }
 .battle-drawer-handle, .battle-scrim { display: none; }
+.battle-field { order: 1; }
+.battle-wave { order: 2; }
+.battle-round { order: 3; }
+.battle-toggles { order: 4; }
+.battle-drawer .btn { order: 5; }
 
 .enemy-row {
   display: flex;
