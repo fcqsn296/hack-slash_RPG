@@ -2788,7 +2788,45 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   #topbar-right { gap: 6px; }
   .tab { padding: 9px 12px; font-size: 13px; }
   /* 味方カードは横並びのままで良いが、敵は縦構図なので幅を詰めて横に並べ続ける */
-  .party-card { min-width: 0; width: 100%; }
+  /* ── 味方は2人ずつ並べる ──
+   *
+   * 1人1行だと、4人編成で 90px × 4 + すき間 = 396px。
+   * 敵(251)と技の一覧のあいだに、味方だけでこれだけ挟まっていた。
+   * 2列にすれば2段で済む。
+   *
+   * 顔を 68 → 48px に落とし、名前は溢れたら省略する。
+   * HPバーは幅を追うので、カードが半分になれば自然に半分になる。 */
+  .party-card {
+    min-width: 0;
+    width: calc(50% - 4px);
+    gap: 8px;
+    padding: 8px;
+  }
+  .party-row { gap: 8px; }
+  .party-card .portrait-md { width: 48px; height: 48px; border-radius: 10px; }
+  .party-card .portrait-md .portrait-glyph { font-size: 20px; }
+  .party-card-info { gap: 2px; min-width: 0; }
+  .party-card-info .name {
+    font-size: 12px;
+    /* 「シャルロッテ」のような長い名前でカードを押し広げさせない */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 札は狭いと何段にも折り返してカードだけ伸びる。1段に抑えて、
+     溢れたぶんは横へ流す（何が付いているかは指で送れば読める）。 */
+  .party-card .chips {
+    margin-top: 2px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 3px;
+    scrollbar-width: none;
+  }
+  .party-card .chips::-webkit-scrollbar { display: none; }
+  .party-card .chip { flex: 0 0 auto; }
+  /* HPの表記は幅75pxに対して実測68px（この保存で最大のテオドラ 21,386）。
+     いまは収まるが、桁が増えると折り返して**バーが2段になりカードが崩れる**。
+     折り返さずに切る。数字が読めなくなるより、形が崩れないほうを採る。 */
+  .party-card .hpbar { overflow: hidden; }
+  .party-card .hpbar-text { white-space: nowrap; }
   /* 最大3体が必ず1行に収まる幅にする（375px幅でも折り返さない） */
   .enemy-row { gap: 6px; padding-top: 30px; }
   .enemy-card { width: 96px; padding: 6px; gap: 6px; }
