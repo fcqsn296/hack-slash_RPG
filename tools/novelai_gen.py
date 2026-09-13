@@ -48,26 +48,25 @@ import random
 import re
 import sys
 import time
-import urllib.error
-import urllib.request
-import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import locate                                      # noqa: E402
+
+try:
+    locate.ensure()
+except RuntimeError as e:
+    print(e)
+    sys.exit(1)
+
+from imagekit import nai                           # noqa: E402
 from import_images import ROOT, DATA, load_targets, install, check_size  # noqa: E402
 
 # ---------------------------------------------------------------- 設定
-
-API_URL = "https://image.novelai.net/ai/generate-image"
-#: 契約の確認用。画像を作らないので Anlas を消費しない。
-# 契約情報も **画像側のホスト** から取る。
 #
-# api.novelai.net だと 400 で
-#   "Please refresh NovelAI.net. If using a third-party tool, update to the image URL."
-# が返る。文面は画像URLの話に見えるが、user 系のパスでも同じ扱いになっている。
-# 経路そのものは生きていて（認証を外すと 401、存在しないパスは 404）、
-# ホストを image.novelai.net に替えるだけで 200 が返る。
-SUBSCRIPTION_URL = "https://image.novelai.net/user/subscription"
-MODEL = "nai-diffusion-5-full"
+# 通信の作法（API の場所・User-Agent・待ち時間の下限・再試行）は
+# imagekit/nai.py にある。ここに置くのは、このリポジトリでの選び方だけ。
+
+MODEL = nai.DEFAULT_MODEL
 
 # 使えるモデル。既定は V5。
 #
@@ -82,32 +81,21 @@ MODEL = "nai-diffusion-5-full"
 # **透過（アルファ付き PNG）を直接出せる。** これで cutout_background.py の
 # 塗りつぶし透過が要らなくなり、あれが暗い衣装を食う危険
 # （em_null_weaver で実際に衣装を11%削った）が構造的に消える。
+#
+# --model に書く名前はここで決める（CLI の語彙なのでこちら側の持ち物）。
+# 実際のモデルIDは imagekit/nai.py の MODELS が持っている。
 MODELS = {
-    "v4.5": "nai-diffusion-4-5-full",
-    "v5": "nai-diffusion-5-full",
-    "v5-curated": "nai-diffusion-5-curated",
+    "v4.5": nai.MODELS["v4-5"],
+    "v5": nai.MODELS["v5"],
+    "v5-curated": nai.MODELS["v5-curated"],
 }
 
-# V5 で透過を出すための語。プロンプトの後ろに足し、同時に
-# 土台の white background を打ち消す（両方あると白地で塗られる）。
-TRANSPARENT_TAGS = "transparent background, has alpha, alpha transparency"
+#: 透過用の語と待ち時間の下限、User-Agent は imagekit 側の持ち物。
+#: **こちらで別の値を持たないこと。** 2か所にあると必ずずれる。
+TRANSPARENT_TAGS = nai.TRANSPARENT_TAGS
+DEFAULT_DELAY = nai.DEFAULT_DELAY
+MIN_DELAY = nai.MIN_DELAY
 
-#: これを外すと必ず失敗する。
-#:
-#: urllib の既定 User-Agent（Python-urllib/3.x）は NovelAI の前段にいる Cloudflare に
-#: 弾かれ、HTTP 403 / error code 1010 が返る。実測:
-#:     既定UA        -> 403  "error code: 1010"（Cloudflare が返す。API まで届いていない）
-#:     ブラウザ風UA  -> 401  {"statusCode":401,...}（API に届いた上での認証エラー）
-#: 同じ症状は assets/ui/ の素材を取得したときにも起きている。消さないこと。
-USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-
-#: 既定の待ち時間（秒）。提供元に負荷をかけないための間隔。
-DEFAULT_DELAY = 10.0
-#: これより短くはできない。
-MIN_DELAY = 3.0
-#: 429 / 5xx のときの再試行回数
-MAX_RETRIES = 4
 #: 1回の実行で投げられる上限。事故で大量送信しないための歯止め。
 MAX_REQUESTS = 40
 
@@ -364,170 +352,55 @@ def build_prompt(target, catalog, overrides, extra=""):
 def make_transparent(prompt):
     """透過で出すためにプロンプトを整える (V5 専用)。
 
-    **white background を残したまま transparent background を足しても効かない。**
-    土台の `simple background, white background` は「白で塗れ」という指示なので、
-    透過の指示と正面から喧嘩する。置き換えでないと意味がない。
+    中身は imagekit/nai.py にある（なぜ置き換えでないと効かないかもそこに書いてある）。
     """
-    out = prompt.replace("simple background, white background", "")
-    out = out.replace("white background", "")
-    out = ", ".join(p for p in (x.strip() for x in out.split(",")) if p)
-    if "has alpha" not in out:
-        out = out + ", " + TRANSPARENT_TAGS
-    return out
+    return nai.make_transparent(prompt)
 
 
 # ---------------------------------------------------------------- API
+#
+# 通信そのもの（トークン・User-Agent・再試行・待ち時間の下限）は
+# imagekit/nai.py に移した。他のプロジェクトでも同じ約束で投げるため。
+# ここに残っているのは、このリポジトリ固有の案内文だけ。
 
-class RateLimiter:
-    """必ず1件ずつ、一定の間隔をあけて投げるための小道具。"""
+
+class RateLimiter(nai.RateLimiter):
+    """必ず1件ずつ、一定の間隔をあけて投げるための小道具。
+
+    待ち時間の通知だけをこのツールの体裁（字下げ）で出す。
+    """
 
     def __init__(self, delay):
-        self.delay = max(MIN_DELAY, float(delay))
-        self.last = 0.0
-
-    def wait(self):
-        gap = time.time() - self.last
-        if self.last and gap < self.delay:
-            remain = self.delay - gap
-            print("    次のリクエストまで %.1f 秒待ちます…" % remain)
-            time.sleep(remain)
-        self.last = time.time()
+        nai.RateLimiter.__init__(self, delay, notify=lambda m: print("    " + m))
 
 
 def generate(token, prompt, negative, seed, limiter, width, height, steps, scale,
              model=None):
-    """1枚生成して PNG のバイト列を返す。"""
-    parameters = {
-        "params_version": 3,
-        "width": width, "height": height,
-        "scale": scale, "sampler": "k_euler_ancestral", "steps": steps,
-        "seed": seed, "n_samples": 1,
-        "ucPreset": 0, "qualityToggle": True,
-        "sm": False, "sm_dyn": False,
-        "dynamic_thresholding": False,
-        "controlnet_strength": 1.0, "legacy": False, "add_original_image": True,
-        "cfg_rescale": 0.0, "noise_schedule": "karras", "legacy_v3_extend": False,
-        "uncond_scale": 1.0,
-        "negative_prompt": negative, "prompt": prompt,
-        "reference_image_multiple": [],
-        "reference_information_extracted_multiple": [],
-        "reference_strength_multiple": [],
-        "extra_noise_seed": seed,
-        "v4_prompt": {
-            "use_coords": False, "use_order": True,
-            "caption": {"base_caption": prompt, "char_captions": []},
-        },
-        "v4_negative_prompt": {
-            "use_coords": False, "use_order": False,
-            "caption": {"base_caption": negative, "char_captions": []},
-        },
-    }
-    payload = json.dumps({
-        "input": prompt, "model": model or MODEL, "action": "generate",
-        "parameters": parameters,
-    }).encode("utf-8")
-
-    delay = limiter.delay
-    for attempt in range(1, MAX_RETRIES + 1):
-        limiter.wait()
-        req = urllib.request.Request(API_URL, data=payload, method="POST", headers={
-            "Authorization": "Bearer " + token,
-            "Content-Type": "application/json",
-            "Accept": "application/x-zip-compressed",
-            "User-Agent": USER_AGENT,
-            "Origin": "https://novelai.net",
-            "Referer": "https://novelai.net/",
-        })
-        try:
-            with urllib.request.urlopen(req, timeout=180) as res:
-                return _extract_png(res.read())
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", "replace")[:600]
-            except Exception:
-                pass
-            # 認証・権限まわりは何度投げても結果が変わらない。再試行せず原因を出す。
-            if e.code in (401, 402, 403):
-                raise RuntimeError(_auth_error_hint(e, body))
-            # 混雑・一時的な不調のときだけ、間隔を広げて待ってから試し直す
-            if e.code in (429, 500, 502, 503, 520, 524) and attempt < MAX_RETRIES:
-                retry_after = e.headers.get("Retry-After") if e.headers else None
-                wait = float(retry_after) if retry_after and retry_after.isdigit() else delay * 2
-                delay = wait
-                limiter.delay = max(limiter.delay, wait)
-                print("    HTTP %d。%.0f 秒待って再試行します（%d/%d）" %
-                      (e.code, wait, attempt, MAX_RETRIES))
-                time.sleep(wait)
-                continue
-            raise RuntimeError("APIエラー HTTP %d: %s" % (e.code, body))
-        except urllib.error.URLError as e:
-            if attempt < MAX_RETRIES:
-                print("    接続に失敗しました（%s）。%.0f 秒待って再試行します。" % (e.reason, delay))
-                time.sleep(delay)
-                delay *= 2
-                continue
-            raise RuntimeError("接続に失敗しました: %s" % e.reason)
-    raise RuntimeError("再試行の上限に達しました")
+    """1枚生成して PNG のバイト列を返す。**課金される。**"""
+    try:
+        return nai.generate(token, prompt, negative, seed, limiter,
+                            width=width, height=height, steps=steps, scale=scale,
+                            model=model or MODEL,
+                            notify=lambda m: print("    " + m))
+    except RuntimeError as e:
+        raise RuntimeError(_local_hint(str(e)))
 
 
-def _auth_error_hint(err, body):
-    """401 / 402 / 403 のときに、何を確かめればよいかまで含めて返す。
+def _local_hint(message):
+    """imagekit の案内文に、このツールでの確かめ方を足す。
 
-    同じ 403 でも「NovelAI が断った」のと「前段の Cloudflare が弾いた」のでは
-    直し方が違うので、応答から判別できるところまで出す。
+    「トークンを確かめろ」と言われても、どう確かめるのかが分からないと止まる。
+    --check の存在はこのリポジトリ側の事情なので、ここで足す。
     """
-    headers = err.headers or {}
-    cf_ray = headers.get("cf-ray")
-    server = (headers.get("server") or "").lower()
-    looks_like_cloudflare = bool(cf_ray) and (
-        "cloudflare" in server or "<html" in body.lower() or "attention required" in body.lower())
-
-    lines = ["APIエラー HTTP %d" % err.code]
-    if body:
-        lines.append("  応答: " + body.replace("\n", " ")[:400])
-    if cf_ray:
-        lines.append("  cf-ray: " + cf_ray)
-
-    lines.append("")
-    if err.code == 401:
-        lines += [
-            "  → トークンが受け付けられませんでした。",
-            "     NovelAI のアカウント設定で発行する Persistent API Token（pst- で始まる）か確認してください。",
-            "     python tools/novelai_gen.py --check  で読めている値の先頭が見られます。",
-        ]
-    elif err.code == 402:
-        lines += [
-            "  → 支払い・残高まわりで断られました。",
-            "     Anlas の残量とサブスクリプションの状態を確認してください。",
-        ]
-    elif looks_like_cloudflare:
-        lines += [
-            "  → NovelAI ではなく前段の Cloudflare に弾かれています。",
-            "     しばらく間をあけて試すか、同じ回線から一度ブラウザで novelai.net を開いてから",
-            "     もう一度実行してみてください。",
-        ]
-    else:
-        lines += [
-            "  → 権限が足りないか、トークンが無効です。次の順で確認してください。",
-            "     1. python tools/novelai_gen.py --check  で pst- 始まりか、余計な空白が無いか",
-            "     2. トークンを作り直して setx で入れ直す（作り直すと古いものは無効になります）",
-            "     3. 使おうとしているモデル（%s）が今の契約で使えるか" % MODEL,
-            "     4. ブラウザの NovelAI で同じ設定の生成が通るか",
-        ]
-    return "\n".join(lines)
-
-
-def _extract_png(raw):
-    """応答は ZIP のことも生のPNGのこともあるので、両方受ける。"""
-    if raw[:2] == b"PK":
-        with zipfile.ZipFile(io.BytesIO(raw)) as z:
-            names = [n for n in z.namelist() if n.lower().endswith(".png")]
-            if not names:
-                raise RuntimeError("ZIPの中にPNGがありませんでした")
-            return z.read(names[0])
-    return raw
-
+    if "APIエラー HTTP" not in message:
+        return message
+    return message + "\n".join([
+        "",
+        "",
+        "  このツールでの確かめ方:",
+        "     python tools/novelai_gen.py --check         読めているトークンの先頭",
+        "     python tools/novelai_gen.py --list-prompts  送られる文字列（投げない）",
+    ])
 
 # ---------------------------------------------------------------- 候補の管理
 
@@ -985,26 +858,9 @@ def cmd_check():
 
     # 契約情報を1回だけ取りに行く。画像は作らないので Anlas は減らない。
     print("\n契約情報を確認しています…")
-    req = urllib.request.Request(SUBSCRIPTION_URL, headers={
-        "Authorization": "Bearer " + token,
-        "User-Agent": USER_AGENT,
-        "Origin": "https://novelai.net",
-        "Referer": "https://novelai.net/",
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=30) as res:
-            info = json.loads(res.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8", "replace")[:600]
-        except Exception:
-            pass
-        print(_auth_error_hint(e, body) if e.code in (401, 402, 403)
-              else "  確認できませんでした（HTTP %d）: %s" % (e.code, body[:200]))
-        return 1
-    except urllib.error.URLError as e:
-        print("  接続できませんでした: %s" % e.reason)
+    info, why = nai.subscription(token)
+    if info is None:
+        print(_local_hint(why))
         return 1
 
     tier = info.get("tier")

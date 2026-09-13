@@ -2,6 +2,10 @@
 """
 立ち絵を WebP に変換する。
 
+変換そのものは imagekit/webp.py にある（他のプロジェクトでも使うため）。
+ここに残っているのは **このリポジトリ固有の事情** だけ:
+どのフォルダが対象か、元の PNG をどこへ退避するか、そのあと何をすべきか。
+
 ── なぜ必要か ──
 PNG のままだと立ち絵だけで 62MB あり、
 GitHub Pages のデプロイが転送に時間がかかりすぎて失敗した
@@ -25,26 +29,32 @@ WebP 品質90 に落とすと **約89%減って 7MB 前後** になる。
 """
 from __future__ import print_function, unicode_literals
 
-import io
 import os
-import shutil
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import locate                                      # noqa: E402
+
 try:
-    from PIL import Image
-except ImportError:
-    print('Pillow が必要です:  pip install Pillow')
+    locate.ensure()
+except RuntimeError as e:
+    print(e)
     sys.exit(1)
+
+from imagekit import webp                          # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TARGETS = [os.path.join('assets', 'characters'), os.path.join('assets', 'enemies')]
 MASTER = os.path.join(ROOT, 'assets_png_master')
 
-QUALITY = 90
-METHOD = 6          # 0〜6。大きいほど時間をかけて縮める
-
 
 def main(apply_changes):
+    try:
+        webp.require_pillow()
+    except RuntimeError as e:
+        print(e)
+        return 1
+
     jobs = []
     for d in TARGETS:
         full = os.path.join(ROOT, d)
@@ -58,13 +68,7 @@ def main(apply_changes):
         print('変換する PNG がありません（すでに WebP 化されている可能性があります）')
         return 0
 
-    before = after = 0
-    for _d, _n, p in jobs:
-        before += os.path.getsize(p)
-        im = Image.open(p).convert('RGBA')
-        buf = io.BytesIO()
-        im.save(buf, 'WEBP', quality=QUALITY, method=METHOD)
-        after += buf.tell()
+    before, after = webp.estimate([p for _d, _n, p in jobs])
 
     print('対象 %d 枚' % len(jobs))
     print('  現在   %6.1f MB' % (before / 1024.0 / 1024.0))
@@ -75,15 +79,12 @@ def main(apply_changes):
         print('\n確認のみ。実際に変換するには --apply を付けて実行してください。')
         return 0
 
-    if not os.path.isdir(MASTER):
-        os.makedirs(MASTER)
-
-    for d, n, p in jobs:
-        im = Image.open(p).convert('RGBA')
-        out = os.path.splitext(p)[0] + '.webp'
-        im.save(out, 'WEBP', quality=QUALITY, method=METHOD)
-        # 元の PNG は master へ退避してから消す
-        shutil.move(p, os.path.join(MASTER, d.replace('/', '__') + '__' + n))
+    # 退避先の名前は「フォルダ__ファイル名」。assets/characters と
+    # assets/enemies に同名があっても衝突しないようにするため。
+    webp.convert_all([
+        (p, os.path.join(MASTER, d.replace('/', '__') + '__' + n))
+        for d, n, p in jobs
+    ])
 
     print('\n変換しました: %d 枚' % len(jobs))
     print('  元の PNG は %s に移してあります（公開対象外）'
