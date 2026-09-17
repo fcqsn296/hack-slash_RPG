@@ -1,0 +1,73 @@
+# 検証用セーブの割り当て（tools/make_testbed_save.py が読む）
+# キャラID|クラス|武器uid|防具uid|装飾uid   uid は '.' 区切り
+#
+# test/builds.js の REFERENCE.plan で Lv255 まで振り、
+# autoequip.optimize に「まだ誰にも使われていない在庫」を渡して得た結果。
+# クラスは6種を順に配っている（全クラスを覛うため）。
+# 作り直す手順は docs/測定エージェントの手順.md にある。
+ch_hero|cls_guardian|12805.7814|7757.9707|3538.6459
+ch_mia|cls_mender|10092.9772|7228.6284|7727.5271
+ch_gow|cls_breaker|8564.10021|5729.9849|6704.9454
+ch_gald|cls_hexer|9485.1837|4923.11377|9514.7345
+ch_tor|cls_tactician|6767.4260|11467.9253|11123.7270
+ch_bran|cls_assassin|6169.6517|11424.6859|8705.6596
+ch_selen|cls_guardian|7288.7613|6408.11229|7893.6552
+ch_vell|cls_mender|9057.6088|11224.9991|9165.11304
+ch_noa|cls_breaker|10174.10202|11214.6935|10167.9798
+ch_rizel|cls_hexer|8224.9685|10553.6247|7386.6530
+ch_astra|cls_tactician|6333.9074|6600.8554|6918.6002
+ch_shiki|cls_assassin|6525.3330|6086.11093|5809.5697
+ch_mu|cls_guardian|10250.8235|8440.6744|5643.8997
+ch_kaze|cls_mender|6354.6444|10238.6758|4391.4399
+ch_hikari|cls_breaker|11493.9017|4279.9480|6078.7732
+ch_ryn|cls_hexer|6577.9451|6116.8770|10987.7531
+ch_lg_lumen|cls_tactician|11474.4310|11494.11383|6649.7116
+ch_lg_aegis|cls_assassin|8456.9122|9915.4301|6015.11050
+ch_lg_nox|cls_guardian|10265.9620|9217.11251|5795.6652
+ch_lg_zero|cls_mender|11101.6963|12424.6591|10472.4969
+ch_lg_ignis|cls_breaker|6293.9196|12174.12270|6554.4400
+ch_lg_carmina|cls_hexer|9587.4284|12662.12373|7989.6930
+ch_lg_chantal|cls_tactician|9322.10877|12550.5122|11004.11633
+ch_lg_theodora|cls_assassin|11166.11619|12135.12804|9817.8063
+ch_lg_nefeli|cls_guardian|9722.8293|12295.12588|6080.6688
+ch_lg_aurora|cls_mender|7158.9621|12441.12682|5298.6720
+ch_lg_licorice|cls_breaker|5531.6588|11920.12704|9511.7460
+ch_lg_viola|cls_hexer|8694.10318|12471.12260|10377.6994
+ch_lg_alvina|cls_tactician|5952.7134|4368.12338|11097.9141
+ch_lg_frisia|cls_assassin|9226.10439|12434.1391|5158.4378
+ch_lg_mireille|cls_guardian|9770.5540|11779.11917|4592.11352
+ch_lg_valkyria|cls_mender|6488.6219|12565.11647|6618.5722
+ch_lg_ember|cls_breaker|10930.559|12163.12054|10326.5414
+ch_lg_iris|cls_hexer|9900.9447|12065.3957|7808.4450
+ch_lg_serafina|cls_tactician|2730.4347|12698.11838|9244.8370
+ch_hr_serena|cls_assassin|3.9292|12195.12463|9498.6403
+ch_hr_kagura|cls_guardian|2712.11309|12539.11897|10484.8665
+ch_hr_elena|cls_mender|6684.9821|11671.12387|7830.4269
+ch_hr_philia|cls_breaker|2732.353|12030.12290|4120.5718
+ch_hr_luna|cls_hexer|355.11048|11900.11720|11039.6764
+ch_hr_mylene|cls_tactician|1379.6657|9490.12216|8963.7414
+ch_lg_vesta|cls_assassin|12803.12806|11740.12768|4686.10387
+ch_lg_nadia|cls_guardian|6563.6737|11986.1850|9171.5038
+ch_lg_diana|cls_mender|10813.12581|12419.12536|6125.8297
+ch_lg_litania|cls_breaker|10578.8864|12187.7012|10319.9888
+ch_lg_lieve|cls_hexer|11751.6557|12406.12093|5748.10182
+ch_lg_solveig|cls_tactician|11870.6607|11695.11907|4954.7717
+ch_lg_verna|cls_assassin|10570.10772|11654.12555|4349.10374
+ch_lg_saya|cls_guardian|8892.10830|11768.12451|4653.8214
+ch_lg_tsubaki|cls_mender|8905.6699|6289.12493|9285.6601
+ch_lg_noel|cls_breaker|10778.11992|11848.11670|11454.5362
+ch_lg_garnet|cls_hexer|6762.12201|11164.6216|8604.11412
+ch_lg_olga|cls_tactician|12611.6480|226.11778|6936.10876
+ch_lg_brigitta|cls_assassin|8881.10785|8939.11898|5991.6030
+ch_lg_marika|cls_guardian|12381.12085|10705.10815|6899.8056
+ch_lg_shannon|cls_mender|10614.8912|6620.10668|5997.11439
+ch_lg_echo|cls_breaker|11904.8951|12616.12171|7074.9796
+ch_lg_nevia|cls_hexer|6664.8865|12759.6575|10370.4418
+ch_lg_tanya|cls_tactician|10566.6679|12626.10617|7716.6056
+ch_lg_irma|cls_assassin|12677.12197|11866.11800|11627.9003
+ch_lg_belga|cls_guardian|8902.11999|12700.6710|8143.9029
+ch_lg_fiona|cls_mender|10780.6763|10797.12633|3066.11105
+ch_lg_veronica|cls_breaker|6417.10616|8938.12720|8549.10187
+ch_lg_johanna|cls_hexer|12469.12481|11733.11648|7372.9487
+ch_lg_lucrezia|cls_tactician|10769.10807|8928.12243|5680.7813
+ch_lg_agatha|cls_assassin|12168.8940|6484.12673|6940.2728
