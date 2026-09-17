@@ -736,8 +736,15 @@ RPG.data.skills = {
     power: 280, crit_rate: 0.12,
     desc: '【ツリー】威力280%の単体攻撃。素直に重い一撃で、大技の底上げが乗る。',
   },
+  // 2026-09-17 に「終焉」から改名した。
+  // 破壊者のクラス技「終焉の一撃」(sk_cls_ruin) と紛らわしく、
+  // **会話でも記録でも取り違えが頻発した**（片方がもう片方の接頭辞になっている）。
+  // 上限減衰を受けるのはこちら、受けないのが「終焉の一撃」で、性質が正反対なので
+  // 取り違えると結論が丸ごと逆になる。IDが ragnarok（＝神々の黄昏）なので、
+  // もともと表示名のほうが後からずれていた。
+  // **これより古い作業ログとスクリーンショットでは「終焉」と出る。**
   sk_tree_ragnarok: {
-    name: '終焉', kind: 'active', plugin: null, tree: true,
+    name: '黄昏', kind: 'active', plugin: null, tree: true,
     scaling_stat: 'atk', damage_type: 'reli', element: 'dark',
     power: 520, crit_rate: 0.15,
     desc: '【ツリー】威力520%の単体攻撃。大技ビルドの到達点。',

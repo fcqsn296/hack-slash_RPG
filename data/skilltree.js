@@ -2075,9 +2075,9 @@ RPG.data.skillTree = [
     desc: 'DEFの40%をATKと魔力に上乗せ',
   },
   {
-    id: 'tr_grant_ragnarok', tier: 'high', name: '終焉の型', cost: 6, maxLevel: 1,
+    id: 'tr_grant_ragnarok', tier: 'high', name: '黄昏の型', cost: 6, maxLevel: 1,
     effects: [{ kind: 'grant_skill', skill: 'sk_tree_ragnarok', value: 1 }],
-    desc: 'アクティブ技「終焉」を習得（威力520%。大技ビルドの到達点）',
+    desc: 'アクティブ技「黄昏」を習得（威力520%。大技ビルドの到達点）',
   },
   {
     id: 'tr_grant_glacier', tier: 'high', name: '氷河の型', cost: 5, maxLevel: 1,
