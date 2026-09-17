@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v160';
+const CACHE_VERSION = 'v161';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
