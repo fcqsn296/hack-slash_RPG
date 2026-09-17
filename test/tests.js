@@ -1619,6 +1619,32 @@
             log.slice(-3).join(' / '));
         }
 
+        // ── 一撃を重くするアルカナは、上限も一緒に押し上げること ──
+        //
+        // **ここを外すと、育てるほど弱くなるアルカナになる。**
+        // ダメージ上限の減衰 (§3.2 ステップ8) は超過分を10%しか残さないので、
+        // 「手番を減らして一撃を重くする」取引が、重い一撃だけ罰される。
+        // 実測（実プレイのビルド・capBreak 3.09・上限 2,043,605）:
+        //   斬撃(100)  3.10倍  上限に届かない
+        //   終焉(520)  2.84倍  **超えて削られた** → cap_break 追加後は 3.10倍
+        {
+          const hang = RPG.data.arcana.ar_hanged_man;
+          const kinds = (hang.effects || []).map((/** @type {any} */ e) => e.kind);
+          assertTrue('§21 吊るされた男: 威力を足すなら上限も押し上げている',
+            kinds.indexOf('always_power') < 0 || kinds.indexOf('cap_break') >= 0,
+            kinds.join(', '));
+
+          // 実際に上限が動いていること。データに書いてもユニットへ届かなければ意味がない。
+          const mk = (/** @type {string|null} */ id) => {
+            const cs = { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {} };
+            if (id) cs.arcana = id;
+            return RPG.units.buildCharacterUnit(cs, []);
+          };
+          assertTrue('§21 吊るされた男: 上限突破がユニットまで届く',
+            mk('ar_hanged_man').capBreak > mk(null).capBreak,
+            `${mk(null).capBreak} → ${mk('ar_hanged_man').capBreak}`);
+        }
+
         // アルカナを持たない者に負債が漏れていないこと。
         {
           const cs = { id: 'ch_hero', level: 100, exp: 0, limitBreak: 0, tree: {}, equipped: {} };
