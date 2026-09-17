@@ -19,6 +19,7 @@
    * @param {any[]} items
    * @returns {Record<string, number>}
    */
+  // @知見: autoequip はセットを組まない。素のステータスで選ぶので測定用の編成はセット効果が抜ける
   function countPieces(items) {
     /** @type {Record<string, number>} */
     const counts = {};

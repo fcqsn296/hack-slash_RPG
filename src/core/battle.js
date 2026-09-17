@@ -1116,6 +1116,7 @@
       throw new Error(`フィールド ${config.fieldId} が見つかりません`
         + '（拡張コンテンツが外された可能性があります）');
     }
+    // @知見: 縛りは config.quest から読む。config.rules を渡しても無視される
     const quest = config.quest || null;
 
     // ── id は自分で取りに行く ──
