@@ -294,7 +294,7 @@
     'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power',
     'combo_start', 'combo_spend_power', 'combo_threshold', 'combo_refund',
     'combo_max', 'cooldown_cut',
-    'turn_debt', 'defense_null', 'always_crit',
+    'turn_debt', 'defense_null', 'always_crit', 'always_power',
     'counter', 'counter_all',
     'crit_overflow', 'mid_power_crit',
     'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
@@ -509,6 +509,7 @@
     /** ダメージ計算に渡す状況依存の補正 */
     const situational = {
       lowHpPower: 0, highHpPower: 0, bossSlayer: 0, debuffAmp: 0, firstRoundPower: 0,
+      alwaysPower: 0,         // 条件なしで乗る威力 (§21)。装備を通り抜けて最終ダメージに掛かる
       // 属性の噛み合いで決まるもの (§5.7)。damage.js が素の相性を見て判定する。
       weakHunter: 0,          // 有利を取れたときに伸びる
       neutralPower: 0,        // 等倍のときに伸びる（無属性ビルドの受け皿）
@@ -616,6 +617,7 @@
           case 'low_hp_power': situational.lowHpPower += amount; break;
           case 'high_hp_power': situational.highHpPower += amount; break;
           case 'boss_slayer': situational.bossSlayer += amount; break;
+          case 'always_power': situational.alwaysPower += amount; break;
           case 'debuff_amp': situational.debuffAmp += amount; break;
           case 'first_round_power': situational.firstRoundPower += amount; break;
           case 'element_pierce': pierce += amount; break;

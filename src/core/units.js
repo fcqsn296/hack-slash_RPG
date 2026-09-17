@@ -579,6 +579,8 @@
       bossSlayer: s.bossSlayer || 0,
       debuffAmp: s.debuffAmp || 0,
       firstRoundPower: s.firstRoundPower || 0,
+      // アルカナ (§21)。条件なしで乗る。situational も明示しないと届かない
+      alwaysPower: s.alwaysPower || 0,
       // 【主人公専用】レベルで伸びる火力 (§8.1)
       levelPower: (unit.passives && unit.passives.levelPower) || 0,
       // 安定 (§5.6)。ランダム揺らぎの幅を狭める

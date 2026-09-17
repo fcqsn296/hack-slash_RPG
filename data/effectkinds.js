@@ -134,6 +134,15 @@ RPG.data.effectKinds = {
   guard_ally: { to: 'passives', shape: 'add', uniq: 'guardAlly', route: 'passives', key: 'guardAlly', label: '味方の被害を肩代わり', fmt: 'pct' },
   guard_break: { to: 'passives', shape: 'add', uniq: null, key: 'guardBreak', label: '防御を無視して攻撃', fmt: 'pct' },
 
+  // アルカナ (§21) の利。**装備を通り抜けて最終ダメージに掛かる。**
+  //
+  // stat_pct（素のステータスへの%）ではいけない。装備は平坦加算で後から乗るので、
+  // 育った環境では素の比率が小さく、効きがほとんど消える。
+  // 実測: 実プレイのエンドビルドは ATK 27,434 のうち素が 2,543（**装備が9割**）。
+  // stat_pct +60% を乗せても +5.6% にしかならなかった。
+  // テスト用の雛形ビルドは素の比率が高いので、そこでは効いて見えてしまう。
+  always_power: { to: 'situational', shape: 'add', uniq: null, key: 'alwaysPower', label: '与えるダメージ', fmt: 'pct' },
+
   // ── アルカナ (§21) が使う3種 ──
   // どれも「代償」か「規則の書き換え」で、積み上げる類のものではない。
   // そのため fmt は flag（有無）で、レベルで伸びる想定を持たない。

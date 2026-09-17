@@ -1545,9 +1545,14 @@
 
         assertTrue('§21 力: 防御無視の旗がユニットまで届く',
           strength.passives.defenseNull === 1, String(strength.passives.defenseNull));
-        assertTrue('§21 力: ATKが上がっている',
-          strength.stats.atk > plain.stats.atk,
-          `${plain.stats.atk} → ${strength.stats.atk}`);
+        // **素のATXではなく与ダメージで見ること。**
+        // stat_pct は装備の平坦加算より前に掛かるので、育った環境では
+        // 効きがほとんど消える（実測: 実ビルドは ATK の9割が装備由来で、
+        // +60% を乗せても +5.6% にしかならなかった）。
+        // always_power は最終ダメージに掛かるので、装備に関係なく効く。
+        assertTrue('§21 力: 与ダメージの上乗せが届く',
+          RPG.units.toAttacker(strength).alwaysPower > 0,
+          String(RPG.units.toAttacker(strength).alwaysPower));
         assertTrue('§21 吊るされた男: 手番の負債が届く',
           hanged.passives.turnDebt === 1, String(hanged.passives.turnDebt));
         assertTrue('§21 吊るされた男: 必ず会心の旗が届く',
@@ -1592,6 +1597,36 @@
           skill,
         });
         assertTrue('§21 吊るされた男: 会心率に関わらず会心する', critted.crit === true, '');
+
+        // ── 負債は **1ラウンド目から** 積まれること ──
+        //
+        // ラウンド送りの処理にだけ書いていて、一度落とした。
+        // 周回は1〜3ラウンドで終わるので、開幕に積まないと
+        // **代償が周回でだけ消える**（実測: 3人編成で飛ばされ0回・返済0回）。
+        // 同じ罠は「1ラウンド目の号令」でも過去に踏んでいる。
+        {
+          const cs = { id: 'ch_hero', level: 100, exp: 0, limitBreak: 0,
+            tree: {}, equipped: {}, arcana: 'ar_hanged_man' };
+          const u = RPG.units.buildCharacterUnit(cs, []);
+          u.side = 'party';
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [u], bossFinale: false });
+          // **値ではなく振る舞いで見る。** 開幕に積んだ負債は、その場で
+          // skipDeadActors が消費するので、start 直後の turnDebt は既に 0 になっている。
+          // 「積まれたか」を数値で見ようとして一度落とした。
+          const log = (b.log || []).map((/** @type {any} */ l) => l.text || '');
+          assertTrue('§21 吊るされた男: 負債は1ラウンド目から効く',
+            log.some((/** @type {string} */ t) => t.indexOf('逆さのまま') >= 0),
+            log.slice(-3).join(' / '));
+        }
+
+        // アルカナを持たない者に負債が漏れていないこと。
+        {
+          const cs = { id: 'ch_hero', level: 100, exp: 0, limitBreak: 0, tree: {}, equipped: {} };
+          const u = RPG.units.buildCharacterUnit(cs, []);
+          u.side = 'party';
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [u], bossFinale: false });
+          assertTrue('§21 アルカナ無しには負債が付かない', !b.party[0].turnDebt, '');
+        }
       }
 
       /* ===== 支援役がSPを使い切れること (§5.10) ===== */

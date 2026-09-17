@@ -457,6 +457,10 @@
     if (attacker.lowHpPower) situational *= 1 + attacker.lowHpPower * (1 - selfHp);
     // 万全: 自分のHPが満タンに近いほど強い
     if (attacker.highHpPower) situational *= 1 + attacker.highHpPower * selfHp;
+    // アルカナ (§21) — 条件なしで乗る。
+    // ここに置くのは、装備の平坦加算より後・最終ダメージに掛かる位置だから。
+    // 素のステータスへの % では、装備が育つほど効きが薄れて代償と釣り合わなくなる。
+    if (attacker.alwaysPower) situational *= 1 + attacker.alwaysPower;
     // ボス特効
     if (attacker.bossSlayer && defender.isBoss) situational *= 1 + attacker.bossSlayer;
     // 追撃: 相手が弱っている（デバフ状態）ときに伸びる

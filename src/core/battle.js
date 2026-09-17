@@ -1225,6 +1225,16 @@
     // 1ラウンドで終わる戦闘では一度も出なかった。
     roundStartBuffs(battle);
 
+    // 「吊るされた男」の負債 (§21) も1ラウンド目から積む。
+    //
+    // **すぐ上と同じ罠を踏んだ。** ラウンド送りの処理にだけ書いていたら、
+    // 1ラウンドで終わる戦闘では負債が一度も発生しなかった
+    // （実測: 3人編成で飛ばされ0回・返済0回。代償がまるごと無かった）。
+    // 周回は1〜3ラウンドで終わるので、ここを忘れると**代償が周回でだけ消える**。
+    for (const u of battle.party) {
+      u.turnDebt = (u.passives && u.passives.turnDebt) || 0;
+    }
+
     // --- パッシブ: 開幕バフ（戦闘開始時に固有ユニークバフを得る）---
     for (const u of battle.party) {
       const opening = (u.passives && u.passives.openingBuff) || 0;

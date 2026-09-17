@@ -53,7 +53,7 @@ RPG.data.arcana = {
     // **攻撃は選べて、防御は選べない**（殴られる回数は相手が決める）。
     // 等価だと明確に損なので、やや攻撃側へ寄せて 1.6倍から測り始める。
     effects: [
-      { kind: 'stat_pct', stat: 'atk', value: 0.60 },
+      { kind: 'always_power', value: 0.60 },
       { kind: 'defense_null', value: 1 },
     ],
   },
@@ -82,7 +82,7 @@ RPG.data.arcana = {
     effects: [
       { kind: 'turn_debt', value: 1 },
       { kind: 'always_crit', value: 1 },
-      { kind: 'stat_pct', stat: 'atk', value: 0.80 },
+      { kind: 'always_power', value: 0.80 },
     ],
   },
 };
