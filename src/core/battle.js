@@ -102,6 +102,7 @@
    * つまりこの仕組みは、手動で考えて戦う人だけが受け取れる報酬になっている。
    * （そのため autoplay.js は意図的にコンボを考慮しない）
    */
+  // @知見: オートは弱点コンボを見ない（手動で考えた人への報酬として意図的）
   const COMBO_MAX = 5;
   /** 1段あたりの上乗せ */
   const COMBO_STEP = 0.08;
@@ -1752,6 +1753,7 @@
    * 死亡しているメンバーを飛ばす。全員行動済みなら敵フェーズへ。
    * @param {any} battle
    */
+  // @知見: 1ラウンド目を別に書かないと、1周で終わる戦闘では一度も起きない（号令と手番の負債で2回踏んだ）
   function skipDeadActors(battle) {
     while (battle.actorIndex < battle.party.length) {
       const unit = battle.party[battle.actorIndex];

@@ -609,6 +609,7 @@
    * ダメージ計算 (§3) に渡せる defender 形式へ変換する。
    * @param {any} unit
    */
+  // @知見: toAttacker / toDefender は明示した項目しか渡さない。passives に置くだけでは damage.js に届かない
   function toDefender(unit) {
     return {
       level: unit.level,

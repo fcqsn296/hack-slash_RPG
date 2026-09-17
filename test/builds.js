@@ -221,6 +221,7 @@
    * @param {string} fieldId
    * @param {{level: number, limitBreak: number, runs: number, seed: number}} cfg
    */
+  // @知見: 推奨レベルでは全ビルドが勝率100%に張り付く。編成やビルドの差は手数で見る
   function runField(build, fieldId, cfg) {
     const results = [];
     for (let i = 0; i < cfg.runs; i++) {

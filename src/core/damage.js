@@ -34,6 +34,7 @@
   const DEF_CONST_BASE = 500;
 
   /** ダメージ上限のベース値と、超過分の残存率 (§3.2 ステップ8) */
+  // @知見: 終盤ビルドの素ダメは上限の2.5〜9倍。超過分は10%しか残らないので威力%はほぼ効かない
   const BASE_DAMAGE_CAP = 500000;
   const CAP_OVERFLOW_RATE = 0.1;
 
@@ -284,6 +285,7 @@
    * @param {number} capBreak 上限突破率
    * @returns {number}
    */
+  // @知見: 上限突破は「上限が削っていたぶん」しか取り戻せない。積んでも青天井にはならない
   function applyCap(raw, capBreak) {
     const cap = BASE_DAMAGE_CAP * (1 + (capBreak || 0));
     if (raw <= cap) return raw;

@@ -141,6 +141,7 @@ RPG.data.effectKinds = {
   // 実測: 実プレイのエンドビルドは ATK 27,434 のうち素が 2,543（**装備が9割**）。
   // stat_pct +60% を乗せても +5.6% にしかならなかった。
   // テスト用の雛形ビルドは素の比率が高いので、そこでは効いて見えてしまう。
+  // @知見: stat_pct は装備の平坦加算より前に掛かるので、育った環境では効きが消える
   always_power: { to: 'situational', shape: 'add', uniq: null, key: 'alwaysPower', label: '与えるダメージ', fmt: 'pct' },
 
   // ── アルカナ (§21) が使う3種 ──

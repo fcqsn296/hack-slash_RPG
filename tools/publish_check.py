@@ -210,8 +210,21 @@ def main():
     except Exception as exc:
         print('付録の突き合わせを実行できませんでした:', exc)
 
+    # 知見の索引が実体から取り残されていないか。
+    #
+    # 知見が分散していて、**同じ失敗を踏み、同じ測定をやり直す** ことが
+    # 繰り返し起きた（上限減衰の件は作業ログに既にあったのに測り直した）。
+    # 索引そのものを手で維持すると必ずずれるので、印から生成して、
+    # ずれていたら公開を止める。付録の突き合わせと同じ考え。
+    index_stale = False
+    try:
+        import build_knowledge_index
+        index_stale = build_knowledge_index.main(True) != 0
+    except Exception as exc:
+        print('知見の索引の突き合わせを実行できませんでした:', exc)
+
     ng = (meta or opaque or brand or secret or email or winpath or user
-          or stale)
+          or stale or index_stale)
     print('\n判定:', '要確認' if ng else 'すべて問題なし')
     return 1 if ng else 0
 
