@@ -3785,7 +3785,8 @@ ${nextCost.toLocaleString()} G
             })
           )
         : h('p.hint.hint-sm', { text: 'いまは就いていない。' }),
-      h('div.class-choices', list.map((a) => arcanaChoice(root, charSave, a)))
+      h('div.arcana-deck', list.map((a) => arcanaChoice(root, charSave, a))),
+      arcanaDetail(root, charSave)
     );
   }
 
@@ -3800,37 +3801,59 @@ ${nextCost.toLocaleString()} G
     const why = RPG.arcana.lockReason(a.id);
     const wearing = charSave.arcana === a.id;
 
-    return h('div.class-choice.arcana-choice'
-      + (open ? '.is-open' : '') + (unlocked ? '' : '.is-locked'),
-      { style: `--cls: ${a.color}` },
-      h('button.class-choice-head', {
+    // ── 伏せ札にする理由 ──
+    // 解放前でも「何が待っているか」は見せる。中身を隠すとレベルを上げる
+    // 動機にならない。だが**就けないことは形で分かる**必要がある。
+    // タロットなら伏せ札という言い方がそのまま使えるので、
+    // 裏面の模様を出しつつ、番号と名前だけは読めるようにしてある。
+    return h('button.arcana-card'
+      + (open ? '.is-open' : '') + (unlocked ? '' : '.is-facedown')
+      + (wearing ? '.is-worn' : ''),
+      {
+        style: `--arc: ${a.color}`,
         onclick: () => { arcanaOpen = open ? null : a.id; render(root); },
         'aria-expanded': open ? 'true' : 'false',
       },
-        W.icon(unlocked ? a.icon : 'lock'),
-        h('b', { text: a.name }),
-        h('span.class-choice-innate-brief', { text: a.bane }),
-        h('span.class-choice-mark', { text: open ? '－' : '＋' })
+      h('span.arcana-card-num', { text: a.numeral || '' }),
+      h('span.arcana-card-art', W.icon(a.icon)),
+      h('span.arcana-card-name', { text: a.name }),
+      h('span.arcana-card-read', { text: a.reading || '' }),
+      // 札の面に効果を刷る。畳んでいるときは害だけ、開くと両方。
+      h('span.arcana-card-face',
+        h('span.arcana-boon', { text: a.boon }),
+        h('span.arcana-bane', { text: a.bane })
       ),
-      open ? h('p.class-choice-flavor', { text: a.flavor }) : null,
-      open ? h('p.class-choice-desc', { text: a.desc }) : null,
-      open
-        ? h('div.arcana-pair',
-            h('div.arcana-boon', { text: '利 ' + a.boon }),
-            h('div.arcana-bane', { text: '害 ' + a.bane })
-          )
-        : null,
-      open && !unlocked
-        ? h('p.tier-locked-note', W.icon('lock'), h('span', { text: why || '未解放' }))
-        : null,
-      open && unlocked
-        ? W.button(wearing ? '就いている' : 'このアルカナに就く', () => {
-            const res = RPG.state.setArcana(selectedChar, a.id);
+      wearing ? h('span.arcana-card-worn', { text: '就任中' }) : null,
+      unlocked ? null : h('span.arcana-card-lock', W.icon('lock'))
+    );
+  }
+
+  /**
+   * 開いている札の詳細。札そのものは小さいので、
+   * 銘文と解放条件・就任のボタンは札の下に出す。
+   * @param {HTMLElement} root
+   * @param {any} charSave
+   */
+  function arcanaDetail(root, charSave) {
+    if (!arcanaOpen) return null;
+    const a = RPG.arcana.def(arcanaOpen);
+    if (!a) return null;
+    const unlocked = RPG.arcana.isUnlocked(arcanaOpen);
+    const wearing = charSave.arcana === arcanaOpen;
+    const id = arcanaOpen;
+
+    return h('div.arcana-detail', { style: `--arc: ${a.color}` },
+      h('p.arcana-detail-flavor', { text: a.flavor }),
+      h('p.arcana-detail-desc', { text: a.desc }),
+      unlocked
+        ? W.button(wearing ? '就いている' : 'この札に就く', () => {
+            const res = RPG.state.setArcana(selectedChar, id);
             if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
             RPG.app.toast(`${a.name} に就きました`);
             render(root);
           }, { variant: 'primary', disabled: wearing })
-        : null
+        : h('p.tier-locked-note', W.icon('lock'),
+            h('span', { text: RPG.arcana.lockReason(id) || '未解放' }))
     );
   }
 

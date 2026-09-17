@@ -31,10 +31,16 @@
 // **ATKで6.7倍、DEFで7.3倍ずれている。** 雛形で数値を決めてはいけない。
 
 // @知見: 防御は DEF由来(1-DEF/(DEF+c)) と reduction の2層。片方だけ消しても被ダメは2.3倍止まり
+// ── 札として見せる (§21) ──
+// アルカナは1人1枚で、就ける枚数も限られる「特別な選択」なので、
+// 一覧の行ではなく**タロットの札**の形で出す。
+//   numeral … 札の番号（ライダー版に合わせて 力=VIII / 吊るされた男=XII）
+//   icon    … 128px 単色SVG。CSSマスクで色が付くので、塗りは白だけで描く
+//   boon / bane は札の面に刷る。選ぶ前に代償が読めるようにするため。
 RPG.data.arcana = {
 
   ar_strength: {
-    name: '力', reading: 'ちから', color: '#ff7a59', icon: 'stat-atk',
+    name: '力', reading: 'ちから', numeral: 'VIII', color: '#ff7a59', icon: 'arcana-strength',
     flavor: '手綱を手放した者だけが、獣の速さを知る。',
     // 利と害を1行ずつ。ビルド画面はこの2つを並べて出す。
     boon: '与えるダメージが大きく上がる',
@@ -89,7 +95,7 @@ RPG.data.arcana = {
   },
 
   ar_hanged_man: {
-    name: '吊るされた男', reading: 'つるされたおとこ', color: '#6fa8dc', icon: 'stat-spd',
+    name: '吊るされた男', reading: 'つるされたおとこ', numeral: 'XII', color: '#6fa8dc', icon: 'arcana-hanged',
     flavor: '逆さに吊られた世界では、落ちることが上ることだった。',
     boon: '攻撃は必ず会心になり、威力が大きく上がる',
     bane: '毎ラウンド、手番を1つ失う',

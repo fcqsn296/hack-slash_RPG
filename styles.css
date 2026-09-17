@@ -4574,6 +4574,80 @@ body.has-backdrop { background: transparent; }
   display: grid; gap: 3px; margin: 6px 0 8px; padding: 8px 10px;
   border-radius: 6px; background: rgba(255,255,255,0.03);
 }
-/* 解放前は札を伏せておく。何が待っているかは見せるが、就けないことが分かる形 */
-.arcana-choice.is-locked .class-choice-head b { color: var(--text-dim); }
-.arcana-choice.is-locked { opacity: 0.82; }
+/* ── 札そのもの ──
+   アルカナは1人1枚の特別な選択なので、一覧の行ではなく札の形で出す。
+   画像は使わず、枠と番号と単色アイコンだけで組んでいる。
+   **絵を足すと事前キャッシュと初回読み込みが太る**うえ、
+   2枚しかないうちは枠の作りだけで十分に特別に見える。 */
+.arcana-deck {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px; margin: 10px 0 0;
+}
+.arcana-card {
+  position: relative; display: grid; gap: 2px;
+  grid-template-rows: auto 1fr auto auto auto;
+  padding: 10px 10px 12px; min-height: 216px;
+  border: 1px solid color-mix(in srgb, var(--arc) 45%, var(--line));
+  border-radius: 10px; cursor: pointer; text-align: center;
+  background:
+    radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--arc) 16%, transparent), transparent 70%),
+    var(--bg-panel);
+  color: var(--text);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.arcana-card:hover { transform: translateY(-2px); }
+.arcana-card.is-open {
+  box-shadow: 0 0 0 1px var(--arc), 0 6px 18px rgba(0,0,0,.35);
+}
+.arcana-card.is-worn { border-color: var(--arc); }
+
+/* 札の番号。上辺に小さく刷る */
+.arcana-card-num {
+  font-size: 10.5px; letter-spacing: .18em; color: var(--arc);
+  font-variant-numeric: tabular-nums;
+}
+.arcana-card-art { display: grid; place-items: center; }
+.arcana-card-art .icn { font-size: 54px; color: var(--arc); }
+.arcana-card-name { font-size: 13px; font-weight: 700; line-height: 1.3; }
+.arcana-card-read { font-size: 9.5px; color: var(--text-dim); letter-spacing: .06em; }
+
+/* 効果を札の面に刷る。畳んでいるときは害だけ見せる（選ぶ前に代償が読めるように） */
+.arcana-card-face {
+  display: grid; gap: 2px; margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--arc) 28%, transparent);
+  font-size: 10px; line-height: 1.55; text-align: left;
+}
+.arcana-card-face .arcana-boon { display: none; }
+.arcana-card.is-open .arcana-card-face .arcana-boon { display: block; }
+.arcana-card-worn {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 9.5px; padding: 1px 6px; border-radius: 999px;
+  background: var(--arc); color: #0b0e13; font-weight: 700;
+}
+
+/* ── 伏せ札 ──
+   解放前でも何が待っているかは見せる。中身を隠すとレベルを上げる動機にならない。
+   だが**就けないことは形で分かる**必要があるので、裏面の模様をかぶせる。 */
+.arcana-card.is-facedown .arcana-card-art .icn { opacity: .3; }
+.arcana-card.is-facedown .arcana-card-face { opacity: .55; }
+.arcana-card.is-facedown::before {
+  content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none;
+  background:
+    repeating-linear-gradient(45deg,
+      color-mix(in srgb, var(--arc) 10%, transparent) 0 6px,
+      transparent 6px 12px);
+}
+.arcana-card-lock { position: absolute; top: 8px; right: 8px; }
+.arcana-card-lock .icn { font-size: 13px; color: var(--text-dim); }
+
+/* ── 開いた札の詳細 ──
+   札は小さいので、銘文と就任のボタンは下に出す。 */
+.arcana-detail {
+  margin: 10px 0 0; padding: 11px 13px;
+  border: 1px solid var(--line); border-left: 3px solid var(--arc);
+  border-radius: 8px; background: var(--bg-panel);
+}
+.arcana-detail-flavor {
+  margin: 0 0 6px; font-size: 11.5px; font-style: italic; color: var(--arc);
+}
+.arcana-detail-desc { margin: 0 0 9px; font-size: 12px; line-height: 1.7; }
