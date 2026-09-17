@@ -282,6 +282,27 @@
       }
 
       const winRates = cfg.fields.map((f) => perField[f].winRate);
+
+      // 場所によるぶれは **手数** で見る。勝率では見えない。
+      //
+      // 通常フィールドは一撃で倒して周回する前提で作ってあるので、
+      // 推奨レベル・最良装備・3凸で挑めばどのビルドも勝率100%に張り付く。
+      // 実測すると15ビルド中12個が勝率の振れ幅ぴったり 0.00 で、
+      // 「特化型は場所を選ぶ」も「万能型はどこでも安定」も測れていなかった
+      // （後者は天井のおかげで**空振りのまま合格**していた。これが一番たちが悪い）。
+      //
+      // 敵のHPを倍にして時間を稼ぐ案も測ったが、動くのは属性相性ではなく
+      // 生存力だった。HP×2 では属性を捨てた「無属性ゴリ押し」の勝率の振れ幅が
+      // 0.45 と、特化型の 0.35 を上回ってしまう。難易度を上げないほうが
+      // 属性の軸はきれいに出る（手数比 2.86 対 1.36、差 2.1倍）。
+      //
+      // 勝ったときの平均ラウンドだけを使う。負けた回は 0 が入っていて、
+      // 混ぜると「全滅が速い」ビルドほど優秀に見えてしまう。
+      const roundsList = cfg.fields.map((f) => perField[f].rounds).filter((r) => r > 0);
+      const roundsRatio = roundsList.length > 1
+        ? Math.max.apply(null, roundsList) / Math.min.apply(null, roundsList)
+        : 1;
+
       rows.push({
         build,
         info,
@@ -290,6 +311,7 @@
         avgWin: winRates.reduce((s, w) => s + w, 0) / winRates.length,
         minWin: Math.min.apply(null, winRates),
         maxWin: Math.max.apply(null, winRates),
+        roundsRatio,
       });
       done++;
     }

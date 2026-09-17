@@ -183,7 +183,7 @@
       CFG.fields.map(function (f) {
         return RPG.data.fields[f].name + '<br><span class="bdesc">Lv' + RPG.data.fields[f].rec_level + '</span>';
       })
-    ).concat(['平均勝率', '得意/苦手の差']);
+    ).concat(['平均勝率', '手数比<br><span class="bdesc">得意/苦手</span>']);
 
     table(document.getElementById('result'),
       headers,
@@ -199,7 +199,8 @@
             (v.winRate > 0 ? ' <span class="bdesc">' + v.rounds.toFixed(1) + 'R</span>' : ''));
         });
         cells.push('<b>' + pct(r.avgWin) + '</b>');
-        cells.push(pct(r.maxWin - r.minWin));
+        // 場所によるぶれは手数で見る。勝率は天井に張り付いて差が出ない。
+        cells.push(r.roundsRatio.toFixed(2) + '倍');
         return cells;
       }));
 
@@ -227,12 +228,36 @@
       { ok: spread && phys && spread.dps > phys.dps,
         text: '§3.2 三系統分散（' + (spread ? num(spread.dps) : '-') + '）が物理集中（' +
               (phys ? num(phys.dps) : '-') + '）を火力で上回る — 異タグ乗算が効いている' },
-      { ok: mastery && (mastery.maxWin - mastery.minWin) >= 0.2,
-        text: '§5.4 特化型は場所を選ぶ（得意 ' + (mastery ? pct(mastery.maxWin) : '-') +
-              ' / 苦手 ' + (mastery ? pct(mastery.minWin) : '-') + '）— 万能ではない' },
-      { ok: adapt && (adapt.maxWin - adapt.minWin) <= 0.34,
-        text: '§5.4 万能型はどこでも安定（振れ幅 ' + (adapt ? pct(adapt.maxWin - adapt.minWin) : '-') +
-              '）— 設計意図どおり' },
+      // ── ここは勝率ではなく手数で見る（理由は builds.js の compare を読むこと）──
+      //
+      // ★ 染色（敵の属性を塗り替える／docs/保留中のアイデア.md）を入れたら、
+      //    **特化型の手数比は下がるのが正しい。** 染色はまさに
+      //    「刺さらないフィールドで腐る」弱点を買い戻すための機能なので、
+      //    この数字が 2.0 を割ったときは機能ではなく**この判定のほうを直す**。
+      //
+      //    そのときは閾値をいじるのではなく、染色の有無で対にするのが本筋:
+      //      染色なし … 特化型は場所を選ぶ（手数比が大きい）
+      //      染色あり … 万能型に近づく（手数比が縮む）
+      //    前後差で見れば、バランス調整で絶対値が動いても意味が壊れない。
+      { ok: mastery && mastery.roundsRatio >= 2.0,
+        text: '§5.4 特化型は場所を選ぶ（手数比 ' + (mastery ? mastery.roundsRatio.toFixed(2) : '-') +
+              '倍）— 万能ではない' },
+      { ok: adapt && adapt.roundsRatio <= 2.0,
+        text: '§5.4 万能型はどこでも安定（手数比 ' + (adapt ? adapt.roundsRatio.toFixed(2) : '-') +
+              '倍）— 設計意図どおり' },
+      { ok: mastery && adapt && mastery.roundsRatio > adapt.roundsRatio,
+        text: '特化型（' + (mastery ? mastery.roundsRatio.toFixed(2) : '-') + '倍）のほうが万能型（' +
+              (adapt ? adapt.roundsRatio.toFixed(2) : '-') + '倍）より場所に左右される — 順序が逆転していない' },
+      // 勝率はここで使う。「差を見る」には使えないが、
+      // 「どのビルドでも周回できる」という前提の確認にはこれが正しい指標。
+      //
+      // 閾値は平均で見る。最低勝率で見ると 12回中1敗で 92% まで落ちるので、
+      // 1敗ぶんの揺らぎで赤くなる（実測: 92% が3ビルド、残り12ビルドは100%）。
+      // 平均なら最も低いビルドでも 97.2% あり、7ポイントの余裕がある。
+      { ok: rows.every(function (r) { return r.avgWin >= 0.9; }),
+        text: '全ビルドが推奨レベルで平均9割は勝てる（最低 ' +
+              pct(Math.min.apply(null, rows.map(function (r) { return r.avgWin; }))) +
+              '）— 周回の前提が保たれている' },
     ];
 
     document.getElementById('verdict').innerHTML = items.map(function (i) {

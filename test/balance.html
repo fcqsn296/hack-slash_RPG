@@ -586,9 +586,9 @@
       { ok: a.rounds === b.rounds && a.commands === b.commands,
         text: '同じ種から同じ結果が出る（1試行を単独で再現できる）— ' +
           a.rounds + 'R / ' + a.commands + '手' },
-      { ok: readable === rows.length / 3,
-        text: '勝敗が天井でも編成の差が読み取れる — ' + readable + ' / ' +
-          (rows.length / 3) + ' フィールドで差が出た' },
+      { ok: readable.withDiff === readable.total,
+        text: '勝敗が天井でも編成の差が読み取れる — ' + readable.withDiff + ' / ' +
+          readable.total + ' フィールドで差が出た' },
     ]);
 
     progress.textContent = '完了';
@@ -596,17 +596,27 @@
 
   // ラウンドか手数のどちらかで、基準と 5% 以上ちがう編成があるフィールドを数える。
   // 「差が出ない」＝この道具では編成の価値を測れない、という意味になる。
+  //
+  // **数えているのはフィールドであって行ではない。** 返り値に総数まで含めるのは、
+  // 呼ぶ側が分母を自前で組み立てると編成を足したときに置き去りになるため。
+  // 実際に `rows.length / 3`（編成は3つ、という当時の前提）と書かれていて、
+  // heal と guard が増えて5編成になったあと 20/3 = 6.67 と割り切れなくなり、
+  // 整数の 4 とは永久に一致しない条件になっていた。
+  // 中身は 4/4 で通っていたのに、式のせいで落ち続けていた。
   function fieldsWithDiff(rows, baseBy) {
     var byField = {};
     rows.forEach(function (r) { (byField[r.fieldId] = byField[r.fieldId] || []).push(r); });
-    return Object.keys(byField).filter(function (fid) {
+    var fids = Object.keys(byField);
+    var withDiff = fids.filter(function (fid) {
       var base = byField[fid].find(function (r) { return r.composition === 'plain'; });
+      if (!base) return false;
       return byField[fid].some(function (r) {
         if (r.composition === 'plain') return false;
         return Math.abs(r.rounds / base.rounds - 1) >= 0.05 ||
           Math.abs(r.commands / base.commands - 1) >= 0.05;
       });
     }).length;
+    return { withDiff: withDiff, total: fids.length };
   }
 })();
 </script>
