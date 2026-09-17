@@ -641,16 +641,26 @@ RPG.data.quests = {
    * 解放の関門を手動にしておけば、手に入れた道具と遊び方が食い違わない。
    */
 
+  // @知見: 終わりなき回廊の単騎はLv255でも勝率10%。単騎と4人のあいだに中間が無い
   q_arcana_strength: {
     name: '退かぬ者',
     desc: '終わりなき回廊を、ひとりで抜ける。庇ってくれる者はいない。'
       + '守りを固めても手数が足りないので、削り切るしかない。',
     fieldId: 'fl_endless', waves: 5, bossFinale: true,
-    // 単騎かつ手動。**「誰も庇ってくれない場所で殴り勝つ」** という、
-    // 力（DEFによる軽減を捨てて一撃を得る）の像そのもの。
-    rules: { maxParty: 1, noAuto: true },
-    enemyScale: { hp: 12 },
-    unlock: { level: 150 },
+    // 少人数かつ手動。**「庇ってくれる者が少ない場所で殴り勝つ」** という、
+    // 力（DEFによる軽減を捨てて一撃を得る）の像に合わせてある。
+    //
+    // ── 最初は単騎・HP×12 にしていた。厳しすぎた ──
+    // 「強いビルドの組み方」§7.0 の処方どおりに組んだビルドで測ると:
+    //   単騎 HP×12    Lv200 0% / Lv255 10%（平均20R）  ← 事実上不可能
+    //   2人  HP×12    Lv200 0% / Lv255  0%
+    //   2人  HP×4     Lv255 70%（平均2.4R）            ← これを採る
+    // 単騎と4人のあいだに中間が無く、単騎は到達の証明にならなかった。
+    rules: { maxParty: 2, noAuto: true },
+    enemyScale: { hp: 4 },
+    // fl_endless は推奨Lv255。既存の q_endless_vigil も 200 で解禁している。
+    // 150 と書いていたのは誤りで、その帯では手も出ない。
+    unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
 
@@ -661,9 +671,15 @@ RPG.data.quests = {
     fieldId: 'fl_endless', waves: 5, bossFinale: true,
     // ラウンドを絞って手動。**「手数を与えられない中で決める」** という、
     // 吊るされた男（手番を失うかわりに一撃が重くなる）の像そのもの。
-    rules: { maxRounds: 3, noAuto: true },
+    //
+    // ── 最初は3ラウンドにしていた。解禁帯では届かなかった ──
+    // §7.0 の処方で組んだ4人編成の実測（オート・各10回）:
+    //   3R以内  Lv200 20% / Lv255 70%
+    //   5R以内  Lv200 60% / Lv255 90%   ← これを採る
+    // オートは手動より弱いので、5R なら解禁帯で「手応えはあるが届く」になる。
+    rules: { maxRounds: 5, noAuto: true },
     enemyScale: { hp: 12 },
-    unlock: { level: 150 },
+    unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
 };

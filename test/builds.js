@@ -98,6 +98,53 @@
     },
   ];
 
+  /**
+   * 強さの物差しになる参考ビルド。**BUILDS には入れない。**
+   *
+   * ── なぜ別枠なのか ──
+   * BUILDS の15種は「§5.4 の属性戦略が並立しているか」を見るためのもので、
+   * わざと1軸ずつに寄せてある。そこへ完成形を混ぜると、
+   * 「最良と最弱の差が極端でない」のような比較の前提が崩れる。
+   * こちらは比較ではなく **実プレイの強さに並ぶ基準** として使う。
+   *
+   * ── なぜ要るのか ──
+   * BUILDS の雛形は実プレイのビルドに対して **火力が15%しかない**。
+   * Lv255 で ATK 4,074 対 27,434（実データ）。この差に気付かないまま
+   * 依頼の難度を決めて、**Lv255でも10%しか勝てない関門**を作りかけた。
+   *
+   * 中身は docs/強いビルドの組み方.md §7.0 の処方そのまま:
+   *   変換5本(55SP) → DEFを積む → 系統タグの乗算 → 多段 → 上限突破
+   * 実測（自動装備・0凸）:
+   *   Lv150 ATK 17,805 / Lv200 18,035 / Lv255 22,697
+   * 実データ（Lv255）の 27,434 に対して 83%。残りは装備の詰めぶん。
+   *
+   * **変換の5本を名前で拾ってはいけない。** 中級・上級は「鉄血」「剛体」
+   * 「鉄血の理」という別名で、名前で引くと3本取りこぼす（実際やった）。
+   * 効果種別 def_to_atk / atk_to_def で引くこと。
+   */
+  // @知見: 比較用の雛形ビルドは実プレイの15%しか火力が無い。難度は REFERENCE で決める
+  const REFERENCE = {
+    id: 'guide', name: '文書どおり', kind: 'mixed',
+    desc: '強いビルドの組み方 §7.0 の処方。難度を決めるときの基準',
+    get plan() {
+      const conv = RPG.data.skillTree
+        .filter((/** @type {any} */ n) => (n.effects || []).some(
+          (/** @type {any} */ e) => e.kind === 'def_to_atk' || e.kind === 'atk_to_def'))
+        .map((/** @type {any} */ n) => n.id);
+      return conv.concat([
+        // 変換はDEFが無いと何も起きない (§7.0)
+        'tr_def', 'tr_guard', 'tr_def_wall', 'tr_def_fortress',
+        // 異なる系統タグは掛け算になる (§1 規則1)
+        'tr_phys1', 'tr_magi1', 'tr_reli1', 'tr_all_tag', 'tr_phys2', 'tr_magi2', 'tr_reli2',
+        // 多段は全型で必須 (§7.0g)
+        'tr_double',
+        // 上限に当たり始めてから積む (§4.1)
+        'tr_high_cap', 'tr_cap',
+        'tr_crit', 'tr_crit_dmg', 'tr_hp',
+      ]);
+    },
+  };
+
   /** 比較に使うパーティ構成（全ビルド共通） */
   const PARTY = ['ch_hero', 'ch_rizel', 'ch_gald', 'ch_noa'];
 
@@ -322,7 +369,7 @@
   }
 
   RPG.buildLab = {
-    BUILDS, PARTY, CORE, FALLBACK,
+    BUILDS, REFERENCE, PARTY, CORE, FALLBACK,
     investPlan, makeParty, summarize, roundDamage, runField, compare,
   };
 })(window.RPG);

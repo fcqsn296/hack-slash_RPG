@@ -1667,6 +1667,35 @@
           assertTrue('§21 解放の依頼が実在する', missing.length === 0, missing.join(', '));
         }
 
+        // ── 難度を決める基準ビルドが機能していること ──
+        //
+        // BUILDS の雛形は実プレイの15%しか火力が無い（Lv255 で ATK 4,074 対 27,434）。
+        // この差に気付かず依頼の難度を決めて、**Lv255でも10%しか勝てない関門**を
+        // 作りかけた。基準ビルドが壊れると同じ事故が起きるので、火力を固定する。
+        {
+          const ref = RPG.buildLab.REFERENCE;
+          assertTrue('§7.0 基準ビルドがある', !!ref && ref.plan.length > 0, '');
+
+          // 変換の5本が全部入っていること。**名前で拾うと中級・上級を落とす**
+          // （「鉄血」「剛体」「鉄血の理」という別名。実際3本取りこぼした）。
+          const conv = RPG.data.skillTree
+            .filter((/** @type {any} */ n) => (n.effects || []).some(
+              (/** @type {any} */ e) => e.kind === 'def_to_atk' || e.kind === 'atk_to_def'));
+          const inPlan = conv.filter((/** @type {any} */ n) => ref.plan.indexOf(n.id) >= 0);
+          assertTrue('§7.0 基準ビルドに変換の枝が全部入っている',
+            inPlan.length === conv.length && conv.length === 5,
+            `${inPlan.length} / ${conv.length} 本`);
+
+          // 実プレイのビルドに並ぶ火力が出ていること。
+          // 実データ（Lv255・0凸）は ATK 27,434。その7割は超えていてほしい。
+          const cs = { id: 'ch_hero', level: 255, limitBreak: 0, tree: {},
+            equipped: { weapon: [], armor: [], accessory: [] } };
+          RPG.buildLab.investPlan(cs, ref.plan);
+          const u = RPG.units.buildCharacterUnit(cs, []);
+          assertTrue('§7.0 基準ビルドの火力が実プレイ相当（装備なしでも変換が効く）',
+            u.stats.atk > 12000, `ATK ${u.stats.atk}`);
+        }
+
         // ── 継ぎ手が入手できること (§5.10) ──
         // **技を足してもツリーに授ける枝が無いと、誰も一生使えない。**
         // 実際いちどその状態で公開しかけた。
