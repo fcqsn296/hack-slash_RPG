@@ -4651,3 +4651,23 @@ body.has-backdrop { background: transparent; }
   margin: 0 0 6px; font-size: 11.5px; font-style: italic; color: var(--arc);
 }
 .arcana-detail-desc { margin: 0 0 9px; font-size: 12px; line-height: 1.7; }
+
+/* ── 達成済みクエストの束 (§10.3) ──
+   依頼が21件になり、達成済みが並ぶと「いま挑めるもの」が埋もれた。
+   消さずに畳む。もう一度挑めるので、隠すと辿れなくなる。 */
+.quest-done-group { margin-top: 14px; }
+.quest-done-head {
+  display: grid; grid-template-columns: 20px auto 1fr auto; gap: 9px; align-items: center;
+  width: 100%; padding: 10px 12px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); border-radius: 9px;
+  background: var(--bg-panel); color: var(--text);
+}
+.quest-done-head:hover { border-color: var(--accent); }
+.quest-done-head .icn { font-size: 15px; color: var(--ok); }
+.quest-done-head b { font-size: 13px; }
+.quest-done-mark { color: var(--text-dim); font-size: 13px; }
+/* 畳んでいるあいだの名札。何を達成したかの記録として残す */
+.quest-done-names {
+  display: flex; flex-wrap: wrap; gap: 5px; padding: 9px 12px 2px;
+}
+.quest-done-group.is-open .quest-done-head { margin-bottom: 10px; }

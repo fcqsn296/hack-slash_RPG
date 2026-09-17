@@ -1691,15 +1691,52 @@
    * 出撃できない理由はボタンを押す前に全部見えるようにする。
    * @param {HTMLElement} root
    */
+  /** 達成済みの束を開いているか。既定は畳む。 */
+  let questDoneOpen = false;
+
   function renderQuest(root) {
     const quests = RPG.quest.all();
-    const cleared = quests.filter((q) => RPG.quest.isCleared(q.id)).length;
+    const done = quests.filter((q) => RPG.quest.isCleared(q.id));
+    const rest = quests.filter((q) => !RPG.quest.isCleared(q.id));
+
+    // ── 並び順 ──
+    // 依頼が21件になり、上から読んでも「いま挑めるもの」が埋もれるようになった。
+    // 挑める → 編成が合わない → 未解放 の順に置く。
+    // **未解放を隠さない**のは、何が待っているか見えないと育てる動機にならないため
+    // （アルカナの伏せ札と同じ考え）。
+    const weight = (q) => {
+      if (!RPG.quest.unlocked(q).ok) return 2;
+      if (q.kind !== 'challenge' && !RPG.quest.checkParty(q).ok) return 1;
+      return 0;
+    };
+    rest.sort((a2, b2) => weight(a2) - weight(b2));
 
     return h('div.pane',
       W.heading('クエスト',
         '縛りのある戦いと、推奨レベルでは届かない強敵。初回クリアにだけ専用報酬が出る。'),
-      h('p.hint.hint-sm', { text: `達成 ${cleared} / ${quests.length}` }),
-      h('div.quest-list', quests.map((q) => questCard(root, q)))
+      h('p.hint.hint-sm', { text: `達成 ${done.length} / ${quests.length}` }),
+      h('div.quest-list', rest.map((q) => questCard(root, q))),
+      // ── 達成済みは畳む ──
+      // 消さずに畳むのは、**もう一度挑めるから**（初回報酬は出ないが周回はできる）。
+      // 隠すと「あの依頼はどこへ行った」になる。
+      done.length
+        ? h('section.quest-done-group' + (questDoneOpen ? '.is-open' : ''),
+            h('button.quest-done-head', {
+              onclick: () => { questDoneOpen = !questDoneOpen; render(root); },
+              'aria-expanded': questDoneOpen ? 'true' : 'false',
+            },
+              W.icon('levelup'),
+              h('b', { text: `達成済み ${done.length} 件` }),
+              h('span.hint.hint-sm', { text: questDoneOpen ? '畳む' : '開く（もう一度挑める）' }),
+              h('span.quest-done-mark', { text: questDoneOpen ? '－' : '＋' })
+            ),
+            questDoneOpen
+              ? h('div.quest-list', done.map((q) => questCard(root, q)))
+              // 畳んでいるあいだも名前だけは出す。何を達成したかの記録になる。
+              : h('div.quest-done-names',
+                  done.map((q) => h('span.chip.chip-done', { text: q.name })))
+          )
+        : null
     );
   }
 
