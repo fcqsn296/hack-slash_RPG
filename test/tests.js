@@ -1628,11 +1628,15 @@
         //   斬撃(100)  3.10倍  上限に届かない
         //   終焉(520)  2.84倍  **超えて削られた** → cap_break 追加後は 3.10倍
         {
+          // **どのアルカナにも効く規則にする。** 1枚だけ見ていると、
+          // 次に威力%のアルカナを足したときに同じ罠を踏み直す。
+          const bad = Object.keys(RPG.data.arcana).filter((id) => {
+            const ks = (RPG.data.arcana[id].effects || []).map((/** @type {any} */ e) => e.kind);
+            return ks.indexOf('always_power') >= 0 && ks.indexOf('cap_break') < 0;
+          });
+          assertTrue('§21 威力を足すアルカナは上限も押し上げている',
+            bad.length === 0, bad.join(', '));
           const hang = RPG.data.arcana.ar_hanged_man;
-          const kinds = (hang.effects || []).map((/** @type {any} */ e) => e.kind);
-          assertTrue('§21 吊るされた男: 威力を足すなら上限も押し上げている',
-            kinds.indexOf('always_power') < 0 || kinds.indexOf('cap_break') >= 0,
-            kinds.join(', '));
 
           // 実際に上限が動いていること。データに書いてもユニットへ届かなければ意味がない。
           const mk = (/** @type {string|null} */ id) => {
