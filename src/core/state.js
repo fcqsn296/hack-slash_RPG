@@ -216,6 +216,9 @@
       // クラス (§12)。就いていなければ null。klassTree はクラスノードへの投資内容。
       klass: null,
       klassTree: {},
+      // アルカナ (§21)。就いていなければ null。投資先は持たない。
+      // **新規の初期形にも置く。** 移行だけで補うと、作った形と読んだ形がずれる (§7)。
+      arcana: null,
       equipped: { weapon: [], armor: [], accessory: [] },
       // 装備プリセット (§7.5)。空きは null。
       // 枠数はアカウント側で持つ。ここは空で作り、presets() が今の枠数まで伸ばす。
@@ -1423,6 +1426,41 @@
    * @param {string} classId
    * @returns {{ ok: boolean, cost?: number, reason?: string }}
    */
+  /**
+   * アルカナを就ける／外す (§21)。`null` で外す。
+   *
+   * ── クラスと違って費用も転職の概念も無い ──
+   * 投資先（klassTree に相当するもの）を持たないので、外しても失うものが無い。
+   * 代償が常時効いている以上、**試して合わなければ戻せるべき**。
+   * 金を取ると試されなくなり、2枚しかない選択肢がさらに動かなくなる。
+   *
+   * 解放そのものは依頼の達成で決まる（`RPG.arcana.isUnlocked`）。
+   * ここで別に解放状態を持つと二重帳簿になってずれる。
+   *
+   * @param {string} charId
+   * @param {string | null} arcanaId
+   */
+  function setArcana(charId, arcanaId) {
+    const s = get();
+    const c = s.characters[charId];
+    if (!c) return { ok: false, reason: '不明なキャラクター' };
+    if (arcanaId == null) {
+      c.arcana = null;
+      persist();
+      return { ok: true };
+    }
+    if (!RPG.arcana.def(arcanaId)) return { ok: false, reason: '不明なアルカナ' };
+    if (!RPG.arcana.isUnlocked(arcanaId)) {
+      return { ok: false, reason: RPG.arcana.lockReason(arcanaId) || '未解放' };
+    }
+    if (c.arcana === arcanaId) return { ok: false, reason: '既にそのアルカナに就いている' };
+    // 同じアルカナを何人に就けてもよい。枚数が2枚しかないうちに1人限定にすると、
+    // 「誰に付けるか」ではなく「誰が使えないか」の話になってしまう。
+    c.arcana = arcanaId;
+    persist();
+    return { ok: true };
+  }
+
   function setClass(charId, classId) {
     const s = get();
     const c = s.characters[charId];
@@ -1597,7 +1635,7 @@
     addGold, addBox, identifyBox, identifyBoxes, equip, unequip, setLoadout, sell,
     sellMany, sellValue, toggleLock, isEquipped, rememberSortie, updateSettings,
     charView, updateCharView, defaultCharView,
-    presets, savePreset, applyPreset, deletePreset,
+    presets, savePreset, applyPreset, deletePreset, setArcana,
     addExp, levelCap, GOLD_PER_EXP, levelUpCost, buyLevels, peakLevel, setLevel, moveSkill, itemCount, addItem, useItem, atMaxLevel, totalSp, availableSp, partyUnits, setParty, moveParty, createCharacter,
     presetSlots, nextSlotCost, buyPresetSlot, presetApplyCost, checkBuildPreset,
     applyPartyPreset, partyPresetNames,

@@ -1649,6 +1649,59 @@
             `${mk(null).capBreak} → ${mk('ar_hanged_man').capBreak}`);
         }
 
+        // ── 解放の門 (§21) ──
+        // 依頼を達成していないアルカナには就けないこと。
+        // 解放状態は依頼の記録から引く。別に持つと二重帳簿になる。
+        {
+          const withUnlock = Object.keys(RPG.data.arcana)
+            .filter((id) => RPG.data.arcana[id].unlock);
+          assertTrue('§21 どのアルカナにも解放条件がある',
+            withUnlock.length === Object.keys(RPG.data.arcana).length,
+            withUnlock.join(', '));
+
+          // 紐付けた依頼が実在すること。ID を打ち間違えると
+          // **永久に解放されない**（isUnlocked が常に false になる）。
+          const missing = withUnlock
+            .map((id) => RPG.data.arcana[id].unlock.quest)
+            .filter((qid) => qid && !RPG.data.quests[qid]);
+          assertTrue('§21 解放の依頼が実在する', missing.length === 0, missing.join(', '));
+        }
+
+        // ── 継ぎ手が入手できること (§5.10) ──
+        // **技を足してもツリーに授ける枝が無いと、誰も一生使えない。**
+        // 実際いちどその状態で公開しかけた。
+        {
+          const node = RPG.data.skillTree.find((/** @type {any} */ n) =>
+            (n.effects || []).some((/** @type {any} */ e) =>
+              e.kind === 'grant_skill' && e.skill === 'sk_combo_reprise'));
+          assertTrue('§5.10 継ぎ手を授けるノードがある', !!node,
+            node ? node.name : 'どこからも授けられていない');
+        }
+
+        // ── 段でクールタイムを進める技は、自分のぶんを巻き戻さない ──
+        // **startCooldown がこの処理より先に走る。** 素通しにすると自分の
+        // クールタイムを自分で消し、段がある限り連射できてしまう（実際そうなった）。
+        // 技の cooldown が唯一の歯止めなので、ここが抜けると歯止めが消える。
+        {
+          const cs = { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+            tree: { tr_grant_reprise: 1 }, klass: null, klassTree: {},
+            arcana: null, equipped: {} };
+          const u = RPG.units.buildCharacterUnit(cs, []);
+          u.side = 'party';
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [u], bossFinale: false });
+          const hero = b.party[0];
+          hero.cooldowns = { sk_cls_aegis: b.round + 3 };
+          b.combo.count = 5;
+          b.actorIndex = 0;
+          RPG.battle.commandSkill(b, 'sk_combo_reprise', [], {});
+          assertTrue('§5.10 継ぎ手は自分のクールタイムを消さない',
+            RPG.battle.skillReady(b, hero, 'sk_combo_reprise').ok === false,
+            JSON.stringify(hero.cooldowns));
+          assertTrue('§5.10 継ぎ手は他の技のクールタイムを進める',
+            hero.cooldowns.sk_cls_aegis === b.round + 1,
+            String(hero.cooldowns.sk_cls_aegis));
+        }
+
         // アルカナを持たない者に負債が漏れていないこと。
         {
           const cs = { id: 'ch_hero', level: 100, exp: 0, limitBreak: 0, tree: {}, equipped: {} };

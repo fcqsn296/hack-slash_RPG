@@ -2939,6 +2939,12 @@
       for (const u of battle.party) {
         if (!u.alive || !u.cooldowns) continue;
         for (const sid of Object.keys(u.cooldowns)) {
+          // **撃った技そのものは巻き戻さない。**
+          // startCooldown がこの処理より先に走るので、素通しにすると
+          // 自分のクールタイムを自分で消してしまう。実測で cooldowns が
+          // 空になり、段がある限り連射できる状態だった。
+          // 技の cooldown は唯一の歯止めなので、ここを抜かすと歯止めが消える。
+          if (u === actor && sid === skillId) continue;
           if (u.cooldowns[sid] <= battle.round) { delete u.cooldowns[sid]; continue; }
           u.cooldowns[sid] -= cb.cool;
           if (u.cooldowns[sid] <= battle.round) { delete u.cooldowns[sid]; freed++; }

@@ -3520,6 +3520,7 @@ ${nextCost.toLocaleString()} G
       h('div.col-mid',
         skillOrderPanel(root, charSave, unit),
         classPanel(root, charSave),
+        arcanaPanel(root, charSave),
         treeBrowser(root, charSave)
       ),
       h('div.col-far',
@@ -3733,6 +3734,102 @@ ${nextCost.toLocaleString()} G
               )
             );
           }))
+        : null
+    );
+  }
+
+  /* ---------------- アルカナ (§21) ----------------
+   *
+   * クラスの下に置く。役割を決めたあと「そのうえで規則を1つ書き換えるか」
+   * という読み順になる。
+   *
+   * ── 利と害を必ず並べて出す ──
+   * 片方だけ見せると、選んだあとに代償を知ることになる。
+   * **畳んでいるときも害を見出しに出す。**
+   */
+
+  /** いま開いているアルカナ。null なら全部畳む。 */
+  let arcanaOpen = null;
+
+  /**
+   * @param {HTMLElement} root
+   * @param {any} charSave
+   */
+  function arcanaPanel(root, charSave) {
+    const list = RPG.arcana ? RPG.arcana.all() : [];
+    if (!list.length) return null;
+    const cur = charSave.arcana ? RPG.arcana.summary(charSave) : null;
+
+    return h('section.arcana-panel.panel-cut',
+      h('div.class-panel-head',
+        h('h3', { text: 'アルカナ' }),
+        h('span.hint.hint-sm', { text: '1人につき1枚。就任は無料で、いつでも外せる。' })
+      ),
+      h('p.hint.hint-sm', {
+        text: 'クラスが「役割」を選ぶのに対し、アルカナは規則そのものを書き換える。'
+          + '大きな利と大きな害が同時に、常時かかる。同じアルカナを何人に就けてもよい。',
+      }),
+      cur
+        ? h('div.arcana-current', { style: `--arc: ${cur.color}` },
+            W.icon(cur.icon),
+            h('div.arcana-current-body',
+              h('b', { text: cur.name }),
+              h('div.arcana-boon', { text: '利 ' + cur.boon }),
+              h('div.arcana-bane', { text: '害 ' + cur.bane })
+            ),
+            W.button('外す', () => {
+              const res = RPG.state.setArcana(selectedChar, null);
+              if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+              RPG.app.toast(`${cur.name} を外しました`);
+              render(root);
+            })
+          )
+        : h('p.hint.hint-sm', { text: 'いまは就いていない。' }),
+      h('div.class-choices', list.map((a) => arcanaChoice(root, charSave, a)))
+    );
+  }
+
+  /**
+   * @param {HTMLElement} root
+   * @param {any} charSave
+   * @param {any} a
+   */
+  function arcanaChoice(root, charSave, a) {
+    const open = arcanaOpen === a.id;
+    const unlocked = RPG.arcana.isUnlocked(a.id);
+    const why = RPG.arcana.lockReason(a.id);
+    const wearing = charSave.arcana === a.id;
+
+    return h('div.class-choice.arcana-choice'
+      + (open ? '.is-open' : '') + (unlocked ? '' : '.is-locked'),
+      { style: `--cls: ${a.color}` },
+      h('button.class-choice-head', {
+        onclick: () => { arcanaOpen = open ? null : a.id; render(root); },
+        'aria-expanded': open ? 'true' : 'false',
+      },
+        W.icon(unlocked ? a.icon : 'lock'),
+        h('b', { text: a.name }),
+        h('span.class-choice-innate-brief', { text: a.bane }),
+        h('span.class-choice-mark', { text: open ? '－' : '＋' })
+      ),
+      open ? h('p.class-choice-flavor', { text: a.flavor }) : null,
+      open ? h('p.class-choice-desc', { text: a.desc }) : null,
+      open
+        ? h('div.arcana-pair',
+            h('div.arcana-boon', { text: '利 ' + a.boon }),
+            h('div.arcana-bane', { text: '害 ' + a.bane })
+          )
+        : null,
+      open && !unlocked
+        ? h('p.tier-locked-note', W.icon('lock'), h('span', { text: why || '未解放' }))
+        : null,
+      open && unlocked
+        ? W.button(wearing ? '就いている' : 'このアルカナに就く', () => {
+            const res = RPG.state.setArcana(selectedChar, a.id);
+            if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+            RPG.app.toast(`${a.name} に就きました`);
+            render(root);
+          }, { variant: 'primary', disabled: wearing })
         : null
     );
   }

@@ -4554,3 +4554,26 @@ body.has-backdrop { background: transparent; }
 .story-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 /* 読み返しの見出しは台詞そのものなので、長いときは折り返す (§20.6) */
 .glossary-item .glossary-term { line-height: 1.6; }
+
+/* ── アルカナ (§21) ──
+   クラスの選択肢とほぼ同じ見た目にしてある。別の形にすると
+   「クラスとは違う何か」を学び直させることになるので、
+   違うのは **利と害を必ず2行で並べる** ところだけ。 */
+.arcana-panel { margin-top: 12px; }
+.arcana-current {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
+  padding: 10px 12px; margin: 8px 0 10px;
+  border: 1px solid var(--line); border-left: 3px solid var(--arc, var(--accent));
+  border-radius: 8px; background: var(--bg-panel);
+}
+.arcana-current-body b { display: block; font-size: 13px; }
+.arcana-boon, .arcana-bane { font-size: 11.5px; line-height: 1.6; }
+.arcana-boon { color: var(--ok); }
+.arcana-bane { color: var(--danger); }
+.arcana-pair {
+  display: grid; gap: 3px; margin: 6px 0 8px; padding: 8px 10px;
+  border-radius: 6px; background: rgba(255,255,255,0.03);
+}
+/* 解放前は札を伏せておく。何が待っているかは見せるが、就けないことが分かる形 */
+.arcana-choice.is-locked .class-choice-head b { color: var(--text-dim); }
+.arcana-choice.is-locked { opacity: 0.82; }

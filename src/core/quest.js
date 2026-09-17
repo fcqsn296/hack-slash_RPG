@@ -189,6 +189,15 @@
    * @returns {string[]}
    */
   function rewardLabels(quest) {
+    // アルカナの解放 (§21)。**アルカナ側の unlock から引く。**
+    // 依頼側にも「これを配る」と書くと出どころが2つになり、
+    // 片方だけ直したときに静かに食い違う。
+    const arc = Object.keys((RPG.data && RPG.data.arcana) || {})
+      .filter((id) => {
+        const u = RPG.data.arcana[id].unlock;
+        return u && u.quest === quest.id;
+      })
+      .map((id) => 'アルカナ「' + RPG.data.arcana[id].name + '」');
     const rw = quest.reward || {};
     /** @type {string[]} */
     const out = [];
@@ -202,6 +211,7 @@
     }
     if (rw.equip) out.push(rw.equip.name);
     if (rw.autoCharge) out.push(`オート回数の上限 +${rw.autoCharge}`);
+    for (const a of arc) out.push(a);
     return out;
   }
 

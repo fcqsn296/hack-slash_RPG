@@ -27,6 +27,40 @@
   }
 
   /**
+   * そのアルカナが解放されているか (§21)。
+   *
+   * ── なぜ依頼で解放するのか ──
+   * レベルで配るとただ待つだけになる。アルカナは1枚ごとに戦い方が変わるので、
+   * **その戦い方が要る場所を越えたら手に入る**のが筋が通る。
+   * 依頼を1枚ずつ紐付けてあるので、解放そのものが目標になる。
+   *
+   * 達成の記録は依頼側にしかない。ここで別に数えると二重帳簿になってずれる。
+   *
+   * @param {string} id
+   */
+  function isUnlocked(id) {
+    const d = def(id);
+    if (!d) return false;
+    const u = d.unlock;
+    if (!u) return true;                       // 条件が無ければ最初から使える
+    if (u.quest) {
+      return !!(RPG.quest && RPG.quest.isCleared && RPG.quest.isCleared(u.quest));
+    }
+    return true;
+  }
+
+  /** 解放の条件を、まだ満たしていない人へ見せる文。 */
+  function lockReason(id) {
+    const d = def(id);
+    if (!d || !d.unlock || isUnlocked(id)) return null;
+    if (d.unlock.quest) {
+      const q = RPG.data.quests && RPG.data.quests[d.unlock.quest];
+      return '依頼「' + ((q && q.name) || d.unlock.quest) + '」を達成すると開く';
+    }
+    return '未解放';
+  }
+
+  /**
    * 効果をユニットへ流せる形にして返す。就いていなければ null。
    *
    * ツリーの畳み込みをそのまま借りる。アルカナは投資しないので、
@@ -70,11 +104,15 @@
    */
   function assign(charSave, id) {
     if (!charSave) return false;
-    if (id == null) { delete charSave.arcana; return true; }
+    // **delete ではなく null を入れる。** createCharacter が arcana: null で
+    // 作るので、外したときも同じ形に戻さないと「作った形」と「外した形」が
+    // ずれる（書き出し→読み込みの往復が一致しなくなる・§7）。
+    if (id == null) { charSave.arcana = null; return true; }
     if (!def(id)) return false;
+    if (!isUnlocked(id)) return false;
     charSave.arcana = id;
     return true;
   }
 
-  RPG.arcana = { def, all, effects, summary, assign };
+  RPG.arcana = { def, all, effects, summary, assign, isUnlocked, lockReason };
 })(window.RPG);
