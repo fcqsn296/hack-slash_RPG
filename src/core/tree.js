@@ -294,6 +294,7 @@
     'chaos', 'cleanse', 'combo_gain', 'combo_keep', 'combo_power',
     'combo_start', 'combo_spend_power', 'combo_threshold', 'combo_refund',
     'combo_max', 'cooldown_cut',
+    'turn_debt', 'defense_null', 'always_crit',
     'counter', 'counter_all',
     'crit_overflow', 'mid_power_crit',
     'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
@@ -423,6 +424,10 @@
       comboThreshold: 0,   // 段を要求する技の、必要段数を下げる (§5.10)
       comboRefund: 0,      // 消費した段のうち戻ってくる割合 (§5.10)
       comboMaxUp: 0,       // コンボの上限そのものを伸ばす (§5.10)
+      // --- アルカナ (§21) ---
+      turnDebt: 0,         // 毎ラウンド失う手番の数。停止ではなく負債で、再行動で返せる
+      defenseNull: 0,      // 1以上なら、自分が受けるとき防御軽減が働かない
+      alwaysCrit: 0,       // 1以上なら、自分の攻撃は必ず会心になる
       // --- 回復・防護 ---
       healPower: 0,        // 自分が行う回復量の上乗せ
       healOnKill: 0,       // 敵を倒したときに回復する最大HPの割合
@@ -602,6 +607,10 @@
           case 'wave_heal': passives.waveHeal += amount; break;
           case 'chain': passives.chain += amount; break;
           case 'guard_break': passives.guardBreak += amount; break;
+          // アルカナ (§21)。max なのは、重ねても意味が増えない旗だから。
+          case 'turn_debt': passives.turnDebt += amount; break;
+          case 'defense_null': passives.defenseNull = Math.max(passives.defenseNull, amount); break;
+          case 'always_crit': passives.alwaysCrit = Math.max(passives.alwaysCrit, amount); break;
           case 'opening_buff': passives.openingBuff += amount; break;
           // 状況依存の補正
           case 'low_hp_power': situational.lowHpPower += amount; break;

@@ -1517,6 +1517,83 @@
           both.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
       }
 
+      /* ===== アルカナ (§21) ===== */
+      //
+      // 第三の効果層。クラスと同じ語彙を使うが投資はしない。
+      // ここで見るのは「届いているか」と「代償が本当に痛いか」の2つ。
+      {
+        assertTrue('§21 アルカナが定義されている',
+          RPG.data.arcana && Object.keys(RPG.data.arcana).length >= 2,
+          Object.keys(RPG.data.arcana || {}).join(', '));
+
+        // 利と害を必ず両方書くこと。片方だけだと選ぶ前に代償が見えない。
+        const noPair = Object.keys(RPG.data.arcana || {})
+          .filter((id) => !RPG.data.arcana[id].boon || !RPG.data.arcana[id].bane);
+        assertTrue('§21 どのアルカナも利と害を両方書いている',
+          noPair.length === 0, noPair.join(', '));
+
+        // 効果がユニットまで届くか。klass と同じ経路に相乗りしているので、
+        // units.js の合流点を落とすとここで止まる。
+        const mk = (/** @type {string|null} */ id) => {
+          const cs = { id: 'ch_hero', level: 100, exp: 0, limitBreak: 0, tree: {}, equipped: {} };
+          if (id) cs.arcana = id;
+          return RPG.units.buildCharacterUnit(cs, []);
+        };
+        const plain = mk(null);
+        const strength = mk('ar_strength');
+        const hanged = mk('ar_hanged_man');
+
+        assertTrue('§21 力: 防御無視の旗がユニットまで届く',
+          strength.passives.defenseNull === 1, String(strength.passives.defenseNull));
+        assertTrue('§21 力: ATKが上がっている',
+          strength.stats.atk > plain.stats.atk,
+          `${plain.stats.atk} → ${strength.stats.atk}`);
+        assertTrue('§21 吊るされた男: 手番の負債が届く',
+          hanged.passives.turnDebt === 1, String(hanged.passives.turnDebt));
+        assertTrue('§21 吊るされた男: 必ず会心の旗が届く',
+          hanged.passives.alwaysCrit === 1, String(hanged.passives.alwaysCrit));
+
+        // **代償が damage.js まで届くこと。**
+        // toDefender / toAttacker は必要な項目だけを選んで渡す作りなので、
+        // passives に置いただけでは静かに無効になる。実際そう書いて一度落とした。
+        const dfd = RPG.units.toDefender(strength);
+        assertTrue('§21 力: toDefender が旗を渡している', dfd.defenseNull === 1,
+          String(dfd.defenseNull));
+        const atk = RPG.units.toAttacker(hanged);
+        assertTrue('§21 吊るされた男: toAttacker が旗を渡している', atk.alwaysCrit === 1,
+          String(atk.alwaysCrit));
+
+        // 効きを数字で見る。軽減が消えるので被ダメージが増えるはず。
+        const foe = RPG.units.buildEnemyUnit('em_drake', 100, false, 0, 1);
+        const skill = RPG.data.skills.sk_slash;
+        //
+        // **種を固定して1回だけ測ること。** calc には乱数の揺らぎがあるので、
+        // 判定と表示で別々に呼ぶと違う目が出る。実際それで一度落ちた
+        // （表示は 1147 → 1455 と増えているのに、判定は別の目で比べていた）。
+        const hit = (/** @type {any} */ target) => {
+          RPG.rng.seed(20260917);
+          const d = RPG.damage.calc({
+            attacker: RPG.units.toAttacker(foe),
+            defender: RPG.units.toDefender(target),
+            skill, crit: false,
+          }).damage;
+          RPG.rng.seed(null);
+          return d;
+        };
+        const plainHit = hit(plain);
+        const strengthHit = hit(strength);
+        assertTrue('§21 力: 受けるダメージが実際に増える', strengthHit > plainHit,
+          `通常 ${plainHit} → 力 ${strengthHit}（軽減が消えるぶん）`);
+
+        // 必ず会心のほうも、判定を振らずに会心になることを見る。
+        const critted = RPG.damage.calc({
+          attacker: RPG.units.toAttacker(hanged),
+          defender: RPG.units.toDefender(foe),
+          skill,
+        });
+        assertTrue('§21 吊るされた男: 会心率に関わらず会心する', critted.crit === true, '');
+      }
+
       /* ===== 支援役がSPを使い切れること (§5.10) ===== */
       //
       // 専任のヒーラーは回復だけ、バッファーはバフだけを伸ばし続けるのが

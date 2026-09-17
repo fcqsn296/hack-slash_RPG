@@ -139,12 +139,27 @@
    *   spendAll … 持っている段を全部使う。消費量が per に掛かる
    *   per      … 段1つあたりの上乗せ。読んだ段数 × per が威力に乗る
    *   gain     … 撃ったあとに積む段（積み型。条件を満たさなくても積む）
+   *   cool     … 消費1段につき、味方全員のクールタイムをこのラウンド数ぶん進める
+   *   act      … 使ったあと、もう一度行動できる（再行動の上限に掛かる）
+   *
+   * ── cool / act を足した理由 (§5.10) ──
+   * それまで段の出口は **威力倍率しか無かった**（実際、段を使う技5本は全部が攻撃技）。
+   * どんな消費の仕方をしても行き先が「もっと痛い一撃」なので、
+   * 支援役とタンクには段を使う理由が一つも無かった。
+   *
+   * しかもクラス技は解禁2〜4ラウンド・再使用2〜6ラウンドなのに対し、
+   * 推奨レベルの戦闘は実測 1.0〜3.5 ラウンドしか続かない。
+   * **解禁3以上の6本は一度も撃てず、どの技も2回目が来ない。**
+   * 段でクールタイムを進められれば、この層がようやく動き出す。
+   *
+   * 段は battle.combo.count でパーティ共有なので、
+   * **積むのはアタッカー、使うのは支援**という関係が生まれる。
    *
    * @param {any} battle @param {any} actor @param {any} skill
    * @returns {{blocked: boolean, needs: number, spent: number, scale: number, gain: number}}
    */
   function resolveCombo(battle, actor, skill) {
-    const none = { blocked: false, needs: 0, spent: 0, scale: 1, gain: 0 };
+    const none = { blocked: false, needs: 0, spent: 0, scale: 1, gain: 0, cool: 0, act: false };
     const c = skill && skill.params && skill.params.combo;
     if (!c || actor.side !== 'party') return none;
 
@@ -169,7 +184,13 @@
     const read = spent > 0 ? spent : Math.min(have, comboMax(battle));
     const scale = 1 + read * per;
 
-    return { blocked: false, needs, spent, scale, gain: c.gain || 0 };
+    // 威力以外の出口。**消費した段の数に応じて**効く。
+    // 段を払わない技（前提型・積み型）では 0 になり、何も起きない。
+    return {
+      blocked: false, needs, spent, scale, gain: c.gain || 0,
+      cool: c.cool ? spent * c.cool : 0,
+      act: !!c.act,
+    };
   }
 
   /**
@@ -1725,6 +1746,43 @@
     while (battle.actorIndex < battle.party.length) {
       const unit = battle.party[battle.actorIndex];
       if (!unit.alive) { battle.actorIndex++; continue; }
+      // ── 「吊るされた男」の負債 (§21) ──
+      //
+      // stunnedRounds と違って **返済できる**。ここで払えるものを順に当てる。
+      // 払えたらそのまま動ける。払えなければ手番そのもので払う（＝飛ばす）。
+      //
+      // 支払いをこの1箇所に集めているのは、返済の口が3つあるため。
+      // advanceTurn 側（手番の終わりに再行動を配る場所）に置くと、
+      // **飛ばされた本人はそこへ到達しない**ので、号令以外は永久に効かない。
+      if (unit.turnDebt > 0) {
+        // ① 誰かが配った手番（刻の号令 §12・段の出口 §5.10）
+        if (unit.grantedExtra) {
+          unit.grantedExtra = false;
+          unit.turnDebt--;
+          pushLog(battle, `${unit.name} は配られた手番で起き上がった`, 'buff');
+          continue;              // 同じ位置をもう一度見て、残債があればまた払う
+        }
+        // ② 1ラウンド目の奇襲 (§5.6)
+        const amb = (unit.passives && unit.passives.ambush) || 0;
+        if (amb > 0 && battle.round === 1 && !unit.ambushed && RPG.rng.chance(amb)) {
+          unit.ambushed = true;
+          unit.turnDebt--;
+          pushLog(battle, `${unit.name} は奇襲で起き上がった`, 'buff');
+          continue;
+        }
+        // ③ 自前の再行動 (§5.7)
+        const rate = (unit.passives && unit.passives.extraActionRate) || 0;
+        if (rate > 0 && RPG.rng.chance(rate)) {
+          unit.turnDebt--;
+          pushLog(battle, `${unit.name} は踏みとどまった`, 'buff');
+          continue;
+        }
+        // 払えるものが無い。手番を支払いに充てる。
+        unit.turnDebt--;
+        pushLog(battle, `${unit.name} は動けない（逆さのまま）`, 'sub');
+        battle.actorIndex++;
+        continue;
+      }
       // フルバースト (§4.3) の反動で動けないあいだは飛ばす
       if (unit.stunnedRounds > 0) {
         unit.stunnedRounds--;
@@ -2856,6 +2914,44 @@
     // 読み取った倍率は powerScale へ流す。ダメージ計算そのものは触らない。
     if (cb.scale !== 1) ctx.comboScale = cb.scale;
 
+    // ── 段でクールタイムを進める (§5.10) ──
+    //
+    // 味方全員に効かせる。撃った本人だけにすると、段を払えるのは
+    // 段を積んだアタッカーなので、**クラス技を抱えている支援役には永久に届かない**。
+    // 段はパーティ共有の資源なので、効き先も全体にしておくほうが筋が通る。
+    //
+    // 記録しているのは「次に使えるラウンド」なので、そこから引けばよい。
+    // 0以下になったものは消す（残しておくと until <= round の比較に頼ることになる）。
+    if (cb.cool > 0) {
+      let freed = 0;
+      for (const u of battle.party) {
+        if (!u.alive || !u.cooldowns) continue;
+        for (const sid of Object.keys(u.cooldowns)) {
+          if (u.cooldowns[sid] <= battle.round) { delete u.cooldowns[sid]; continue; }
+          u.cooldowns[sid] -= cb.cool;
+          if (u.cooldowns[sid] <= battle.round) { delete u.cooldowns[sid]; freed++; }
+        }
+      }
+      pushLog(battle, `${skill.name} が刻を巻き戻した（${cb.cool} ラウンドぶん`
+        + (freed > 0 ? `／${freed} 個の技が使えるようになった` : '') + '）', 'buff');
+    }
+
+    // ── 段で手番を買う (§5.10) ──
+    //
+    // 歯止めは MAX_EXTRA_ACTIONS ひとつでよい。ここを通る再行動は
+    // 奇襲・号令・前借りと同じ counter に乗るので、1ラウンドの総量が頭打ちになる。
+    // 技そのものにもクールタイムを持たせてあるので、連打もできない。
+    if (cb.act && actor.alive) {
+      if (actor.extraActions < MAX_EXTRA_ACTIONS) {
+        actor.extraActions++;
+        actor.grantedExtra = true;
+        pushLog(battle, `${actor.name} は続けて動ける`, 'buff');
+        pushEvent(battle, { type: 'extra', key: actor.key });
+      } else {
+        pushLog(battle, `${actor.name} はこれ以上続けて動けない`, 'sub');
+      }
+    }
+
     // ── 「累撃」— 撃つたびに前回の倍 (§5.23) ──
     //
     // 多段（double_hits）とは同時に働かない。**排他を仕掛けの側が持っている**ので、
@@ -3255,6 +3351,13 @@
       unit.buffReduction = tickAndFilter(unit.buffReduction);
       unit.statusEffects = tickAndFilter(unit.statusEffects);
       unit.extraActions = 0;
+      // 「吊るされた男」(§21) — 毎ラウンド、手番を1つ失う。
+      //
+      // **停止ではなく負債**として持つ。再行動・号令・段の出口が
+      // 手番を増やす前にここから引かれるので、支払い方を選べる。
+      // 停止（stunnedRounds）にすると、何を持っていても動けなくなり
+      // 「詰み」になってしまう。
+      unit.turnDebt = (unit.passives && unit.passives.turnDebt) || 0;
       if (!unit.statusEffects.some((/** @type {any} */ e) => e.kind === 'def_buff')) {
         unit.defMultiplier = 1;
       }

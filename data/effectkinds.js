@@ -133,6 +133,22 @@ RPG.data.effectKinds = {
   grant_skill: { to: 'build', shape: 'special', needs: ["skill"], uniq: null },
   guard_ally: { to: 'passives', shape: 'add', uniq: 'guardAlly', route: 'passives', key: 'guardAlly', label: '味方の被害を肩代わり', fmt: 'pct' },
   guard_break: { to: 'passives', shape: 'add', uniq: null, key: 'guardBreak', label: '防御を無視して攻撃', fmt: 'pct' },
+
+  // ── アルカナ (§21) が使う3種 ──
+  // どれも「代償」か「規則の書き換え」で、積み上げる類のものではない。
+  // そのため fmt は flag（有無）で、レベルで伸びる想定を持たない。
+
+  // 「力」の代償。**受ける側**の旗。自分が殴られるとき防御軽減が働かなくなる。
+  // guard_break（攻める側が確率で無視する）の裏返しにあたる。
+  defense_null: { to: 'passives', shape: 'max', uniq: null, key: 'defenseNull', label: '防御が無視される', fmt: 'flag' },
+
+  // 「吊るされた男」の代償。毎ラウンド手番を1つ失う。
+  // **停止ではなく負債**。再行動・号令・段の出口で返済できる（§21）。
+  turn_debt: { to: 'passives', shape: 'add', uniq: null, key: 'turnDebt', label: '毎ラウンド手番を1つ失う', fmt: 'num' },
+
+  // 「吊るされた男」の利。会心判定を振らずに必ず会心にする。
+  // crit（確率を足す）と違い、確率の上限や会心率への投資と無関係に成立する。
+  always_crit: { to: 'passives', shape: 'max', uniq: null, key: 'alwaysCrit', label: '攻撃は必ず会心', fmt: 'flag' },
   heal_on_kill: { to: 'passives', shape: 'add', uniq: 'healOnKill', route: 'passives', key: 'healOnKill', label: '撃破時に回復', fmt: 'pct' },
   heal_power: { to: 'passives', shape: 'add', uniq: 'healPower', route: 'passives', key: 'healPower', label: '与える回復量', fmt: 'pct' },
   high_hp_power: { to: 'situational', shape: 'add', uniq: null, key: 'highHpPower', label: 'HPが高いほど火力', fmt: 'pct' },

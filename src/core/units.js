@@ -147,11 +147,14 @@
     const def = RPG.data.characters[charSave.id];
     const stats = statsAtLevel(def, charSave.level);
     const items = equippedItems(charSave, inventory);
-    // スキルツリー (§5) とクラス (§12) は同じ効果種別を使うので、
-    // ここで1つに合流させてしまえば、以降の組み立ては両者を区別しなくてよい。
+    // スキルツリー (§5)・クラス (§12)・アルカナ (§21) は同じ効果種別を使うので、
+    // ここで1つに合流させてしまえば、以降の組み立ては出どころを区別しなくてよい。
     const tree = RPG.tree.mergeEffects(
-      RPG.tree.effects(charSave.tree || {}),
-      RPG.klass ? RPG.klass.effects(charSave) : null
+      RPG.tree.mergeEffects(
+        RPG.tree.effects(charSave.tree || {}),
+        RPG.klass ? RPG.klass.effects(charSave) : null
+      ),
+      RPG.arcana ? RPG.arcana.effects(charSave) : null
     );
 
     // キャラクター固有のパッシブ (§8)。レジェンドの特殊能力はここで表現する。
@@ -583,6 +586,9 @@
       // 会心率の余りを会心ダメージへ回す割合 (§5.8)。
       // 変換そのものは damage.js が行う。合計会心率を知っているのがあちらだけのため。
       critOverflow: (unit.passives && unit.passives.critOverflow) || 0,
+      // 「吊るされた男」(§21) — 会心判定を振らずに必ず会心にする。
+      // toDefender の defenseNull と同じく、ここに書かないと届かない。
+      alwaysCrit: (unit.passives && unit.passives.alwaysCrit) || 0,
       // 属性の噛み合いで決まるもの (§5.7)
       weakHunter: s.weakHunter || 0,
       neutralPower: s.neutralPower || 0,
@@ -617,6 +623,10 @@
       weakGuard: (unit.situational && unit.situational.weakGuard) || 0,
       bossGuard: (unit.situational && unit.situational.bossGuard) || 0,
       elementMods: unit.elementMods || {},
+      // 「力」(§21) — 防御による軽減が働かなくなる。
+      // **ここに書かないと damage.js まで届かない。** この関数は必要な項目だけを
+      // 選んで渡す作りなので、passives に置いただけでは静かに無効になる。
+      defenseNull: (unit.passives && unit.passives.defenseNull) || 0,
     };
   }
 

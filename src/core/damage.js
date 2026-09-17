@@ -328,11 +328,18 @@
     // ボス軽減が働いていないように見える、という報告につながった。
     let bossGuardCut = 0;
     let weakGuardCut = 0;
-    let defense = options.ignoreDefense ? 1 : defenseMultiplier(defender.def, defender.level);
+    // 「力」(§21) — **受ける側**の旗。防御による軽減が丸ごと働かなくなる。
+    //
+    // 攻める側の guard_break が「確率で無視する」のに対し、こちらは常時・確定。
+    // 軽減は除算型（1 - DEF/(DEF+C)）なので、実データの 60.7% がまるごと消える。
+    // options.ignoreDefense と同じ扱いにしておけば、
+    // 以降の tagPierce / critPierce の分岐もそのまま噛み合う。
+    const defenseOff = options.ignoreDefense || !!defender.defenseNull;
+    let defense = defenseOff ? 1 : defenseMultiplier(defender.def, defender.level);
     // 系統ごとの貫通 (§5.8)。「防御崩し」が確率なのに対し、こちらは確定で少しずつ抜く。
     const preMods = attacker.elementMods || {};
     const tagPierce = (preMods.tagPierce && preMods.tagPierce[skill.damage_type]) || 0;
-    if (tagPierce > 0 && !options.ignoreDefense) {
+    if (tagPierce > 0 && !defenseOff) {
       defense += (1 - defense) * Math.min(1, tagPierce);
     }
 
@@ -401,7 +408,12 @@
       + ((mods.tagCrit && mods.tagCrit[skill.damage_type]) || 0)
       + (options.midPowerCrit || 0)  // 中技だけ (§5.8)
       + (options.chargeCrit || 0);   // 溜め (§9.1)
-    const crit = options.crit == null ? RPG.rng.chance(critRate) : options.crit;
+    // 「吊るされた男」(§21) は判定そのものを飛ばす。
+    // critRate に 1 を足す形にしなかったのは、そうすると critOverflow
+    // （100%超のぶんを会心ダメージへ回す）に丸ごと乗ってしまい、
+    // 会心率へ投資していない相手にまで余剰が生まれるため。
+    const crit = attacker.alwaysCrit ? true
+      : (options.crit == null ? RPG.rng.chance(critRate) : options.crit);
 
     // 会心率が100%を超えたぶんを会心ダメージへ回す (§5.8)。
     //
@@ -417,7 +429,7 @@
       ? CRIT_MULTIPLIER + (attacker.critDamage || 0) + critOverflow : 1;
     // 「会心貫通」— 会心したときだけ防御を抜く (§5.7)。
     // 乱数を引いた後に判定しているので、乱数の消費順は会心貫通の有無で変わらない。
-    if (crit && attacker.critPierce && !options.ignoreDefense) {
+    if (crit && attacker.critPierce && !defenseOff) {
       defense += (1 - defense) * Math.min(1, attacker.critPierce);
     }
 
