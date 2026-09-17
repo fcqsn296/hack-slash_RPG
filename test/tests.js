@@ -1517,6 +1517,39 @@
           both.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
       }
 
+      /* ===== 依頼の説明文と実装の突き合わせ (§10.3) ===== */
+      //
+      // **実装と食い違う説明は、説明が無いより悪い**（CLAUDE.md §8）。
+      // 難度を測り直して rules を変えたのに説明文を直さず、
+      // 「ひとりで抜ける」と書いてある依頼が2人以下、
+      // 「3ラウンド以内」と書いてある依頼が7ラウンドになっていた。
+      // 数値を文章に書いたら、必ず実装の定数と突き合わせる。
+      {
+        const bad = [];
+        for (const id of Object.keys(RPG.data.quests)) {
+          const q = RPG.data.quests[id];
+          const desc = String(q.desc || '');
+          const rules = q.rules || {};
+
+          // 「Nラウンド以内」と書いたら maxRounds と一致していること
+          const m = desc.match(/(\d+)\s*ラウンド以内/);
+          if (m && rules.maxRounds && Number(m[1]) !== rules.maxRounds) {
+            bad.push(`${q.name}: 説明「${m[1]}R以内」/ 実装 ${rules.maxRounds}R`);
+          }
+          // 単騎と書いたら maxParty 1 であること
+          if (/ひとりで|ひとりきり|単騎/.test(desc) && rules.maxParty !== 1) {
+            bad.push(`${q.name}: 説明は単騎 / 実装 maxParty ${rules.maxParty || 'なし'}`);
+          }
+          // 人数を書いたら maxParty と一致していること
+          const p2 = desc.match(/(\d+)\s*人以下/);
+          if (p2 && rules.maxParty && Number(p2[1]) !== rules.maxParty) {
+            bad.push(`${q.name}: 説明「${p2[1]}人以下」/ 実装 ${rules.maxParty}人`);
+          }
+        }
+        assertTrue('§10.3 依頼の説明文が実装と食い違っていない',
+          bad.length === 0, bad.join(' / '));
+      }
+
       /* ===== アルカナ (§21) ===== */
       //
       // 第三の効果層。クラスと同じ語彙を使うが投資はしない。
