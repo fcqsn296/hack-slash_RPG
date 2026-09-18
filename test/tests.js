@@ -4060,6 +4060,97 @@
         }
       }
 
+      // --- 染色: 敵の属性を塗り替える (§9.1) ---
+      //
+      // 攻撃側の属性操作はツリーが埋め尽くしているのに、**受け側の属性に触る
+      // 手段は1つも無かった**。ここが構造的に空いていた枠。
+      {
+        const dyeSkill = RPG.data.skills.sk_tree_dye;
+        assertTrue('§9.1 染色の技がある', !!dyeSkill && dyeSkill.plugin === 'dye', '');
+
+        const mkHero = (/** @type {string} */ convert) => {
+          const u = RPG.units.buildCharacterUnit(
+            { id: 'ch_hero', level: 150, limitBreak: 0, tree: {},
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          u.elementMods = Object.assign({}, u.elementMods, { convert });
+          u.skills = u.skills.concat(['sk_tree_dye']);
+          u.side = 'party'; u.key = 'p0';
+          return u;
+        };
+
+        // ── 塗るのは受ける側だけ ──
+        // **両方向にすると有利不利が二重に動き、1手の価値が場面で跳ね上がる。**
+        // 保留中のアイデアが「調整が破綻する」と名指ししていた点。
+        {
+          RPG.rng.seed(1234);
+          const b = RPG.battle.start({
+            fieldId: 'fl_abyss', waves: 5, bossFinale: false, party: [mkHero('fire')],
+          });
+          const foe = RPG.battle.livingEnemies(b)[0];
+          const raw = foe.element;
+          const fireHit = Object.assign({}, RPG.data.skills.sk_slash, { element: 'fire' });
+
+          const mine = () => {
+            RPG.rng.seed(77);
+            const r = RPG.damage.calc({ attacker: RPG.units.toAttacker(b.party[0]),
+              defender: RPG.units.toDefender(foe), skill: fireHit, options: { crit: false } });
+            RPG.rng.seed(null);
+            return r.damage;
+          };
+          const theirs = () => {
+            const esk = RPG.data.skills[foe.skills[0]] || RPG.data.skills.sk_slash;
+            RPG.rng.seed(88);
+            const r = RPG.damage.calc({ attacker: RPG.units.toAttacker(foe),
+              defender: RPG.units.toDefender(b.party[0]), skill: esk, options: { crit: false } });
+            RPG.rng.seed(null);
+            return r.damage;
+          };
+
+          const before = { mine: mine(), theirs: theirs() };
+          RPG.battle.dye(foe, 'wind', 2, b.party[0]);
+          const after = { mine: mine(), theirs: theirs() };
+
+          assertTrue('§9.1 染色は与ダメージを動かす', after.mine > before.mine,
+            `${before.mine.toLocaleString()} → ${after.mine.toLocaleString()}`);
+          assertTrue('§9.1 染色は敵の攻撃を変えない', after.theirs === before.theirs,
+            `${before.theirs.toLocaleString()} → ${after.theirs.toLocaleString()}`);
+          assertTrue('§9.1 素の属性そのものは書き換えない', foe.element === raw,
+            `${raw} / dyed ${foe.dyed.element}`);
+          assertTrue('§9.1 toDefender は染まった色を返す',
+            RPG.units.toDefender(foe).element === 'wind', '');
+        }
+
+        // ── 染め先は「自分の属性が食う色」 ──
+        // **ここを取り違えると効果が逆になる。** 一度「撃った本人の属性」に
+        // していて、火のパーティが相手を火に染めていた。
+        // 実測でボス戦が 14.25R → 15.20R と、染めたほうが遅くなっていた。
+        {
+          RPG.rng.seed(4321);
+          const hero = mkHero('fire');
+          const b = RPG.battle.start({
+            fieldId: 'fl_abyss', waves: 5, bossFinale: false, party: [hero],
+          });
+          const foe = RPG.battle.livingEnemies(b)[0];
+          RPG.battle.commandSkill(b, 'sk_tree_dye', [foe]);
+          RPG.rng.seed(null);
+          const want = (RPG.damage.STRONG_AGAINST.fire || [])[0];
+          assertTrue('§9.1 既定は自分の属性が食う色へ染める',
+            !foe.alive || (foe.dyed && foe.dyed.element === want),
+            foe.dyed ? `${foe.dyed.element} / 期待 ${want}` : '倒してしまった');
+          assertTrue('§9.1 自分の属性そのものには染めない',
+            !foe.dyed || foe.dyed.element !== 'fire', '');
+        }
+
+        // 同じ色へ塗り直さない。手番を捨てるだけになる。
+        {
+          const target = { alive: true, element: 'dark', dyed: null, key: 'e0', name: '的' };
+          assertTrue('§9.1 素の色から塗れる', RPG.battle.dye(target, 'wind', 2) === true, '');
+          assertTrue('§9.1 同じ色へは塗り直さない', RPG.battle.dye(target, 'wind', 2) === false, '');
+          assertTrue('§9.1 別の色なら後勝ちで塗り替わる',
+            RPG.battle.dye(target, 'water', 2) === true && target.dyed.element === 'water', '');
+        }
+      }
+
       // --- 段の刻み（レシート型）(§5.10) ---
       //
       // ここまでの段の技は、いくつ払っても**効き方が一本調子**だった。

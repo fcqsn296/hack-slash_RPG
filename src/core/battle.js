@@ -3589,6 +3589,16 @@
       if (unit.defIgnoredTurns > 0) unit.defIgnoredTurns--;
       // 標的指定も時間で消える。消えたら参照ごと落として、
       // turns 0 の印が残り続けないようにする。
+      // 染色も時間で落ちる (§9.1)。参照ごと落として、
+      // 「色は残っているのに効いていない」という形を作らない。
+      if (unit.dyed) {
+        unit.dyed.turns--;
+        if (unit.dyed.turns <= 0) {
+          pushLog(battle, `${unit.name} の染まりが落ちた`, 'sub');
+          unit.dyed = null;
+          pushEvent(battle, { type: 'dye', key: unit.key, element: null });
+        }
+      }
       if (unit.marked) {
         unit.marked.turns--;
         if (unit.marked.turns <= 0) {
@@ -3703,6 +3713,35 @@
       // ウェーブが替われば敵ごと入れ替わるので、戦闘全体には残らない。
       .map((e) => (e.lasting ? e : Object.assign({}, e, { turns: e.turns - 1 })))
       .filter((e) => e.turns > 0);
+  }
+
+  /**
+   * 敵の属性を塗り替える — 染色 (§9.1)。
+   *
+   * ── 塗るのは「受ける側の属性」だけ ──
+   * **ここを両方向にすると調整が破綻する。**
+   * 敵の属性は、こちらの攻撃の通り方と、こちらが受ける被害の両方を決めている。
+   * 両方を塗ると有利不利が二重に動き、1手の価値が場面によって跳ね上がる。
+   * だから `toDefender` が読む属性だけを差し替える。
+   * 敵の攻撃は塗る前の属性のまま飛んでくる。
+   *
+   * ── 重ねがけは後勝ち ──
+   * 「深い方で上書き」という形にできない。属性に強弱の順序が無いためで、
+   * 二人が別々の属性で染めたら**後から塗ったほうが残る**のが素直。
+   *
+   * @知見: 染色は受ける側の属性だけを塗る。両方向にすると有利不利が二重に動く
+   * @知見: 染め先は「自分の属性が食う色」。自分の属性にすると有利にならない（実測で遅くなった）
+   * @知見: 染色はボスに効き、雑魚には手番の対価で損をする（ボス単体 −24% / 5戦通し −10%）
+   *
+   * @param {any} target @param {string} element @param {number} turns @param {any} [actor]
+   */
+  function dye(target, element, turns, actor) {
+    if (!target || !target.alive || !element) return false;
+    // 既に同じ色なら塗り直さない。手番を捨てるだけになる。
+    if (target.dyed && target.dyed.element === element) return false;
+    const before = target.dyed ? target.dyed.element : target.element;
+    target.dyed = { element, turns: actor ? buffTurns(actor, turns) : turns };
+    return before !== element;
   }
 
   /**
@@ -3823,7 +3862,7 @@
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
-    threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield,
+    threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage, checkWaveCleared, shapePool,

@@ -619,7 +619,10 @@
     return {
       level: unit.level,
       def: Math.floor(unit.stats.def * unit.defMultiplier),
-      element: unit.element,
+      // 染色 (§9.1)。塗られているあいだは、そちらの属性として殴られる。
+      // **攻撃側（toAttacker）は塗らない。** 両方向に効かせると
+      // 有利不利が二重に動き、1手の価値が場面によって跳ね上がる。
+      element: (unit.dyed && unit.dyed.element) || unit.element,
       reduction: totalReduction(unit),
       hpRatio: unit.maxHp > 0 ? unit.hp / unit.maxHp : 1,
       isBoss: !!unit.isBoss,
