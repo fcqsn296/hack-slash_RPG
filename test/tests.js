@@ -4060,6 +4060,82 @@
         }
       }
 
+      // --- 障壁: 張ったほうが得なときだけ張る (§9.1) ---
+      //
+      // **オートは barrier を一度も選べていなかった。**
+      // 攻撃技でもなく（power 0）、BUFF_PLUGINS にも無いので、
+      // どの分岐にも引っかからず手札の中で死んでいた。
+      // 実測（終わりなき回廊・Lv255・10戦）では、イルマは『動かぬ壁』を
+      // 0回しか張らず、素の『斬撃』を40回撃っていた。
+      //
+      // ただし**使えるようにしただけでは弱くなる**。実測で硬きを試す相の
+      // 勝率が 43% → 33% に落ちた。1手で殴れる量のほうが障壁より大きいため。
+      // だから「殴った場合」と比べて、障壁が上回るときだけ張る。
+      {
+        const barrierOwner = Object.keys(RPG.data.skills)
+          .filter((id) => RPG.data.skills[id].plugin === 'barrier');
+        assertTrue('§9.1 障壁の技が存在する', barrierOwner.length > 0, '');
+
+        /** 素のイルマ（ツリーも装備も無い＝技を手に入れた直後）*/
+        const rawIrma = () => RPG.units.buildCharacterUnit(
+          { id: 'ch_lg_irma', level: 40, limitBreak: 0, tree: {},
+            equipped: { weapon: [], armor: [], accessory: [] } }, []);
+
+        const hasBarrier = rawIrma().skills
+          .some((/** @type {string} */ s) => RPG.data.skills[s].plugin === 'barrier');
+        assertTrue('§9.1 イルマが障壁技を持っている', hasBarrier, '');
+
+        // 傷ついていれば張る。
+        // **無傷では張らない**——効くかどうか分からない手に1手を使わない。
+        {
+          const b = RPG.battle.start({
+            fieldId: 'fl_plain', waves: 5, bossFinale: false,
+            party: [rawIrma(), rawIrma()],
+          });
+          b.party.forEach((/** @type {any} */ u) => { u.hp = Math.floor(u.maxHp * 0.6); });
+          // バフを先に消化させる（障壁より前の分岐なので、そこで止まると測れない）
+          let action = null;
+          for (let i = 0; i < 6; i++) {
+            action = RPG.autoplay.chooseAction(b);
+            if (!action) break;
+            if (RPG.data.skills[action.skillId].plugin === 'barrier') break;
+            RPG.battle.commandSkill(b, action.skillId, action.targets, { auto: true });
+            b.party.forEach((/** @type {any} */ u) => {
+              if (u.alive) u.hp = Math.floor(u.maxHp * 0.6);
+            });
+          }
+          assertTrue('§9.1 オート: 傷ついていれば障壁を張る',
+            !!action && RPG.data.skills[action.skillId].plugin === 'barrier',
+            action ? `選んだ技: ${RPG.data.skills[action.skillId].name}` : '何も選ばなかった');
+        }
+
+        // 火力が障壁を上回る相手なら張らない。
+        // **ここが無いと、殴り役が自分の火力より薄い障壁を張って損をする。**
+        {
+          const b = RPG.battle.start({
+            fieldId: 'fl_plain', waves: 5, bossFinale: false,
+            party: [rawIrma(), rawIrma()],
+          });
+          const hitter = b.party[0];
+          hitter.hp = Math.floor(hitter.maxHp * 0.6);
+          b.party[1].hp = Math.floor(b.party[1].maxHp * 0.6);
+          // 殴ればまるごと倒せる火力にする
+          hitter.stats.atk *= 500;
+          hitter.stats.magi_power *= 500;
+          let action = null;
+          for (let i = 0; i < 6; i++) {
+            action = RPG.autoplay.chooseAction(b);
+            if (!action) break;
+            if (RPG.data.skills[action.skillId].plugin === 'barrier') break;
+            if (RPG.autoplay.isAttack(RPG.data.skills[action.skillId])) break;
+            RPG.battle.commandSkill(b, action.skillId, action.targets, { auto: true });
+          }
+          assertTrue('§9.1 オート: 殴ったほうが得なら障壁を張らない',
+            !!action && RPG.data.skills[action.skillId].plugin !== 'barrier',
+            action ? `選んだ技: ${RPG.data.skills[action.skillId].name}` : '何も選ばなかった');
+        }
+      }
+
       // --- 過剰ダメージを避けて、実際に削れる相手を狙う ---
       {
         // バフを持たないキャラを使い、攻撃の選択だけを見る

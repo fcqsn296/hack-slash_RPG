@@ -26,10 +26,66 @@
   // 実測で見つけた: Lv120 の苛烈な条件でも、テオドラは
   // 不動の砦[def_buff] と 重斬 しか撃っていなかった。
   //
-  // barrier（動かぬ壁・大盾の宣誓）はここに入れていない。
-  // 障壁は持続を持たず buffActive で「もう張ってある」が判定できないため、
-  // 別の手当てが要る。1回に1つだけ変える。
+  // barrier（動かぬ壁・大盾の宣誓）はここに入れない。
+  // 障壁は持続を持たず buffActive で「もう張ってある」が判定できないので、
+  // 一覧に足すと**満タンの上から張り直して手番を捨てる**。
+  // 専用の分岐（下の 2.4）で、削れた分と殴った場合を見てから張る。
+  //
+  // @知見: オートに技を届かせる修正は「選べるようにする」だけでは足りない。選ぶ価値があるかまで見る
   const BUFF_PLUGINS = ['unique_buff', 'tag_buff', 'def_buff', 'reduction_buff'];
+
+  /**
+   * 障壁を張り直す目安。残りがこの割合を下回ったら張り直す (§9.1)。
+   *
+   * **満タンに重ねると手番を捨てることになる。** 障壁は持続を持たないので
+   * 上限で無駄になるわけではないが、その1手で殴れたぶんが消える。
+   * 半分まで削れてから張り直すと、切れ目を作らずに手数も無駄にしない。
+   *
+   * 見るのは平均でなく**いちばん薄い者**。狙いが1人に集まる相では、
+   * 平均だと剥がされた1人が3人の満タンに隠れて張り直しが走らない。
+   */
+  const SHIELD_REFRESH = 0.5;
+
+  /**
+   * 障壁を張り始めるパーティHPの目安 (§9.1)。
+   * まだ誰も傷ついていないうちは、効くかどうか分からない手に1手を使わない。
+   * 回復（0.5）より早く動く——障壁は減ってから足すものではなく、備えるもの。
+   */
+  const SHIELD_TRIGGER = 0.9;
+
+  /**
+   * 障壁が攻撃より優先されるのに要る倍率 (§9.1)。
+   *
+   * ── 時機を直すだけでは足りなかった ──
+   * **使えるようにしただけでは弱くなる。** 実測（終わりなき回廊・Lv255・40戦）:
+   *
+   *   硬きを試す相  勝率 43% → 33%（素朴に張らせた場合）
+   *   あまねく相    勝率 78% → 70%（無傷なら張らない、を足しても）
+   *
+   * 障壁そのものは薄くない。イルマの『動かぬ壁』は1人 13,168、
+   * 4人ぶんでパーティ総HPの55%ある。**悪いのは誰が張るか**だった。
+   * 検証用の土台のイルマは ATK 46,594 の殴り役で、彼女の1手が生む火力は
+   * 配れる障壁より大きい。だから張るたびに損をする。
+   *
+   * 逆に、DEF を元に張る盾役（大盾の宣誓は DEF×2.5）なら攻撃は薄く、
+   * 障壁のほうが価値が高い。**同じ技でも、持ち主によって正解が違う。**
+   *
+   * だから時機ではなく価値で比べる。その一手で殴れるはずだった量と、
+   * 配れる障壁の総量を並べて、障壁がはっきり上回るときだけ張る。
+   * 1.0 ちょうどにしないのは、殴れば敵が減って**次の被弾も減る**ぶん、
+   * 攻撃のほうに見えない取り分があるため。
+   *
+   * @知見: 障壁は「使えるようにする」だけだと弱くなる。1手の火力と比べて勝つときだけ張る
+   * @知見: 終盤では1手の火力が 93,722〜278,860、障壁は4人ぶんで 52,672。終盤では障壁は選ばれない
+   * @知見: 障壁が効くのはツリーを振る前の帯（Lv70 素で勝率 3% → 17%）
+   */
+  const SHIELD_OVER_ATTACK = 1.3;
+
+  /**
+   * 「もう勝ちが見えている」と見なす敵HPの残り割合。
+   * バフや障壁は、ここを下回ったら張っても使い切れない。
+   */
+  const OVERKILL_GUARD = 0.35;
 
   /**
    * 攻撃技かどうか。
@@ -182,7 +238,7 @@
     // --- 2. まだ効いていないバフを、戦闘が続きそうなときだけ張る ---
     const remaining = foes.reduce((s, e) => s + e.hp, 0);
     const totalMax = foes.reduce((s, e) => s + e.maxHp, 0);
-    if (remaining > totalMax * 0.35) {
+    if (remaining > totalMax * OVERKILL_GUARD) {
       // 遮断されているバフは撃たない (§5.14)。
       //
       // 【極】旗手は「自分にかけたバフが自分に乗らない」。乗らないバフは
@@ -200,6 +256,97 @@
         && !buffActive(actor, s.def)
         && !(noSelf && selfOnly(s.def)));
       if (buff) return { skillId: buff.id, targets: RPG.battle.targetKind(buff.def) === 'none' ? [] : [actor] };
+    }
+
+    // 障壁の分岐が「殴ったほうが得か」を見るので、ここで先に出しておく。
+    const attacks = skills.filter((s) => isAttack(s.def));
+
+    // --- 2.4 障壁: HPの外側に積む守り (§9.1) ---
+    //
+    // ── なぜ専用の分岐が要るのか ──
+    // barrier は BUFF_PLUGINS に入れられない。障壁は持続を持たず、
+    // ラベルの付いたバフとして積まれないので `buffActive` が
+    // **永久に false を返す**。一覧に足すだけだと、満タンの障壁の上から
+    // クールタイムが明けるたびに張り直して手番を捨てる。
+    //
+    // 実測（終わりなき回廊・Lv255・10戦）では、イルマは『動かぬ壁』を
+    // **一度も張らずに**素の『斬撃』を40回撃っていた。
+    // reduction_buff のときとまったく同じ形で、看板技が手札の中で死んでいた。
+    {
+      const barriers = skills.filter((s) => s.def.plugin === 'barrier');
+      if (barriers.length) {
+        // 張る量は barrier.js と同じ式で見積もる。
+        // **ここがずれると「もう十分張ってある」の判定が実際の量と合わなくなる。**
+        const amountOf = (/** @type {any} */ def) => {
+          const p = def.params || {};
+          const stat = p.scaling || def.scaling_stat || 'magi_power';
+          const source = (actor.stats && actor.stats[stat])
+            || (stat === 'hp' ? actor.maxHp : 0);
+          return Math.max(1, Math.floor(source * (p.ratio || 1)));
+        };
+
+        // 最後のウェーブで敵が残り少ないなら、張っても使い切れない。
+        // ウェーブが残っているうちは張ってよい——障壁は持ち越せる。
+        const lastBreath = battle.wave >= battle.totalWaves
+          && remaining <= totalMax * OVERKILL_GUARD;
+
+        // まだ無傷なら張らない。**ここが無いと、使えるようにしただけで弱くなる**
+        // （硬きを試す相で勝率 43% → 33%）。理由は SHIELD_TRIGGER の項に書いた。
+        const partyHp = allies.reduce((/** @type {number} */ sum, /** @type {any} */ u) =>
+          sum + Math.max(0, u.hp), 0);
+        const partyMax = allies.reduce((/** @type {number} */ sum, /** @type {any} */ u) =>
+          sum + u.maxHp, 0) || 1;
+        const unhurt = partyHp >= partyMax * SHIELD_TRIGGER;
+
+        // その1手で殴れるはずだった量。**これと比べないと、殴り役が
+        // 自分の火力より薄い障壁を張って損をする**（SHIELD_OVER_ATTACK の項）。
+        //
+        // ⚠ ここでは**過剰ダメージを切らない**。攻撃の選択（下の 3）では
+        // `min(dmg, target.hp)` で切っているが、同じものをここへ持ち込むと
+        // **敵が弱いほど攻撃が安く見えて障壁が勝つ**。
+        // 倒しきれば戦闘そのものが終わるのに、その価値が評価に入らないため。
+        // 検査で実際に踏んだ——ATKを500倍にしても『動かぬ壁』を選んでいた。
+        const attackValue = attacks.reduce((/** @type {number} */ max, /** @type {any} */ s) => {
+          const wide = s.def.plugin === 'all_enemies'
+            || (s.def.plugin === 'detonate' && s.def.params && s.def.params.all);
+          if (wide) {
+            const total = foes.reduce((/** @type {number} */ sum, /** @type {any} */ t) =>
+              sum + estimate(actor, t, s.def, battle), 0);
+            return Math.max(max, total);
+          }
+          return foes.reduce((/** @type {number} */ m, /** @type {any} */ t) =>
+            Math.max(m, estimate(actor, t, s.def, battle)), max);
+        }, 0);
+
+        const pick = (lastBreath || unhurt) ? null : barriers
+          .map((s) => ({ s, amount: amountOf(s.def) }))
+          // 複数持っていることがある（固有とクラス技）。厚いほうから見る。
+          .sort((a, b) => b.amount - a.amount)
+          .find(({ s, amount }) => {
+            const party = !!(s.def.params && s.def.params.party);
+            const live = (party ? allies : [actor]).filter((/** @type {any} */ u) => u.alive);
+            if (!live.length) return false;
+            // **平均でなく最小を見る。** 狙いが1人に集まる相では、
+            // 剥がされた1人が3人の満タンに隠れて張り直しが走らない。
+            const thinnest = live.reduce((/** @type {number} */ min, /** @type {any} */ u) =>
+              Math.min(min, u.shield || 0), Infinity);
+            if (thinnest >= amount * SHIELD_REFRESH) return false;
+            // 配れる総量で比べる。全体に張るなら人数ぶんの価値がある。
+            return amount * live.length >= attackValue * SHIELD_OVER_ATTACK;
+          });
+
+        if (pick) {
+          const kind = RPG.battle.targetKind(pick.s.def);
+          if (kind === 'none') return { skillId: pick.s.id, targets: [] };
+          // 単体版は、いま一番削られている味方へ。
+          // 障壁の残量でなくHPの割合で選ぶ——障壁が無いのは
+          // 「まだ張っていない」だけのことがあり、危険度とは別。
+          const target = allies.slice()
+            .sort((/** @type {any} */ a, /** @type {any} */ b) =>
+              a.hp / a.maxHp - b.hp / b.maxHp)[0] || actor;
+          return { skillId: pick.s.id, targets: [target] };
+        }
+      }
     }
 
     // --- 2.5 号令: 味方全員にもう一度動く権利を配る (§12) ---
@@ -257,7 +404,6 @@
     }
 
     // --- 3. 攻撃: 無駄撃ちを避けつつ、最も削れる組み合わせを選ぶ ---
-    const attacks = skills.filter((s) => isAttack(s.def));
     if (!attacks.length) {
       // 攻撃手段が無ければ持っている技のどれかを撃つ
       const any = skills[0];
