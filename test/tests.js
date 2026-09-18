@@ -1113,7 +1113,7 @@
         'status_resist_kind', 'vs_status_power', 'status_on_hit_kind',
         'element_crit', 'tag_crit', 'tag_pierce',
         'def_to_atk', 'atk_to_def',
-        'buff_duration', 'buff_on_kill', 'shield_regen', 'barrier_power',
+        'buff_duration', 'buff_on_kill', 'shield_regen', 'barrier_power', 'shield_power',
         'repeat_power', 'variety_power', 'high_power_boost', 'high_power_cap',
         // 防御で耐える道 (§5.8)
         'hp_to_def',
@@ -9350,6 +9350,8 @@
           capBreak: (r) => r.attacker.capBreak,
           // 障壁の厚み (§9.1)。passives 行きなので、値がユニットまで届くかをここで見る。
           barrierPower: (r) => r.unit.passives.barrierPower,
+          // 障壁を火力へ (§9.1)。situational 行きなので attacker 側で見る。
+          shieldPower: (r) => r.attacker.shieldPower,
         };
 
         const dead = [];

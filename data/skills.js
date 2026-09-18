@@ -960,6 +960,22 @@ RPG.data.skills = {
       'HPの外側に積むので回復と違って上限を超えて備えられる。' +
       '2ラウンド目以降・使用後4ラウンド使えない。',
   },
+  sk_tree_bastion_blow: {
+    // 張りながら殴る (§9.1)。**割合は控えめでよい**——
+    // 殴る手番を捨てずに積めること自体が値打ちで、
+    // 厚みのパッシブ（barrier_power）を積むほど実際に張られる量は増える。
+    name: '城撃', kind: 'active', plugin: 'guard_strike',
+    scaling_stat: 'def', damage_type: 'phys', element: 'earth',
+    // ── クールダウンを持たせない ──
+    // 攻撃技に待ち時間を入れない規則（終盤の大技は上限に潰れていて、
+    // 待たせると選ぶ理由が消える）に従う。連打できてよい——
+    // 威力は控えめなので、撃ち続けることは**大技を撃たないこと**と同義であり、
+    // それ自体が対価になる。参照できる障壁には damage.js 側の上限もある。
+    power: 180, crit_rate: 0.05,
+    params: { ratio: 0.35, scaling: 'def' },
+    desc: 'DEFで殴り、自分にDEFの35%ぶんの障壁を張る。' +
+      '殴る手番を捨てずに積めるので、守りを固めながら攻められる。',
+  },
   sk_cls_downpour: {
     name: '星霜の慈雨', kind: 'active', plugin: 'heal', cls: true,
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'water',

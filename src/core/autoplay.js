@@ -261,6 +261,24 @@
     // 障壁の分岐が「殴ったほうが得か」を見るので、ここで先に出しておく。
     const attacks = skills.filter((s) => isAttack(s.def));
 
+    /**
+     * その技が張る障壁の量 (§9.1)。barrier と guard_strike で式は同じ。
+     * **厚みのパッシブを掛け忘れないこと**——効かせる側（battle.js の
+     * grantShield）とずれると、積んだ盾役が一度も張らないという形で静かに死ぬ。
+     * @param {any} def
+     */
+    const shieldAmountOf = (def) => {
+      const p = def.params || {};
+      const stat = p.scaling || def.scaling_stat || 'magi_power';
+      const src = (actor.stats && actor.stats[stat]) || (stat === 'hp' ? actor.maxHp : 0);
+      const power = (actor.passives && actor.passives.barrierPower) || 0;
+      // 既定倍率はプラグインごとに違う（barrier は 1、guard_strike は 0.2）。
+      // **どちらのプラグインの既定と同じ値にしておくこと。** ずれると
+      // params.ratio を書き忘れた技だけ見積もりが実際と食い違う。
+      const fallback = def.plugin === 'guard_strike' ? 0.2 : 1;
+      return Math.max(1, Math.floor(src * (p.ratio || fallback) * (1 + power)));
+    };
+
     // --- 2.4 障壁: HPの外側に積む守り (§9.1) ---
     //
     // ── なぜ専用の分岐が要るのか ──
@@ -275,7 +293,7 @@
     {
       const barriers = skills.filter((s) => s.def.plugin === 'barrier');
       if (barriers.length) {
-        // 張る量は barrier.js と同じ式で見積もる。
+        // 張る量は barrier.js と同じ式で見積もる（shieldAmountOf を共有）。
         // **ここがずれると「もう十分張ってある」の判定が実際の量と合わなくなる。**
         //
         // ⚠ 厚みのパッシブ (§9.1) を掛け忘れないこと。実際に踏んだ——
@@ -283,14 +301,7 @@
         // **一度も張らなかった**。素の量で見積もって「殴ったほうが得」と
         // 判断していたため。効かせる側（battle.js の grantShield）と
         // 見積もる側がずれると、こういう形で静かに死ぬ。
-        const power = (actor.passives && actor.passives.barrierPower) || 0;
-        const amountOf = (/** @type {any} */ def) => {
-          const p = def.params || {};
-          const stat = p.scaling || def.scaling_stat || 'magi_power';
-          const source = (actor.stats && actor.stats[stat])
-            || (stat === 'hp' ? actor.maxHp : 0);
-          return Math.max(1, Math.floor(source * (p.ratio || 1) * (1 + power)));
-        };
+        const amountOf = shieldAmountOf;
 
         // 最後のウェーブで敵が残り少ないなら、張っても使い切れない。
         // ウェーブが残っているうちは張ってよい——障壁は持ち越せる。
@@ -332,6 +343,38 @@
             Math.max(m, estimate(actor, t, s.def, battle)), max);
         }, 0);
 
+        /**
+         * 障壁が生む「火力の戻り」(§9.1)。
+         *
+         * ── なぜ耐久だけで測ってはいけないのか ──
+         * `shield_power` を積んだ味方にとって、障壁はそのまま火力になる。
+         * 耐久としての価値だけで測ると、**味方に張ってもらう前提のアタッカー**が
+         * 成り立たない——張る側は「殴ったほうが得」と判断し続けるため。
+         *
+         * 戻りは次の一撃ぶんだけ数える。障壁は消えないので何発にも乗るが、
+         * 何発ぶんと見るかは戦況しだいで、多く見積もるほど張りすぎる。
+         *
+         * @param {any[]} live 障壁を受け取る味方
+         * @param {number} amount 1人あたりに張る量
+         */
+        const shieldReturn = (live, amount) => {
+          const cap = (RPG.damage && RPG.damage.SHIELD_POWER_CAP) || 2;
+          let sum = 0;
+          for (const u of live) {
+            const sp = (u.situational && u.situational.shieldPower) || 0;
+            if (sp <= 0 || !u.maxHp) continue;
+            const before = Math.min((u.shield || 0) / u.maxHp, cap);
+            const after = Math.min(((u.shield || 0) + amount) / u.maxHp, cap);
+            if (after <= before) continue;
+            // その味方の一番よく通る一撃を土台にする
+            const best = u.skills.filter((/** @type {string} */ id) => isAttack(RPG.data.skills[id]))
+              .reduce((/** @type {number} */ m, /** @type {string} */ id) =>
+                Math.max(m, estimate(u, foes[0], RPG.data.skills[id], battle)), 0);
+            sum += best * sp * (after - before);
+          }
+          return sum;
+        };
+
         const pick = (lastBreath || unhurt) ? null : barriers
           .map((s) => ({ s, amount: amountOf(s.def) }))
           // 複数持っていることがある（固有とクラス技）。厚いほうから見る。
@@ -346,7 +389,9 @@
               Math.min(min, u.shield || 0), Infinity);
             if (thinnest >= amount * SHIELD_REFRESH) return false;
             // 配れる総量で比べる。全体に張るなら人数ぶんの価値がある。
-            return amount * live.length >= attackValue * SHIELD_OVER_ATTACK;
+            // そこへ**障壁が生む火力の戻り**を足す（下の shieldReturn）。
+            return amount * live.length + shieldReturn(live, amount)
+              >= attackValue * SHIELD_OVER_ATTACK;
           });
 
         if (pick) {
@@ -439,12 +484,34 @@
         }
         continue;
       }
+      // 張りながら殴る技 (§9.1) は、同じだけ削れるなら障壁のぶんだけ得。
+      // ただし価値として数えるのは**火力に戻る分だけ**。
+      // 素の障壁まで足すと、耐久が要らない場面でも張りながら殴る技が
+      // 常に最良になり、選択肢が1つに潰れる（実測でそうなった）。
+      //
+      // @知見: 終盤は全技が過剰殺傷で同点になる。同点は切り詰める前の火力で割る
+      // @知見: 支援の価値は「耐久として」でなく「味方の火力に戻る分」で測ると編成の分業が成立する
+      const guardReturn = (/** @type {number} */ dmg) => {
+        if (s.def.plugin !== 'guard_strike') return 0;
+        const sp = (actor.situational && actor.situational.shieldPower) || 0;
+        if (sp <= 0 || !actor.maxHp) return 0;
+        const cap = (RPG.damage && RPG.damage.SHIELD_POWER_CAP) || 2;
+        const have = (actor.shield || 0) / actor.maxHp;
+        const after = Math.min(have + shieldAmountOf(s.def) / actor.maxHp, cap);
+        return dmg * sp * Math.max(0, after - Math.min(have, cap));
+      };
       for (const target of foes) {
         const dmg = estimate(actor, target, s.def, battle);
         // 過剰ダメージは価値が無いので、実際に削れる量で評価する
-        const score = Math.min(dmg, target.hp);
-        if (!best || score > best.score ||
-            (score === best.score && target.hp < best.target.hp)) {
+        const score = Math.min(dmg, target.hp) + guardReturn(dmg);
+        // ── 同点は「切り詰める前の火力」で割る ──
+        // **これが無いと、全部が過剰殺傷になる終盤で技の並び順が勝敗を決める。**
+        // 実際に踏んだ——見積もり 2,848,410 の城撃が 759,834 の覇王斬に
+        // 負け続けていた。敵HP 278,860 で両方とも切り詰められて同点だったため。
+        // 素の火力で割れば、次の硬い相手にも通る手が自然に残る。
+        if (!best || score > best.score
+            || (score === best.score && dmg > best.dmg)
+            || (score === best.score && dmg === best.dmg && target.hp < best.target.hp)) {
           best = { score, dmg, skillId: s.id, target };
         }
       }

@@ -78,6 +78,7 @@ RPG.data.nodeCategories = [
     kinds: [
       'reduction', 'revive', 'last_stand', 'regen', 'wave_heal', 'thorns',
       'guard_ally', 'overheal_shield', 'start_shield', 'shield_regen', 'barrier_power',
+      'shield_power',
       'low_hp_guard', 'damage_share', 'wave_revive', 'back_guard',
       'boss_guard', 'reflect', 'heal_power', 'ally_heal_lock', 'heal_on_kill', 'lifesteal',
       // 狙い (§5.9)。「受けない」ではなく「受けに行く」枝だが、

@@ -318,7 +318,7 @@
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
-    'barrier_power', 'revive', 'round_stack', 'shield_regen', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -511,6 +511,7 @@
     const situational = {
       lowHpPower: 0, highHpPower: 0, bossSlayer: 0, debuffAmp: 0, firstRoundPower: 0,
       alwaysPower: 0,         // 条件なしで乗る威力 (§21)。装備を通り抜けて最終ダメージに掛かる
+      shieldPower: 0,         // 障壁を火力へ変える割合 (§9.1)。障壁の厚みに比例して乗る
       // 属性の噛み合いで決まるもの (§5.7)。damage.js が素の相性を見て判定する。
       weakHunter: 0,          // 有利を取れたときに伸びる
       neutralPower: 0,        // 等倍のときに伸びる（無属性ビルドの受け皿）
@@ -751,6 +752,7 @@
           case 'buff_on_kill': passives.buffOnKill += amount; break;
           case 'shield_regen': passives.shieldRegen += amount; break;
           case 'barrier_power': passives.barrierPower += amount; break;
+          case 'shield_power': situational.shieldPower += amount; break;
           // --- 技の使い分け (§5.8) ---
           case 'repeat_power': passives.repeatPower += amount; break;
           case 'variety_power': passives.varietyPower += amount; break;

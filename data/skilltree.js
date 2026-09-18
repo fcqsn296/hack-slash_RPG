@@ -1927,6 +1927,28 @@ RPG.data.skillTree = [
     desc: '自分が張る障壁が 20% 厚くなる（開幕の備え・再生・技のすべてに効く）',
   },
   {
+    // 張りながら殴る (§9.1)。**守護者のクラス技にしなかった理由**——
+    // クラス側に足すとクラスポイントの検査（到達可能 78〜94点）を超えるのと、
+    // 「味方に張ってもらう前提のアタッカー」を守護者以外にも開きたいため。
+    id: 'tr_grant_bastion_blow', tier: 'mid', name: '城撃', cost: 3, maxLevel: 1,
+    effects: [{ kind: 'grant_skill', skill: 'sk_tree_bastion_blow', value: 1 }],
+    desc: 'アクティブ技「城撃」を習得（DEFで殴り、同時に自分へ障壁を張る）',
+  },
+  {
+    // ── 障壁を火力へ変える (§9.1) ──
+    // 障壁が耐久にしか効かない構造そのものへの手当て。
+    // **味方に張ってもらう前提のアタッカー**も、この口があって初めて成り立つ。
+    // 障壁は時間で消えないので、参照できる厚みには damage.js 側で上限がある。
+    id: 'tr_shield_power', tier: 'mid', name: '壁を借りる', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'shield_power', value: 0.10 }],
+    desc: '障壁が最大HPと同じだけあるとき 火力+10%（障壁の厚みに比例／上限は最大HPの2倍）',
+  },
+  {
+    id: 'tr_shield_power_hi', tier: 'high', name: '城壁を振るう', cost: 4, maxLevel: 4,
+    effects: [{ kind: 'shield_power', value: 0.16 }],
+    desc: '障壁が最大HPと同じだけあるとき 火力+16%（障壁の厚みに比例）',
+  },
+  {
     // 守護者の『厚き盾』(+40%×3) と合わせて最大 +340%。
     // 『大盾の宣誓』の素 45% が **約200%** になる。
     id: 'tr_barrier_power_hi', tier: 'high', name: '城壁の理', cost: 4, maxLevel: 4,

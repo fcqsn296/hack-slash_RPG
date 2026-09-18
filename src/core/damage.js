@@ -35,6 +35,18 @@
 
   /** ダメージ上限のベース値と、超過分の残存率 (§3.2 ステップ8) */
   // @知見: 終盤ビルドの素ダメは上限の2.5〜9倍。超過分は10%しか残らないので威力%はほぼ効かない
+  /**
+   * 障壁を火力へ変えるときに参照できる障壁の上限（最大HP比）(§9.1)。
+   *
+   * **障壁は時間で消えないので、置かないと積み放題になる。**
+   * 殴らずに張り続けるほど強い、という逆立ちした形を防ぐ。
+   * 2.0 は「積み切った大盾の宣誓（最大HPの198%）ちょうど」。
+   *
+   * @知見: 障壁を火力へ変える口を作ると、障壁が耐久にしか効かない構造そのものが解ける
+   * @知見: 障壁は時間で消えないので、火力へ変える割合には必ず参照上限を置く
+   */
+  const SHIELD_POWER_CAP = 2.0;
+
   const BASE_DAMAGE_CAP = 500000;
   const CAP_OVERFLOW_RATE = 0.1;
 
@@ -473,6 +485,21 @@
     // ここに置くのは、装備の平坦加算より後・最終ダメージに掛かる位置だから。
     // 素のステータスへの % では、装備が育つほど効きが薄れて代償と釣り合わなくなる。
     if (attacker.alwaysPower) situational *= 1 + attacker.alwaysPower;
+    // 障壁を火力へ変える (§9.1)。
+    //
+    // ── なぜこれが要るのか ──
+    // 障壁は火力に一切つながらず、純粋に耐久にしか効かない。
+    // だから終盤では**どれだけ厚くしても選ばれない**（実測: 1手の火力 653,104 に対し、
+    // 198% まで積んだ4人ぶんの障壁が 231,768）。
+    // 厚みを火力へ流す口を作ると、積んだ耐久がそのまま攻めになり、
+    // 「味方に張ってもらう前提のアタッカー」も成り立つ。
+    //
+    // 上限を置くのは、障壁が時間で消えず**積み放題**だから。
+    // 置かないと、殴らずに張り続けるほど強いという逆立ちした形になる。
+    if (attacker.shieldPower) {
+      const ratio = Math.min(attacker.shieldRatio || 0, SHIELD_POWER_CAP);
+      situational *= 1 + attacker.shieldPower * ratio;
+    }
     // ボス特効
     if (attacker.bossSlayer && defender.isBoss) situational *= 1 + attacker.bossSlayer;
     // 追撃: 相手が弱っている（デバフ状態）ときに伸びる
@@ -558,7 +585,7 @@
   }
 
   RPG.damage = {
-    LEVEL_GAP_FREE, levelGapRate,
+    LEVEL_GAP_FREE, levelGapRate, SHIELD_POWER_CAP,
     calc,
     elementMultiplier,
     tagMultiplier,
