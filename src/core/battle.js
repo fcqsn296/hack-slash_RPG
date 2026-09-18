@@ -3633,15 +3633,24 @@
       // 弱くして勝てるようにしても、1戦で12,000入って章の刻みが吹き飛ぶ（実測）。
       // 強さと払い出しは対で借りるものなので、同じ口に3つ目として置いた。
       const rw = battle.rewardScale == null ? 1 : battle.rewardScale;
-      battle.rewards.gold += Math.floor(enemy.gold * battle.field.gold_mult * rw);
+      // 異相の上乗せ (§22)。**フィールドのつまみとは別の口にする。**
+      // gold_mult に乗せると、相を調整したつもりで
+      // そのフィールドの素の周回も動く。
+      //
+      // @知見: 難しくて実入りが同じ選択肢は選ばれない。相には報酬の上乗せが要る
+      const am = RPG.aspect ? RPG.aspect.rewardMult(battle.aspect && battle.aspect.id) : 1;
+      battle.rewards.gold += Math.floor(enemy.gold * battle.field.gold_mult * rw * am);
       battle.rewards.exp += Math.floor(
-        enemy.exp * (battle.field.exp_mult == null ? 1 : battle.field.exp_mult) * rw);
+        enemy.exp * (battle.field.exp_mult == null ? 1 : battle.field.exp_mult) * rw * am);
       // 戦闘中は「宝箱ID + 個数」のフラグ加算のみ (§2.2)
       //
       // box_mult は gold_mult の宝箱版で、フィールド側の調整つまみ。
       // 敵の drops を直に触らないのは、創世の残響と終わりなき回廊のように
       // **同じ敵を共有しているフィールドがある** ため。敵を動かすと両方が動く。
-      const boxMult = battle.field.box_mult == null ? 1 : battle.field.box_mult;
+      // 宝箱の上乗せはゴールドの半分。宝箱は装備になり、
+      // 強さになり、次の周回を速くするので賫う。
+      const aBox = RPG.aspect ? RPG.aspect.boxMult(battle.aspect && battle.aspect.id) : 1;
+      const boxMult = (battle.field.box_mult == null ? 1 : battle.field.box_mult) * aBox;
       for (const drop of enemy.drops) {
         // 1回ぶんを超えたところは確定として数え、端数だけを抽選に回す。
         // 抽選の回数は倍率によらず drops の数と一致するので、乱数の並びは崩れない。

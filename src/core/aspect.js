@@ -82,6 +82,50 @@
     return a.effects.denyElement === attackElement;
   }
 
+  /**
+   * 報酬の上乗せ。相を選んでいなければ 1。
+   *
+   * ── なぜ必要なのか ──
+   * **当初「報酬は変えない」で作っていたが、これは設計の誤りだった。**
+   * 依頼書 §8 の誺理を当てれば、難しくて実入りが同じ選択肢は
+   * 選ばれないだけで、置いてあることに意味がなくなる。
+   *
+   * @知見: 相の報酬倍率は「勝てる編成でのラウンド数が素の何倍か」から逆算している
+   * @知見: 報酬を勝率で校正すると、ビルドが強くなるほど上乗せが過大になる（向きが逆立ちする）
+   * @知見: 勝率は10試行だと20〜30ポイント揺れる。ラウンド数は60試行で安定する
+   *
+   * @param {string | null | undefined} id
+   */
+  function rewardMult(id) {
+    const d = id ? def(id) : null;
+    if (!d || !d.rewardMult) return 1;
+    return d.rewardMult;
+  }
+
+  /**
+   * 宝箱の上乗せ。ゴールドと同率。
+   *
+   * ── 一度半分にして、測って戻した ──
+   * 最初は `1 + (m-1)/2` にしていた。理屈は「宝箱は効きが長い」——
+   * 装備になり、強さになり、次の周回が速くなるのだから、
+   * ゴールドと同じ倍率をかけるのは均等でないと考えた。
+   *
+   * **測ったら持たなかった。** 1ラウンドあたりの宝箱が
+   * 硬きを試す相で **0.99 倍**、あまねく相で 1.09 倍。
+   * 半分にした上乗せが、増えたラウンドと勝率の損に食われて消える。
+   *
+   * しかも終盤の実入りの主役は**装備の売却益**なので、
+   * 宝箱が増えないと上乗せそのものが穿しになる。
+   * 「効きすぎないか」の心配より、実測のほうを採った。
+   *
+   * @知見: 報酬の上乗せを宝箱とゴールドで別率にすると、宝箱側はラウンド増に食われて消える
+   *
+   * @param {string | null | undefined} id
+   */
+  function boxMult(id) {
+    return rewardMult(id);
+  }
+
   /** 画面に出す短い説明。 */
   function summary(id) {
     const d = def(id);
@@ -89,8 +133,9 @@
     return {
       id, name: d.name, reading: d.reading, color: d.color, icon: d.icon,
       effect: d.effect, flavor: d.flavor, desc: d.desc,
+      rewardMult: rewardMult(id), boxMult: boxMult(id),
     };
   }
 
-  RPG.aspect = { def, all, forField, unlocked, resolve, denies, summary };
+  RPG.aspect = { def, all, forField, unlocked, resolve, denies, summary, rewardMult, boxMult };
 })(window.RPG);

@@ -1722,6 +1722,10 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   font-weight: 700;
 }
 .aspect-chip-name { white-space: nowrap; }
+/* 上乗せの数字は金色で出す。相の固有色に合わせると
+ * 「その相の色」と混じって、得なのか損なのかが読めなくなる。 */
+.aspect-chip-gain { color: var(--gold); font-size: 11px; font-weight: 700; }
+.aspect-gain { margin: 0; font-size: 11px; color: var(--gold); font-weight: 600; }
 .aspect-detail {
   display: grid;
   gap: 4px;

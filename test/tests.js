@@ -1808,11 +1808,10 @@
             !!seen.soft && !!seen.hard, Object.keys(seen).join(','));
         }
 
-        // ── 負担も報酬も変えないこと ──
+        // ── 選ばなければ何も変わらないこと ──
         //
         // 相は「同じ場所を別の戦いにする」だけのもので、
         // 周回のしやすさを変えないのが前提（依頼書 §8）。
-        // 選んでいないときに何か変わったら、その前提が崩れている。
         {
           const mkBattle = (aspectId) => {
             RPG.rng.seed(777);
@@ -1827,10 +1826,85 @@
           };
           const plain = mkBattle(null);
           assertTrue('§22 相を選ばなければ battle.aspect は空', plain.aspect === null, '');
+          assertTrue('§22 相を選ばなければ報酬の倍率は 1',
+            RPG.aspect.rewardMult(null) === 1 && RPG.aspect.boxMult(null) === 1, '');
           // fl_plain には相を置いていない。序盤に置くと
           // 「属性を選ぶ」を学ぶ前に否定することになる。
           assertTrue('§22 序盤の狩場には相が無い',
             RPG.aspect.forField('fl_plain').length === 0, '');
+        }
+
+        // ── 報酬の上乗せ (§22) ──
+        //
+        // **当初「報酬は変えない」で作っていたが、これは設計の誤りだった。**
+        // 依頼書 §8 の誺理を当てれば、難しくて実入りが同じ選択肢は
+        // 選ばれないだけで、置いてあることに意味がなくなる。
+        {
+          const ids = Object.keys(RPG.data.aspects);
+
+          // 上乗せの無い相を足すと、**その相だけ誰も選ばない**。
+          // 画面は壊れずに成立するので、気付くのは遙くなる。
+          const flat = ids.filter((id) => !(RPG.data.aspects[id].rewardMult > 1));
+          assertTrue('§22 どの相にも報酬の上乗せがある', flat.length === 0, flat.join(', '));
+
+          // 宝箱の倍率はゴールドと同率。
+          // 一度半分にしていたが、実測で 1ラウンドあたりの宝箱が
+          // 硬きを試す相で 0.99 倍（つまり増えていない）になっていた。
+          const gap = ids.filter((id) =>
+            Math.abs(RPG.aspect.boxMult(id) - RPG.aspect.rewardMult(id)) > 1e-9);
+          assertTrue('§22 宝箱の上乗せはゴールドと同率', gap.length === 0, gap.join(', '));
+
+          // 上限を置く。ここが高すぎると素の周回が不合理になり、
+          // 「相を選ばないと損」という形で**フィールド全体が難化する**。
+          // それは依頼書 §8 が否定していることそのもの。
+          const tooHigh = ids.filter((id) => RPG.aspect.rewardMult(id) > 2.0);
+          assertTrue('§22 報酬の上乗せが 2倍を超えない', tooHigh.length === 0, tooHigh.join(', '));
+
+          // 上乗せは勝ちのラウンド比から逆算している。**平均のラウンドを使わないこと**——
+          // 負けた回は速く全滅するので、平均に混ぜると周回のラウンドを過小に見る。
+          // 実際に一度間違えて、あまねく相を 1.65（正しくは 2.00）にした。
+          //
+          // 逆算の土台になった比を実装の側に固定しておく。ここがずれたら
+          // 倍率も測り直す合図になる。
+          const RATIO = { as_deny_dark: 1.00, as_deny_light: 1.00, as_first_strike: 1.01,
+            as_cull_weak: 1.00, as_omnipresent: 1.55, as_test_tank: 1.59 };
+          const off = ids.filter((id) => {
+            const want = 1.30 * (RATIO[id] || 1);
+            const got = RPG.aspect.rewardMult(id);
+            // 0.05 刻みへの丸めぶんは許す
+            return Math.abs(got - want) > 0.08;
+          });
+          assertTrue('§22 上乗せが実測のラウンド比と噛み合っている', off.length === 0,
+            off.map((id) => `${id}: 期待 ${(1.30*RATIO[id]).toFixed(2)} / 実 ${RPG.aspect.rewardMult(id)}`).join(', '));
+
+          // 実際に報酬まで届くこと。
+          // **データに書いても、読む側が無ければ黙って無効になる。**
+          const goldOf = (aspectId) => {
+            RPG.rng.seed(31337);
+            const b = RPG.battle.start({
+              fieldId: 'fl_abyss', waves: 1, bossFinale: false,
+              party: [RPG.units.buildCharacterUnit(
+                { id: 'ch_hero', level: 255, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, [])],
+              aspectId,
+            });
+            // 敵を全部落としてウェーブを終える。
+            // 報酬の累算は checkWaveCleared にしかないので、
+            // damage.calc を叩いてもここは測れない。
+            b.enemies.forEach((e) => { e.hp = 0; e.alive = false; });
+            RPG.battle.checkWaveCleared(b);
+            RPG.rng.seed(null);
+            return b.rewards.gold;
+          };
+          const plainGold = goldOf(null);
+          const tankGold = goldOf('as_test_tank');
+          assertTrue('§22 報酬の倍率が実際のゴールドまで届く',
+            tankGold > plainGold,
+            `素 ${plainGold.toLocaleString()} → 相 ${tankGold.toLocaleString()}`);
+          // 倍率とだいたい一致すること（床関数の分だけずれる）。
+          const want = RPG.aspect.rewardMult('as_test_tank');
+          const got = tankGold / plainGold;
+          assertTrue('§22 報酬の倍率がデータの値と一致する',
+            Math.abs(got - want) < 0.02, `期待 ${want} / 実測 ${got.toFixed(3)}`);
         }
 
         // ── 難度を決める基準ビルドが機能していること ──

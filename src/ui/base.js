@@ -1003,16 +1003,28 @@
           },
         },
           W.icon(a.icon, { size: '16px', color: a.color }),
-          h('span.aspect-chip-name', { text: a.name })
+          h('span.aspect-chip-name', { text: a.name }),
+          // 上乗せは選ぶ前に見えていなければ意味がない。
+          // 入ってから知る形だと、難しい方を選ぶ理由が読めない。
+          h('span.aspect-chip-gain', { text: '+' + Math.round((a.rewardMult - 1) * 100) + '%' })
         ))
       ),
       chosen
         ? h('div.aspect-detail', { style: { borderColor: chosen.color } },
             h('b.aspect-effect', { text: chosen.effect }),
             h('p.aspect-desc', { text: chosen.desc }),
+            // 報酬の上乗せを数字で出す。宝箱とゴールドで倍率が違うので
+            // すべて同率なので1行でよい（別々に測って、同率のほうが噛み合うと分かった）。
+            h('p.aspect-gain', {
+              text: 'ゴールド・経験値・宝箱がすべて +'
+                + Math.round((chosen.rewardMult - 1) * 100) + '%',
+            }),
             h('p.aspect-flavor', { text: chosen.flavor })
           )
-        : h('p.hint.hint-sm', { text: '選ばなければ従来どおりです。報酬は変わりません。' })
+        : h('p.hint.hint-sm', {
+            text: '選ばなければ従来どおりです。'
+              + '相を選んでから勝てば、その分だけ実入りが上がります。',
+          })
     );
   }
 
