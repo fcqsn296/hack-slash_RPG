@@ -61,6 +61,10 @@ RPG.data.effectKinds = {
   self_buff_lock: { to: 'passives', shape: 'add', uniq: 'noSelfBuff', route: 'passives', key: 'noSelfBuff', label: '自分へのバフが通らなくなる', fmt: 'pct' },
   ally_heal_lock: { to: 'passives', shape: 'add', uniq: 'noAllyHeal', route: 'passives', key: 'noAllyHeal', label: '味方を回復できなくなる', fmt: 'pct' },
   support_stack: { to: 'passives', shape: 'add', uniq: 'supportStack', route: 'passives', key: 'supportStack', label: '支援するほど自分のバフが強くなる', fmt: 'pct' },
+  // 障壁を配る口は5つある（技・開幕の備え・毎ラウンドの張り直し・あふれた回復・バフ付与）。
+  // これは**その全部に効く**。片方だけに効かせると、どれを伸ばすか考える前に
+  // 「どの口から出た障壁か」を覚える羽目になる。
+  barrier_power: { to: 'passives', shape: 'add', uniq: 'barrierPower', route: 'passives', key: 'barrierPower', label: '張る障壁の厚み', fmt: 'pct' },
   buff_shield: { to: 'passives', shape: 'add', uniq: 'buffShield', route: 'passives', key: 'buffShield', label: 'バフをかけた相手に障壁', fmt: 'pct' },
   buff_heal: { to: 'passives', shape: 'add', uniq: 'buffHeal', route: 'passives', key: 'buffHeal', label: 'バフをかけた相手を回復', fmt: 'pct' },
   cleanse: { to: 'passives', shape: 'add', uniq: 'cleanse', route: 'passives', key: 'cleanse', label: '回復時に弱体を1つ解く', fmt: 'pct' },

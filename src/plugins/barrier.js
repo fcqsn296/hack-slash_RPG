@@ -19,6 +19,13 @@
  * 持続ターンは持たない。既にある障壁（癒しの余剰・障壁の再生・開幕の守り）が
  * どれも時間で消えない作りなので、ここだけ消えると説明がつかなくなる。
  * 強すぎるときは技側の cooldown で抑える。
+ *
+ * ── 厚みはパッシブで伸ばす (§9.1) ──
+ * ここの ratio は**素の値**。`barrier_power` を積んだ分だけ厚くなる。
+ * 障壁は火力に一切つながらず純粋に耐久にしか効かないので、
+ * 素の値のままだと終盤では選ぶ意味が無い（実測: 1手の火力 93,722〜278,860
+ * に対し、4人ぶんの障壁が 52,672）。**倍率を上げるのでなく投資で伸ばす**形にして、
+ * 積んだ人にだけ障壁が主軸になるようにしてある。
  */
 (function (RPG) {
   'use strict';
@@ -41,8 +48,11 @@
       const targets = p.party ? ctx.allies() : ctx.targets;
       for (const t of targets) {
         if (!t.alive) continue;
-        t.shield = (t.shield || 0) + amount;
-        ctx.log(`${t.name} に ${amount.toLocaleString()} の障壁`, 'buff');
+        // 厚みのパッシブ (§9.1) は battle.js の grantShield が掛ける。
+        // **ここで自前に掛けないこと。** 障壁を配る口は5つあるので、
+        // 式を写すと必ずどこかがずれる。
+        const gain = RPG.battle.grantShield(t, amount, ctx.actor);
+        ctx.log(`${t.name} に ${gain.toLocaleString()} の障壁`, 'buff');
       }
     },
   };

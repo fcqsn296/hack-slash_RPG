@@ -277,12 +277,19 @@
       if (barriers.length) {
         // 張る量は barrier.js と同じ式で見積もる。
         // **ここがずれると「もう十分張ってある」の判定が実際の量と合わなくなる。**
+        //
+        // ⚠ 厚みのパッシブ (§9.1) を掛け忘れないこと。実際に踏んだ——
+        // `barrier_power` を積み切った盾役（45% → 198%）でも
+        // **一度も張らなかった**。素の量で見積もって「殴ったほうが得」と
+        // 判断していたため。効かせる側（battle.js の grantShield）と
+        // 見積もる側がずれると、こういう形で静かに死ぬ。
+        const power = (actor.passives && actor.passives.barrierPower) || 0;
         const amountOf = (/** @type {any} */ def) => {
           const p = def.params || {};
           const stat = p.scaling || def.scaling_stat || 'magi_power';
           const source = (actor.stats && actor.stats[stat])
             || (stat === 'hp' ? actor.maxHp : 0);
-          return Math.max(1, Math.floor(source * (p.ratio || 1)));
+          return Math.max(1, Math.floor(source * (p.ratio || 1) * (1 + power)));
         };
 
         // 最後のウェーブで敵が残り少ないなら、張っても使い切れない。
@@ -292,9 +299,16 @@
 
         // まだ無傷なら張らない。**ここが無いと、使えるようにしただけで弱くなる**
         // （硬きを試す相で勝率 43% → 33%）。理由は SHIELD_TRIGGER の項に書いた。
-        const partyHp = allies.reduce((/** @type {number} */ sum, /** @type {any} */ u) =>
+        //
+        // ⚠ **生きている者だけで測らないこと。** 倒れた者を外すと、
+        // 一撃で落とされる戦い（硬きを試す相など）では生き残りがいつも満タンで、
+        // 傷が一切見えずゲートが永久に閉じたままになる。実際に踏んだ——
+        // 勝率43%の戦いでイルマの手番の HP率が毎回 100% と出ていた。
+        // 倒れた者を含めて数えれば、死は「HPが全部減った」として現れる。
+        const roster = battle.party || allies;
+        const partyHp = roster.reduce((/** @type {number} */ sum, /** @type {any} */ u) =>
           sum + Math.max(0, u.hp), 0);
-        const partyMax = allies.reduce((/** @type {number} */ sum, /** @type {any} */ u) =>
+        const partyMax = roster.reduce((/** @type {number} */ sum, /** @type {any} */ u) =>
           sum + u.maxHp, 0) || 1;
         const unhurt = partyHp >= partyMax * SHIELD_TRIGGER;
 

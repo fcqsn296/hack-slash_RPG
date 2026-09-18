@@ -1917,6 +1917,23 @@ RPG.data.skillTree = [
     desc: '敵を倒すたびに固有バフ +11%（3ターン）',
   },
   {
+    // ── 障壁の厚み (§9.1) ──
+    // 障壁は火力に一切つながらず、純粋に耐久にしか効かない。だから素の値のままでは
+    // 終盤で選ぶ意味が無い（実測: 1手の火力 93,722〜278,860 に対し 4人ぶんの障壁 52,672）。
+    // **技側の倍率を上げるのではなく、積んだ人にだけ厚くなる形にしてある。**
+    // 倍率を上げると誰にでも効いてしまい、耐久だけの効果が全編成に配られる。
+    id: 'tr_barrier_power', tier: 'mid', name: '厚き護り', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'barrier_power', value: 0.20 }],
+    desc: '自分が張る障壁が 20% 厚くなる（開幕の備え・再生・技のすべてに効く）',
+  },
+  {
+    // 守護者の『厚き盾』(+40%×3) と合わせて最大 +340%。
+    // 『大盾の宣誓』の素 45% が **約200%** になる。
+    id: 'tr_barrier_power_hi', tier: 'high', name: '城壁の理', cost: 4, maxLevel: 4,
+    effects: [{ kind: 'barrier_power', value: 0.35 }],
+    desc: '自分が張る障壁が 35% 厚くなる',
+  },
+  {
     id: 'tr_shield_regen_mid', tier: 'mid', name: '不断の障壁', cost: 3, maxLevel: 4,
     effects: [{ kind: 'shield_regen', value: 0.045 }],
     desc: 'ラウンド終了時に最大HPの4.5%ぶんの障壁を張り直す',

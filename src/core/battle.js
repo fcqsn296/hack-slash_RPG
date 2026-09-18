@@ -1279,7 +1279,7 @@
       // 回復役がいなくても最初の一発を受けきれるようにする。
       const startShield = (u.passives && u.passives.startShield) || 0;
       if (startShield > 0) {
-        u.shield = (u.shield || 0) + Math.floor(u.maxHp * startShield);
+        grantShield(u, u.maxHp * startShield);
         pushLog(battle, `${u.name} が ${u.shield.toLocaleString()} の障壁をまとった`, 'buff');
       }
     }
@@ -1548,8 +1548,8 @@
     const p = (caster && caster.passives) || {};
     const shield = p.buffShield || 0;
     if (shield > 0 && target.alive) {
-      const gain = Math.max(1, Math.floor(target.maxHp * shield));
-      target.shield = (target.shield || 0) + gain;
+      // 張るのは caster なので、厚みも caster の側から引く
+      const gain = grantShield(target, target.maxHp * shield, caster);
       pushLog(battle, `${target.name} に ${gain.toLocaleString()} の障壁`, 'buff');
     }
 
@@ -2641,9 +2641,9 @@
         const shield = (target.passives && target.passives.overhealShield) || 0;
         const spill = want - healed;
         if (shield > 0 && spill > 0) {
-          const gain = Math.floor(spill * shield);
-          if (gain > 0) {
-            target.shield = (target.shield || 0) + gain;
+          const raw = Math.floor(spill * shield);
+          if (raw > 0) {
+            const gain = grantShield(target, raw);
             pushLog(battle, `${target.name} に ${gain.toLocaleString()} の障壁`, 'buff');
           }
         }
@@ -3478,8 +3478,7 @@
     for (const unit of all) {
       const regen = (unit.passives && unit.passives.shieldRegen) || 0;
       if (!unit.alive || regen <= 0) continue;
-      const gain = Math.max(1, Math.floor(unit.maxHp * regen));
-      unit.shield = (unit.shield || 0) + gain;
+      const gain = grantShield(unit, unit.maxHp * regen);
       pushLog(battle, `${unit.name} の障壁が ${gain.toLocaleString()} 再生した`, 'buff');
     }
 
@@ -3628,6 +3627,33 @@
   }
 
   /**
+   * 障壁を張る (§9.1)。**障壁を配る口はここに集める。**
+   *
+   * ── なぜ関数にまとめるのか ──
+   * 障壁の出どころは5つある（技・開幕の備え・毎ラウンドの張り直し・
+   * あふれた回復・バフ付与）。厚みのパッシブを足したとき、
+   * **同じ式を5か所に書けば、6つ目を足したときに必ず漏れる。**
+   *
+   * 厚みは「張る側」の値で決まる。受け手の値だと、硬い者ほど硬くなって
+   * 守る役を用意する意味が薄れる（barrier.js が量を決める規則と揃えてある）。
+   *
+   * @知見: 障壁の口は5つ（技・開幕・再生・あふれた回復・バフ付与）。厚みは必ずここを通す
+   * @知見: 障壁は火力に一切つながらないので、素の値では終盤で選ばれない。倍率でなく投資で伸ばす
+   *
+   * @param {any} target 障壁を受け取る側
+   * @param {number} amount 素の量
+   * @param {any} [source] 張る側。省略すると target 自身（自分に湧く障壁）
+   * @returns {number} 実際に足した量
+   */
+  function grantShield(target, amount, source) {
+    const from = source || target;
+    const power = (from.passives && from.passives.barrierPower) || 0;
+    const gain = Math.max(1, Math.floor(amount * (1 + power)));
+    target.shield = (target.shield || 0) + gain;
+    return gain;
+  }
+
+  /**
    * ウェーブがクリアされたか判定し、報酬を蓄積して次へ進める。
    * @param {any} battle
    * @returns {boolean} クリア判定が走ったら true
@@ -3718,7 +3744,7 @@
     skillReady, startCooldown,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
-    threatOf, pickTarget, THREAT_MIN, THREAT_MAX,
+    threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield,
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage, checkWaveCleared, shapePool,

@@ -1113,7 +1113,7 @@
         'status_resist_kind', 'vs_status_power', 'status_on_hit_kind',
         'element_crit', 'tag_crit', 'tag_pierce',
         'def_to_atk', 'atk_to_def',
-        'buff_duration', 'buff_on_kill', 'shield_regen',
+        'buff_duration', 'buff_on_kill', 'shield_regen', 'barrier_power',
         'repeat_power', 'variety_power', 'high_power_boost', 'high_power_cap',
         // 防御で耐える道 (§5.8)
         'hp_to_def',
@@ -4057,6 +4057,92 @@
         if (second) {
           assertTrue('オート: 効果中の同じバフは張り直さない', second.skillId !== first.skillId,
             `1回目 ${firstSkill.name} → 2回目 ${RPG.data.skills[second.skillId].name}`);
+        }
+      }
+
+      // --- 障壁の厚み (§9.1) ---
+      //
+      // 障壁は火力に一切つながらず、純粋に耐久にしか効かない。だから素の値では
+      // 終盤で選ぶ意味が無い（実測: 1手の火力 653,104 に対し4人ぶんの障壁 231,768）。
+      // **技側の倍率を上げるのでなく、積んだ人にだけ厚くなる**形にしてある。
+      //
+      // 障壁を配る口は5つある（技・開幕の備え・毎ラウンドの張り直し・
+      // あふれた回復・バフ付与）。**同じ式を5か所に書くと、6つ目で必ず漏れる。**
+      // だから battle.js の grantShield に集めてある。
+      {
+        const mk = (/** @type {number} */ power) => {
+          const u = RPG.units.buildCharacterUnit(
+            { id: 'ch_lg_irma', level: 100, limitBreak: 0, tree: {},
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          u.passives.barrierPower = power;
+          u.shield = 0;
+          return u;
+        };
+
+        const plain = mk(0);
+        const thick = mk(3.40);
+        RPG.battle.grantShield(plain, 1000);
+        RPG.battle.grantShield(thick, 1000);
+        assertTrue('§9.1 厚みが障壁の量に効く',
+          plain.shield === 1000 && thick.shield === 4400,
+          `${plain.shield} / ${thick.shield}`);
+
+        // 張る側の値で決まること。受け手の値だと、硬い者ほど硬くなって
+        // 守る役を用意する意味が薄れる。
+        {
+          const caster = mk(3.40);
+          const target = mk(0);
+          target.shield = 0;
+          RPG.battle.grantShield(target, 1000, caster);
+          assertTrue('§9.1 厚みは張る側の値で決まる', target.shield === 4400,
+            String(target.shield));
+        }
+
+        // 技も同じ口を通ること。**プラグインが自前で掛けると二重になる。**
+        {
+          const actor = mk(3.40);
+          const target = mk(0);
+          target.shield = 0;
+          const def = RPG.data.skills.sk_lg_immovable;
+          const raw = Math.max(1, Math.floor(actor.maxHp * def.params.ratio));
+          RPG.plugins.barrier.execute({
+            actor, targets: [target], allies: () => [target],
+            params: def.params, skill: def, log: () => {},
+          });
+          assertTrue('§9.1 技の障壁も grantShield を通る（二重に掛からない）',
+            target.shield === Math.max(1, Math.floor(raw * 4.40)),
+            `${target.shield} / 期待 ${Math.max(1, Math.floor(raw * 4.40))}`);
+        }
+
+        // 積み切りで素の 45% が約 200% になること。
+        // **ここがずれたら、狙っていた「投資すれば主軸になる」が崩れている。**
+        {
+          const nodes = [];
+          for (const n of RPG.data.skillTree || []) {
+            for (const e of n.effects || []) {
+              if (e.kind === 'barrier_power') nodes.push(e.value * (n.maxLevel || 1));
+            }
+          }
+          for (const cls of Object.keys(RPG.data.classes)) {
+            for (const n of RPG.data.classes[cls].nodes || []) {
+              for (const e of n.effects || []) {
+                if (e.kind === 'barrier_power') nodes.push(e.value * (n.maxLevel || 1));
+              }
+            }
+          }
+          const total = nodes.reduce((a, b) => a + b, 0);
+          const pct = Math.round(45 * (1 + total));
+          assertTrue('§9.1 積み切ると 45% が約 200% になる',
+            pct >= 180 && pct <= 220, `${pct}%（barrier_power 合計 ${total.toFixed(2)}）`);
+        }
+
+        // オートの見積もりも厚みを読むこと。
+        // **効かせる側と見積もる側がずれると静かに死ぬ。** 実際に踏んだ——
+        // 積み切った盾役でも一度も張らなかった。
+        {
+          const src = String(RPG.autoplay.chooseAction);
+          assertTrue('§9.1 オートの見積もりが厚みを読んでいる',
+            src.indexOf('barrierPower') >= 0, '');
         }
       }
 
@@ -9262,6 +9348,8 @@
           selfBuffPower: (r) => r.unit.passives.selfBuffPower,
           allyBuffPower: (r) => r.unit.passives.allyBuffPower,
           capBreak: (r) => r.attacker.capBreak,
+          // 障壁の厚み (§9.1)。passives 行きなので、値がユニットまで届くかをここで見る。
+          barrierPower: (r) => r.unit.passives.barrierPower,
         };
 
         const dead = [];
