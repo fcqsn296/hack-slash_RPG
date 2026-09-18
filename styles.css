@@ -1694,6 +1694,52 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .farm-buttons { display: flex; flex-wrap: wrap; gap: 5px; }
 .farm-buttons .btn { padding: 4px 12px; font-size: 12px; }
 
+/* 異相の選択 (§22)。
+ *
+ * 幅を決め打ちにしない。相の名は2〜6文字で幅が揃わないので、
+ * 固定幅のグリッドにすると短い名の内側が空く。 */
+.aspect-choices { display: flex; flex-wrap: wrap; gap: 5px; }
+.aspect-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.aspect-chip:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text); }
+/* 選んでいるものは色でなく**塗りつぶし**で区別する。
+ * 相ごとに固有色があるので、色を選択の合図にも使うと
+ * 「この相は青い」と「選んでいる」が区別できなくなる。 */
+.aspect-chip.is-on {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  font-weight: 700;
+}
+.aspect-chip-name { white-space: nowrap; }
+/* 上乗せの数字は金色で出す。相の固有色に合わせると
+ * 「その相の色」と混じって、得なのか損なのかが読めなくなる。 */
+.aspect-chip-gain { color: var(--gold); font-size: 11px; font-weight: 700; }
+.aspect-gain { margin: 0; font-size: 11px; color: var(--gold); font-weight: 600; }
+.aspect-detail {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0 7px 7px 0;
+  background: rgba(0, 0, 0, 0.24);
+  text-align: left;
+}
+.aspect-effect { font-size: 12px; }
+.aspect-desc { margin: 0; font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+.aspect-flavor { margin: 0; font-size: 11px; color: var(--text-dim); font-style: italic; opacity: 0.8; }
+.stage-meta .is-aspect { color: var(--gold); }
+
 .farm-result {
   display: grid;
   gap: 8px;
@@ -2429,6 +2475,7 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .battle-field { font-size: 15px; font-weight: 700; }
 .battle-wave { color: var(--gold); }
 .battle-round { color: var(--text-dim); }
+.battle-aspect { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
 .battle-top .btn { margin-left: auto; }
 /* 操作の引き出し (§15)。広い画面では畳まず、見出しにそのまま並べる。
  *
@@ -2440,6 +2487,7 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .battle-drawer-handle, .battle-scrim { display: none; }
 .battle-field { order: 1; }
 .battle-wave { order: 2; }
+.battle-aspect { order: 2; }
 .battle-round { order: 3; }
 .battle-toggles { order: 4; }
 .battle-drawer .btn { order: 5; }

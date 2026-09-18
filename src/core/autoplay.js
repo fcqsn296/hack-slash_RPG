@@ -113,6 +113,9 @@
         // 有利属性の技は見た目ほど通らない。見積にも同じ条件を渡さないと、
         // オートは「有利だから重い」と誤って読み、より通る等倍の技を取りこぼす。
         elementNull: !!(battle && RPG.battle.elementNulled(battle, target)),
+        // 異相「○○を拒む相」(§22)。上とまったく同じ理由で、
+        // 見積にも渡さないと否定されている属性の技を「有利だから重い」と誤読する。
+        denyElement: (battle && battle.aspect && battle.aspect.effects.denyElement) || null,
       },
     });
     // 起爆 (§5.8) は、たまっている弱体ぶんが本体で、

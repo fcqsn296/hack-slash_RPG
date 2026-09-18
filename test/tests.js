@@ -1700,6 +1700,213 @@
           assertTrue('§21 解放の依頼が実在する', missing.length === 0, missing.join(', '));
         }
 
+        /* ===== 異相 (§22) ===== */
+
+        {
+          const ids = Object.keys(RPG.data.aspects);
+          assertTrue('§22 異相が定義されている', ids.length >= 4, String(ids.length));
+
+          // 出撃前に読めない相は「組み直す」という目的を果たせない。
+          // 入ってから知る形になると、1周無駄にしてから組み直すだけになる。
+          const noText = ids.filter((id) => {
+            const a = RPG.data.aspects[id];
+            return !a.name || !a.effect || !a.desc || !(a.fields || []).length;
+          });
+          assertTrue('§22 どの相も名・一行説明・説明・場所を持っている',
+            noText.length === 0, noText.join(', '));
+
+          // 存在しないフィールドを指すと、**その相は永久に選べない**。
+          // forField が何も返さないだけなので、画面は壊れずに成立する。
+          const badField = [];
+          ids.forEach((id) => (RPG.data.aspects[id].fields || []).forEach((fid) => {
+            if (!RPG.data.fields[fid]) badField.push(id + '→' + fid);
+          }));
+          assertTrue('§22 相が指すフィールドは実在する', badField.length === 0, badField.join(', '));
+
+          // アイコンは CSS のマスクなので、**無ければ 404 して黙って消える**。
+          // アルカナで実際に `stat-spd` という無い名を書いていた。
+          const iconNames = ids.map((id) => RPG.data.aspects[id].icon).filter(Boolean);
+          assertTrue('§22 相にアイコン名がある', iconNames.length === ids.length, '');
+
+          // 異相の効果は battle.js / damage.js が読むけれど、
+          // 読む側に無いキーを書いても**データ上は正しく見える**。
+          // 実装されている効果名を一覚えで固定しておく。
+          const KNOWN = ['denyElement', 'enemyFirst', 'allHit', 'targetRule'];
+          const unknown = [];
+          ids.forEach((id) => Object.keys(RPG.data.aspects[id].effects || {}).forEach((k) => {
+            if (KNOWN.indexOf(k) < 0) unknown.push(id + '.' + k);
+          }));
+          assertTrue('§22 相の効果名が実装と一致している', unknown.length === 0, unknown.join(', '));
+
+          // 一行説明に書いた倍率と enemyScale がされていないこと。
+          // 倍率を測り直して変えたとき、説明を直し忘れる。
+          // 依頼書の説明で実際に起きたのと同じ罠。
+          const scaleGap = [];
+          ids.forEach((id) => {
+            const a = RPG.data.aspects[id];
+            const mult = a.enemyScale && a.enemyScale.atk;
+            const said = /(\d+)倍/.exec(a.effect || '');
+            if (mult && mult > 1 && (!said || Number(said[1]) !== mult)) {
+              scaleGap.push(id + ': 実は×' + mult + ' / 説明は' + (said ? said[0] : '無記'));
+            }
+            if (!mult && said && /攻撃力/.test(a.effect)) {
+              scaleGap.push(id + ': 説明に倍率を書いているが enemyScale が無い');
+            }
+          });
+          assertTrue('§22 相の説明と倍率が一致している', scaleGap.length === 0, scaleGap.join(' / '));
+        }
+
+        // ── 解放の門 ──
+        // **無い関数を見たときの既定を「通す」にして事故を起こした。**
+        // `RPG.codex.seen` は存在しないのに `if (!RPG.codex.seen) return true` で
+        // 飲んでいたため、解放条件が常に真だった。
+        {
+          const fid = 'fl_abyss';
+          const boss = RPG.data.fields[fid].boss;
+          const before = RPG.codex.enemyEntry(boss).killed;
+          assertTrue('§22 ボスを倒す前は相を選べない',
+            before > 0 || RPG.aspect.unlocked(fid) === false, 'killed=' + before);
+
+          // 「出撃したか」では銀きにならない。負けても visits は進む。
+          assertTrue('§22 解放は出撃回数でなくボスの撃破で見ている',
+            String(RPG.aspect.unlocked).indexOf('killed') >= 0, '');
+        }
+
+        // ── 狙い方の相が本当に固定しているか ──
+        //
+        // ∅ 一度、戦闘ループを回さずにログを読んで
+        // 「狙い方が効いていない」と誤判定した。
+        // ここでは pickTarget を直接叩いて、抗弁の余地を消す。
+        {
+          const mk = (hp, red) => ({
+            alive: true, hp, maxHp: hp, baseReduction: red,
+            passives: {}, buffs: [], stats: { def: 0 },
+          });
+          const soft = mk(1000, 0);
+          const hard = mk(5000, 0.5);
+          const units = [soft, hard];
+          const withRule = (rule) => ({ aspect: { effects: { targetRule: rule } } });
+
+          let ok = true;
+          for (let i = 0; i < 30; i++) if (RPG.battle.pickTarget(units, withRule('weakest')) !== soft) ok = false;
+          assertTrue('§22 弱きを選ぶ相: 常に脆い方を指す', ok, '');
+
+          ok = true;
+          for (let i = 0; i < 30; i++) if (RPG.battle.pickTarget(units, withRule('toughest')) !== hard) ok = false;
+          assertTrue('§22 硬きを試す相: 常に硬い方を指す', ok, '');
+
+          // 相が無ければ従来どおりの抽選に戻ること。
+          // ここが固定されたままだと、**相を選んでいない周回が変わる**。
+          const seen = {};
+          RPG.rng.seed(4242);
+          for (let i = 0; i < 200; i++) {
+            const t = RPG.battle.pickTarget(units, { aspect: null });
+            seen[t === soft ? 'soft' : 'hard'] = 1;
+          }
+          RPG.rng.seed(null);
+          assertTrue('§22 相が無ければ抽選に戻る',
+            !!seen.soft && !!seen.hard, Object.keys(seen).join(','));
+        }
+
+        // ── 選ばなければ何も変わらないこと ──
+        //
+        // 相は「同じ場所を別の戦いにする」だけのもので、
+        // 周回のしやすさを変えないのが前提（依頼書 §8）。
+        {
+          const mkBattle = (aspectId) => {
+            RPG.rng.seed(777);
+            const b = RPG.battle.start({
+              fieldId: 'fl_plain', waves: 1, bossFinale: false,
+              party: [RPG.units.buildCharacterUnit(
+                { id: 'ch_hero', level: 30, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, [])],
+              aspectId,
+            });
+            RPG.rng.seed(null);
+            return b;
+          };
+          const plain = mkBattle(null);
+          assertTrue('§22 相を選ばなければ battle.aspect は空', plain.aspect === null, '');
+          assertTrue('§22 相を選ばなければ報酬の倍率は 1',
+            RPG.aspect.rewardMult(null) === 1 && RPG.aspect.boxMult(null) === 1, '');
+          // fl_plain には相を置いていない。序盤に置くと
+          // 「属性を選ぶ」を学ぶ前に否定することになる。
+          assertTrue('§22 序盤の狩場には相が無い',
+            RPG.aspect.forField('fl_plain').length === 0, '');
+        }
+
+        // ── 報酬の上乗せ (§22) ──
+        //
+        // **当初「報酬は変えない」で作っていたが、これは設計の誤りだった。**
+        // 依頼書 §8 の誺理を当てれば、難しくて実入りが同じ選択肢は
+        // 選ばれないだけで、置いてあることに意味がなくなる。
+        {
+          const ids = Object.keys(RPG.data.aspects);
+
+          // 上乗せの無い相を足すと、**その相だけ誰も選ばない**。
+          // 画面は壊れずに成立するので、気付くのは遙くなる。
+          const flat = ids.filter((id) => !(RPG.data.aspects[id].rewardMult > 1));
+          assertTrue('§22 どの相にも報酬の上乗せがある', flat.length === 0, flat.join(', '));
+
+          // 宝箱の倍率はゴールドと同率。
+          // 一度半分にしていたが、実測で 1ラウンドあたりの宝箱が
+          // 硬きを試す相で 0.99 倍（つまり増えていない）になっていた。
+          const gap = ids.filter((id) =>
+            Math.abs(RPG.aspect.boxMult(id) - RPG.aspect.rewardMult(id)) > 1e-9);
+          assertTrue('§22 宝箱の上乗せはゴールドと同率', gap.length === 0, gap.join(', '));
+
+          // 上限を置く。ここが高すぎると素の周回が不合理になり、
+          // 「相を選ばないと損」という形で**フィールド全体が難化する**。
+          // それは依頼書 §8 が否定していることそのもの。
+          const tooHigh = ids.filter((id) => RPG.aspect.rewardMult(id) > 2.0);
+          assertTrue('§22 報酬の上乗せが 2倍を超えない', tooHigh.length === 0, tooHigh.join(', '));
+
+          // 上乗せは勝ちのラウンド比から逆算している。**平均のラウンドを使わないこと**——
+          // 負けた回は速く全滅するので、平均に混ぜると周回のラウンドを過小に見る。
+          // 実際に一度間違えて、あまねく相を 1.65（正しくは 2.00）にした。
+          //
+          // 逆算の土台になった比を実装の側に固定しておく。ここがずれたら
+          // 倍率も測り直す合図になる。
+          const RATIO = { as_deny_dark: 1.00, as_deny_light: 1.00, as_first_strike: 1.01,
+            as_cull_weak: 1.00, as_omnipresent: 1.55, as_test_tank: 1.59 };
+          const off = ids.filter((id) => {
+            const want = 1.30 * (RATIO[id] || 1);
+            const got = RPG.aspect.rewardMult(id);
+            // 0.05 刻みへの丸めぶんは許す
+            return Math.abs(got - want) > 0.08;
+          });
+          assertTrue('§22 上乗せが実測のラウンド比と噛み合っている', off.length === 0,
+            off.map((id) => `${id}: 期待 ${(1.30*RATIO[id]).toFixed(2)} / 実 ${RPG.aspect.rewardMult(id)}`).join(', '));
+
+          // 実際に報酬まで届くこと。
+          // **データに書いても、読む側が無ければ黙って無効になる。**
+          const goldOf = (aspectId) => {
+            RPG.rng.seed(31337);
+            const b = RPG.battle.start({
+              fieldId: 'fl_abyss', waves: 1, bossFinale: false,
+              party: [RPG.units.buildCharacterUnit(
+                { id: 'ch_hero', level: 255, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, [])],
+              aspectId,
+            });
+            // 敵を全部落としてウェーブを終える。
+            // 報酬の累算は checkWaveCleared にしかないので、
+            // damage.calc を叩いてもここは測れない。
+            b.enemies.forEach((e) => { e.hp = 0; e.alive = false; });
+            RPG.battle.checkWaveCleared(b);
+            RPG.rng.seed(null);
+            return b.rewards.gold;
+          };
+          const plainGold = goldOf(null);
+          const tankGold = goldOf('as_test_tank');
+          assertTrue('§22 報酬の倍率が実際のゴールドまで届く',
+            tankGold > plainGold,
+            `素 ${plainGold.toLocaleString()} → 相 ${tankGold.toLocaleString()}`);
+          // 倍率とだいたい一致すること（床関数の分だけずれる）。
+          const want = RPG.aspect.rewardMult('as_test_tank');
+          const got = tankGold / plainGold;
+          assertTrue('§22 報酬の倍率がデータの値と一致する',
+            Math.abs(got - want) < 0.02, `期待 ${want} / 実測 ${got.toFixed(3)}`);
+        }
+
         // ── 難度を決める基準ビルドが機能していること ──
         //
         // BUILDS の雛形は実プレイの15%しか火力が無い（Lv255 で ATK 4,074 対 27,434）。
