@@ -142,6 +142,36 @@
    *   gain     … 撃ったあとに積む段（積み型。条件を満たさなくても積む）
    *   cool     … 消費1段につき、味方全員のクールタイムをこのラウンド数ぶん進める
    *   act      … 使ったあと、もう一度行動できる（再行動の上限に掛かる）
+   *   tiers    … 段数の刻みごとに、別の効果が**積み重なって**足される
+   *
+   * ── tiers（段の刻み）を足した理由 (§5.10) ──
+   * ここまでの型は、段をいくつ払っても**効き方が一本調子**だった。
+   * per が線形に伸びるだけなので、3段でも12段でも読む値は同じ種類で、
+   * 「何段まで溜めてから撃つか」に質の違いが無い。
+   *
+   * 刻みを置くと、段が**通過するたびに別の行が増える**。
+   *   3段 … 威力 +60%
+   *   6段 … 味方全員のクールタイムを2ラウンド進める
+   *  10段 … もう一度行動できる
+   * 10段で撃てば3行とも乗る。溜める判断が「どの行まで届かせるか」になる。
+   *
+   * **積み重ねであって、置き換えではない。** 上の段だけが効く形にすると、
+   * 途中の刻みが飾りになり、結局いちばん上を狙うだけの一本道に戻る。
+   *
+   * 書き方（data/skills.js）:
+   *   combo: { spendAll: true, tiers: [
+   *     { at: 3,  per: 0.20 },
+   *     { at: 6,  cool: 2 },
+   *     { at: 10, act: true },
+   *   ] }
+   *
+   * `at` は消費した段（消費型）か、持っている段（前提型・積み型）で判定する。
+   * 閾値の緩み（combo_threshold）は `needs` にしか効かない——
+   * ここまで緩めると、刻みを置いた意味が消えるため。
+   *
+   * @知見: 段の刻みは積み重ねにする。上の段だけ効く形だと途中の刻みが飾りになる
+   * @知見: spendAll の技には needs を最初の刻みに揃える。無いと段を捨てて撃てる
+   * @知見: autoplay はコンボを一切読まない。段の技は手動で遊ぶ軸
    *
    * ── cool / act を足した理由 (§5.10) ──
    * それまで段の出口は **威力倍率しか無かった**（実際、段を使う技5本は全部が攻撃技）。
@@ -160,7 +190,8 @@
    * @returns {{blocked: boolean, needs: number, spent: number, scale: number, gain: number}}
    */
   function resolveCombo(battle, actor, skill) {
-    const none = { blocked: false, needs: 0, spent: 0, scale: 1, gain: 0, cool: 0, act: false };
+    const none = { blocked: false, needs: 0, spent: 0, scale: 1, gain: 0, cool: 0,
+      act: false, lines: [], shield: 0 };
     const c = skill && skill.params && skill.params.combo;
     if (!c || actor.side !== 'party') return none;
 
@@ -187,10 +218,37 @@
 
     // 威力以外の出口。**消費した段の数に応じて**効く。
     // 段を払わない技（前提型・積み型）では 0 になり、何も起きない。
+    let extraScale = 1;
+    let cool = c.cool ? spent * c.cool : 0;
+    let act = !!c.act;
+    /** @type {string[]} 画面に出す「レシート」の行 */
+    const lines = [];
+
+    // 段の刻み。**通過した刻みは全部積み重なる。**
+    // 上の段だけが効く形にすると、途中の刻みが飾りになって
+    // 結局いちばん上を狙うだけの一本道に戻る。
+    for (const t of c.tiers || []) {
+      if (read < (t.at || 0)) continue;
+      const parts = [];
+      if (t.per) {
+        // 刻みの上乗せも consumeSpendPower で伸びる。本体の per と揃えておかないと、
+        // 「投資すると本体だけ伸びて刻みは据え置き」というちぐはぐな形になる。
+        const add = t.per * (1 + (p.comboSpendPower || 0));
+        extraScale *= 1 + add;
+        parts.push(`威力 +${Math.round(add * 100)}%`);
+      }
+      if (t.cool) { cool += t.cool; parts.push(`刻を ${t.cool} 戻す`); }
+      if (t.act) { act = true; parts.push('もう一度動ける'); }
+      if (t.shield) { parts.push(`障壁 ${Math.round(t.shield * 100)}%`); }
+      if (parts.length) lines.push(`${t.at}段 … ${parts.join(' / ')}`);
+    }
+
     return {
-      blocked: false, needs, spent, scale, gain: c.gain || 0,
-      cool: c.cool ? spent * c.cool : 0,
-      act: !!c.act,
+      blocked: false, needs, spent, scale: scale * extraScale, gain: c.gain || 0,
+      cool, act, lines,
+      // 障壁は量が張る側のステータスで決まるので、battle.js 側で組み立てる
+      shield: (c.tiers || []).reduce((/** @type {number} */ acc, /** @type {any} */ t) =>
+        (read >= (t.at || 0) && t.shield ? acc + t.shield : acc), 0),
     };
   }
 
@@ -3030,6 +3088,27 @@
         type: 'combo', count: battle.combo.count, power: comboPower(battle, actor),
       });
     }
+    // ── 段の刻みを「レシート」として出す (§5.10) ──
+    //
+    // **どの行まで届いたかが読めないと、溜める判断ができない。**
+    // 倍率だけを見せても「3段でも12段でも同じ種類の効き」に見えてしまい、
+    // 刻みを置いた意味が画面に出ない。1行ずつ並べる。
+    if (cb.lines && cb.lines.length) {
+      pushLog(battle, `── ${skill.name} ──`, 'buff');
+      for (const line of cb.lines) pushLog(battle, `  ${line}`, 'sub');
+    }
+
+    // 刻みで張る障壁。量は張る側のステータスで決まるので、ここで組み立てる
+    // （barrier と同じ規則。受け手の値にすると硬い者ほど硬くなる）。
+    if (cb.shield > 0) {
+      const base = Math.max(1, Math.floor(actor.maxHp * cb.shield));
+      for (const u of battle.party) {
+        if (!u.alive) continue;
+        const gain = grantShield(u, base, actor);
+        pushLog(battle, `${u.name} に ${gain.toLocaleString()} の障壁`, 'buff');
+      }
+    }
+
     // 読み取った倍率は powerScale へ流す。ダメージ計算そのものは触らない。
     if (cb.scale !== 1) ctx.comboScale = cb.scale;
 

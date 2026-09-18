@@ -4060,6 +4060,87 @@
         }
       }
 
+      // --- 段の刻み（レシート型）(§5.10) ---
+      //
+      // ここまでの段の技は、いくつ払っても**効き方が一本調子**だった。
+      // per が線形に伸びるだけなので、3段でも12段でも読む値は同じ種類で、
+      // 「何段まで溜めてから撃つか」に質の違いが無い。
+      //
+      // 刻みは**積み重ね**であって置き換えではない。上の段だけが効く形にすると、
+      // 途中の刻みが飾りになり、結局いちばん上を狙うだけの一本道に戻る。
+      {
+        const ledger = RPG.data.skills.sk_combo_ledger;
+        assertTrue('§5.10 刻みを持つ技がある',
+          !!ledger && !!(ledger.params.combo.tiers || []).length, '');
+
+        // 刻みは昇順に書くこと。降順や飛び飛びでも動くが、
+        // **説明文と画面の並びが宣言順に従う**ので、読んで分からなくなる。
+        const tiers = ledger.params.combo.tiers;
+        const sorted = tiers.every((/** @type {any} */ t, /** @type {number} */ i) =>
+          i === 0 || t.at > tiers[i - 1].at);
+        assertTrue('§5.10 刻みは昇順に並んでいる', sorted,
+          tiers.map((/** @type {any} */ t) => t.at).join(', '));
+
+        // 下限が最初の刻みに揃っていること。
+        // **無いと、1段で撃って段を捨てられる**（spendAll なので払うだけ払って
+        // 1行も出ない）。実際にそうなっていた。
+        assertTrue('§5.10 下限が最初の刻みに揃っている',
+          ledger.params.combo.needs === tiers[0].at,
+          `needs ${ledger.params.combo.needs} / 最初の刻み ${tiers[0].at}`);
+
+        const party = () => ['ch_hero', 'ch_noa'].map((id, k) => {
+          const u = RPG.units.buildCharacterUnit(
+            { id, level: 120, limitBreak: 0, tree: {},
+              equipped: { weapon: [], armor: [], accessory: [] } }, []);
+          u.skills = u.skills.concat(['sk_combo_ledger']);
+          u.side = 'party'; u.key = 'p' + k;
+          return u;
+        });
+
+        const fire = (/** @type {number} */ stacks) => {
+          RPG.rng.seed(4242);
+          const b = RPG.battle.start({
+            fieldId: 'fl_abyss', waves: 5, bossFinale: false, party: party(),
+          });
+          b.combo.count = stacks;
+          const actor = RPG.battle.currentActor(b);
+          const at = b.log.length;
+          const extraBefore = actor.extraActions || 0;
+          RPG.battle.commandSkill(b, 'sk_combo_ledger', []);
+          RPG.rng.seed(null);
+          const text = b.log.slice(at).map((/** @type {any} */ l) => l.text || l);
+          return {
+            left: b.combo.count,
+            lines: text.filter((/** @type {string} */ t) => /段 …/.test(t)).length,
+            extra: (actor.extraActions || 0) - extraBefore,
+            shield: b.party[1].shield || 0,
+            blocked: text.some((/** @type {string} */ t) => /段が足りず/.test(t)),
+          };
+        };
+
+        const one = fire(1);
+        assertTrue('§5.10 下限に届かなければ不発で、段も減らない',
+          one.blocked && one.left === 1 && one.lines === 0,
+          `残り ${one.left} 段 / 行 ${one.lines}`);
+
+        const two = fire(2);
+        const ten = fire(10);
+        assertTrue('§5.10 段が増えるほど行が増える',
+          two.lines === 1 && ten.lines === tiers.length,
+          `2段 ${two.lines}行 / 10段 ${ten.lines}行`);
+
+        // **積み重なっていること。** 上の段だけが効く形なら、
+        // 障壁は 12% のままか 18% に置き換わるかのどちらかになる。
+        assertTrue('§5.10 刻みは置き換えでなく積み重なる',
+          ten.shield > two.shield * 2,
+          `2段 ${two.shield.toLocaleString()} → 10段 ${ten.shield.toLocaleString()}`);
+
+        // いちばん上の行まで実際に効くこと。
+        // 画面に出ていても効いていない、という形で静かに死ぬのが一番まずい。
+        assertTrue('§5.10 いちばん上の刻みが実際に効く', ten.extra === 1,
+          `追加行動 ${ten.extra}`);
+      }
+
       // --- 障壁の厚み (§9.1) ---
       //
       // 障壁は火力に一切つながらず、純粋に耐久にしか効かない。だから素の値では
