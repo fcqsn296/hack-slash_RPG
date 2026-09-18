@@ -50,6 +50,16 @@
   let lastAutoSold = null;
   /** @type {string|null} */
   let selectedField = null;
+  /**
+   * 選んでいる異相 (§22)。
+   *
+   * **セーブに持たせていない。** 相は「今回の出撃だけ別の戦いにする」
+   * ものだから、選んだまま次の回へ持ち越すと、
+   * 「いつの間にか難しい側を周回していた」が起きる。
+   * フィールドを選び直したら毎回素に戻る。
+   * @type {string|null}
+   */
+  let selectedAspect = null;
   /** 演出が終わって結果をめくってよいか (§6.7) */
   let pullRevealed = true;
   /** @type {any[]} 直近のガチャ結果 */
@@ -747,6 +757,10 @@
                   h('span', { text: '推奨 ' }, h('b', { text: 'Lv' + here.rec_level })),
                   h('span', { text: '敵 ' }, h('b', { text: enemyLvLabel(here) })),
                   h('span', { text: save.lastSortie.waves + '戦' }),
+                  (() => {
+                    const a = RPG.aspect.summary(save.lastSortie.aspectId);
+                    return a ? h('span.is-aspect', { text: a.name }) : null;
+                  })(),
                   (() => { const g = gapWarn(here); return g ? h('span.is-gap', { text: g.text }) : null; })(),
                 ]
               : [h('span', { text: 'まだ出撃していない。下から場所を選ぶ。' })]
@@ -755,7 +769,8 @@
         here
           ? W.button('同じ場所へ再出撃', () => {
               if (party.length === 0) { RPG.app.toast('パーティが空です'); return; }
-              RPG.app.startBattle(save.lastSortie.fieldId, save.lastSortie.waves, save.lastSortie.bossFinale);
+              RPG.app.startBattle(save.lastSortie.fieldId, save.lastSortie.waves,
+                save.lastSortie.bossFinale, save.lastSortie.aspectId || null);
             }, { variant: 'primary' })
           : null
       ),
@@ -807,7 +822,11 @@
         const selected = selectedField === id;
         return h('button.field-card' + (selected ? '.is-selected' : ''), {
           style: { background: fieldWash(f, 0.5) },
-          onClick: () => { selectedField = selected ? null : id; render(root); },
+          onClick: () => {
+            selectedField = selected ? null : id;
+            selectedAspect = null;   // 選び直したら相は素に戻る
+            render(root);
+          },
         },
           h('div.field-head',
             h('span.field-name', { text: f.name }),
@@ -821,11 +840,12 @@
             // gold_mult は内部の調整つまみなので出さない。代わりに狙える宝箱を見せる。
             h('span', { text: '最上位: ' + bestBoxOf(f).name })
           ),
+          selected ? aspectRow(root, id) : null,
           selected ? h('div.wave-row', RPG.data.waveModes.map((m) =>
             W.button(m.label, (e) => {
               e.stopPropagation();
               if (party.length === 0) { RPG.app.toast('パーティが空です'); return; }
-              RPG.app.startBattle(id, m.waves, m.bossFinale);
+              RPG.app.startBattle(id, m.waves, m.bossFinale, selectedAspect);
             }, { variant: 'primary', sub: m.note })
           )) : null,
           selected ? dispatchRow(root, id) : null
@@ -935,6 +955,64 @@
       showFarFields ? '遠い狩場を畳む' : `遠い狩場も見る（あと ${total - shown} か所）`,
       () => { showFarFields = !showFarFields; render(root); },
       { variant: 'ghost' }
+    );
+  }
+
+  /**
+   * 異相の選択列 (§22)。
+   *
+   * ── なぜ「素で挑む」が先頭なのか ──
+   * 相は周回を重くするものではない。一覧の先頭に相を置くと
+   * 「選ばないと損」と読めるので、**素が既定**であることを
+   * 画面の形でも言っておく。
+   *
+   * ── なぜ効果を全部出しておくのか ──
+   * 相は「組み直す」ためのものなので、**出撃前に読めなければ
+   * 組み直しようがない**。入ってから知る形にすると、
+   * 1周無駄にしてから組み直すだけになる。
+   *
+   * @param {HTMLElement} root
+   * @param {string} fieldId
+   */
+  function aspectRow(root, fieldId) {
+    const list = RPG.aspect.forField(fieldId);
+    if (list.length === 0) return null;
+
+    // 素の状態で一度抜けていないと選べない。
+    // 抜ける前に選べると「難しいほうから入って詰む」入口になる。
+    if (!RPG.aspect.unlocked(fieldId)) {
+      return h('div.farm-row',
+        h('span.farm-label', { text: '異相' }),
+        h('p.hint.hint-sm', { text: 'まずここを素の状態で一度抜けると、相を選べるようになります。' })
+      );
+    }
+
+    const chosen = selectedAspect ? RPG.aspect.summary(selectedAspect) : null;
+    return h('div.farm-row.aspect-row',
+      h('span.farm-label', { text: '異相（同じ場所を別の戦いにする）' }),
+      h('div.aspect-choices',
+        h('button.aspect-chip' + (selectedAspect ? '' : '.is-on'), {
+          onClick: (e) => { e.stopPropagation(); selectedAspect = null; render(root); },
+        }, h('span.aspect-chip-name', { text: '素で挑む' })),
+        list.map((a) => h('button.aspect-chip' + (selectedAspect === a.id ? '.is-on' : ''), {
+          style: { borderColor: a.color },
+          onClick: (e) => {
+            e.stopPropagation();
+            selectedAspect = selectedAspect === a.id ? null : a.id;
+            render(root);
+          },
+        },
+          W.icon(a.icon, { size: '16px', color: a.color }),
+          h('span.aspect-chip-name', { text: a.name })
+        ))
+      ),
+      chosen
+        ? h('div.aspect-detail', { style: { borderColor: chosen.color } },
+            h('b.aspect-effect', { text: chosen.effect }),
+            h('p.aspect-desc', { text: chosen.desc }),
+            h('p.aspect-flavor', { text: chosen.flavor })
+          )
+        : h('p.hint.hint-sm', { text: '選ばなければ従来どおりです。報酬は変わりません。' })
     );
   }
 

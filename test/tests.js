@@ -1700,6 +1700,139 @@
           assertTrue('§21 解放の依頼が実在する', missing.length === 0, missing.join(', '));
         }
 
+        /* ===== 異相 (§22) ===== */
+
+        {
+          const ids = Object.keys(RPG.data.aspects);
+          assertTrue('§22 異相が定義されている', ids.length >= 4, String(ids.length));
+
+          // 出撃前に読めない相は「組み直す」という目的を果たせない。
+          // 入ってから知る形になると、1周無駄にしてから組み直すだけになる。
+          const noText = ids.filter((id) => {
+            const a = RPG.data.aspects[id];
+            return !a.name || !a.effect || !a.desc || !(a.fields || []).length;
+          });
+          assertTrue('§22 どの相も名・一行説明・説明・場所を持っている',
+            noText.length === 0, noText.join(', '));
+
+          // 存在しないフィールドを指すと、**その相は永久に選べない**。
+          // forField が何も返さないだけなので、画面は壊れずに成立する。
+          const badField = [];
+          ids.forEach((id) => (RPG.data.aspects[id].fields || []).forEach((fid) => {
+            if (!RPG.data.fields[fid]) badField.push(id + '→' + fid);
+          }));
+          assertTrue('§22 相が指すフィールドは実在する', badField.length === 0, badField.join(', '));
+
+          // アイコンは CSS のマスクなので、**無ければ 404 して黙って消える**。
+          // アルカナで実際に `stat-spd` という無い名を書いていた。
+          const iconNames = ids.map((id) => RPG.data.aspects[id].icon).filter(Boolean);
+          assertTrue('§22 相にアイコン名がある', iconNames.length === ids.length, '');
+
+          // 異相の効果は battle.js / damage.js が読むけれど、
+          // 読む側に無いキーを書いても**データ上は正しく見える**。
+          // 実装されている効果名を一覚えで固定しておく。
+          const KNOWN = ['denyElement', 'enemyFirst', 'allHit', 'targetRule'];
+          const unknown = [];
+          ids.forEach((id) => Object.keys(RPG.data.aspects[id].effects || {}).forEach((k) => {
+            if (KNOWN.indexOf(k) < 0) unknown.push(id + '.' + k);
+          }));
+          assertTrue('§22 相の効果名が実装と一致している', unknown.length === 0, unknown.join(', '));
+
+          // 一行説明に書いた倍率と enemyScale がされていないこと。
+          // 倍率を測り直して変えたとき、説明を直し忘れる。
+          // 依頼書の説明で実際に起きたのと同じ罠。
+          const scaleGap = [];
+          ids.forEach((id) => {
+            const a = RPG.data.aspects[id];
+            const mult = a.enemyScale && a.enemyScale.atk;
+            const said = /(\d+)倍/.exec(a.effect || '');
+            if (mult && mult > 1 && (!said || Number(said[1]) !== mult)) {
+              scaleGap.push(id + ': 実は×' + mult + ' / 説明は' + (said ? said[0] : '無記'));
+            }
+            if (!mult && said && /攻撃力/.test(a.effect)) {
+              scaleGap.push(id + ': 説明に倍率を書いているが enemyScale が無い');
+            }
+          });
+          assertTrue('§22 相の説明と倍率が一致している', scaleGap.length === 0, scaleGap.join(' / '));
+        }
+
+        // ── 解放の門 ──
+        // **無い関数を見たときの既定を「通す」にして事故を起こした。**
+        // `RPG.codex.seen` は存在しないのに `if (!RPG.codex.seen) return true` で
+        // 飲んでいたため、解放条件が常に真だった。
+        {
+          const fid = 'fl_abyss';
+          const boss = RPG.data.fields[fid].boss;
+          const before = RPG.codex.enemyEntry(boss).killed;
+          assertTrue('§22 ボスを倒す前は相を選べない',
+            before > 0 || RPG.aspect.unlocked(fid) === false, 'killed=' + before);
+
+          // 「出撃したか」では銀きにならない。負けても visits は進む。
+          assertTrue('§22 解放は出撃回数でなくボスの撃破で見ている',
+            String(RPG.aspect.unlocked).indexOf('killed') >= 0, '');
+        }
+
+        // ── 狙い方の相が本当に固定しているか ──
+        //
+        // ∅ 一度、戦闘ループを回さずにログを読んで
+        // 「狙い方が効いていない」と誤判定した。
+        // ここでは pickTarget を直接叩いて、抗弁の余地を消す。
+        {
+          const mk = (hp, red) => ({
+            alive: true, hp, maxHp: hp, baseReduction: red,
+            passives: {}, buffs: [], stats: { def: 0 },
+          });
+          const soft = mk(1000, 0);
+          const hard = mk(5000, 0.5);
+          const units = [soft, hard];
+          const withRule = (rule) => ({ aspect: { effects: { targetRule: rule } } });
+
+          let ok = true;
+          for (let i = 0; i < 30; i++) if (RPG.battle.pickTarget(units, withRule('weakest')) !== soft) ok = false;
+          assertTrue('§22 弱きを選ぶ相: 常に脆い方を指す', ok, '');
+
+          ok = true;
+          for (let i = 0; i < 30; i++) if (RPG.battle.pickTarget(units, withRule('toughest')) !== hard) ok = false;
+          assertTrue('§22 硬きを試す相: 常に硬い方を指す', ok, '');
+
+          // 相が無ければ従来どおりの抽選に戻ること。
+          // ここが固定されたままだと、**相を選んでいない周回が変わる**。
+          const seen = {};
+          RPG.rng.seed(4242);
+          for (let i = 0; i < 200; i++) {
+            const t = RPG.battle.pickTarget(units, { aspect: null });
+            seen[t === soft ? 'soft' : 'hard'] = 1;
+          }
+          RPG.rng.seed(null);
+          assertTrue('§22 相が無ければ抽選に戻る',
+            !!seen.soft && !!seen.hard, Object.keys(seen).join(','));
+        }
+
+        // ── 負担も報酬も変えないこと ──
+        //
+        // 相は「同じ場所を別の戦いにする」だけのもので、
+        // 周回のしやすさを変えないのが前提（依頼書 §8）。
+        // 選んでいないときに何か変わったら、その前提が崩れている。
+        {
+          const mkBattle = (aspectId) => {
+            RPG.rng.seed(777);
+            const b = RPG.battle.start({
+              fieldId: 'fl_plain', waves: 1, bossFinale: false,
+              party: [RPG.units.buildCharacterUnit(
+                { id: 'ch_hero', level: 30, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, [])],
+              aspectId,
+            });
+            RPG.rng.seed(null);
+            return b;
+          };
+          const plain = mkBattle(null);
+          assertTrue('§22 相を選ばなければ battle.aspect は空', plain.aspect === null, '');
+          // fl_plain には相を置いていない。序盤に置くと
+          // 「属性を選ぶ」を学ぶ前に否定することになる。
+          assertTrue('§22 序盤の狩場には相が無い',
+            RPG.aspect.forField('fl_plain').length === 0, '');
+        }
+
         // ── 難度を決める基準ビルドが機能していること ──
         //
         // BUILDS の雛形は実プレイの15%しか火力が無い（Lv255 で ATK 4,074 対 27,434）。

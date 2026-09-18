@@ -329,6 +329,15 @@
               text: battle.arena ? battle.arena.def.name
                 : (battle.quest ? battle.quest.name : f.name),
             }),
+            // 異相 (§22) は見出しに出す。
+            // 選んで入ったのに画面が素のときと同じだと、
+            // 「本当に相がかかっているのか」が確かめられない。
+            battle.aspect
+              ? h('span.battle-aspect', { style: { color: battle.aspect.def.color } },
+                  W.icon(battle.aspect.def.icon, { size: '14px' }),
+                  h('span', { text: battle.aspect.def.name })
+                )
+              : null,
             battle.arena
               ? h('span.battle-wave', { text: battle.arena.def.title })
               : h('span.battle-wave', { text: `ウェーブ ${battle.wave} / ${battle.totalWaves}` }),
@@ -767,7 +776,12 @@
   function renderCommands() {
     if (battle.finished) {
       stopAuto();
-      const sortie = { fieldId: battle.fieldId, waves: battle.totalWaves, bossFinale: battle.bossFinale };
+      const sortie = {
+        fieldId: battle.fieldId, waves: battle.totalWaves, bossFinale: battle.bossFinale,
+        // 相を選んで入ったなら「もう一度」も同じ相で。
+        // 落とすと、掼しただけで黙って素に戻る。
+        aspectId: (battle.aspect && battle.aspect.id) || null,
+      };
       // 拠点で実際に入る額と同じものをここで見せる（手動ボーナス込み）
       const pay = RPG.economy.payout(battle, { partySize: battle.party.length });
       const questDone = battle.questId && battle.victory && !battle.ruleBroken;
@@ -823,8 +837,9 @@
             : W.button('もう一度', () => {
                 // 報酬を受け取ってから、同じ場所へそのまま出撃し直す
                 RPG.app.finishBattle(battle, { silent: true });
-                RPG.app.startBattle(sortie.fieldId, sortie.waves, sortie.bossFinale);
-              }, { variant: 'primary', sub: `${battle.field.name} ${sortie.waves}戦` }),
+                RPG.app.startBattle(sortie.fieldId, sortie.waves, sortie.bossFinale, sortie.aspectId);
+              }, { variant: 'primary', sub: `${battle.field.name} ${sortie.waves}戦`
+                + (battle.aspect ? ` / ${battle.aspect.def.name}` : '') }),
           // 名前は実際の行き先に合わせる。
           // マップから来た戦闘なのに「拠点へ戻る」と書いてあり、
           // 押すとマップへ戻るので、どちらが正しいのか読めなかった。

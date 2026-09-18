@@ -523,12 +523,16 @@
    * @param {string} fieldId
    * @param {number} waves
    * @param {boolean} [bossFinale] 最終ウェーブをボスにするか (§10.1)
+   * @param {string | null} [aspectId] 異相 (§22)。選んでいなければ従来どおり
    */
-  function startBattle(fieldId, waves, bossFinale) {
+  function startBattle(fieldId, waves, bossFinale, aspectId) {
     const party = RPG.state.partyUnits();
-    currentBattle = RPG.battle.start({ fieldId, waves, party, bossFinale });
+    // 相は出撃ごとに選ぶ。**保存するのはここだけ**で、
+    // フィールド側に持たせない。持たせると「選んだまま周回していた」が
+    // 起きるので、周回のしやすさを変えないという前提が崩れる。
+    currentBattle = RPG.battle.start({ fieldId, waves, party, bossFinale, aspectId: aspectId || null });
     RPG.state.get().stats.battles++;
-    RPG.state.rememberSortie({ fieldId, waves, bossFinale: bossFinale !== false });
+    RPG.state.rememberSortie({ fieldId, waves, bossFinale: bossFinale !== false, aspectId: aspectId || null });
     RPG.state.persist();
 
     showOnly('screen-battle');

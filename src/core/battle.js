@@ -1134,10 +1134,17 @@
     }
     const rules = (quest && quest.rules) || {};
 
+    // 異相 (§22)。既存フィールドへ条件を重ねる。
+    // **難度を上げる装置ではない**（依頼書 §8 が難度を上げる道を否定している）。
+    // 要求するのは強さではなく組み替えなので、選ばなければ従来どおりの周回になる。
+    const aspect = RPG.aspect ? RPG.aspect.resolve(config.aspectId) : null;
+
     /** @type {any} */
     const battle = {
       field,
       fieldId: config.fieldId,
+      // 相。選んでいなければ null。damage.js へは calc の options 経由で渡る。
+      aspect,
       totalWaves: config.waves,
       // 最終ウェーブをボスにするか (§10.1)。未指定なら従来どおりボスを出す。
       bossFinale: config.bossFinale !== false,
@@ -1181,7 +1188,10 @@
       //
       // フィールドを物語用に複製すると敵とボスを二重に持つので、
       // レベルと同じく**倍率も借りる側が指定できる**ようにした。
-      enemyScale: (config.enemyScale || (quest && quest.enemyScale)) || 1,
+      // 異相も倍率を持てる (§22)。優先順は 直接指定 > 依頼 > 異相。
+      // 測定用に直接渡した値を相が上書きしないよう、相をいちばん後ろに置く。
+      enemyScale: (config.enemyScale || (quest && quest.enemyScale)
+        || (aspect && aspect.def.enemyScale)) || 1,
       // 借りたフィールドの払い出しを縮める。省略すれば等倍。
       rewardScale: config.rewardScale || null,
       // 縛りを破ったときの理由。勝っても達成にならない。
@@ -1223,9 +1233,18 @@
     // 演出でDOMと対応づけるための識別子。パーティは戦闘中ずっと固定。
     battle.party.forEach((/** @type {any} */ u, /** @type {number} */ i) => { u.key = 'p' + i; });
 
+    // 異相を選んでいるなら、開幕に何が掛かっているかを必ず出す (§22)。
+    // **見えない縛りは事故に見える。** 闇が通らないことを知らずに闇で殴り、
+    // 「数字がおかしい」と読まれるのが一番まずい。
+    if (aspect) {
+      pushLog(battle, `── ${aspect.def.name} ──`, 'wave');
+      pushLog(battle, aspect.def.effect, 'debuff');
+    }
+
     // 1ラウンド目の号令 (§5.10)。round++ のときだけにしていたら、
     // 1ラウンドで終わる戦闘では一度も出なかった。
     roundStartBuffs(battle);
+
 
     // 「吊るされた男」の負債 (§21) も1ラウンド目から積む。
     //
@@ -1255,6 +1274,43 @@
     }
 
     nextWave(battle);
+
+    // 異相「先を取る相」(§22)。**敵が先に動く。**
+    //
+    // ── なぜHPを盛るより良いのか ──
+    // 終盤は素の与ダメージが敵のHPの9倍に達していて（実測 413,952 対 44,400）、
+    // 属性や軽減をいじる否定は**過剰殺傷に丸ごと吸われる**。
+    // 一方「先に殴られる」ことは、どれだけ火力があっても避けられない。
+    // 依頼書 §8 の「敵は8戦822発のあいだ一度も行動できていない」を崩す。
+    //
+    // ── nextWave の後でなければならない ──
+    // **最初ここを roundStartBuffs の隣に置いて、敵が出る前に殴らせていた。**
+    // battle.enemies が空なので何も起きず、ログだけが「先を取られた」と出た。
+    // 実測でも HP残が相なしと同一（96% 対 96%）で、気付くのに測定1回を使った。
+    //
+    // ── 開幕に1度だけにしている ──
+    // 毎ラウンド先手を渡すと、手数の少ない編成が一方的に削られ続ける。
+    // 開幕の1手だけなら「立ち上がりをどう受けるか」を問う形に収まる。
+    //
+    // runEnemyPhase ではなく enemiesAct を呼ぶ。前者は endOfRound まで走るので、
+    // 戦闘が始まる前に1ラウンド経過してしまう。
+    if (aspect && aspect.effects.enemyFirst) {
+      pushLog(battle, '先を取られた', 'debuff');
+      enemiesAct(battle);
+      // 開幕の一撃で落ちることがある。勝敗の判定を飛ばさない。
+      if (livingParty(battle).length === 0) {
+        battle.finished = true;
+        battle.victory = false;
+        battle.phase = 'result';
+        pushLog(battle, 'パーティは全滅した…', 'defeat');
+        pushEvent(battle, { type: 'wave', text: 'DEFEAT', result: true, lost: true });
+        return battle;
+      }
+      battle.actorIndex = 0;
+      battle.phase = 'command';
+      skipDeadActors(battle);
+    }
+
     return battle;
   }
 
@@ -1719,7 +1775,43 @@
    * 全員が既定値なら、今までどおりの一様ランダムと同じ結果になる。
    * @param {any[]} units
    */
-  function pickTarget(units) {
+  /**
+   * 異相の「狙い方」(§22)。規則があれば抽選ではなく名指しで選ぶ。
+   *
+   * ── なぜ数値ではなく狙い方をいじるのか ──
+   * 敵の攻撃力を上げる形は、**パーティの強さではなく人数に対して効く**。
+   * 実測で単体攻撃を2倍にしても4人編成は HP残 92% で無風、
+   * 一方2人編成は勝率40%まで落ちた。同じ相が人数で別物になる。
+   *
+   * 狙い方を変えるなら、問われるのは数の多さではなく **編成の中身** になる。
+   *   weakest  … 最も脆い者を狙い続ける → 庇う役を入れているかを問う
+   *   toughest … 最も硬い者だけを狙う   → タンクの耐久そのものを問う
+   *
+   * @知見: 狙い方の固定は「人数でなく編成の中身」を問える唯一の手（実測: 庇う役なし 70% / あり 100%）
+   * @知見: 狙い方だけでは何も起きない。先制と倍率を3倍以上重ねて初めて分岐する
+   *
+   * 「脆さ」は残HPの割合ではなく **実効耐久**（残HP ÷ 被ダメの通り具合）で見る。
+   * 残HPだけで見ると、軽減を積んだ硬い役が「HPが減っている」だけで
+   * 狙われ続け、軽減への投資が裏目に出る。
+   *
+   * @param {any} battle @param {any[]} units
+   */
+  function pickByRule(battle, units) {
+    const rule = battle.aspect && battle.aspect.effects.targetRule;
+    if (!rule || units.length <= 1) return null;
+    const endurance = (u) => {
+      const taken = Math.max(0.05, 1 - RPG.units.totalReduction(u));
+      return u.hp / taken;
+    };
+    const sorted = units.slice().sort((a2, b2) => endurance(a2) - endurance(b2));
+    if (rule === 'weakest') return sorted[0];
+    if (rule === 'toughest') return sorted[sorted.length - 1];
+    return null;
+  }
+
+  function pickTarget(units, battle) {
+    const ruled = battle ? pickByRule(battle, units) : null;
+    if (ruled) return ruled;
     if (units.length <= 1) return units[0] || null;
     let total = 0;
     const weights = units.map((u) => { const w = threatOf(u); total += w; return w; });
@@ -1892,6 +1984,9 @@
         // 適応・極意・貫通といった属性で解く道を丸ごと塞ぐのが狙いなので、
         // 攻撃側の補正が乗るより前に damage.js 側で潰す必要がある。
         elementNull: elementNulled(battle, defender),
+        // 異相「○○を拒む相」(§22)。フィールド全体に掛かるので、
+        // 闘技場のように相手が本体かどうかを見る必要はない。
+        denyElement: (battle.aspect && battle.aspect.effects.denyElement) || null,
         // 大技だけを底上げする (§5.8)。小技側とは排他で、同じ技には両方乗らない。
         highPowerBoost: isHighPower(skill)
           ? ((attacker.situational && attacker.situational.highPowerBoost) || 0) : 0,
@@ -3224,7 +3319,21 @@
    */
   function runEnemyPhase(battle) {
     battle.phase = 'enemy';
+    enemiesAct(battle);
+    endOfRound(battle);
+  }
 
+  /**
+   * 敵が殴るところだけ。**ラウンドの後始末は含まない。**
+   *
+   * runEnemyPhase から切り出したのは、異相「先を取る相」(§22) が
+   * 開幕に敵の1手だけを走らせたいため。runEnemyPhase をそのまま呼ぶと
+   * round++ と endOfRound まで走ってしまい、戦闘が1ラウンド進んでしまう。
+   *
+   * **純粋な抽出で、中の処理は1行も変えていない。**
+   * @param {any} battle
+   */
+  function enemiesAct(battle) {
     for (const enemy of battle.enemies) {
       if (!enemy.alive) continue;
       const alive = livingParty(battle);
@@ -3256,14 +3365,22 @@
         const skillId = RPG.rng.pick(enemy.skills);
         const skill = RPG.data.skills[skillId];
         const kind = targetKind(skill);
+        // 異相「あまねく相」(§22)。敵の攻撃が味方全員へ届く。
+        //
+        // ── なぜ人数への吸収を崩せるのか ──
+        // 単体攻撃だと、4人編成は1発を4人で分け合える（HPの総量が4倍あり、
+        // さらに庇うで回せる）。実測で敵の攻撃力を2倍にしても
+        // HP残 96% → 92% しか動かなかった。
+        // 全員が殴られるなら、1人あたりの負担は人数に関係なく同じになる。
+        // **だから人数を変えても手触りが変わらない**、という性質を持つ。
         const targets = kind === 'ally'
           ? [RPG.rng.pick(livingEnemies(battle))]
-          : [pickTarget(stillAlive)];
+          : ((battle.aspect && battle.aspect.effects.allHit)
+            ? stillAlive.slice()
+            : [pickTarget(stillAlive, battle)]);
         executeSkill(battle, enemy, skillId, targets);
       }
     }
-
-    endOfRound(battle);
   }
 
   /**
