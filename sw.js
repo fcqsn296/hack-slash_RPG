@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v165';
+const CACHE_VERSION = 'v166';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -99,6 +99,7 @@ const PRECACHE = [
   './src/plugins/heal.js',
   './src/plugins/hp_cost.js',
   './src/plugins/lifesteal_hit.js',
+  './src/plugins/guard_strike.js',
   './src/plugins/mark.js',
   './src/plugins/mass_extra.js',
   './src/plugins/mass_revive.js',
