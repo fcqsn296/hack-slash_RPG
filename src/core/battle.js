@@ -1137,7 +1137,10 @@
     // 異相 (§22)。既存フィールドへ条件を重ねる。
     // **難度を上げる装置ではない**（依頼書 §8 が難度を上げる道を否定している）。
     // 要求するのは強さではなく組み替えなので、選ばなければ従来どおりの周回になる。
-    const aspect = RPG.aspect ? RPG.aspect.resolve(config.aspectId) : null;
+    // 相は重なる (§22)。config.aspectIds が新しい口で、
+    // config.aspectId は 1 つだけ渡す旧い形（呼び出し側を一気に直さないため残す）。
+    const aspect = RPG.aspect
+      ? RPG.aspect.resolve(config.aspectIds || config.aspectId) : null;
 
     /** @type {any} */
     const battle = {
@@ -1190,8 +1193,11 @@
       // レベルと同じく**倍率も借りる側が指定できる**ようにした。
       // 異相も倍率を持てる (§22)。優先順は 直接指定 > 依頼 > 異相。
       // 測定用に直接渡した値を相が上書きしないよう、相をいちばん後ろに置く。
+      // 相が重なったときの倍率は aspect.enemyScale に畳まっている。
+      // **aspect.def.enemyScale を読まないこと**——重なった def は
+      // 見た目の包みなので、倒率を持っていない。
       enemyScale: (config.enemyScale || (quest && quest.enemyScale)
-        || (aspect && aspect.def.enemyScale)) || 1,
+        || (aspect && aspect.enemyScale)) || 1,
       // 借りたフィールドの払い出しを縮める。省略すれば等倍。
       rewardScale: config.rewardScale || null,
       // 縛りを破ったときの理由。勝っても達成にならない。
@@ -1237,8 +1243,13 @@
     // **見えない縛りは事故に見える。** 闇が通らないことを知らずに闇で殴り、
     // 「数字がおかしい」と読まれるのが一番まずい。
     if (aspect) {
-      pushLog(battle, `── ${aspect.def.name} ──`, 'wave');
-      pushLog(battle, aspect.def.effect, 'debuff');
+      // 重なっているときは**1つずつ列挙する**。
+      // 畳んだ名前（「闇を拒む相＋硬きを試す相」）を一行で出すと、
+      // どの説明がどの相のものか読めなくなる。
+      for (const d of aspect.defs) {
+        pushLog(battle, `── ${d.name} ──`, 'wave');
+        pushLog(battle, d.effect, 'debuff');
+      }
     }
 
     // 1ラウンド目の号令 (§5.10)。round++ のときだけにしていたら、
@@ -3638,7 +3649,7 @@
       // そのフィールドの素の周回も動く。
       //
       // @知見: 難しくて実入りが同じ選択肢は選ばれない。相には報酬の上乗せが要る
-      const am = RPG.aspect ? RPG.aspect.rewardMult(battle.aspect && battle.aspect.id) : 1;
+      const am = RPG.aspect ? RPG.aspect.rewardMult(battle.aspect && battle.aspect.ids) : 1;
       battle.rewards.gold += Math.floor(enemy.gold * battle.field.gold_mult * rw * am);
       battle.rewards.exp += Math.floor(
         enemy.exp * (battle.field.exp_mult == null ? 1 : battle.field.exp_mult) * rw * am);
@@ -3649,7 +3660,7 @@
       // **同じ敵を共有しているフィールドがある** ため。敵を動かすと両方が動く。
       // 宝箱の上乗せはゴールドの半分。宝箱は装備になり、
       // 強さになり、次の周回を速くするので賫う。
-      const aBox = RPG.aspect ? RPG.aspect.boxMult(battle.aspect && battle.aspect.id) : 1;
+      const aBox = RPG.aspect ? RPG.aspect.boxMult(battle.aspect && battle.aspect.ids) : 1;
       const boxMult = (battle.field.box_mult == null ? 1 : battle.field.box_mult) * aBox;
       for (const drop of enemy.drops) {
         // 1回ぶんを超えたところは確定として数え、端数だけを抽選に回す。

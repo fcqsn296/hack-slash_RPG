@@ -1834,16 +1834,53 @@
             RPG.aspect.forField('fl_plain').length === 0, '');
         }
 
+        // ── 軸 (§22)。1軸につき1つだけ ──
+        //
+        // **ここを分けないと二重取りが起きる。**
+        // 最初はあまねく・弱きを選ぶ・硬きを試すの3つが enemyFirst を
+        // 内蔵していたため、「先を取る相」を足しても何も起きないのに
+        // 報酬だけ +30% 乗った。
+        {
+          const ids = Object.keys(RPG.data.aspects);
+          const axes = RPG.aspect.AXES.map((a) => a.id);
+          const bad = ids.filter((id) => axes.indexOf(RPG.data.aspects[id].axis) < 0);
+          assertTrue('§22 どの相も既知の軸に属している', bad.length === 0, bad.join(', '));
+
+          // 同じ軸を二つ渡したら、後のものだけが残ること。
+          const two = RPG.aspect.pickOnePerAxis(['as_deny_dark', 'as_deny_light']);
+          assertTrue('§22 属性の否定は排他（1属性だけ）',
+            two.length === 1 && two[0] === 'as_deny_light', two.join(', '));
+
+          const aim = RPG.aspect.pickOnePerAxis(['as_cull_weak', 'as_test_tank', 'as_omnipresent']);
+          assertTrue('§22 狙い方も排他', aim.length === 1, aim.join(', '));
+
+          // 軸が違えば重なること。
+          const mix = RPG.aspect.pickOnePerAxis(['as_deny_dark', 'as_first_strike', 'as_test_tank']);
+          assertTrue('§22 軸が違えば 3つ重なる', mix.length === 3, mix.join(', '));
+
+          // 重なったときも effects はひとつに見えること。
+          // 読む側（battle.js / damage.js）を変えないすみ。
+          const r = RPG.aspect.resolve(mix);
+          assertTrue('§22 重なっても effects は1つに畳まる',
+            r.effects.denyElement === 'dark' && r.effects.enemyFirst === true
+              && r.effects.targetRule === 'toughest', JSON.stringify(r.effects));
+
+          // 敵の倍率も加算で畳むこと。**掛け算にしない**——
+          // ×2 と ×5 を掛けて ×10 にすると、1.2R で全滅する
+          // 一撃死の二択になると実測で分かっている。
+          assertTrue('§22 敵の倍率は加算で畳まる',
+            r.enemyScale && Math.abs(r.enemyScale.atk - 5) < 1e-9,
+            JSON.stringify(r.enemyScale));
+        }
+
         // ── 報酬の上乗せ (§22) ──
         //
         // **当初「報酬は変えない」で作っていたが、これは設計の誤りだった。**
-        // 依頼書 §8 の誺理を当てれば、難しくて実入りが同じ選択肢は
+        // 依頼書 §8 の論理を当てれば、難しくて実入りが同じ選択肢は
         // 選ばれないだけで、置いてあることに意味がなくなる。
         {
           const ids = Object.keys(RPG.data.aspects);
 
-          // 上乗せの無い相を足すと、**その相だけ誰も選ばない**。
-          // 画面は壊れずに成立するので、気付くのは遙くなる。
           const flat = ids.filter((id) => !(RPG.data.aspects[id].rewardMult > 1));
           assertTrue('§22 どの相にも報酬の上乗せがある', flat.length === 0, flat.join(', '));
 
@@ -1854,57 +1891,101 @@
             Math.abs(RPG.aspect.boxMult(id) - RPG.aspect.rewardMult(id)) > 1e-9);
           assertTrue('§22 宝箱の上乗せはゴールドと同率', gap.length === 0, gap.join(', '));
 
-          // 上限を置く。ここが高すぎると素の周回が不合理になり、
+          // 1つあたりの上限。ここが高すぎると素の周回が不合理になり、
           // 「相を選ばないと損」という形で**フィールド全体が難化する**。
           // それは依頼書 §8 が否定していることそのもの。
-          const tooHigh = ids.filter((id) => RPG.aspect.rewardMult(id) > 2.0);
-          assertTrue('§22 報酬の上乗せが 2倍を超えない', tooHigh.length === 0, tooHigh.join(', '));
+          const tooHigh = ids.filter((id) => RPG.data.aspects[id].rewardMult > 2.0);
+          assertTrue('§22 1つあたりの上乗せが 2倍を超えない', tooHigh.length === 0, tooHigh.join(', '));
 
-          // 上乗せは勝ちのラウンド比から逆算している。**平均のラウンドを使わないこと**——
-          // 負けた回は速く全滅するので、平均に混ぜると周回のラウンドを過小に見る。
-          // 実際に一度間違えて、あまねく相を 1.65（正しくは 2.00）にした。
+          // 重なったときの上限。**掛け算にしない理由がここ。**
+          // 掛け算だと全部乗せで 1.30×1.30×1.95 = 3.30 倍まで伸びて、
+          // 「全部乗せで回せるビルドだけが正解」になる。
+          const worst = RPG.aspect.AXES.map((ax) => {
+            const inAxis = ids.filter((id) => RPG.data.aspects[id].axis === ax.id);
+            return inAxis.slice().sort((a, b) =>
+              RPG.data.aspects[b].rewardMult - RPG.data.aspects[a].rewardMult)[0];
+          }).filter(Boolean);
+          const worstMult = RPG.aspect.rewardMult(worst);
+          assertTrue('§22 全部乗せでも上乗せが 2.5倍を超えない',
+            worstMult <= 2.5, worst.join('+') + ' = ' + worstMult.toFixed(2));
+
+          // 重なったときの式そのもの。
+          //   1 + BASE + Σ(mᵢ - 1 - BASE) + STACK × (n - 1)
           //
-          // 逆算の土台になった比を実装の側に固定しておく。ここがずれたら
-          // 倍率も測り直す合図になる。
-          const RATIO = { as_deny_dark: 1.00, as_deny_light: 1.00, as_first_strike: 1.01,
-            as_cull_weak: 1.00, as_omnipresent: 1.55, as_test_tank: 1.59 };
-          const off = ids.filter((id) => {
-            const want = 1.30 * (RATIO[id] || 1);
-            const got = RPG.aspect.rewardMult(id);
-            // 0.05 刻みへの丸めぶんは許す
-            return Math.abs(got - want) > 0.08;
-          });
-          assertTrue('§22 上乗せが実測のラウンド比と噛み合っている', off.length === 0,
-            off.map((id) => `${id}: 期待 ${(1.30*RATIO[id]).toFixed(2)} / 実 ${RPG.aspect.rewardMult(id)}`).join(', '));
+          // **基本分を相ごとに払わないのが要点。** 一度そうしていて、
+          // 闇と硬きを試すの組で効率 1.50 倍の過払いになった（狙いは 1.30）。
+          {
+            const B = RPG.aspect.BASE_PREMIUM;
+            const S = RPG.aspect.STACK_PREMIUM;
+            const expect = (list) => 1 + B + S * (list.length - 1)
+              + list.reduce((acc, id) =>
+                acc + Math.max(0, RPG.data.aspects[id].rewardMult - 1 - B), 0);
+            const cases = [
+              ['as_test_tank'],
+              ['as_deny_dark', 'as_test_tank'],
+              ['as_deny_dark', 'as_first_strike', 'as_test_tank'],
+              ['as_deny_dark', 'as_first_strike', 'as_cull_weak'],
+            ];
+            const off = cases.filter((c) =>
+              Math.abs(RPG.aspect.rewardMult(c) - expect(c)) > 1e-9);
+            assertTrue('§22 重なった上乗せは基本分を一度だけ払う',
+              off.length === 0, off.map((c) => c.join('+')).join(' / '));
+
+            // 1つのときはデータの値そのままになること。
+            // ここがずれると、単体の校正をやり直しても合わなくなる。
+            const solo = ids.filter((id) =>
+              Math.abs(RPG.aspect.rewardMult(id) - RPG.data.aspects[id].rewardMult) > 1e-9);
+            assertTrue('§22 1つならデータの値そのまま', solo.length === 0, solo.join(', '));
+
+            // 重ねるほど増えること。**一度、重ねても増えない形になっていた。**
+            // 安い相のラウンド対価がゼロだと、重ねても合計が動かない。
+            // 重なると手番は実際に増えている（9.03R → 9.52R）ので、その分を払う。
+            const one = RPG.aspect.rewardMult(['as_deny_dark']);
+            const stack = RPG.aspect.rewardMult(['as_deny_dark', 'as_first_strike']);
+            assertTrue('§22 重ねるほど上乗せが増える', stack > one, one + ' → ' + stack);
+          }
 
           // 実際に報酬まで届くこと。
           // **データに書いても、読む側が無ければ黙って無効になる。**
-          const goldOf = (aspectId) => {
+          const goldOf = (aspectIds) => {
             RPG.rng.seed(31337);
             const b = RPG.battle.start({
               fieldId: 'fl_abyss', waves: 1, bossFinale: false,
               party: [RPG.units.buildCharacterUnit(
                 { id: 'ch_hero', level: 255, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, [])],
-              aspectId,
+              aspectIds,
             });
-            // 敵を全部落としてウェーブを終える。
-            // 報酬の累算は checkWaveCleared にしかないので、
-            // damage.calc を叩いてもここは測れない。
+            // 敵を全部落としてウェーブを終える。報酬の累算は
+            // checkWaveCleared にしかないので、damage.calc を叩いても測れない。
             b.enemies.forEach((e) => { e.hp = 0; e.alive = false; });
             RPG.battle.checkWaveCleared(b);
             RPG.rng.seed(null);
             return b.rewards.gold;
           };
-          const plainGold = goldOf(null);
-          const tankGold = goldOf('as_test_tank');
+          const plainGold = goldOf([]);
+          const soloGold = goldOf(['as_test_tank']);
+          const stackGold = goldOf(['as_deny_dark', 'as_first_strike', 'as_test_tank']);
           assertTrue('§22 報酬の倍率が実際のゴールドまで届く',
-            tankGold > plainGold,
-            `素 ${plainGold.toLocaleString()} → 相 ${tankGold.toLocaleString()}`);
-          // 倍率とだいたい一致すること（床関数の分だけずれる）。
-          const want = RPG.aspect.rewardMult('as_test_tank');
-          const got = tankGold / plainGold;
-          assertTrue('§22 報酬の倍率がデータの値と一致する',
-            Math.abs(got - want) < 0.02, `期待 ${want} / 実測 ${got.toFixed(3)}`);
+            soloGold > plainGold,
+            '素 ' + plainGold.toLocaleString() + ' → 相 ' + soloGold.toLocaleString());
+          assertTrue('§22 重なった分もゴールドまで届く',
+            stackGold > soloGold,
+            '1つ ' + soloGold.toLocaleString() + ' → 3つ ' + stackGold.toLocaleString());
+          const want = RPG.aspect.rewardMult(['as_deny_dark', 'as_first_strike', 'as_test_tank']);
+          const got = stackGold / plainGold;
+          assertTrue('§22 重なった倍率がデータの値と一致する',
+            Math.abs(got - want) < 0.02, '期待 ' + want.toFixed(2) + ' / 実測 ' + got.toFixed(3));
+
+          // 逆算の土台になったラウンド比を実装の側に固定しておく。
+          // **平均のラウンドを使わないこと**——負けた回は速く全滅するので、
+          // 平均に混ぜると周回のラウンドを過小に見る。
+          const RATIO = { as_deny_dark: 1.00, as_deny_light: 1.00, as_first_strike: 1.01,
+            as_cull_weak: 1.00, as_omnipresent: 1.47, as_test_tank: 1.51 };
+          const off2 = ids.filter((id) =>
+            Math.abs(RPG.data.aspects[id].rewardMult - 1.30 * (RATIO[id] || 1)) > 0.08);
+          assertTrue('§22 上乗せが実測のラウンド比と噛み合っている', off2.length === 0,
+            off2.map((id) => id + ': 期待 ' + (1.30 * RATIO[id]).toFixed(2)
+              + ' / 実 ' + RPG.data.aspects[id].rewardMult).join(', '));
         }
 
         // ── 難度を決める基準ビルドが機能していること ──

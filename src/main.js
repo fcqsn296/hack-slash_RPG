@@ -523,16 +523,21 @@
    * @param {string} fieldId
    * @param {number} waves
    * @param {boolean} [bossFinale] 最終ウェーブをボスにするか (§10.1)
-   * @param {string | null} [aspectId] 異相 (§22)。選んでいなければ従来どおり
+   * @param {string[] | null} [aspectIds] 異相 (§22)。1軸につき1つまで重ねられる。
+   *   選んでいなければ従来どおり。
    */
-  function startBattle(fieldId, waves, bossFinale, aspectId) {
+  function startBattle(fieldId, waves, bossFinale, aspectIds) {
     const party = RPG.state.partyUnits();
     // 相は出撃ごとに選ぶ。**保存するのはここだけ**で、
     // フィールド側に持たせない。持たせると「選んだまま周回していた」が
     // 起きるので、周回のしやすさを変えないという前提が崩れる。
-    currentBattle = RPG.battle.start({ fieldId, waves, party, bossFinale, aspectId: aspectId || null });
+    //
+    // 文字列で渡されても受ける。古いセーブの lastSortie.aspectId が
+    // 文字列なので、**そこを酥としたとたんに相が黙って消える**。
+    const ids = !aspectIds ? [] : (Array.isArray(aspectIds) ? aspectIds : [aspectIds]);
+    currentBattle = RPG.battle.start({ fieldId, waves, party, bossFinale, aspectIds: ids });
     RPG.state.get().stats.battles++;
-    RPG.state.rememberSortie({ fieldId, waves, bossFinale: bossFinale !== false, aspectId: aspectId || null });
+    RPG.state.rememberSortie({ fieldId, waves, bossFinale: bossFinale !== false, aspectIds: ids });
     RPG.state.persist();
 
     showOnly('screen-battle');

@@ -780,7 +780,7 @@
         fieldId: battle.fieldId, waves: battle.totalWaves, bossFinale: battle.bossFinale,
         // 相を選んで入ったなら「もう一度」も同じ相で。
         // 落とすと、掼しただけで黙って素に戻る。
-        aspectId: (battle.aspect && battle.aspect.id) || null,
+        aspectIds: (battle.aspect && battle.aspect.ids) || [],
       };
       // 拠点で実際に入る額と同じものをここで見せる（手動ボーナス込み）
       const pay = RPG.economy.payout(battle, { partySize: battle.party.length });
@@ -837,7 +837,7 @@
             : W.button('もう一度', () => {
                 // 報酬を受け取ってから、同じ場所へそのまま出撃し直す
                 RPG.app.finishBattle(battle, { silent: true });
-                RPG.app.startBattle(sortie.fieldId, sortie.waves, sortie.bossFinale, sortie.aspectId);
+                RPG.app.startBattle(sortie.fieldId, sortie.waves, sortie.bossFinale, sortie.aspectIds);
               }, { variant: 'primary', sub: `${battle.field.name} ${sortie.waves}戦`
                 + (battle.aspect ? ` / ${battle.aspect.def.name}` : '') }),
           // 名前は実際の行き先に合わせる。

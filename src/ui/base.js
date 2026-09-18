@@ -51,15 +51,15 @@
   /** @type {string|null} */
   let selectedField = null;
   /**
-   * 選んでいる異相 (§22)。
+   * 選んでいる異相 (§22)。1軸につき1つまで重ねられる。
    *
    * **セーブに持たせていない。** 相は「今回の出撃だけ別の戦いにする」
    * ものだから、選んだまま次の回へ持ち越すと、
    * 「いつの間にか難しい側を周回していた」が起きる。
    * フィールドを選び直したら毎回素に戻る。
-   * @type {string|null}
+   * @type {string[]}
    */
-  let selectedAspect = null;
+  let selectedAspects = [];
   /** 演出が終わって結果をめくってよいか (§6.7) */
   let pullRevealed = true;
   /** @type {any[]} 直近のガチャ結果 */
@@ -758,8 +758,13 @@
                   h('span', { text: '敵 ' }, h('b', { text: enemyLvLabel(here) })),
                   h('span', { text: save.lastSortie.waves + '戦' }),
                   (() => {
-                    const a = RPG.aspect.summary(save.lastSortie.aspectId);
-                    return a ? h('span.is-aspect', { text: a.name }) : null;
+                    // 古いセーブは aspectId（文字列）。両方読む。
+                    const raw = save.lastSortie.aspectIds || save.lastSortie.aspectId;
+                    const ids = !raw ? [] : (Array.isArray(raw) ? raw : [raw]);
+                    if (ids.length === 0) return null;
+                    const names = ids.map((id) => (RPG.aspect.summary(id) || {}).name)
+                      .filter(Boolean).join('＋');
+                    return names ? h('span.is-aspect', { text: names }) : null;
                   })(),
                   (() => { const g = gapWarn(here); return g ? h('span.is-gap', { text: g.text }) : null; })(),
                 ]
@@ -770,7 +775,8 @@
           ? W.button('同じ場所へ再出撃', () => {
               if (party.length === 0) { RPG.app.toast('パーティが空です'); return; }
               RPG.app.startBattle(save.lastSortie.fieldId, save.lastSortie.waves,
-                save.lastSortie.bossFinale, save.lastSortie.aspectId || null);
+                save.lastSortie.bossFinale,
+                save.lastSortie.aspectIds || save.lastSortie.aspectId || null);
             }, { variant: 'primary' })
           : null
       ),
@@ -824,7 +830,7 @@
           style: { background: fieldWash(f, 0.5) },
           onClick: () => {
             selectedField = selected ? null : id;
-            selectedAspect = null;   // 選び直したら相は素に戻る
+            selectedAspects = [];   // 選び直したら相は素に戻る
             render(root);
           },
         },
@@ -845,7 +851,7 @@
             W.button(m.label, (e) => {
               e.stopPropagation();
               if (party.length === 0) { RPG.app.toast('パーティが空です'); return; }
-              RPG.app.startBattle(id, m.waves, m.bossFinale, selectedAspect);
+              RPG.app.startBattle(id, m.waves, m.bossFinale, selectedAspects);
             }, { variant: 'primary', sub: m.note })
           )) : null,
           selected ? dispatchRow(root, id) : null
@@ -987,44 +993,80 @@
       );
     }
 
-    const chosen = selectedAspect ? RPG.aspect.summary(selectedAspect) : null;
+    // このフィールドで選んでいるものだけを数える。
+    // 別のフィールドで選んだ相が残っていると、
+    // **画面に出ていない相の分まで報酬に乗る**。
+    const here = selectedAspects.filter((id) => list.some((a) => a.id === id));
+    const total = RPG.aspect.rewardMult(here);
+
+    const toggle = (id) => (e) => {
+      e.stopPropagation();
+      const d = RPG.aspect.def(id);
+      // 1軸につき1つ。同じ軸のものを押したら入れ替える。
+      selectedAspects = selectedAspects.filter((x) => {
+        if (x === id) return false;
+        const dx = RPG.aspect.def(x);
+        return !(dx && d && dx.axis && dx.axis === d.axis);
+      });
+      if (here.indexOf(id) < 0) selectedAspects.push(id);
+      render(root);
+    };
+
     return h('div.farm-row.aspect-row',
-      h('span.farm-label', { text: '異相（同じ場所を別の戦いにする）' }),
-      h('div.aspect-choices',
-        h('button.aspect-chip' + (selectedAspect ? '' : '.is-on'), {
-          onClick: (e) => { e.stopPropagation(); selectedAspect = null; render(root); },
-        }, h('span.aspect-chip-name', { text: '素で挑む' })),
-        list.map((a) => h('button.aspect-chip' + (selectedAspect === a.id ? '.is-on' : ''), {
-          style: { borderColor: a.color },
-          onClick: (e) => {
-            e.stopPropagation();
-            selectedAspect = selectedAspect === a.id ? null : a.id;
-            render(root);
-          },
-        },
-          W.icon(a.icon, { size: '16px', color: a.color }),
-          h('span.aspect-chip-name', { text: a.name }),
-          // 上乗せは選ぶ前に見えていなければ意味がない。
-          // 入ってから知る形だと、難しい方を選ぶ理由が読めない。
-          h('span.aspect-chip-gain', { text: '+' + Math.round((a.rewardMult - 1) * 100) + '%' })
-        ))
-      ),
-      chosen
-        ? h('div.aspect-detail', { style: { borderColor: chosen.color } },
-            h('b.aspect-effect', { text: chosen.effect }),
-            h('p.aspect-desc', { text: chosen.desc }),
-            // 報酬の上乗せを数字で出す。宝箱とゴールドで倍率が違うので
-            // すべて同率なので1行でよい（別々に測って、同率のほうが噛み合うと分かった）。
-            h('p.aspect-gain', {
-              text: 'ゴールド・経験値・宝箱がすべて +'
-                + Math.round((chosen.rewardMult - 1) * 100) + '%',
-            }),
-            h('p.aspect-flavor', { text: chosen.flavor })
+      h('span.farm-label', { text: '異相（重ねるほど難しく、その分実入りが上がる）' }),
+
+      // 軸ごとに行を分ける。**全部を一列に並べない。**
+      // 並べると「どれとどれが同時に選べないのか」が画面から読めず、
+      // 押したら別のものが消えて不具合に見える。
+      RPG.aspect.AXES.map((ax) => {
+        const inAxis = list.filter((a) => a.axis === ax.id);
+        if (inAxis.length === 0) return null;
+        const on = here.find((id) => (RPG.aspect.def(id) || {}).axis === ax.id);
+        return h('div.aspect-axis',
+          h('span.aspect-axis-label', { text: ax.label }),
+          h('div.aspect-choices',
+            h('button.aspect-chip' + (on ? '' : '.is-on'), {
+              onClick: (e) => {
+                e.stopPropagation();
+                selectedAspects = selectedAspects.filter(
+                  (x) => (RPG.aspect.def(x) || {}).axis !== ax.id);
+                render(root);
+              },
+            }, h('span.aspect-chip-name', { text: 'なし' })),
+            inAxis.map((a) => h('button.aspect-chip' + (on === a.id ? '.is-on' : ''), {
+              style: { borderColor: a.color },
+              onClick: toggle(a.id),
+            },
+              W.icon(a.icon, { size: '16px', color: a.color }),
+              h('span.aspect-chip-name', { text: a.name }),
+              // 上乗せは選ぶ前に見えていなければ意味がない。
+              // 入ってから知る形だと、難しい方を選ぶ理由が読めない。
+              h('span.aspect-chip-gain', { text: '+' + Math.round((a.rewardMult - 1) * 100) + '%' })
+            ))
           )
-        : h('p.hint.hint-sm', {
+        );
+      }),
+
+      // 重なった合計を常に出す。**ここが「どこまで積むか」の監盤。**
+      // 1つずつの数字だけを見ていても、積んだ結果が読めない。
+      here.length === 0
+        ? h('p.hint.hint-sm', {
             text: '選ばなければ従来どおりです。'
-              + '相を選んでから勝てば、その分だけ実入りが上がります。',
+              + '重ねると上乗せは足し算で伸びます。',
           })
+        : h('div.aspect-detail',
+            h('b.aspect-gain-total', {
+              text: '重ねて ' + here.length + 'つ ── ゴールド・経験値・宝箱が +'
+                + Math.round((total - 1) * 100) + '%',
+            }),
+            here.map((id) => {
+              const a = RPG.aspect.summary(id);
+              return h('p.aspect-line', { style: { borderColor: a.color } },
+                h('b', { text: a.name }),
+                h('span', { text: a.effect })
+              );
+            })
+          )
     );
   }
 
