@@ -11719,7 +11719,32 @@
     /** @param {string} name @param {boolean} pass @param {string} detail */
     const check = (name, pass, detail) => results.push({ name, pass, detail });
 
-    fetch('../docs/拡張コンテンツの作り方.md')
+    // ── 連戦は戦闘を飛ばさない (§10.5) ──
+    //
+    // 長期戦をオートで回すと1周ごとにタップが要り、オート回数は最大99なので
+    // **使い切るのに99回押す**ことになっていた。連戦はその間のタップだけを省く。
+    //
+    // **押した瞬間に結果を返す形にはしない。** まとめ周回は一度作って廃止した
+    // ——押すだけで数字が増えるだけになるため。ここを踏み外していないかを、
+    // 実装そのものを読んで見張る（src/ui/ は検証ページに読み込まれていない）。
+    fetch('../src/ui/battle.js')
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
+      .then((text) => {
+        const from = text.indexOf('function scheduleChain');
+        const body = from < 0 ? '' : text.slice(from, from + 2000);
+        check('連戦: 次の周回は startBattle を呼び直す', body.indexOf('startBattle') >= 0, '');
+        check('連戦: 戦闘を飛ばして報酬だけ配る道を持たない',
+          body.indexOf('payout') < 0 && body.indexOf('addGold') < 0 && body.indexOf('addBox') < 0, '');
+        // 負けたまま投げ続けない。オート回数を捨てるだけになる。
+        const stop = text.indexOf('function chainBlockReason');
+        const stopBody = stop < 0 ? '' : text.slice(stop, stop + 1200);
+        check('連戦: 敗北とオート切れで止まる',
+          stopBody.indexOf('battle.victory') >= 0 && stopBody.indexOf('canAuto') >= 0, '');
+      })
+      .catch((err) => check('連戦: 実装を読めた', false, String(err)))
+      // **この連鎖に繋ぐこと。** 別の連鎖にすると、結果の締め（onDone）が
+      // 先に走って、ここの検査結果が画面に出ないまま消える。
+      .then(() => fetch('../docs/拡張コンテンツの作り方.md'))
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
       .then((text) => {
         /** 表の1列目に出てくる `code` を全部拾う */

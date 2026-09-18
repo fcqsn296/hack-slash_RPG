@@ -51,6 +51,21 @@
   /** @type {string|null} */
   let selectedField = null;
   /**
+   * 連戦の回数 (§10.5)。1 なら従来どおり、1周で結果画面で止まる。
+   *
+   * ── なぜ要るのか ──
+   * 長期戦（10連戦）をオートで回すと、1周ごとに結果画面で
+   * 1回タップが要る。オート回数は最大99あるので、
+   * **使い切るのに99回押す**ことになっていた。
+   *
+   * ── 即座に結果を返す形にはしない ──
+   * まとめ周回は一度作って**廃止した**（dispatchRow に理由がある）。
+   * ここで省くのは間のタップだけで、戦闘は1周ずつ実際に流れる。
+   * @type {number|'stamina'}
+   */
+  let repeatRuns = 1;
+
+  /**
    * 選んでいる異相 (§22)。1軸につき1つまで重ねられる。
    *
    * **セーブに持たせていない。** 相は「今回の出撃だけ別の戦いにする」
@@ -847,10 +862,22 @@
             h('span', { text: '最上位: ' + bestBoxOf(f).name })
           ),
           selected ? aspectRow(root, id) : null,
+          selected ? repeatRow(root) : null,
           selected ? h('div.wave-row', RPG.data.waveModes.map((m) =>
             W.button(m.label, (e) => {
               e.stopPropagation();
               if (party.length === 0) { RPG.app.toast('パーティが空です'); return; }
+              // 連戦の指定は**出撃する前に渡す**。
+              // 戦闘が始まってから渡すと、最初の1周が
+              // 連戦に数えられずに残りが1周多くなる。
+              if (repeatRuns !== 1) {
+                RPG.ui.battle.startChain({
+                  left: repeatRuns === 'stamina' ? 0 : repeatRuns - 1,
+                  mode: repeatRuns === 'stamina' ? 'stamina' : 'count',
+                  sortie: { fieldId: id, waves: m.waves, bossFinale: m.bossFinale,
+                    aspectIds: selectedAspects.slice() },
+                });
+              }
               RPG.app.startBattle(id, m.waves, m.bossFinale, selectedAspects);
             }, { variant: 'primary', sub: m.note })
           )) : null,
@@ -961,6 +988,46 @@
       showFarFields ? '遠い狩場を畳む' : `遠い狩場も見る（あと ${total - shown} か所）`,
       () => { showFarFields = !showFarFields; render(root); },
       { variant: 'ghost' }
+    );
+  }
+
+  /**
+   * 連戦の回数を選ぶ列 (§10.5)。
+   *
+   * ── なぜ出撃前に選ばせるのか ──
+   * 結果画面に置くと、**1周目を見てから決める**ことになる。
+   * 長期戦を回す人は最初から回すつもりで入るので、
+   * 出撃の時点で決められるほうが手数が少ない。
+   *
+   * ── オートが切れているときは出さない ──
+   * 連戦はオートを前提にした仕組み。手動で回す人には
+   * そもそもタップが省けないので、出しても混乱するだけになる。
+   * @param {HTMLElement} root
+   */
+  function repeatRow(root) {
+    if (!RPG.state.get().settings.auto) return null;
+    const st = RPG.autolimit.status();
+    /** @type {Array<{v: number|'stamina', label: string}>} */
+    const opts = [
+      { v: 1, label: '1周' },
+      { v: 5, label: '5周' },
+      { v: 10, label: '10周' },
+      { v: 'stamina', label: '尽きるまで' },
+    ];
+    return h('div.farm-row.repeat-row',
+      h('span.farm-label', { text: 'くり返す（オートの連戦）' }),
+      h('div.repeat-choices', opts.map((o) =>
+        h('button.repeat-chip' + (repeatRuns === o.v ? '.is-on' : ''), {
+          onClick: (e) => { e.stopPropagation(); repeatRuns = o.v; render(root); },
+        }, h('span', { text: o.label })))),
+      h('p.hint.hint-sm', {
+        // **何が起きるかを書く。** 「押した瞬間に終わる」と
+        // 思われると、廃止したまとめ周回と同じものに見える。
+        text: repeatRuns === 1
+          ? '1周ごとに結果画面で止まります。'
+          : '戦闘は1周ずつ実際に流れます（結果を見てから次へ）。'
+            + '負けるか、オート回数（残り ' + st.charges + '）が尽きれば止まります。',
+      })
     );
   }
 

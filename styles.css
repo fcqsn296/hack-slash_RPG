@@ -1726,6 +1726,39 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
  * 「その相の色」と混じって、得なのか損なのかが読めなくなる。 */
 .aspect-chip-gain { color: var(--gold); font-size: 11px; font-weight: 700; }
 
+/* 連戦の回数 (§10.5)。相のチップと見た目を揃える——
+ * 同じ「出撃前に決めるもの」なので、別の形にする理由がない。 */
+.repeat-choices { display: flex; flex-wrap: wrap; gap: 5px; }
+.repeat-chip {
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.repeat-chip:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text); }
+.repeat-chip.is-on { background: rgba(255, 255, 255, 0.14); color: var(--text); font-weight: 700; }
+
+/* 連戦中の帯。**結果画面のいちばん上**に置く——
+ * ここで止められることが分からないと、勝手に進む画面になる。 */
+.chain-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--gold);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.chain-panel .chain-count { font-size: 13px; font-weight: 700; color: var(--gold); }
+.chain-panel .chain-left { font-size: 11px; color: var(--text-dim); }
+.chain-panel .btn { margin-left: auto; padding: 3px 12px; font-size: 12px; }
+
 /* 染色 (§9.1)。**元の色 → いまの色 → 残りターン** の順に読ませる。
  * いまの色だけを出すと、落ちたあと何に戻るかが分からない。
  * 2ターンで落ちるので、残りが見えていないと「いつ殴るか」を決められない。 */

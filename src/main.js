@@ -215,6 +215,9 @@
   }
 
   function showBase() {
+    // 拠点へ戻ったら連戦を必ず止める (§10.5)。
+    // **止めないと、拠点に居るのに次の周回が始まる。**
+    if (RPG.ui.battle && RPG.ui.battle.stopChain) RPG.ui.battle.stopChain();
     showOnly('screen-base');
     RPG.ui.base.render($('#screen-base'));
     refreshTopbar();

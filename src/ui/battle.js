@@ -63,6 +63,9 @@
    */
   function mount(container, b) {
     stopAuto();
+    // **連戦のタイマーは mount では消さない。** 次の周回を始めたのが
+    // そのタイマー自身なので、ここで消すと1周で止まる。
+    // 止めるのは stopChain を呼ぶところ（中断・条件切れ・画面を離れるとき）だけ。
     clearEffects();
     root = container;
     battle = b;
@@ -138,6 +141,116 @@
   function stopAuto() {
     clearTimeout(autoTimer);
     autoTimer = 0;
+  }
+
+  /**
+   * 連戦（オート周回のくり返し）(§10.5)。
+   *
+   * ── 何を解いているのか ──
+   * 長期戦（10連戦）をオートで回すと、1周ごとに結果画面で1回タップが要る。
+   * オート回数は最大99あるので、**使い切るのに99回押す**ことになっていた。
+   *
+   * ── 押した瞬間に結果を返す形にはしない ──
+   * まとめ周回は一度作って**廃止した**（dispatchRow のコメントに理由がある）。
+   * ボタン1つで即座に報酬が出ると、押すだけで数字が増えるだけになる。
+   *
+   * ここで省くのは**間のタップだけ**。戦闘そのものは1周ずつ実際に流れる。
+   * 結果画面も毎回出て、そこで少し止まる——止まらないと何が起きたか読めず、
+   * 中断もできない。高速オートなら1周3.6秒なので、待ちは短い。
+   *
+   * @知見: 連戦は間のタップだけを省く。戦闘を飛ばして報酬を配ると廃止したまとめ周回に戻る
+   * @知見: 次の周回は**始める前に**オート残量を見る。始めてから尽きると手動で終わらせるしかなくなる
+   *
+   * @type {{left: number, mode: 'count'|'stamina', done: number, sortie: any}|null}
+   */
+  let chain = null;
+  /** 次の周回を待っているタイマー */
+  let chainTimer = 0;
+
+  /** 結果を読ませてから次へ行くまでの間 */
+  const CHAIN_GAP_FAST = 900;
+  const CHAIN_GAP_NORMAL = 1800;
+
+  /** 連戦を止める。画面を離れるときも必ず通す。 */
+  function stopChain() {
+    if (chainTimer) clearTimeout(chainTimer);
+    chainTimer = 0;
+    chain = null;
+  }
+
+  /**
+   * 連戦を始める。出撃画面から呼ばれる。
+   * @param {{left: number, mode: 'count'|'stamina', sortie: any}} cfg
+   */
+  function startChain(cfg) {
+    stopChain();
+    chain = { left: cfg.left, mode: cfg.mode, done: 0, sortie: cfg.sortie };
+  }
+
+  /**
+   * この結果から次の周回へ進めるか。進めないなら理由を返す。
+   *
+   * **勝ったときだけ続ける。** 負けた編成をそのまま投げ続けても、
+   * オート回数を捨てるだけになる。
+   */
+  function chainBlockReason() {
+    if (!chain) return null;
+    if (!battle.victory) return '敗北したので連戦を止めた';
+    if (battle.ruleBroken) return '条件を満たせなかったので連戦を止めた';
+    if (!settings().auto) return 'オートが切れているので連戦を止めた';
+    // **始める前に残量を見る。** 始めてから尽きると、オートが動かない戦闘に
+    // 放り込まれて手動で終わらせるしかなくなる。
+    if (!RPG.autolimit.canAuto()) return 'オート回数が尽きたので連戦を止めた';
+    if (chain.mode === 'count' && chain.left <= 0) return null;
+    return null;
+  }
+
+  /** 連戦の残りがまだあるか */
+  function chainHasNext() {
+    if (!chain) return false;
+    if (chain.mode === 'stamina') return true;
+    return chain.left > 0;
+  }
+
+  /**
+   * 結果画面から次の周回へ。`renderCommands` が戦闘終了を描くときに呼ぶ。
+   * 進めないときは連戦を畳んで、いつもの結果画面に戻す。
+   */
+  function scheduleChain() {
+    if (!chain || chainTimer) return;
+    const reason = chainBlockReason();
+    if (reason || !chainHasNext()) {
+      if (reason) RPG.app.toast(reason);
+      stopChain();
+      return;
+    }
+    const gap = settings().fast ? CHAIN_GAP_FAST : CHAIN_GAP_NORMAL;
+    chainTimer = setTimeout(() => {
+      chainTimer = 0;
+      if (!chain || !battle || !battle.finished) return;
+      const s = chain.sortie;
+      chain.done++;
+      if (chain.mode === 'count') chain.left--;
+      // 報酬を受け取ってから、同じ場所へそのまま出撃し直す。
+      // mount が stopAuto と scheduleAuto を回すので、次の周回は自動で流れる。
+      const keep = chain;
+      RPG.app.finishBattle(battle, { silent: true });
+      chain = keep;   // finishBattle → startBattle の間で消えないように持ち直す
+      RPG.app.startBattle(s.fieldId, s.waves, s.bossFinale, s.aspectIds);
+    }, gap);
+  }
+
+  /** 連戦中の表示。結果画面の上に出す。 */
+  function chainPanel() {
+    if (!chain) return null;
+    const label = chain.mode === 'stamina'
+      ? `連戦 ${chain.done + 1} 周目（オート回数が尽きるまで）`
+      : `連戦 ${chain.done + 1} / ${chain.done + 1 + chain.left} 周目`;
+    return h('div.chain-panel',
+      h('span.chain-count', { text: label }),
+      h('span.chain-left', { text: `オート残り ${RPG.autolimit.status().charges}` }),
+      W.button('中断', () => { stopChain(); render(); }, { variant: 'ghost' })
+    );
   }
 
   /**
@@ -810,6 +923,8 @@
   function renderCommands() {
     if (battle.finished) {
       stopAuto();
+      // 連戦 (§10.5)。進めないときは中で畳まれて、いつもの結果画面に戻る。
+      scheduleChain();
       const sortie = {
         fieldId: battle.fieldId, waves: battle.totalWaves, bossFinale: battle.bossFinale,
         // 相を選んで入ったなら「もう一度」も同じ相で。
@@ -821,6 +936,7 @@
       const questDone = battle.questId && battle.victory && !battle.ruleBroken;
       const firstClear = questDone && !RPG.quest.isCleared(battle.questId);
       return h('div.result-panel',
+        chainPanel(),
         h('h2', {
           text: battle.stalemate ? '決着せず'
             : (battle.ruleBroken ? '条件失敗' : (battle.victory ? '勝利' : '敗北')),
@@ -1122,5 +1238,5 @@
   }
 
   RPG.ui = RPG.ui || {};
-  RPG.ui.battle = { mount };
+  RPG.ui.battle = { mount, startChain, stopChain };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
