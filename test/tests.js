@@ -1517,6 +1517,37 @@
           both.map((/** @type {number} */ v) => Math.round(v * 100) + '%').join(' / '));
       }
 
+      /* ===== 速度の梯子 (§10.3 / 提案B) ===== */
+      //
+      // 周回はオートで100%なので、組む楽しみが勝敗で測れない
+      // （依頼書 §8）。**勝敗でなく速度で競わせれば、オートのまま張り合いが残る。**
+      {
+        const paced = Object.keys(RPG.data.quests).filter((id) =>
+          (RPG.data.quests[id].rules || {}).maxRounds && !(RPG.data.quests[id].rules || {}).noAuto);
+        assertTrue('§10.3 オートで挑める速度の依頼が複数ある',
+          paced.length >= 3, paced.join(', '));
+
+        // **上げるのは HP だけ。**
+        // enemyScale は ATK にも掛かるので、全能力を上げると
+        // 敵の1発が最大HPの478%になり、一撃死の二択になる
+        // （q_endless_vigil のコメントに実測が残っている）。
+        // そうなると**速度ではなく運を測る**依頼に変わる。
+        const notHpOnly = paced.filter((id) => {
+          const sc = RPG.data.quests[id].enemyScale;
+          if (!sc || typeof sc !== 'object') return false;
+          return Object.keys(sc).some((k) => k !== 'hp');
+        });
+        assertTrue('§10.3 速度の依頼が上げるのは HP だけ',
+          notHpOnly.length === 0, notHpOnly.join(', '));
+
+        // 梯子になっていること。同じ帯に固まっていると、
+        // **進行に沿った軸にならず**、終盤だけの遠い目標になる。
+        const levels = paced.map((id) => (RPG.data.quests[id].unlock || {}).level || 1)
+          .sort((a, b) => a - b);
+        assertTrue('§10.3 速度の依頼が帯をまたいでいる',
+          levels[levels.length - 1] - levels[0] >= 60, levels.join(' / '));
+      }
+
       /* ===== 依頼の説明文と実装の突き合わせ (§10.3) ===== */
       //
       // **実装と食い違う説明は、説明が無いより悪い**（CLAUDE.md §8）。
