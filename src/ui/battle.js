@@ -645,7 +645,13 @@
    */
   function advantageChip(skill, target) {
     if (!skill || !(skill.power > 0)) return null;
-    const m = RPG.damage.elementMultiplier(skill.element, target.element);
+    // **素の属性どうしで見ない。** 技の element をそのまま読むと、
+    // 属性変換を積んだ人と、染まっている相手で表示が実際とずれる。
+    // 染色 (§9.1) を入れたことで、この食い違いが
+    // 「不利と書いてあるのに有利で通った」形で出るようになった。
+    // 計算と同じ口（damage.matchup）を通す。
+    const actor = RPG.battle.currentActor(battle);
+    const m = RPG.damage.matchup(actor || {}, skill, target);
     if (m > 1) return h('span.chip.chip-adv', { text: `有利 ×${m}` });
     if (m < 1) return h('span.chip.chip-dis', { text: `不利 ×${m}` });
     return h('span.chip.chip-even', { text: '等倍' });
@@ -667,7 +673,18 @@
         h('span.lv', { text: 'Lv' + e.level }),
         W.hpBar(e.hp, e.maxHp, null, prevHp[e.key]),
         h('div.chips',
-          W.elementChip(e.element),
+          // 染まっているならその色を出す (§9.1)。
+          //
+          // **素の色のままにすると、盤面から染まりが読めない。**
+          // 染色は2ターンで落ちるので、いま何色で、あと何ターンかが
+          // 見えていないと「いつ殴るか」が決められない。
+          // 元の色も残す——落ちたあと何に戻るかが分かるようにするため。
+          e.dyed
+            ? h('span.dye-mark',
+                h('span.dyed-from', { text: `${RPG.damage.ELEMENT_LABEL[e.element]} →` }),
+                W.elementChip(e.dyed.element),
+                h('span.dyed-turns', { text: `${e.dyed.turns}T` }))
+            : W.elementChip(e.element),
           // 対象を選んでいるあいだだけ相性を出す。
           //
           // 属性のチップは前から出ていたが、**手持ちの技とどちらが有利かは

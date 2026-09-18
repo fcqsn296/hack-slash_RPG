@@ -4151,6 +4151,47 @@
         }
       }
 
+      // --- 相性の表示は計算と同じ口を通す (§9.1) ---
+      //
+      // **画面と計算で別々に決めると、画面が嘘をつく。**
+      // 相性チップは技の element をそのまま読んでいたので、
+      //   ・属性変換を積んだ人  … 実際は火で飛ぶのに、技の色で判定していた
+      //   ・染まっている相手    … 素の色で判定していた
+      // の2つでずれていた。染色 (§9.1) を入れたことで後者が表に出た。
+      {
+        const hero = RPG.units.buildCharacterUnit(
+          { id: 'ch_hero', level: 150, limitBreak: 0, tree: {},
+            equipped: { weapon: [], armor: [], accessory: [] } }, []);
+        hero.elementMods = Object.assign({}, hero.elementMods, { convert: 'fire' });
+        const foe = RPG.units.buildEnemyUnit('em_abyss_serpent', 90, false, 0);
+        const lightSkill = Object.assign({}, RPG.data.skills.sk_slash, { element: 'light' });
+
+        // 属性変換を積んでいれば、技の色でなく変換後の色で見る。
+        assertTrue('§9.1 相性は変換後の属性で見る',
+          RPG.damage.attackElementOf(hero, lightSkill) === 'fire',
+          RPG.damage.attackElementOf(hero, lightSkill));
+
+        // 染める前後で判定が動くこと。
+        const before = RPG.damage.matchup(hero, lightSkill, foe);
+        RPG.battle.dye(foe, 'wind', 2, hero);
+        const after = RPG.damage.matchup(hero, lightSkill, foe);
+        assertTrue('§9.1 相性は染まった色で見る', after > before,
+          `${before} → ${after}`);
+
+        // 画面が読む値と、実際のダメージが同じ向きを向いていること。
+        const dmg = (/** @type {any} */ target) => {
+          RPG.rng.seed(55);
+          const r = RPG.damage.calc({ attacker: RPG.units.toAttacker(hero),
+            defender: RPG.units.toDefender(target), skill: lightSkill, options: { crit: false } });
+          RPG.rng.seed(null);
+          return r.damage;
+        };
+        const plain = RPG.units.buildEnemyUnit('em_abyss_serpent', 90, false, 1);
+        assertTrue('§9.1 表示の向きと実ダメージの向きが一致する',
+          (dmg(foe) > dmg(plain)) === (after > RPG.damage.matchup(hero, lightSkill, plain)),
+          `${dmg(plain).toLocaleString()} → ${dmg(foe).toLocaleString()}`);
+      }
+
       // --- 段の刻み（レシート型）(§5.10) ---
       //
       // ここまでの段の技は、いくつ払っても**効き方が一本調子**だった。

@@ -1725,6 +1725,21 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 /* 上乗せの数字は金色で出す。相の固有色に合わせると
  * 「その相の色」と混じって、得なのか損なのかが読めなくなる。 */
 .aspect-chip-gain { color: var(--gold); font-size: 11px; font-weight: 700; }
+
+/* 染色 (§9.1)。**元の色 → いまの色 → 残りターン** の順に読ませる。
+ * いまの色だけを出すと、落ちたあと何に戻るかが分からない。
+ * 2ターンで落ちるので、残りが見えていないと「いつ殴るか」を決められない。 */
+.dye-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px 1px 4px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+}
+.dye-mark .dyed-from { font-size: 10px; color: var(--text-dim); }
+.dye-mark .dyed-turns { font-size: 10px; color: var(--text-dim); font-weight: 700; }
+.dye-mark .chip { padding: 0; border: 0; background: none; }
 /* 軸ごとに行を分ける。幅の狭い画面では見出しを上に折り返す。 */
 .aspect-axis { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px; align-items: start; }
 .aspect-axis-label { font-size: 11px; color: var(--text-dim); padding-top: 5px; }

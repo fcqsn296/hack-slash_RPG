@@ -243,6 +243,42 @@
   }
 
   /**
+   * その攻撃が実際に何属性で飛ぶか (§5.6)。
+   *
+   * **画面と計算で別々に決めない。** 技の element をそのまま読むと、
+   * 属性変換（`element_convert`）や混沌を積んだ人の表示が実際とずれる。
+   * 染色を入れたことで、この食い違いが「有利判定が嘘をつく」形で出るようになった。
+   *
+   * @知見: 相性の表示は damage.matchup を通す。技の element を直接読むと画面が嘘をつく
+   *
+   * @param {any} attacker elementMods を持つもの（ユニットでも toAttacker 済みでも可）
+   * @param {any} skill
+   */
+  function attackElementOf(attacker, skill) {
+    const mods = (attacker && attacker.elementMods) || {};
+    if (mods.chaos) return 'none';
+    return mods.convert || (skill && skill.element) || (attacker && attacker.element) || 'none';
+  }
+
+  /**
+   * 素の属性相性。**染色 (§9.1) を含んだ「いまの」相性**を返す。
+   *
+   * 双極も見る——相手に合わせて良いほうが勝手に選ばれる仕組みなので、
+   * 画面で片方しか出さないと「不利と書いてあるのに有利で通った」ことになる。
+   *
+   * @param {any} attacker @param {any} skill @param {any} defender 生のユニット
+   */
+  function matchup(attacker, skill, defender) {
+    const el = attackElementOf(attacker, skill);
+    // 染まっているならそちらの色で見る。toDefender と同じ読み方にしておく。
+    const target = (defender && defender.dyed && defender.dyed.element)
+      || (defender && defender.element) || 'none';
+    const mods = (attacker && attacker.elementMods) || {};
+    const raw = elementMultiplier(el, target);
+    return mods.dual ? Math.max(raw, elementMultiplier(mods.dual, target)) : raw;
+  }
+
+  /**
    * 系統タグ倍率を返す (§3.2 ステップ2)。
    *
    * 核心ルール: 同一タグ内は加算、異なるタグ同士は乗算。
@@ -361,8 +397,7 @@
     const mods = attacker.elementMods || {};
     // 「混沌の力」は属性パズルを放棄し、すべての攻撃を無属性に固定する
     // 「混沌の力」は無属性へ、「属性変換」は指定した属性へ、攻撃を固定する (§5.6)
-    const attackElement = mods.chaos ? 'none'
-      : (mods.convert || skill.element || attacker.element);
+    const attackElement = attackElementOf(attacker, skill);
     // 素の相性。貫通の判定は「適応で塗り替えられる前の相性」で行う。
     // 「双極」— もう1つの属性でも相性を見て、良かったほうを素の相性として扱う (§5.7)。
     // 属性を固定する変換系と違い、相手に合わせて勝手に良いほうが選ばれる。
@@ -595,7 +630,7 @@
     ELEMENT_LABEL,
     TAG_LABEL,
     TAGS,
-    STRONG_AGAINST,
+    STRONG_AGAINST, attackElementOf, matchup,
     constants: {
       DEF_CONST_PER_LEVEL, DEF_CONST_BASE, BASE_DAMAGE_CAP,
       CAP_OVERFLOW_RATE, CRIT_MULTIPLIER, RANDOM_MIN, RANDOM_MAX,
