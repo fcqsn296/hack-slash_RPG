@@ -500,10 +500,69 @@
         const after = Math.min(have + shieldAmountOf(s.def) / actor.maxHp, cap);
         return dmg * sp * Math.max(0, after - Math.min(have, cap));
       };
+      /**
+       * 染色 (§9.1) が生む「味方の火力の戻り」。
+       *
+       * ── なぜ火力で測るのか ──
+       * 染色そのものは1ダメージも増やさない。増えるのは
+       * **そのあと味方がその相手を殴るときの通り**。
+       * 技の威力だけで測ると、威力90の弱い攻撃にしか見えず永久に選ばれない
+       * （障壁で踏んだのとまったく同じ形）。
+       *
+       * 相性の倍率が何倍になるかは damage.matchup が知っているので、
+       * 塗る前と塗った後を引き算すれば、そのまま「増える割合」になる。
+       *
+       * 戻りは**生きている味方1ラウンドぶん**を合計する。
+       * 1人ぶんしか数えないと、実際の値打ちの1/4にしかならず永久に選ばれない
+       * （実測で 0.2回／戦。手で染めれば 14.25R → 10.85R なのに）。
+       *
+       * 合計は**その相手の残りHPで頭打ち**にする。倒しきれる相手を染めても
+       * 増えるのは過剰殺傷だけで、1手を捨てることになる。
+       *
+       * @知見: 支援技の値打ちは「そのあと味方の火力がいくら増えるか」で測る。威力で測ると永久に選ばれない
+       * @知見: 戻りは味方1人でなく1ラウンドぶん合計する。1人ぶんだと実際の1/4にしかならない
+       *
+       * @param {any} target
+       */
+      const dyeReturn = (target) => {
+        if (s.def.plugin !== 'dye') return 0;
+        if (!RPG.damage.matchup || !RPG.damage.STRONG_AGAINST) return 0;
+        const p = s.def.params || {};
+        const mine = (actor.elementMods && actor.elementMods.convert) || actor.element;
+        const to = p.element || (RPG.damage.STRONG_AGAINST[mine] || [])[0];
+        if (!to || (target.dyed && target.dyed.element === to)) return 0;
+
+        // 塗ったあとの相手を模した影を作る。**本物を書き換えないこと**——
+        // 見積もりは戦闘状態を一切変えない約束になっている。
+        const shadow = Object.create(target);
+        shadow.dyed = { element: to, turns: p.turns || 2 };
+
+        let gain = 0;
+        for (const u of allies) {
+          // **その味方が実際に撃つ技で相性を見る。**
+          // 染色技そのものを渡すと、属性変換を積んでいない味方では
+          // 染色技の属性（無）で判定してしまい、常に 0 になる。
+          let bestSkill = null;
+          let bestDmg = 0;
+          for (const id of u.skills) {
+            const def = RPG.data.skills[id];
+            if (!isAttack(def)) continue;
+            const d = Math.min(estimate(u, target, def, battle), target.hp);
+            if (d > bestDmg) { bestDmg = d; bestSkill = def; }
+          }
+          if (!bestSkill) continue;
+          const before = RPG.damage.matchup(u, bestSkill, target);
+          const after = RPG.damage.matchup(u, bestSkill, shadow);
+          if (after <= before) continue;
+          gain += bestDmg * (after / before - 1);
+        }
+        return Math.min(gain, target.hp);
+      };
+
       for (const target of foes) {
         const dmg = estimate(actor, target, s.def, battle);
         // 過剰ダメージは価値が無いので、実際に削れる量で評価する
-        const score = Math.min(dmg, target.hp) + guardReturn(dmg);
+        const score = Math.min(dmg, target.hp) + guardReturn(dmg) + dyeReturn(target);
         // ── 同点は「切り詰める前の火力」で割る ──
         // **これが無いと、全部が過剰殺傷になる終盤で技の並び順が勝敗を決める。**
         // 実際に踏んだ——見積もり 2,848,410 の城撃が 759,834 の覇王斬に

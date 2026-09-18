@@ -1430,6 +1430,15 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
     power: 185, crit_rate: 0.10, desc: '',
   },
+  // 敵の染色 (§9.1)。**敵の個性として持たせる。**
+  // 味方を「自分が食う色」に染めるので、そのあとの一撃が有利で通る。
+  // 味方側の染色と同じ仕組みで、同じ印が味方の札に出る——
+  // 出さないと「なぜ急に痛いのか」が読めない画面になる。
+  sk_enemy_stain: {
+    name: '色を奪う', kind: 'active', plugin: 'dye',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 110, crit_rate: 0.05, params: { turns: 2 }, desc: '',
+  },
   sk_enemy_devour: {
     name: '呑噬', kind: 'active', plugin: 'def_ignore',
     scaling_stat: 'atk', damage_type: 'phys', element: 'dark',

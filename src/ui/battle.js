@@ -657,6 +657,25 @@
     return h('span.chip.chip-even', { text: '等倍' });
   }
 
+  /**
+   * 染まりの印 (§9.1)。**元の色 → いまの色 → 残りT** の順に読ませる。
+   *
+   * いまの色だけを出すと、落ちたあと何に戻るかが分からない。
+   * 染色は短ターンで落ちるので、残りが見えていないと次の一手を決められない。
+   *
+   * **敵と味方で同じ形にする。** 敵も染めてくるので、
+   * 片方だけ出すと「なぜ急に痛いのか」が読めない画面になる。
+   * @param {any} u
+   */
+  function dyeMark(u) {
+    if (!u.dyed) return null;
+    return h('span.dye-mark',
+      h('span.dyed-from', { text: `${RPG.damage.ELEMENT_LABEL[u.element]} →` }),
+      W.elementChip(u.dyed.element),
+      h('span.dyed-turns', { text: `${u.dyed.turns}T` })
+    );
+  }
+
   /** @param {any} e */
   function enemyCard(e) {
     const targeting = pendingSkill && RPG.battle.targetKind(RPG.data.skills[pendingSkill]) === 'enemy';
@@ -679,12 +698,7 @@
           // 染色は2ターンで落ちるので、いま何色で、あと何ターンかが
           // 見えていないと「いつ殴るか」が決められない。
           // 元の色も残す——落ちたあと何に戻るかが分かるようにするため。
-          e.dyed
-            ? h('span.dye-mark',
-                h('span.dyed-from', { text: `${RPG.damage.ELEMENT_LABEL[e.element]} →` }),
-                W.elementChip(e.dyed.element),
-                h('span.dyed-turns', { text: `${e.dyed.turns}T` }))
-            : W.elementChip(e.element),
+          e.dyed ? dyeMark(e) : W.elementChip(e.element),
           // 対象を選んでいるあいだだけ相性を出す。
           //
           // 属性のチップは前から出ていたが、**手持ちの技とどちらが有利かは
@@ -718,6 +732,9 @@
         h('span.name', { text: u.name }),
         W.hpBar(u.hp, u.maxHp, null, prevHp[u.key]),
         h('div.chips',
+          // 染まり (§9.1)。**敵も染めてくるので、味方側にも出す。**
+          // 出さないと「なぜ急に痛いのか」が読めない画面になる。
+          dyeMark(u),
           // 累撃の段 (§5.23)。**いま何倍なのかが見えないと撃つ判断ができない。**
           // 次の一撃の倍率を出す（撃った後に上がるので、表示は「これから乗る値」）。
           u.passives && u.passives.escalate > 1

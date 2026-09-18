@@ -206,7 +206,8 @@ RPG.data.enemies = {
     name: '燼獄の女王', element: 'fire',
     base: { hp: 11000, atk: 430, def: 620, magi_power: 560 },
     growth: { hp: 430, atk: 20, def: 26, magi_power: 24 },
-    skills: ['sk_enemy_dragon_breath', 'sk_enemy_judgment'],
+    // 染色 (§9.1)。燼をまとわせて火の色に染める。
+    skills: ['sk_enemy_dragon_breath', 'sk_enemy_judgment', 'sk_enemy_stain'],
     gold: 520, exp: 2100,
     drops: [{ box: 'box_dragon', chance: 0.72, count: 1 }],
     color: '#ff6a3d', glyph: '燼',
@@ -309,7 +310,8 @@ RPG.data.enemies = {
     name: '無を織る者', element: 'dark',
     base: { hp: 18000, atk: 670, def: 830, magi_power: 750 },
     growth: { hp: 650, atk: 28, def: 32, magi_power: 29 },
-    skills: ['sk_enemy_devour', 'sk_enemy_wither'],
+    // 染色 (§9.1)。**織る者が色を奪う**という筋で、この敵の個性にしてある。
+    skills: ['sk_enemy_devour', 'sk_enemy_wither', 'sk_enemy_stain'],
     gold: 920, exp: 5300,
     drops: [{ box: 'box_dragon', chance: 0.90, count: 1 },
             { box: 'box_astral', chance: 0.10, count: 1 }],

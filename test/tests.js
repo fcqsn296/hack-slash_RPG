@@ -4151,6 +4151,108 @@
         }
       }
 
+      // --- オートが染色の値打ちを読む (§9.1) ---
+      //
+      // 染色そのものは1ダメージも増やさない。増えるのは**そのあと味方が
+      // その相手を殴るときの通り**。技の威力だけで測ると威力90の弱い攻撃に
+      // しか見えず、永久に選ばれない（障壁で踏んだのとまったく同じ形）。
+      {
+        const mkParty = (/** @type {string|null} */ convert) =>
+          ['ch_hero', 'ch_noa', 'ch_rizel'].map((id, k) => {
+            const u = RPG.units.buildCharacterUnit(
+              { id, level: 200, limitBreak: 0, tree: {},
+                equipped: { weapon: [], armor: [], accessory: [] } }, []);
+            if (convert) u.elementMods = Object.assign({}, u.elementMods, { convert });
+            if (k === 0) u.skills = u.skills.concat(['sk_tree_dye']);
+            u.side = 'party'; u.key = 'p' + k;
+            return u;
+          });
+
+        /** 1戦だけ回して、染色を選んだ回数を数える */
+        const casts = (/** @type {string|null} */ convert) => {
+          let n = 0;
+          RPG.rng.seed(20260918);
+          const b = RPG.battle.start({
+            fieldId: 'fl_abyss', waves: 1, bossFinale: true, party: mkParty(convert),
+          });
+          let guard = 0;
+          while (!b.finished && guard++ < 400) {
+            if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
+            const a = RPG.autoplay.chooseAction(b);
+            if (!a) break;
+            if (RPG.data.skills[a.skillId].plugin === 'dye') n++;
+            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          }
+          RPG.rng.seed(null);
+          return n;
+        };
+
+        // 火に固定した編成が闇のボスに当たる＝染める価値がある場面。
+        assertTrue('§9.1 オート: 得になるなら染める', casts('fire') > 0,
+          `${casts('fire')} 回`);
+
+        // 属性を固定していなければ、染めても通りが変わらない。
+        // **ここで染めたら、1手を捨てているだけになる。**
+        assertTrue('§9.1 オート: 得にならないなら染めない', casts(null) === 0,
+          `${casts(null)} 回`);
+      }
+
+      // --- 敵も染めてくる (§9.1) ---
+      //
+      // 味方側とまったく同じ仕組みで動く。**片方だけの道具にしない。**
+      // 敵の個性として持たせたので、味方の札にも同じ印が出る必要がある
+      // （出さないと「なぜ急に痛いのか」が読めない画面になる）。
+      {
+        const owners = Object.keys(RPG.data.enemies).filter((id) =>
+          (RPG.data.enemies[id].skills || []).some((/** @type {string} */ s) =>
+            (RPG.data.skills[s] || {}).plugin === 'dye'));
+        assertTrue('§9.1 染めてくる敵がいる', owners.length > 0, owners.join(', '));
+
+        const hero = RPG.units.buildCharacterUnit(
+          { id: 'ch_hero', level: 150, limitBreak: 0, tree: {},
+            equipped: { weapon: [], armor: [], accessory: [] } }, []);
+        hero.side = 'party'; hero.key = 'p0';
+        RPG.rng.seed(999);
+        const b = RPG.battle.start({
+          fieldId: 'fl_verge', waves: 5, bossFinale: false, party: [hero],
+        });
+        const weaver = RPG.units.buildEnemyUnit('em_null_weaver', 230, false, 0);
+        weaver.side = 'enemy';
+        weaver.hp = weaver.maxHp = 50000000;
+        b.enemies = [weaver];
+
+        const stain = weaver.skills.find((/** @type {string} */ s) =>
+          (RPG.data.skills[s] || {}).plugin === 'dye');
+        RPG.battle.executeSkill(b, weaver, stain, [b.party[0]]);
+        RPG.rng.seed(null);
+
+        const me = b.party[0];
+        assertTrue('§9.1 敵の染色が味方に乗る', !!me.dyed,
+          me.dyed ? `${me.element} → ${me.dyed.element}` : 'かからなかった');
+
+        // 敵は「自分が食う色」に染める。そうでないと敵側も得をしない。
+        const prey = (RPG.damage.STRONG_AGAINST[weaver.element] || [])[0];
+        assertTrue('§9.1 敵は自分が食う色に染める', !me.dyed || me.dyed.element === prey,
+          me.dyed ? `${me.dyed.element} / 期待 ${prey}` : '');
+
+        // 染まったぶん、敵の一撃が実際に重くなること。
+        const hit = () => {
+          RPG.rng.seed(21);
+          const r = RPG.damage.calc({ attacker: RPG.units.toAttacker(weaver),
+            defender: RPG.units.toDefender(me),
+            skill: RPG.data.skills.sk_enemy_devour, options: { crit: false } });
+          RPG.rng.seed(null);
+          return r.damage;
+        };
+        const dyed = hit();
+        const keep = me.dyed;
+        me.dyed = null;
+        const plain = hit();
+        me.dyed = keep;
+        assertTrue('§9.1 染められると実際に痛くなる', dyed > plain,
+          `${plain.toLocaleString()} → ${dyed.toLocaleString()}`);
+      }
+
       // --- 相性の表示は計算と同じ口を通す (§9.1) ---
       //
       // **画面と計算で別々に決めると、画面が嘘をつく。**
