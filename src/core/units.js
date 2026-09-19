@@ -548,6 +548,13 @@
    * @param {any} unit
    */
   function totalReduction(unit) {
+    // 「戦車」(§21) — 守りの効果が丸ごと働かない。
+    //
+    // **ここで止めるのが要点。** 軽減はこの1関数からしか出ていかないので、
+    // ここを 0 にすれば toDefender も、狙い方の「実効耐久」も、
+    // 画面の表示も、まとめて同じ答えになる。
+    // 呼ぶ側それぞれに旗を見させると、必ずどれかが漏れる。
+    if (unit.passives && unit.passives.wardNull) return 0;
     const buffs = (unit.buffReduction || []).reduce((s, /** @type {any} */ b) => s + b.value, 0);
     return Math.min(1, (unit.baseReduction || 0) + buffs);
   }

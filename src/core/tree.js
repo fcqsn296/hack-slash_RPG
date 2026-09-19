@@ -318,7 +318,8 @@
     'neutral_power', 'opening_buff', 'overheal_shield', 'overkill_carry',
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
-    'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
+    'turn_gift', 'ward_null', 'draw_fire', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -470,6 +471,10 @@
       buffOnKill: 0,       // 敵を倒したときに得る固有バフ
       shieldRegen: 0,      // ラウンド終了時に張り直す障壁（最大HPの割合）
       barrierPower: 0,     // 自分が張る障壁の厚み。障壁を配る口すべてに掛かる
+      // ── 戦車 (§21) ──
+      turnGift: 0,         // 毎ラウンド増える手番。turn_debt の対
+      wardNull: 0,         // 守りの効果が働かない。defense_null とは消す層が違う
+      drawFire: 0,         // 敵の狙いを必ず引き受ける。taunt の確定版
       // --- 技の使い分け (§5.8) ---
       repeatPower: 0,      // 同じ技を続けるほど上がる火力
       varietyPower: 0,     // 直前と違う技を使ったときの火力
@@ -752,6 +757,9 @@
           case 'buff_on_kill': passives.buffOnKill += amount; break;
           case 'shield_regen': passives.shieldRegen += amount; break;
           case 'barrier_power': passives.barrierPower += amount; break;
+          case 'turn_gift': passives.turnGift += amount; break;
+          case 'ward_null': passives.wardNull = Math.max(passives.wardNull, amount); break;
+          case 'draw_fire': passives.drawFire = Math.max(passives.drawFire, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;
           // --- 技の使い分け (§5.8) ---
           case 'repeat_power': passives.repeatPower += amount; break;

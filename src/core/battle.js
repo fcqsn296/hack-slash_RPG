@@ -1323,6 +1323,9 @@
     // 周回は1〜3ラウンドで終わるので、ここを忘れると**代償が周回でだけ消える**。
     for (const u of battle.party) {
       u.turnDebt = (u.passives && u.passives.turnDebt) || 0;
+      // 「戦車」(§21) の手番も同じ場所で配る。
+      // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
+      u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
     }
 
     // --- パッシブ: 開幕バフ（戦闘開始時に固有ユニークバフを得る）---
@@ -1426,6 +1429,36 @@
     if (battle.wave > 1) {
       if (hitRoundLimit(battle)) return;
       battle.totalRounds++;
+    }
+
+    // ── ウェーブが替わったら、1ラウンドぶんの手当てをやり直す ──
+    //
+    // **ここが抜けていた。** ラウンド送りの処理は「同じウェーブの中で
+    // ラウンドが進んだとき」にしか走らない。1ラウンドで片付くウェーブが
+    // 続くと**一度も走らない**ので、
+    //   ・extraActions が 0 に戻らず、上限(3)を使い切ったまま戦闘の最後まで残る
+    //   ・毎ラウンドの手番の増減（戦車の利・吊るされた男の害）が配り直されない
+    // 実測: 5連戦で主人公の手番が 6.0 → 7.0 と、1回しか増えていなかった
+    // （毎ラウンド増えるなら 12 回になるはず）。
+    //
+    // @知見: ラウンド送りの処理は1周で片付くウェーブでは走らない。毎ラウンドの手当てはウェーブ移行にも要る
+    //
+    // ウェーブの1ラウンド目は「新しいラウンド」なので、同じ手当てを通す。
+    //
+    // ⚠ **turnDebt はここで配り直さない。** 揃えるのが筋だが、揃えると
+    // 「吊るされた男」の代償が**いまのゲームが返せる量を超える**。
+    // 実測（終わりなき回廊・5連戦・20試行、主人公の手番）:
+    //   配り直さない  6.0 → 4.0 回
+    //   配り直す      6.0 → 0.0 回（総駆けの合図を足しても 1.0 回）
+    // 返済の口（号令・奇襲・段の出口）はどれも1戦に1〜2回しか回らないので、
+    // 毎ラウンド1つ失う負債は**構造的に返しきれない**。
+    //
+    // 調整済みの札を、無関係な修正の巻き添えで壊さない。
+    // 吊るされた男の作り直しは、それ自体を測り直す回として別に持つこと。
+    for (const u of battle.party) {
+      if (!u.alive) continue;
+      u.extraActions = 0;
+      u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
     }
 
     const field = battle.field;
@@ -1879,6 +1912,21 @@
   }
 
   function pickTarget(units, battle) {
+    // 「戦車」(§21) — 前に出た者が、必ず全部を引き受ける。
+    //
+    // ── なぜ異相の狙い方より先に見るのか ──
+    // 異相は「その場所の条件」、これは**遊ぶ側が選んだ代償**。
+    // 後ろに置くと、狙い方を書き換える相の下では代償が消えてしまい、
+    // 「守りが無いだけで撃たれない＝ただの得」に戻る（実測でそうなった）。
+    // 自分から前へ出た者が引き受けるほうが、像としても素直。
+    //
+    // @知見: 「守りが無い」だけの代償は、撃たれない場面では何も払わない。狙いも引き受けさせて初めて代償になる
+    const volunteer = units.filter((/** @type {any} */ u) =>
+      u.alive && u.passives && u.passives.drawFire);
+    if (volunteer.length) {
+      return volunteer.length === 1 ? volunteer[0] : RPG.rng.pick(volunteer);
+    }
+
     const ruled = battle ? pickByRule(battle, units) : null;
     if (ruled) return ruled;
     if (units.length <= 1) return units[0] || null;
@@ -2229,7 +2277,12 @@
     if (attacker.side === 'party') updateCombo(battle, attacker, defender, skill);
 
     // 「癒しの余剰」で張った障壁が先に削れる (§5.6)
-    if (defender.shield > 0 && result.damage > 0) {
+    //
+    // 「戦車」(§21) は障壁も通さない。**張れるが、守ってくれない。**
+    // 張る側を止めるのではなく受ける側で止めるのは、
+    // 味方が全体に張った障壁を「戦車だけ受け取らない」形にするため。
+    const wardOff = !!(defender.passives && defender.passives.wardNull);
+    if (!wardOff && defender.shield > 0 && result.damage > 0) {
       const absorbed = Math.min(defender.shield, result.damage);
       defender.shield -= absorbed;
       result.damage -= absorbed;
@@ -2265,7 +2318,8 @@
       // それだと2人で160%が動き、庇うほど総ダメージが増える。
       // **総量は0.8のまま**にして、それを持ち分で割る。
       // 2人目の意味は「総量が増えること」ではなく「1人あたりの負担が減ること」。
-      const guards = battle.party.filter((/** @type {any} */ u) =>
+      // 「戦車」(§21) は庇われない。前に出る役がいても、その分は届かない。
+      const guards = wardOff ? [] : battle.party.filter((/** @type {any} */ u) =>
         u !== defender && u.alive && u.passives && u.passives.guardAlly > 0);
       if (guards.length) {
         const sum = guards.reduce((/** @type {number} */ t, /** @type {any} */ g) =>
@@ -2290,7 +2344,7 @@
 
     // 「痛みの分配」— 受けたダメージを味方全体で割って背負う (§5.8)。
     // 「庇う」が1人に寄せるのに対し、こちらは全員で薄く分ける。全体攻撃に強い。
-    const share = (defender.passives && defender.passives.damageShare) || 0;
+    const share = wardOff ? 0 : ((defender.passives && defender.passives.damageShare) || 0);
     if (share > 0 && defender.side === 'party' && result.damage > 0) {
       const others = livingParty(battle).filter((/** @type {any} */ u) => u !== defender);
       if (others.length > 0) {
@@ -3352,6 +3406,20 @@
       if (actor.alive) return;
     }
 
+    // 「戦車」(§21) — 毎ラウンド、確実にもう一度動ける。
+    //
+    // 号令と同じ「順番を進めずに返す」形。確率の再行動（下）と違って
+    // 必ず起きるので、**上限の枠も必ず1つ使う**。
+    // 奇襲や再行動と合わさっても MAX_EXTRA_ACTIONS が頭を押さえる。
+    if (actor.turnGiftLeft > 0 && actor.alive
+        && actor.extraActions < MAX_EXTRA_ACTIONS) {
+      actor.turnGiftLeft--;
+      actor.extraActions++;
+      pushLog(battle, `${actor.name} は駆け抜ける！`, 'buff');
+      pushEvent(battle, { type: 'extra', key: actor.key });
+      return;
+    }
+
     // --- パッシブ: 奇襲（1ラウンド目だけ、もう一度動ける）(§5.6) ---
     const ambush = (actor.passives && actor.passives.ambush) || 0;
     if (ambush > 0 && battle.round === 1 && actor.alive && !actor.ambushed &&
@@ -3583,6 +3651,16 @@
       // 停止（stunnedRounds）にすると、何を持っていても動けなくなり
       // 「詰み」になってしまう。
       unit.turnDebt = (unit.passives && unit.passives.turnDebt) || 0;
+      // 「戦車」(§21) — 毎ラウンド、確実に増える手番。
+      //
+      // **turn_debt と同じ場所で配る。** 片方だけ別の場所に置くと、
+      // 1ラウンド目に効かないという同じ罠をもう一度踏む
+      // （号令と手番の負債で2回踏んでいる）。
+      //
+      // ⚠ `extraActions` に足してはいけない。あれは**使った回数の記録**で
+      // 持ち点ではない（MAX_EXTRA_ACTIONS との比較に使う）。
+      // 足すと上限の枠を先に食い潰して、何も増えないどころか減る。
+      unit.turnGiftLeft = (unit.passives && unit.passives.turnGift) || 0;
       if (!unit.statusEffects.some((/** @type {any} */ e) => e.kind === 'def_buff')) {
         unit.defMultiplier = 1;
       }

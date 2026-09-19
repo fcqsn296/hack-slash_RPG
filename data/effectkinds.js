@@ -161,6 +161,23 @@ RPG.data.effectKinds = {
 
   // 「吊るされた男」の代償。毎ラウンド手番を1つ失う。
   // **停止ではなく負債**。再行動・号令・段の出口で返済できる（§21）。
+  // ── 戦車 (§21) ──
+  // turn_debt の対。**確率ではなく確定**で手番が1つ増える。
+  // extra_action（確率の再行動）とは別物で、guard_break に対する
+  // defense_null と同じ「確率の版が既にあるところへ確定の版を置く」関係。
+  turn_gift: { to: 'passives', shape: 'add', uniq: null, key: 'turnGift', label: '毎ラウンド手番が1つ増える', fmt: 'num' },
+  // 守りの効果が丸ごと働かなくなる旗 (§21)。
+  //
+  // **defense_null と取り違えないこと。** 防御の層は2つあり、消す先が違う。
+  //   defense_null … DEF由来の層（1 - DEF/(DEF+c)）だけを消す
+  //   ward_null    … reduction・障壁・庇う/肩代わり のほうを消す
+  // 両方あって初めて「守りを全部捨てる」になる。
+  ward_null: { to: 'passives', shape: 'max', uniq: null, key: 'wardNull', label: '守りの効果が働かない', fmt: 'flag' },
+  // 敵の狙いを必ず引き受ける旗 (§21)。taunt（狙われやすさの重み）の確定版。
+  //
+  // **ward_null とセットで初めて代償になる。** 守りが無いだけでは、
+  // 撃たれない場面で何も払わずに済んでしまう（実測でそうなった）。
+  draw_fire: { to: 'passives', shape: 'max', uniq: null, key: 'drawFire', label: '敵の攻撃を必ず自分が受ける', fmt: 'flag' },
   turn_debt: { to: 'passives', shape: 'add', uniq: null, key: 'turnDebt', label: '毎ラウンド手番を1つ失う', fmt: 'num' },
 
   // 「吊るされた男」の利。会心判定を振らずに必ず会心にする。

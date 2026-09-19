@@ -135,6 +135,7 @@ const PRECACHE = [
   './src/ui/gachafx.js',
   './src/main.js',
   './styles.css',
+  './assets/ui/arcana-chariot.svg',
   './assets/ui/arcana-hanged.svg',
   './assets/ui/arcana-strength.svg',
   './assets/ui/coin.svg',

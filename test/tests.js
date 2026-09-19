@@ -1713,6 +1713,75 @@
             `${mk(null).capBreak} → ${mk('ar_hanged_man').capBreak}`);
         }
 
+        // ── 戦車 (VII) ──
+        //
+        // 既存2枚は「威力%だけ足すと終盤では上限に潰れて5分の1になる」罠を
+        // 踏んでから cap_break を足している。戦車は**手数を増やす**ので
+        // その罠を構造的に避ける（上限は1発ごとに掛かるため）。
+        // だから cap_break を持たない。持たせると二重に得をする。
+        {
+          const ch = RPG.data.arcana.ar_chariot;
+          assertTrue('§21 戦車がある', !!ch, '');
+
+          const kinds = (ch.effects || []).map((/** @type {any} */ e) => e.kind);
+          assertTrue('§21 戦車は手数で払う（上限突破を持たない）',
+            kinds.indexOf('cap_break') < 0, kinds.join(', '));
+
+          const mk = (/** @type {string|null} */ id) => {
+            const cs = { id: 'ch_hero', level: 255, exp: 0, limitBreak: 0, tree: {}, equipped: {} };
+            if (id) cs.arcana = id;
+            return RPG.units.buildCharacterUnit(cs, []);
+          };
+          const plain = mk(null);
+          const chariot = mk('ar_chariot');
+
+          // 旗がユニットまで届くこと。**データに書いても届かなければ黙って無効。**
+          assertTrue('§21 戦車: 手番の利がユニットまで届く',
+            chariot.passives.turnGift > 0 && !plain.passives.turnGift, '');
+          assertTrue('§21 戦車: 守りを落とす旗が届く',
+            chariot.passives.wardNull > 0 && !plain.passives.wardNull, '');
+          assertTrue('§21 戦車: 狙いを引き受ける旗が届く',
+            chariot.passives.drawFire > 0 && !plain.passives.drawFire, '');
+
+          // 軽減が実際に 0 になること。**totalReduction を通さないと、
+          // 狙い方の実効耐久も画面の表示もずれる。**
+          plain.baseReduction = 0.5;
+          chariot.baseReduction = 0.5;
+          assertTrue('§21 戦車: 軽減が働かない',
+            RPG.units.totalReduction(plain) === 0.5 && RPG.units.totalReduction(chariot) === 0,
+            `${RPG.units.totalReduction(plain)} / ${RPG.units.totalReduction(chariot)}`);
+
+          // 必ず狙われること。
+          // **「守りが無い」だけでは代償にならない**——撃たれなければ何も払わない。
+          // 実測で、弱きを選ぶ相では別の味方のほうが実効耐久が低く、
+          // 戦車は一度も狙われずに勝率 65% → 100% と素より強くなっていた。
+          {
+            const a = mk('ar_chariot');
+            const b = mk(null);
+            a.alive = true; b.alive = true;
+            a.hp = a.maxHp; b.hp = 1;   // 相手を瀕死にしても戦車が引き受ける
+            a.side = 'party'; b.side = 'party';
+            let ok = true;
+            RPG.rng.seed(31337);
+            for (let i = 0; i < 20; i++) {
+              if (RPG.battle.pickTarget([a, b], { aspect: null }) !== a) ok = false;
+            }
+            RPG.rng.seed(null);
+            assertTrue('§21 戦車: 必ず自分が狙われる', ok, '');
+
+            // 異相の狙い方より先に効くこと。後ろに置くと、狙い方を書き換える相の
+            // 下で代償が消えて「守りが無いだけで撃たれない＝ただの得」に戻る。
+            RPG.rng.seed(31337);
+            const ruled = RPG.battle.pickTarget([a, b],
+              { aspect: { effects: { targetRule: 'weakest' } } });
+            RPG.rng.seed(null);
+            assertTrue('§21 戦車: 相の狙い方より先に引き受ける', ruled === a, '');
+          }
+
+          // 利と害がどちらも書いてあること（札の面に刷る）。
+          assertTrue('§21 戦車: 利と害が両方書いてある', !!ch.boon && !!ch.bane, '');
+        }
+
         // ── 解放の門 (§21) ──
         // 依頼を達成していないアルカナには就けないこと。
         // 解放状態は依頼の記録から引く。別に持つと二重帳簿になる。
