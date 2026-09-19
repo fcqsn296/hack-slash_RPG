@@ -87,6 +87,8 @@
   let forgeTarget = null;
   /** 再抽選でいま選んでいる副オプションの枠。装備を替えたら外す。 */
   let forgeSlot = 0;
+  /** 狭い画面で、鍛冶の装備一覧（横から出る板）を開いているか */
+  let forgeListOpen = false;
 
   /** 図鑑の表示状態 */
   const codexView = {
@@ -519,13 +521,27 @@
   function installEdgeSwipe() {
     if (edgeSwipeReady || typeof document === 'undefined') return;
     edgeSwipeReady = true;
+    // 横から出る板は2つある（キャラ一覧・鍛冶の装備一覧）。
+    // **どちらも同じ指の動きで開くこと。** 片方だけスワイプで開くと、
+    // 画面ごとに操作が変わることになる。同時に出る画面は無いので、
+    // いま出ているほうを見て切り替える。
+    const sheet = () => {
+      if (document.querySelector('.char-selector')) return 'char';
+      if (document.querySelector('.pick-sheet')) return 'pick';
+      return null;
+    };
+    const set = (/** @type {boolean} */ v) => {
+      const k = sheet();
+      if (k === 'char') charListOpen = v;
+      else if (k === 'pick') forgeListOpen = v;
+      if (lastRoot) render(lastRoot);
+    };
     RPG.dom.edgeSwipe({
       // 3ペインに開く幅では畳んでいないので、そもそも働かせない。
-      // キャラ一覧を持つ画面でだけ効かせる
-      enabled: () => window.innerWidth <= 860 && !!document.querySelector('.char-selector'),
-      isOpen: () => charListOpen,
-      open: () => { charListOpen = true; if (lastRoot) render(lastRoot); },
-      close: () => { charListOpen = false; if (lastRoot) render(lastRoot); },
+      enabled: () => window.innerWidth <= 860 && !!sheet(),
+      isOpen: () => (sheet() === 'char' ? charListOpen : forgeListOpen),
+      open: () => set(true),
+      close: () => set(false),
     });
   }
 
@@ -2289,15 +2305,50 @@
 
     const list = applyGearView(save.inventory, owner);
 
-    return h('div.pane.pane-split',
+    // ── 狭い画面では一覧を「横から出る板」にする (§15) ──
+    //
+    // **選んでも画面が変わらない、という形で壊れていた。**
+    // 1列に落ちる幅では一覧が上、鍛冶のパネルが下に積まれる。実測（375px・
+    // 装備40個）で、行を叩いてもパネルは y=1100 に出る——画面の高さは812しか
+    // ないので、押した本人には何も起きていないように見える。
+    // 装備は数千個まで増えるので、一覧が伸びるほど遠くなる。
+    //
+    // キャラ一覧と同じ板にした。パネルが常に画面の頭にあり、
+    // 一覧は上に重なって開いて、選べば閉じる。下の内容は動かない。
+    const curItem = target;
+    return h('div.pane.pane-split.pane-pick',
       h('div.col-left',
+        h('div.pick-sheet' + (forgeListOpen ? '.is-open' : ''),
+        h('button.pick-current', {
+          onClick: () => { forgeListOpen = !forgeListOpen; render(root); },
+          'aria-expanded': forgeListOpen ? 'true' : 'false',
+        },
+          h('div.pick-current-info',
+            h('span.name', {
+              style: curItem ? { color: RPG.data.rarities[curItem.rarity].color } : {},
+              text: curItem ? curItem.name + (curItem.plus ? ` +${curItem.plus}` : '') : '装備を選んでいません',
+            }),
+            h('span.sub', {
+              text: curItem
+                ? `${RPG.units.SLOT_LABEL[curItem.slot]} / スコア ${RPG.gear.score(curItem)}`
+                : `所持 ${save.inventory.length} 個`,
+            })
+          ),
+          h('span.pick-current-mark', { text: forgeListOpen ? '▲ 閉じる' : '▼ 選ぶ' })
+        ),
+        // 覆い。板の外を触ったら閉じる。広い画面では CSS が消す。
+        forgeListOpen
+          ? h('div.pick-scrim', { onClick: () => { forgeListOpen = false; render(root); } })
+          : null,
+        h('div.pick-body',
         h('h3', { text: '強化する装備' }),
         gearToolbar(root, save.inventory),
         list.length === 0
           ? h('p.empty', { text: '装備がありません。' })
           : h('div.forge-list', list.map((/** @type {any} */ item) =>
               h('button.forge-row' + (forgeTarget === item.uid ? '.is-active' : ''), {
-                onClick: () => { forgeTarget = item.uid; forgeSlot = 0; render(root); },
+                // 選んだら板を閉じる。開けっぱなしだと、結果が覆いの下に隠れる。
+                onClick: () => { forgeTarget = item.uid; forgeSlot = 0; forgeListOpen = false; render(root); },
               },
                 h('span.forge-row-name', {
                   style: { color: RPG.data.rarities[item.rarity].color },
@@ -2309,10 +2360,13 @@
                 })
               )
             ))
+        )
+        )
       ),
       h('div.col-right',
         W.heading('鍛冶', '装備を強化して伸ばし、副オプションを振り直す。素材には不要な装備を使う。'),
-        target ? forgePanel(root, target, owner) : h('p.empty', { text: '左から装備を選んでください。' })
+        target ? forgePanel(root, target, owner)
+          : h('p.empty', { text: '上の「選ぶ」から装備を選んでください。' })
       )
     );
   }
@@ -3754,6 +3808,18 @@ ${nextCost.toLocaleString()} G
       ),
       h('div.col-main',
       h('div.col-mid',
+        // ── 残りSPはツリーと同じ列に置く (§15) ──
+        //
+        // **sticky は親の箱の中でしか効かない。** 以前は右の列
+        // (.col-far) に置いていたが、1199px 以下ではその列が先に積まれ、
+        // ツリーは後ろに来る。つまり **ツリーを触っているあいだだけ
+        // 貼り付きが切れる**——いちばん残りSPを見たい場面で消えていた。
+        //
+        // 実測（375px・Lv1）: 右の列は 269〜1315px、ツリーは 1339〜3675px。
+        // 文書 3,811px のうち、最初の3分の1しか追随していなかった。
+        //
+        // 測る対象（ツリー）と同じ箱に入れれば、押しているあいだ必ず見える。
+        spBar(root, charSave, available, totalSp, spent, resetCost),
         skillOrderPanel(root, charSave, unit),
         classPanel(root, charSave),
         arcanaPanel(root, charSave),
@@ -3786,27 +3852,40 @@ ${nextCost.toLocaleString()} G
           h('p', { text: def.desc })
         ),
 
-        // 残りSPは常に見える位置に貼り付ける。
-        // 下のほうのノードを見ているときに「あと何ポイント残っているか」を
-        // 確かめるためだけに、いちいち上まで戻る必要をなくす。
-        h('div.sp-bar',
-          h('span.sp-bar-value', { text: String(available) }),
-          h('span.sp-bar-label', { text: `残りSP` }),
-          h('span.sp-bar-sub', { text: `合計 ${totalSp} ／ 消費 ${spent}` }),
-          W.button('振り直す', () => {
-            if (!confirm(`${resetCost.toLocaleString()} G を消費して全て振り直しますか？`)) return;
-            const res = RPG.state.resetTree(selectedChar);
-            if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
-            RPG.app.toast(`${(res.cost || 0).toLocaleString()} G を消費して振り直しました`);
-            RPG.app.refreshTopbar();
-            render(root);
-          }, { variant: 'ghost', sub: `${resetCost.toLocaleString()} G`, disabled: spent === 0 })
-        ),
-
         buildSummary(unit),
         damageBreakdown(root, unit, charSave)
       )
       )
+    );
+  }
+
+  /**
+   * 残りSP。下のノードを見ているときも常に見える位置に貼る。
+   * 「あと何ポイント残っているか」を確かめるために上まで戻らせない。
+   *
+   * **置き場所はツリーと同じ列であること。** sticky は親の箱を出られないので、
+   * 別の列に置くと、その列が終わった時点で貼り付きが切れる。
+   *
+   * @param {HTMLElement} root
+   * @param {any} charSave
+   * @param {number} available
+   * @param {number} totalSp
+   * @param {number} spent
+   * @param {number} resetCost
+   */
+  function spBar(root, charSave, available, totalSp, spent, resetCost) {
+    return h('div.sp-bar',
+      h('span.sp-bar-value', { text: String(available) }),
+      h('span.sp-bar-label', { text: `残りSP` }),
+      h('span.sp-bar-sub', { text: `合計 ${totalSp} ／ 消費 ${spent}` }),
+      W.button('振り直す', () => {
+        if (!confirm(`${resetCost.toLocaleString()} G を消費して全て振り直しますか？`)) return;
+        const res = RPG.state.resetTree(selectedChar);
+        if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+        RPG.app.toast(`${(res.cost || 0).toLocaleString()} G を消費して振り直しました`);
+        RPG.app.refreshTopbar();
+        render(root);
+      }, { variant: 'ghost', sub: `${resetCost.toLocaleString()} G`, disabled: spent === 0 })
     );
   }
 

@@ -685,8 +685,13 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
   /* 残りSPは列の中で貼り付ける。上部バーぶん下げる必要はもう無い
      （列そのものが上部バーの下から始まっているため）。
-     ここを直さないと、列の上端から 125px ほど下に浮いて貼り付く。 */
-  .pane-split > .col-right .sp-bar { top: 0; }
+     ここを直さないと、列の上端から 125px ほど下に浮いて貼り付く。
+
+     861〜1199px では .col-main がスクロールの器なので、その中に入る
+     .col-mid にも同じことが要る。**列ごとに書き足すこと**——
+     書き漏らした列では、貼り付く位置だけが 100px ほどずれる。 */
+  .pane-split > .col-right .sp-bar,
+  .pane-3 .col-mid .sp-bar { top: 0; }
 
   /* 分割画面だけ横幅を広げる。1512px の画面で 332px（22%）余っていた。
      ほかの画面まで広げると、1行が長くなって読みにくくなるので広げない。 */
@@ -739,7 +744,7 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
     padding-right: 6px;
   }
 
-  .pane-3 .col-far .sp-bar { top: 0; }
+  .pane-3 .col-mid .sp-bar { top: 0; }
 }
 
 /* ---------------- 出撃 ---------------- */
@@ -945,9 +950,12 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .char-selector { display: grid; gap: 8px; }
 .char-body { display: grid; gap: 8px; }
 /* 覆いは狭い画面の板のためだけのもの。広い画面では一覧が常に見えている */
-.char-scrim { display: none; }
+.char-scrim, .pick-scrim { display: none; }
 /* 広い画面では左右に並ぶので畳む理由が無い。既定では出さない。 */
-.char-current { display: none; }
+.char-current, .pick-current { display: none; }
+/* 鍛冶の一覧も同じ作り。中身の組み方だけ違うので、器の名前を分けてある。 */
+.pick-sheet { display: grid; gap: 8px; }
+.pick-body { display: grid; gap: 8px; }
 .char-search-row { display: grid; }
 .char-search {
   width: 100%;
@@ -3138,7 +3146,8 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
   /* 縦1列に落ちる幅では、キャラクター20人ぶんの行がスキルツリーや装備欄の
      上に丸ごと積まれる（実測 1,000px 超）。選んでいる1人だけを出して畳む。 */
-  .char-current {
+  .char-current,
+  .pick-current {
     appearance: none;
     display: flex;
     align-items: center;
@@ -3153,12 +3162,20 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
     text-align: left;
     cursor: pointer;
   }
-  .char-current-mark {
+  .char-current-mark,
+  .pick-current-mark {
     margin-left: auto;
     color: var(--text-dim);
     font-size: 11px;
     white-space: nowrap;
   }
+  /* 選んでいる装備の名前は、長いと記号を押し出す。折らずに削る。 */
+  .pick-current-info { display: grid; min-width: 0; }
+  .pick-current-info .name {
+    font-weight: 700;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pick-current-info .sub { font-size: 11px; color: var(--text-dim); }
   /* --- キャラ一覧は横から出る板にする (§15) ---
 
      以前は畳んだ中身をその場で開いていた（display の切り替え）。
@@ -3167,7 +3184,8 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 
      板にすると下の内容が動かない。左端からのスワイプでも開く
      （ジェスチャは base.js の installEdgeSwipe）。 */
-  .char-selector .char-body {
+  .char-selector .char-body,
+  .pick-sheet .pick-body {
     position: fixed;
     top: 0; bottom: 0; left: 0;
     width: min(86vw, 340px);
@@ -3185,9 +3203,11 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
     transform: translateX(-101%);
     transition: transform .22s ease;
   }
-  .char-selector.is-open .char-body { transform: none; }
+  .char-selector.is-open .char-body,
+  .pick-sheet.is-open .pick-body { transform: none; }
 
-  .char-scrim {
+  .char-scrim,
+  .pick-scrim {
     /* 既定は display:none で消してある。狭い画面でだけ出す。
        position だけ書いても display:none は覆せない */
     display: block;
