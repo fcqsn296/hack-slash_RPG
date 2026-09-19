@@ -1914,6 +1914,43 @@
             !!seen.soft && !!seen.hard, Object.keys(seen).join(','));
         }
 
+        // ── 先制の相で、反撃が開幕の敵を倒し切っても決着すること ──
+        //
+        // **反撃・棘・鏡面は、敵が殴った瞬間に撃ち返す。**
+        // 先制の相は開幕に enemiesAct だけを呼ぶ（runEnemyPhase を呼ぶと
+        // 戦闘前に1ラウンド経過してしまう）ので、**endOfRound が持っている
+        // 制圧・全滅の判定をこの場で自前で持たないと素通りする。**
+        //
+        // 素通りすると、敵0体のまま phase='command' へ進む。
+        // オートは狙う先が無くて null を返して止まり、報酬も配られない。
+        // 画面では「敵が居ないのに戦闘が終わらない」という形で出る。
+        {
+          const mk = () => {
+            const u = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 255, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, []);
+            u.side = 'party';
+            u.passives.counterRate = 1;      // 必ず反撃する
+            u.passives.counterPower = 500;   // 1発で倒し切る
+            u.maxHp = u.hp = 1e9;            // 開幕では落ちない
+            return RPG.battle.start({
+              fieldId: 'fl_plain', waves: 1, bossFinale: false,
+              party: [u], aspectIds: ['as_first_strike'],
+            });
+          };
+          // 敵の並びは抽選なので、**1回で見ずに繰り返して見る**。
+          let stuck = 0, noReward = 0;
+          for (let i = 0; i < 12; i++) {
+            const b = mk();
+            const living = b.enemies.filter((/** @type {any} */ e) => e.alive).length;
+            if (living === 0 && !b.finished) stuck++;
+            if (living === 0 && b.finished && b.victory && b.rewards.gold <= 0) noReward++;
+          }
+          assertTrue('§22 先制の相: 反撃で敵が全滅したら戦闘も終わる',
+            stuck === 0, `${stuck} / 12 回、敵0体のまま続いた`);
+          assertTrue('§22 先制の相: そのとき報酬も配られる',
+            noReward === 0, `${noReward} / 12 回、報酬ゼロで勝った`);
+        }
+
         // ── 選ばなければ何も変わらないこと ──
         //
         // 相は「同じ場所を別の戦いにする」だけのもので、

@@ -1385,6 +1385,22 @@
     if (aspect && aspect.effects.enemyFirst) {
       pushLog(battle, '先を取られた', 'debuff');
       enemiesAct(battle);
+      // ── 開幕の敵フェーズでも、決着は両方向に起こりうる ──
+      //
+      // @知見: 敵フェーズを endOfRound 抜きで呼ぶ場所は、制圧と全滅の判定を自前で持つこと
+      //
+      // **反撃・棘・鏡面は、敵が殴った瞬間に撃ち返す。**
+      // 開幕の1手だけで敵が全滅することがあり、実際そうなっていた
+      // （反撃率100%・スライム1体で再現。1発目の反撃で倒し切る）。
+      //
+      // ここに制圧の判定が無かったので、**敵0体のまま phase='command' へ進み**、
+      // オートは狙う先が無くて null を返して止まる。報酬も配られない。
+      // 通常の敵フェーズは runEnemyPhase → endOfRound が見ているが、
+      // ここは endOfRound を通さない（通すと戦闘前に1ラウンド経過する）ので、
+      // **その2つの判定だけを自前で持つ必要がある。**
+      //
+      // 順番は endOfRound に合わせて制圧を先に見る。相打ちは勝ちになる。
+      if (checkWaveCleared(battle)) return battle;
       // 開幕の一撃で落ちることがある。勝敗の判定を飛ばさない。
       if (livingParty(battle).length === 0) {
         battle.finished = true;
