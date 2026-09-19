@@ -2668,7 +2668,25 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
   display: flex;
   gap: 10px;
   align-items: center;
-  min-width: 210px;
+  /* ── 幅は固定すること (§14.3) ──
+     **HPバーの長さは、HP以外の理由で変わってはいけない。**
+
+     カードは .party-row（flex・折り返しあり）の子なので、幅を決めないと
+     中身なりになる。札の行 (.chips) は flex-wrap: wrap だが、
+     **折り返す先の幅が決まっていないと** max-content＝「全部の札が1行に
+     並んだ幅」がそのままカードの幅になる。つまり札が増えるほどカードが
+     横へ伸び、中のHPバーも一緒に伸びる。HPの数値は変わらないので、
+     **減っていないのにバーだけ育つ**という形で出る。
+
+     実測（1400px・バフを積んだとき）:
+       札 0個 カード210px / バー106px     札 6個 カード337px / バー233px
+       札12個 カード577px / バー473px     — 札の行数はずっと 1 のまま
+
+     上限 (max-width) だけでは足りない。上限に達するまでは中身なりなので、
+     札が2〜4個の範囲でバーが 106→160px と伸び続ける（同じ嘘が小さくなるだけ）。
+     固定すれば、札は素直に段を増やし、バーはHPだけを表す。
+     狭い画面側は width: calc(50% - 4px) で既に決まっているので起きない。 */
+  width: 248px;
   padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius);
@@ -2704,7 +2722,9 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .sheet-turns { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 .sheet-empty { margin: 10px 0; color: var(--text-dim); font-size: 13px; }
 
-.party-card-info { flex: 1; display: grid; gap: 3px; }
+/* min-width:auto のままだと、グリッドの子は中身より狭くなれない。
+   カードに上限を置いても、この1行が無いと中身が上限を突き破る。 */
+.party-card-info { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .party-card-info .name { font-size: 13px; font-weight: 600; }
 
 @keyframes pulse-ally {
