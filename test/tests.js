@@ -1617,8 +1617,8 @@
         assertTrue('§21 力: 与ダメージの上乗せが届く',
           RPG.units.toAttacker(strength).alwaysPower > 0,
           String(RPG.units.toAttacker(strength).alwaysPower));
-        assertTrue('§21 吊るされた男: 手番の負債が届く',
-          hanged.passives.turnDebt === 1, String(hanged.passives.turnDebt));
+        assertTrue('§21 吊るされた男: 縛りがユニットまで届く',
+          hanged.passives.selfBind > 0, String(hanged.passives.selfBind));
         assertTrue('§21 吊るされた男: 必ず会心の旗が届く',
           hanged.passives.alwaysCrit === 1, String(hanged.passives.alwaysCrit));
 
@@ -1674,13 +1674,19 @@
           const u = RPG.units.buildCharacterUnit(cs, []);
           u.side = 'party';
           const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [u], bossFinale: false });
-          // **値ではなく振る舞いで見る。** 開幕に積んだ負債は、その場で
-          // skipDeadActors が消費するので、start 直後の turnDebt は既に 0 になっている。
-          // 「積まれたか」を数値で見ようとして一度落とした。
-          const log = (b.log || []).map((/** @type {any} */ l) => l.text || '');
-          assertTrue('§21 吊るされた男: 負債は1ラウンド目から効く',
-            log.some((/** @type {string} */ t) => t.indexOf('逆さのまま') >= 0),
-            log.slice(-3).join(' / '));
+          const bound = b.party[0];
+          // **状態異常として貼っていないので、statusEffects を見ても何も無い。**
+          // 代償は statusRatio の下限として合流する。そこを通していることを見る。
+          // 「麻痺の札が付いているか」を statusEffects で探すと静かに素通りする。
+          assertTrue('§21 吊るされた男: 縛りが麻痺の確率として効く',
+            RPG.battle.statusRatio(bound, 'paralyze') >= 0.15,
+            String(RPG.battle.statusRatio(bound, 'paralyze')));
+          // 敵が撒いた麻痺とは max で合流する。**足し合わせない**——
+          // 足すと「札を着けた者にだけ麻痺が二重に効く」ことになる。
+          bound.statusEffects = [{ kind: 'paralyze', turns: 3, ratio: 0.25 }];
+          assertTrue('§21 吊るされた男: 敵の麻痺とは重ならない',
+            Math.abs(RPG.battle.statusRatio(bound, 'paralyze') - 0.25) < 1e-9,
+            String(RPG.battle.statusRatio(bound, 'paralyze')));
         }
 
         // ── 一撃を重くするアルカナは、上限も一緒に押し上げること ──
@@ -2158,7 +2164,8 @@
           const u = RPG.units.buildCharacterUnit(cs, []);
           u.side = 'party';
           const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [u], bossFinale: false });
-          assertTrue('§21 アルカナ無しには負債が付かない', !b.party[0].turnDebt, '');
+          assertTrue('§21 アルカナ無しには縛りが付かない',
+            !b.party[0].passives.selfBind && !RPG.battle.statusRatio(b.party[0], 'paralyze'), '');
         }
       }
 

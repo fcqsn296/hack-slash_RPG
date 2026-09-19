@@ -319,7 +319,7 @@
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
     'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
-    'turn_gift', 'ward_null', 'draw_fire', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'turn_gift', 'ward_null', 'draw_fire', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -475,6 +475,7 @@
       turnGift: 0,         // 毎ラウンド増える手番。turn_debt の対
       wardNull: 0,         // 守りの効果が働かない。defense_null とは消す層が違う
       drawFire: 0,         // 敵の狙いを必ず引き受ける。taunt の確定版
+      selfBind: 0,         // 自分が常に麻痺している扱いにする確率 (§21 吊るされた男)
       // --- 技の使い分け (§5.8) ---
       repeatPower: 0,      // 同じ技を続けるほど上がる火力
       varietyPower: 0,     // 直前と違う技を使ったときの火力
@@ -760,6 +761,7 @@
           case 'turn_gift': passives.turnGift += amount; break;
           case 'ward_null': passives.wardNull = Math.max(passives.wardNull, amount); break;
           case 'draw_fire': passives.drawFire = Math.max(passives.drawFire, amount); break;
+          case 'self_bind': passives.selfBind = Math.max(passives.selfBind, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;
           // --- 技の使い分け (§5.8) ---
           case 'repeat_power': passives.repeatPower += amount; break;
@@ -831,7 +833,16 @@
 
     // 軽減は合計1.0（＝無敵）を上限にする (§3.1-3)
     reduction = Math.min(1, reduction);
-    // 再行動が無限に続かないよう上限を設ける
+    // 再行動が無限に続かないよう上限を設ける。
+    //
+    // ── この上限は「ツリーぶん」にしか掛からない。それでよい ──
+    // units.js は ツリー → クラス → アルカナ の順に合流させるので、
+    // **クラスで得た再行動はこの頭を越える**（戦術家で実測 0.69）。
+    // 漏れに見えるが、意図して残している——ここで全体に蓋をすると、
+    // 戦術家を選ばずにユニーク装備を2つ着けるほうが得になり、
+    // **クラスを選ぶ理由そのものが消える**。
+    // 「ツリーでは 0.5 まで、それを越えられるのは戦術家だけ」が
+    // このクラスの特色になっている。
     passives.extraActionRate = Math.min(0.5, passives.extraActionRate);
 
     // 連鎖・防御無視・耐えは確率なので上限を設ける

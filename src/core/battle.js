@@ -704,6 +704,19 @@
     for (const e of (unit && unit.statusEffects) || []) {
       if (e.kind === kind && e.turns > 0) top = Math.max(top, e.ratio || 0);
     }
+    // ── 「吊るされた男」の縛り (§21) ──
+    //
+    // **状態異常として貼らずに、ここで下限として合流させる。**
+    // 貼る作りにすると、解除技で自分の代償を外せてしまい、
+    // ウェーブごとの貼り直しも要る（ラウンドの家事はウェーブが1ラウンドで
+    // 終わると走らない、という罠を毎回踏む場所でもある）。
+    // 下限なら通り道が1本で済み、消える経路が存在しない。
+    //
+    // 敵が撒いた麻痺とは max で合流するので、重ねても二重には効かない。
+    if (kind === 'paralyze') {
+      const bind = (unit && unit.passives && unit.passives.selfBind) || 0;
+      if (bind > top) top = bind;
+    }
     const cap = STATUS_CAP[kind];
     return cap == null ? top : Math.min(cap, top);
   }
@@ -1326,6 +1339,9 @@
       // 「戦車」(§21) の手番も同じ場所で配る。
       // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
+      // 手番の刻み (§21) は戦闘ごとに数え直す。
+      // **ウェーブでは戻さない。** 戻すと1ラウンドで片付くウェーブが続いたとき
+      // 毎回「1回目」になって、代償がまるごと消える。
     }
 
     // --- パッシブ: 開幕バフ（戦闘開始時に固有ユニークバフを得る）---
