@@ -1938,6 +1938,107 @@
           assertTrue('§21 死: 解放依頼は13ウェーブ', dq && dq.waves === 13, dq ? String(dq.waves) : '');
         }
 
+        // ── 魔術師 (I) ──
+        {
+          const mg = RPG.data.arcana.ar_magician;
+          assertTrue('§21 魔術師がある', !!mg, '');
+          assertTrue('§21 魔術師: 利と害が両方書いてある', !!mg.boon && !!mg.bane, '');
+
+          const u = RPG.units.buildCharacterUnit(
+            { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+              tree: {}, equipped: {}, arcana: 'ar_magician' }, []);
+          assertTrue('§21 魔術師: 系統の書き換えが届く', u.situational.asMagi === 1,
+            String(u.situational.asMagi));
+          assertTrue('§21 魔術師: 配る旗が届く', u.passives.weaveGift > 0,
+            String(u.passives.weaveGift));
+          assertTrue('§21 魔術師: 連打を止める旗が届く', u.passives.noRepeat === 1,
+            String(u.passives.noRepeat));
+
+          // **damage.js は skill.damage_type を見る。** 攻撃側から上書きを渡さないと、
+          // データに旗を立てても系統タグの計算に届かない。
+          const at = RPG.units.toAttacker(u, RPG.data.skills.sk_slash);
+          assertTrue('§21 魔術師: 攻撃側に魔術への上書きが乗る', at.forceType === 'magi',
+            String(at.forceType));
+
+          // **置き換えであって上乗せではないこと。**
+          // 両方に乗る形にすると、装備しだいで効き方が10倍違う札になる。
+          {
+            // **左右で値を変えること。** 同じ値だと、どちらの系統に乗っても
+            // 倍率が (1+1) で等しくなり、置き換わったことを見逃す（一度そう書いて落とした）。
+            const bonuses = [
+              { tag: 'phys', value: 1.5, matchType: 'phys' },
+              { tag: 'magi', value: 0.3, matchType: 'magi' },
+            ];
+            const foe = RPG.units.buildEnemyUnit('em_drake', 100, false, 0, 1);
+            const skill = RPG.data.skills.sk_slash;   // damage_type: 'phys'
+            const mk = (force) => RPG.damage.calc({
+              attacker: Object.assign({}, RPG.units.toAttacker(u, skill),
+                { tagBonuses: bonuses, forceType: force }),
+              defender: RPG.units.toDefender(foe), skill,
+              options: { crit: false, random: 1 },
+            }).damage;
+            const asPhys = mk(null);
+            const asMagi = mk('magi');
+            assertTrue('§21 魔術師: 物理の一致補正は乗らなくなる', asMagi < asPhys,
+              `物理として ${asPhys} / 魔術として ${asMagi}`);
+          }
+
+          // 同じ技を続けて使えないこと
+          {
+            const p = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_magician' }, []);
+            p.side = 'party';
+            const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [p], bossFinale: false });
+            const hero = b.party[0];
+            const sk = hero.skills.find((/** @type {string} */ id) =>
+              RPG.data.skills[id] && RPG.data.skills[id].power > 0);
+            assertTrue('§21 魔術師: 1回目は撃てる', RPG.battle.skillReady(b, hero, sk).ok, sk);
+            hero.lastSkillId = sk;
+            assertTrue('§21 魔術師: 続けて同じ技は撃てない',
+              !RPG.battle.skillReady(b, hero, sk).ok, sk);
+            // **別の技は撃てること。** ここを塞ぐと何もできない札になる。
+            const other = hero.skills.find((/** @type {string} */ id) =>
+              id !== sk && RPG.data.skills[id] && RPG.data.skills[id].power > 0);
+            if (other) {
+              assertTrue('§21 魔術師: 別の技なら撃てる',
+                RPG.battle.skillReady(b, hero, other).ok, other);
+            }
+          }
+
+          // 配ること。**攻撃技のときだけ**配る（支援技でも配ると何もせず配り続けられる）
+          {
+            const p = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_magician' }, []);
+            p.side = 'party';
+            const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [p], bossFinale: false });
+            const hero = b.party[0];
+            hero.hp = Math.floor(hero.maxHp * 0.5);
+            hero.shield = 0;
+            const atk = hero.skills.find((/** @type {string} */ id) =>
+              RPG.data.skills[id] && RPG.data.skills[id].power > 0);
+            RPG.battle.weaveGifts(b, hero, atk);
+            assertTrue('§21 魔術師: 攻撃のたびに障壁と回復を配る',
+              hero.shield > 0 && hero.hp > Math.floor(hero.maxHp * 0.5),
+              `障壁=${hero.shield} HP=${hero.hp}`);
+
+            const heal = hero.skills.find((/** @type {string} */ id) =>
+              RPG.data.skills[id] && !(RPG.data.skills[id].power > 0));
+            if (heal) {
+              const before = hero.shield;
+              RPG.battle.weaveGifts(b, hero, heal);
+              assertTrue('§21 魔術師: 支援技では配らない', hero.shield === before,
+                `${before} → ${hero.shield}`);
+            }
+          }
+
+          const mq = RPG.data.quests[mg.unlock.quest];
+          assertTrue('§21 魔術師: 解放依頼が実在する', !!mq, String(mg.unlock.quest));
+          assertTrue('§21 魔術師: 解放依頼も同じ縛りを掛けている',
+            !!(mq && mq.rules && mq.rules.noRepeat), mq ? JSON.stringify(mq.rules) : '');
+        }
+
         // ── 解放の門 (§21) ──
         // 依頼を達成していないアルカナには就けないこと。
         // 解放状態は依頼の記録から引く。別に持つと二重帳簿になる。
@@ -9961,6 +10062,8 @@
           barrierPower: (r) => r.unit.passives.barrierPower,
           // 障壁を火力へ (§9.1)。situational 行きなので attacker 側で見る。
           shieldPower: (r) => r.attacker.shieldPower,
+          // 魔術師 (§21) の配る旗。passives 行き。
+          weaveGift: (r) => r.unit.passives.weaveGift,
         };
 
         const dead = [];

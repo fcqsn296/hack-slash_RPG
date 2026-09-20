@@ -842,4 +842,19 @@ RPG.data.quests = {
     unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
+
+  // 「魔術師」の解放 (§21)。**同じ技を2回使わずに抜ける**、という条件。
+  // 札の害（同じ技を続けて使えない）を先に体験させる形。
+  // 既存4枚が maxParty / maxRounds / allAlive を使っているので、ここは新しい規則。
+  q_arcana_magician: {
+    name: '一度きりの術式',
+    desc: '封絶の浅層を、同じ技を続けて使わずに抜ける。手札の広さを問う——魔術師の像そのもの。',
+    fieldId: 'fl_sealed',
+    waves: 5,
+    bossFinale: true,
+    rules: { noRepeat: true, noAuto: true },
+    enemyScale: { hp: 60 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
 };

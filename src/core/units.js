@@ -592,6 +592,10 @@
       firstRoundPower: s.firstRoundPower || 0,
       // アルカナ (§21)。条件なしで乗る。situational も明示しないと届かない
       alwaysPower: s.alwaysPower || 0,
+      // 「魔術師」(§21) — すべての技を魔術系統として扱う。
+      // **damage.js は skill.damage_type を見る**ので、攻撃側から上書きを渡す。
+      // ここを書かないと、データに旗を立てても系統タグの計算に届かない。
+      forceType: (s.asMagi ? 'magi' : null),
       // 障壁を火力へ変える (§9.1)。
       // **toAttacker は攻撃のたびに呼ばれる**ので、いま張られている障壁を読める。
       // ユニット組み立て時では 0 しか見えず、必ず死ぬ。

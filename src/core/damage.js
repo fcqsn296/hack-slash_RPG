@@ -366,7 +366,11 @@
     const base = statValue * power;
 
     // --- ステップ2 + 3(共通バフ): 系統タグ倍率 ---
-    const tag = tagMultiplier(attacker.tagBonuses || [], skill.damage_type);
+    // 「魔術師」(§21) は、すべての技を魔術系統として扱う。
+    // **置き換えであって上乗せではない。** 物理・遺物の一致補正は乗らなくなるので、
+    // 装備を組み替えること自体が代償として働く。
+    const damageType = attacker.forceType || skill.damage_type;
+    const tag = tagMultiplier(attacker.tagBonuses || [], damageType);
 
     // --- ステップ3(固有): ユニークバフ倍率 ---
     const unique = uniqueMultiplier(attacker.uniqueBuffs || []);
@@ -388,7 +392,7 @@
     let defense = defenseOff ? 1 : defenseMultiplier(defender.def, defender.level);
     // 系統ごとの貫通 (§5.8)。「防御崩し」が確率なのに対し、こちらは確定で少しずつ抜く。
     const preMods = attacker.elementMods || {};
-    const tagPierce = (preMods.tagPierce && preMods.tagPierce[skill.damage_type]) || 0;
+    const tagPierce = (preMods.tagPierce && preMods.tagPierce[damageType]) || 0;
     if (tagPierce > 0 && !defenseOff) {
       defense += (1 - defense) * Math.min(1, tagPierce);
     }
@@ -464,7 +468,7 @@
     // 「一点集中」が全部乗せなのに対し、こちらは的を絞るぶん1段あたりが大きい。
     const critRate = (skill.crit_rate || 0) + (attacker.critRate || 0)
       + ((mods.crit && mods.crit[attackElement]) || 0)
-      + ((mods.tagCrit && mods.tagCrit[skill.damage_type]) || 0)
+      + ((mods.tagCrit && mods.tagCrit[damageType]) || 0)
       + (options.midPowerCrit || 0)  // 中技だけ (§5.8)
       + (options.chargeCrit || 0);   // 溜め (§9.1)
     // 「吊るされた男」(§21) は判定そのものを飛ばす。

@@ -319,7 +319,8 @@
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
     'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
-    'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'final_count', 'doom_power', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'final_count', 'doom_power',
+    'as_magi', 'weave_gift', 'no_repeat', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -478,6 +479,8 @@
       riseCount: 0,        // 倒れても立ち上がる回数 (§21 戦車)。1回がおよそ1.1ラウンド
       finalCount: 0,       // 終止符までの行動回数 (§21 死)。それまでは HP1 で耐える
       doomPower: 0,        // 終止符が近いほど火力 (§21 死)。1行動ごとに背水へ加算
+      weaveGift: 0,        // 魔術で攻撃するたび味方へ障壁と回復 (§21 魔術師)
+      noRepeat: 0,         // 同じ技を続けて使えない (§21 魔術師)
       selfBind: 0,         // 自分が常に麻痺している扱いにする確率 (§21 吊るされた男)
       // --- 技の使い分け (§5.8) ---
       repeatPower: 0,      // 同じ技を続けるほど上がる火力
@@ -520,6 +523,7 @@
     const situational = {
       lowHpPower: 0, highHpPower: 0, bossSlayer: 0, debuffAmp: 0, firstRoundPower: 0,
       alwaysPower: 0,         // 条件なしで乗る威力 (§21)。装備を通り抜けて最終ダメージに掛かる
+      asMagi: 0,           // すべての技を魔術系統として扱う (§21 魔術師)
       shieldPower: 0,         // 障壁を火力へ変える割合 (§9.1)。障壁の厚みに比例して乗る
       // 属性の噛み合いで決まるもの (§5.7)。damage.js が素の相性を見て判定する。
       weakHunter: 0,          // 有利を取れたときに伸びる
@@ -767,6 +771,9 @@
           case 'rise_count': passives.riseCount = Math.max(passives.riseCount, amount); break;
           case 'final_count': passives.finalCount = Math.max(passives.finalCount, amount); break;
           case 'doom_power': passives.doomPower += amount; break;
+          case 'weave_gift': passives.weaveGift += amount; break;
+          case 'no_repeat': passives.noRepeat = Math.max(passives.noRepeat, amount); break;
+          case 'as_magi': situational.asMagi = Math.max(situational.asMagi, amount); break;
           case 'self_bind': passives.selfBind = Math.max(passives.selfBind, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;
           // --- 技の使い分け (§5.8) ---

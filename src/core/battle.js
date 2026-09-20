@@ -586,6 +586,20 @@
       return { ok: false, reason: `あと${until - battle.round}ラウンド`, waitRounds: until - battle.round };
     }
 
+    // 「魔術師」(§21) — 同じ技を続けて使えない。
+    //
+    // **数値ではなく組み立てを削る代償。** 実測で、数値を削る代償は
+    // エンドビルドにほぼ全部吸収される（回復もバフも止めて 8.0R → 7.8R）。
+    // 「最大火力の技を連打する」という形そのものを禁じるので吸収されない。
+    // lastSkillId は「執着」(§5.9) が既に持っているものをそのまま使う。
+    // 依頼の規則 (rules.noRepeat) でも同じ縛りを掛けられる。
+    // 魔術師の解放依頼は、この害を先に体験させる形にしてある。
+    const noRepeat = (actor.passives && actor.passives.noRepeat)
+      || (battle.rules && battle.rules.noRepeat);
+    if (noRepeat && actor.lastSkillId === skillId) {
+      return { ok: false, reason: '同じ術は続かない' };
+    }
+
     return { ok: true };
   }
 
@@ -3496,6 +3510,11 @@
 
     executeSkill(battle, actor, skillId, targets);
 
+    // ── 「魔術師」(§21) — 織り上げたものを配る ──
+    // 攻撃のたび、味方全員に薄い障壁と回復を置く。
+    // **起動役が居ない仕掛け**（障壁を火力に変える／受けた回復量だけ火力）を起こす札。
+    weaveGifts(battle, actor, skillId);
+
     // ── 「死」(§21) — 終止符を刻む ──
     // **executeSkill の直後に数える。** ウェーブ制圧の判定より前でないと、
     // 最後の1体を倒した一撃が数えられずに終わる。
@@ -3848,6 +3867,43 @@
   }
 
   /**
+   * 「魔術師」(§21) — 魔術の技で攻撃するたび、味方全員へ薄い障壁と回復を配る。
+   *
+   * ── なぜ「配る」札が要るのか ──
+   * 次の仕掛けは、配る相手が居ないと死に枠になる:
+   *   shield_power  障壁を火力に変える
+   *   mend_power    受けた回復量だけ火力
+   *   buff_shield / buff_heal / heal_buff の連鎖
+   * 起点を作る役が居なかったので、そこを埋める。
+   *
+   * **攻撃技のときだけ配る。** 支援技でも配ると、何もせずに配り続けられる。
+   *
+   * @param {any} battle
+   * @param {any} actor
+   * @param {string} skillId
+   */
+  function weaveGifts(battle, actor, skillId) {
+    const rate = (actor && actor.passives && actor.passives.weaveGift) || 0;
+    if (!rate || !actor.alive) return;
+    const skill = RPG.data.skills[skillId];
+    if (!skill || !(skill.power > 0)) return;
+    // 魔術として扱われる技のときだけ。書き換え (as_magi) も見る。
+    const type = (actor.situational && actor.situational.asMagi) ? 'magi' : skill.damage_type;
+    if (type !== 'magi') return;
+
+    let shielded = 0;
+    let healed = 0;
+    for (const ally of livingParty(battle)) {
+      shielded += grantShield(ally, ally.maxHp * rate, actor);
+      healed += gainHp(ally, ally.maxHp * rate);
+    }
+    if (shielded > 0 || healed > 0) {
+      pushLog(battle, `${actor.name} の術が味方を包んだ`
+        + `（障壁 ${shielded.toLocaleString()} ／回復 ${healed.toLocaleString()}）`, 'buff');
+    }
+  }
+
+  /**
    * 「死」(§21) — 行動を1つ刻み、終止符に達したらその場で倒れる。
    *
    * ── なぜ行動回数なのか ──
@@ -4105,7 +4161,7 @@
   RPG.battle = {
     start, commandSkill, advanceWave, retreat, failQuest,
     comboPower, comboMax, updateCombo, COMBO_MAX, COMBO_STEP,
-    setPower, targetPower, resolveEchoes, skipDeadActors, riseFallen, tickFinal,
+    setPower, targetPower, resolveEchoes, skipDeadActors, riseFallen, tickFinal, weaveGifts,
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
