@@ -1348,6 +1348,8 @@
       u.turnDebt = (u.passives && u.passives.turnDebt) || 0;
       // 「戦車」の立ち上がり (§21)。**1戦闘ぶんの持ち物**で、ウェーブでは戻さない。
       u.risesLeft = (u.passives && u.passives.riseCount) || 0;
+      // 「死」(§21) の終止符。使った手数を数える。1戦闘ぶん。
+      u.finalUsed = 0;
       // 「戦車」(§21) の手番も同じ場所で配る。
       // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
@@ -2454,8 +2456,25 @@
     }
 
     // 「不屈」— 致死ダメージをHP1で耐える（1戦闘に1回）
+    // ── 「死」(§21) — 終止符までは倒れない ──
+    //
+    // **不屈（lastStand）より先に見る。** あちらは1戦闘に1回の確率つきで、
+    // 後ろに置くと死の確定した耐えが、たまたま不屈に食われる。
+    //
+    // HP1 で耐えるので、背水 (doom_power) が常に最大で乗る。
+    // 利と害が同じカウンタから出ている。
+    const finalCount = (defender.passives && defender.passives.finalCount) || 0;
+    const stillFated = finalCount > 0 && (defender.finalUsed || 0) < finalCount;
+
     const lastStand = (defender.passives && defender.passives.lastStand) || 0;
-    if (result.damage >= defender.hp && defender.hp > 0 && !defender.stoodGround &&
+    // **分岐にするだけで、流れは落とさないこと。** ここで return すると
+    // このあとの出血・棘・反撃が丸ごと飛ぶ（不屈も return していない）。
+    // result.damage も書き換えない——反撃や反射が「受けた一撃の重さ」を読む。
+    if (stillFated && result.damage >= defender.hp && defender.hp > 0) {
+      defender.hp = 1;
+      pushLog(battle, `${defender.name} はまだ終わらない（HP 1）`, 'buff');
+      pushEvent(battle, { type: 'buff', key: defender.key, label: '終止符まで' });
+    } else if (result.damage >= defender.hp && defender.hp > 0 && !defender.stoodGround &&
         lastStand > 0 && RPG.rng.chance(lastStand)) {
       defender.stoodGround = true;
       defender.hp = 1;
@@ -3477,6 +3496,11 @@
 
     executeSkill(battle, actor, skillId, targets);
 
+    // ── 「死」(§21) — 終止符を刻む ──
+    // **executeSkill の直後に数える。** ウェーブ制圧の判定より前でないと、
+    // 最後の1体を倒した一撃が数えられずに終わる。
+    tickFinal(battle, actor);
+
     if (checkWaveCleared(battle)) return;
 
     // 「連鎖する死」で追加行動が確定している (§5.7)。
@@ -3824,6 +3848,33 @@
   }
 
   /**
+   * 「死」(§21) — 行動を1つ刻み、終止符に達したらその場で倒れる。
+   *
+   * ── なぜ行動回数なのか ──
+   * **エンドビルドはたいていの代償を吸収する。** 耐久も支援もHPも装備と育成で
+   * 埋められるが、回数は埋められない。実測で、他者からの回復もバフも止めて
+   * 8.0ラウンド → 7.8ラウンドしか動かなかった。
+   *
+   * ── 追加行動も数える ──
+   * 号令・再行動・段の出口で増えた手も1回として数える。
+   * 数えないと「手数を増やすほど終止符が遠のく」ことになり、
+   * 手数を積むビルドだけが代償を踏み倒せる。
+   *
+   * @param {any} battle
+   * @param {any} actor
+   */
+  function tickFinal(battle, actor) {
+    const n = (actor && actor.passives && actor.passives.finalCount) || 0;
+    if (!n || !actor.alive) return;
+    actor.finalUsed = (actor.finalUsed || 0) + 1;
+    if (actor.finalUsed < n) return;
+    actor.hp = 0;
+    actor.alive = false;
+    pushLog(battle, `${actor.name} に終止符が打たれた`, 'defeat');
+    pushEvent(battle, { type: 'down', key: actor.key, side: actor.side });
+  }
+
+  /**
    * 「戦車」(§21) — 倒れていても、残り回数があればラウンドの変わり目に立ち上がる。
    *
    * ── なぜ被弾の中ではなくここなのか ──
@@ -4054,7 +4105,7 @@
   RPG.battle = {
     start, commandSkill, advanceWave, retreat, failQuest,
     comboPower, comboMax, updateCombo, COMBO_MAX, COMBO_STEP,
-    setPower, targetPower, resolveEchoes, skipDeadActors, riseFallen,
+    setPower, targetPower, resolveEchoes, skipDeadActors, riseFallen, tickFinal,
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,

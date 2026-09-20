@@ -1865,6 +1865,79 @@
           assertTrue('§21 戦車: 利と害が両方書いてある', !!ch.boon && !!ch.bane, '');
         }
 
+        // ── 死 (XIII) ──
+        //
+        // **エンドビルドはたいていの代償を吸収する。** 耐久も支援もHPも装備で
+        // 埋められるが、行動回数は埋められない。だから代償を回数に置いている。
+        {
+          const de = RPG.data.arcana.ar_death;
+          assertTrue('§21 死がある', !!de, '');
+          assertTrue('§21 死: 利と害が両方書いてある', !!de.boon && !!de.bane, '');
+
+          const u = RPG.units.buildCharacterUnit(
+            { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+              tree: {}, equipped: {}, arcana: 'ar_death' }, []);
+          assertTrue('§21 死: 終止符までの回数が届く', u.passives.finalCount === 8,
+            String(u.passives.finalCount));
+          assertTrue('§21 死: 終止符が近いほど火力の旗が届く', u.passives.doomPower > 0,
+            String(u.passives.doomPower));
+
+          // **背水へ上乗せされること。** toAttacker を通さないと damage.js へ届かない。
+          // 「passives に置いただけで効いているつもり」は §2 の定番の罠。
+          const before = RPG.units.toAttacker(u, RPG.data.skills.sk_slash).lowHpPower;
+          u.finalUsed = 5;
+          const after = RPG.units.toAttacker(u, RPG.data.skills.sk_slash).lowHpPower;
+          assertTrue('§21 死: 手を使うほど背水が伸びる',
+            after > before && Math.abs(after - before - 5 * u.passives.doomPower) < 1e-9,
+            `${before} → ${after}`);
+
+          // 終止符までは倒れないこと
+          {
+            const p = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_death' }, []);
+            p.side = 'party';
+            const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [p], bossFinale: false });
+            const hero = b.party[0];
+            assertTrue('§21 死: 戦闘開始時に手数が0から始まる', hero.finalUsed === 0,
+              String(hero.finalUsed));
+
+            // **致死を受けてもHP1で残ること。**
+            // 敵の技をそのまま使う。威力を作った偽の技だと、
+            // 属性や系統タグの経路を通らずに「通った」ことにしてしまう。
+            hero.hp = 5;
+            const foeSkill = RPG.data.skills[b.enemies[0].skills[0]];
+            RPG.battle.applyDamage(b, b.enemies[0], hero, foeSkill, { silent: true });
+            assertTrue('§21 死: 終止符までは致死でも倒れない',
+              hero.alive && hero.hp === 1, `alive=${hero.alive} hp=${hero.hp}`);
+
+            // 終止符に達したらその場で倒れる
+            hero.finalUsed = 7;
+            RPG.battle.tickFinal(b, hero);
+            assertTrue('§21 死: 8回目の行動で必ず倒れる',
+              hero.finalUsed === 8 && !hero.alive && hero.hp === 0,
+              `使った=${hero.finalUsed} alive=${hero.alive} hp=${hero.hp}`);
+
+            // **追加行動も数えること。** 数えないと手数を積むビルドだけが
+            // 代償を踏み倒せる。
+            const p2 = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_death' }, []);
+            p2.side = 'party';
+            const b2 = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [p2], bossFinale: false });
+            const h2 = b2.party[0];
+            RPG.battle.tickFinal(b2, h2);
+            RPG.battle.tickFinal(b2, h2);
+            assertTrue('§21 死: 手数は行動ごとに1つずつ刻まれる', h2.finalUsed === 2,
+              String(h2.finalUsed));
+          }
+
+          // 解放依頼が実在して、13ウェーブであること（札の番号を条件に入れてある）
+          const dq = RPG.data.quests[de.unlock.quest];
+          assertTrue('§21 死: 解放依頼が実在する', !!dq, String(de.unlock.quest));
+          assertTrue('§21 死: 解放依頼は13ウェーブ', dq && dq.waves === 13, dq ? String(dq.waves) : '');
+        }
+
         // ── 解放の門 (§21) ──
         // 依頼を達成していないアルカナには就けないこと。
         // 解放状態は依頼の記録から引く。別に持つと二重帳簿になる。

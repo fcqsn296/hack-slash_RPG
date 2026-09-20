@@ -581,7 +581,11 @@
       execute: unit.execute || 0,
       // 状況依存の特殊パッシブ
       hpRatio: unit.maxHp > 0 ? unit.hp / unit.maxHp : 1,
-      lowHpPower: s.lowHpPower || 0,
+      // 背水。「死」(§21) の終止符が近いほど、ここへ上乗せする。
+      // **toAttacker は攻撃のたびに呼ばれる**ので、使った手数をその場で読める。
+      // 必ず HP1 で耐える利と噛み合っていて、張り付いているあいだ常に最大で乗る。
+      lowHpPower: (s.lowHpPower || 0)
+        + ((unit.passives && unit.passives.doomPower) || 0) * (unit.finalUsed || 0),
       highHpPower: s.highHpPower || 0,
       bossSlayer: s.bossSlayer || 0,
       debuffAmp: s.debuffAmp || 0,

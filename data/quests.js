@@ -821,4 +821,25 @@ RPG.data.quests = {
     unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
+
+  // 「死」の解放 (§21)。**13ウェーブ＝終わりまで辿り着く**、という条件。
+  // 既存3枚が「2人以下」「7ラウンド以内」「2人以下・9ラウンド」と
+  // 札の像を条件にしているのに合わせてある。
+  // 長丁場にしたのは、死のアルカナが効くのが長い戦いだけだから——
+  // 解放依頼でその土俵を先に見せておく。
+  q_arcana_death: {
+    name: '十三の門',
+    desc: '終わりなき回廊を、誰ひとり欠けさずに13ウェーブ抜ける。'
+      + '死を招かずに終わりまで辿り着けるか——死の像を裏から問う。',
+    fieldId: 'fl_endless',
+    waves: 13,
+    bossFinale: true,
+    // **他の3枚が使っていない規則を選ぶ。** 力と戦車が maxParty、
+    // 吊るされた男が maxRounds なので、ここは allAlive にしてある。
+    // 13ウェーブという長さと噛み合って「最後まで誰も落とさない」を問う形になる。
+    rules: { allAlive: true, noAuto: true },
+    enemyScale: { hp: 40 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
 };

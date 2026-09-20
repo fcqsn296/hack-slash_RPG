@@ -319,7 +319,7 @@
     'party_size_power', 'rainbow_power', 'reduction', 'reflect', 'regen',
     'relay_power', 'repeat_power',
     'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
-    'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'final_count', 'doom_power', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -476,6 +476,8 @@
       wardNull: 0,         // 守りの効果が働かない。defense_null とは消す層が違う
       drawFire: 0,         // 敵の狙いを必ず引き受ける。taunt の確定版
       riseCount: 0,        // 倒れても立ち上がる回数 (§21 戦車)。1回がおよそ1.1ラウンド
+      finalCount: 0,       // 終止符までの行動回数 (§21 死)。それまでは HP1 で耐える
+      doomPower: 0,        // 終止符が近いほど火力 (§21 死)。1行動ごとに背水へ加算
       selfBind: 0,         // 自分が常に麻痺している扱いにする確率 (§21 吊るされた男)
       // --- 技の使い分け (§5.8) ---
       repeatPower: 0,      // 同じ技を続けるほど上がる火力
@@ -763,6 +765,8 @@
           case 'ward_null': passives.wardNull = Math.max(passives.wardNull, amount); break;
           case 'draw_fire': passives.drawFire = Math.max(passives.drawFire, amount); break;
           case 'rise_count': passives.riseCount = Math.max(passives.riseCount, amount); break;
+          case 'final_count': passives.finalCount = Math.max(passives.finalCount, amount); break;
+          case 'doom_power': passives.doomPower += amount; break;
           case 'self_bind': passives.selfBind = Math.max(passives.selfBind, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;
           // --- 技の使い分け (§5.8) ---
