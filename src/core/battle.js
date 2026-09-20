@@ -653,6 +653,16 @@
    * これで「つまみ食いは33ラウンド、専業は7ラウンド」と差が付く。
    * **素の値と上限は対で設計するもの**で、片方だけ動かすと必ずどちらかが壊れる。
    */
+  /**
+   * 「戦車」が立ち上がるときのHP（最大HPに対する割合）。
+   *
+   * **この値は効き目にほとんど関わらない。** 25/35/50/75% を振って
+   * 結果が完全に同一だった——起き上がった先で次の1発が必ず致死なので、
+   * 何%で戻っても次までの猶予が変わらない。読みやすさで 50% にしてある。
+   * 効き目を決めているのは回数のほう (rise_count)。
+   */
+  const RISE_HP = 0.5;
+
   const STATUS_CAP = {
     poison: 0.10,     // ラウンド終了時に1回。全振り0.07の上に置いた安全弁
     burn: 0.035,      // 相手が攻撃するたび。全振り0.024の上に置いた安全弁
@@ -1336,6 +1346,8 @@
     // 周回は1〜3ラウンドで終わるので、ここを忘れると**代償が周回でだけ消える**。
     for (const u of battle.party) {
       u.turnDebt = (u.passives && u.passives.turnDebt) || 0;
+      // 「戦車」の立ち上がり (§21)。**1戦闘ぶんの持ち物**で、ウェーブでは戻さない。
+      u.risesLeft = (u.passives && u.passives.riseCount) || 0;
       // 「戦車」(§21) の手番も同じ場所で配る。
       // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
@@ -1401,6 +1413,9 @@
       //
       // 順番は endOfRound に合わせて制圧を先に見る。相打ちは勝ちになる。
       if (checkWaveCleared(battle)) return battle;
+      // 「戦車」は開幕の一撃で落ちても立ち上がる (§21)。
+      // ここを飛ばすと、先制の相で**立ち上がる前に負けが確定する**。
+      riseFallen(battle);
       // 開幕の一撃で落ちることがある。勝敗の判定を飛ばさない。
       if (livingParty(battle).length === 0) {
         battle.finished = true;
@@ -1502,8 +1517,17 @@
       if (!u.alive) continue;
       u.extraActions = 0;
       u.turnDebt = (u.passives && u.passives.turnDebt) || 0;
+      // **戦車の立ち上がり (risesLeft) の残数はここで配らない。**
+      // ここは nextWave なので、配ると5ウェーブの場ではその5倍になる。
+      // 1戦闘ぶんの持ち物として、戦闘開始時に一度だけ配っている。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
     }
+
+    // 倒れたまま次のウェーブへ持ち越さない (§21 戦車)。
+    // **ラウンドの家事は、ウェーブが1ラウンドで終わると走らない。**
+    // endOfRound だけに置いていたら、周回（1ウェーブ1ラウンド）で
+    // 立ち上がりが一度も起きなかった（実測：落ちた50%・立ち上がり0.0回）。
+    riseFallen(battle);
 
     const field = battle.field;
     const isFinal = battle.wave === battle.totalWaves && battle.bossFinale;
@@ -2599,6 +2623,25 @@
 
     // --- パッシブ: 復活（1戦闘に1回だけ）---
     if (!defender.alive) {
+      // ── 「戦車」の立ち上がり (§21) ──
+      //
+      // 復活（reviveHp）より**先に**見る。あちらは1戦闘に1回の切り札で、
+      // 後ろに置くと戦車の回数が尽きるまで一度も使われない。
+      //
+      // @知見: 守りへの投資が全部無効な相手には、回数だけが目盛りになる（実測1回≒1.1ラウンド）
+      //
+      // 戦車は軽減も障壁も庇いも効かず（ward_null）、狙いも逸らせず（draw_fire）、
+      // 闘技場では被害上限が最大HPの割合なのでHPも効かない。
+      // 実測で、立ち上がりが無いと素の手番の34%しか動けていなかった
+      // （8ラウンドで 10.2回 対 30.3回）。7回で 37.4回＝+0.9手番/R となり、
+      // 札に書いてある「毎ラウンド、もう一度行動できる」とちょうど釣り合う。
+      // **分岐にするだけで、流れは落とさないこと。** ここで return すると
+      // このあとの出血・棘・反撃が丸ごと飛ぶ（既存の復活も return していない）。
+      //
+      // 「戦車」の立ち上がり (§21) は**ここに置かない**。被弾の中で起こすと、
+      // 同じ敵フェーズの次の一撃でまた倒れて、回数が一瞬で蒸発する
+      // （闘技場の主は1ラウンドに5回動く。実測で7回ぶんが1.5ラウンドで消えた）。
+      // ラウンドの変わり目に起こす（riseFallen）ので、そちらを読むこと。
       const reviveHp = (defender.passives && defender.passives.reviveHp) || 0;
       if (reviveHp > 0 && !defender.revived) {
         defender.revived = true;
@@ -3753,6 +3796,10 @@
 
     if (checkWaveCleared(battle)) return;
 
+    // 「戦車」は倒れても立ち上がる (§21)。**全滅の判定より前に置くこと。**
+    // 後ろに置くと、最後のひとりが戦車だったとき、立ち上がる前に負けが確定する。
+    riseFallen(battle);
+
     if (livingParty(battle).length === 0) {
       battle.finished = true;
       battle.victory = false;
@@ -3774,6 +3821,36 @@
     battle.phase = 'command';
     skipDeadActors(battle);
     if (battle.actorIndex >= battle.party.length) runEnemyPhase(battle);
+  }
+
+  /**
+   * 「戦車」(§21) — 倒れていても、残り回数があればラウンドの変わり目に立ち上がる。
+   *
+   * ── なぜ被弾の中ではなくここなのか ──
+   * **被弾の中で起こすと、同じ敵フェーズの次の一撃でまた倒れる。**
+   * 闘技場の主は1ラウンドに5回動くので、実測では7回ぶんが1.5ラウンドで蒸発し、
+   * 素（7.9ラウンド）に届かなかった（7.2ラウンド）。
+   *
+   * ── なぜ「倒れたまま」では駄目なのか ──
+   * 倒れた者は狙われないので、**二度と被弾せず、立ち上がる機会そのものが来ない。**
+   * 被弾の中に置いたままラウンドで区切る案を測ったら、回数をいくら増やしても
+   * 4.8ラウンドで頭打ちになった（n=5 も n=10 も同じ）。
+   *
+   * ラウンドの変わり目に起こせば「1回がおよそ1ラウンドを買う」と読める形になる。
+   * 倒れたラウンドの残りの手番は失うので、そこが代償として残る。
+   *
+   * @param {any} battle
+   */
+  function riseFallen(battle) {
+    for (const u of battle.party) {
+      if (u.alive || (u.risesLeft || 0) <= 0) continue;
+      u.risesLeft--;
+      u.alive = true;
+      u.hp = Math.max(1, Math.floor(u.maxHp * RISE_HP));
+      pushLog(battle,
+        `${u.name} は倒れない（あと${u.risesLeft}回／HP ${u.hp.toLocaleString()}）`, 'buff');
+      pushEvent(battle, { type: 'revive', key: u.key });
+    }
   }
 
   /**
@@ -3977,7 +4054,7 @@
   RPG.battle = {
     start, commandSkill, advanceWave, retreat, failQuest,
     comboPower, comboMax, updateCombo, COMBO_MAX, COMBO_STEP,
-    setPower, targetPower, resolveEchoes, skipDeadActors,
+    setPower, targetPower, resolveEchoes, skipDeadActors, riseFallen,
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,

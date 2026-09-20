@@ -1785,6 +1785,83 @@
           }
 
           // 利と害がどちらも書いてあること（札の面に刷る）。
+          // ── 倒れても立ち上がること (§21) ──
+          //
+          // **守りへの投資が1つも残らない札なので、回数だけが目盛りになる。**
+          // 軽減・障壁・庇いは ward_null が消し、狙いは draw_fire が塞ぎ、
+          // 闘技場ではHPも効かない（被害上限が最大HPの割合なので比例する）。
+          // 立ち上がりが無いと、実測で素の手番の34%しか動けなかった。
+          {
+            const c = mk('ar_chariot');
+            assertTrue('§21 戦車: 立ち上がる回数がユニットまで届く',
+              c.passives.riseCount > 0, String(c.passives.riseCount));
+
+            // **ラウンドの変わり目に起こすこと。** 被弾の中で起こすと、
+            // 同じ敵フェーズの次の一撃でまた倒れて回数が蒸発する。
+            // 逆に「倒れたまま」にすると、倒れた者は狙われないので
+            // **二度と被弾せず、立ち上がる機会そのものが来ない**。
+            const u = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_chariot' }, []);
+            u.side = 'party';
+            const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 2, party: [u], bossFinale: false });
+            const hero = b.party[0];
+            assertTrue('§21 戦車: 戦闘開始時に残り回数が配られる',
+              hero.risesLeft === hero.passives.riseCount, String(hero.risesLeft));
+
+            // 倒してからラウンドを回すと起き上がる
+            hero.alive = false; hero.hp = 0;
+            const before = hero.risesLeft;
+            RPG.battle.riseFallen(b);
+            assertTrue('§21 戦車: 倒れても立ち上がる',
+              hero.alive && hero.hp > 0 && hero.risesLeft === before - 1,
+              `alive=${hero.alive} hp=${hero.hp} 残り=${hero.risesLeft}`);
+
+            // 回数を使い切ったら起き上がらない
+            hero.risesLeft = 0; hero.alive = false; hero.hp = 0;
+            RPG.battle.riseFallen(b);
+            assertTrue('§21 戦車: 回数を使い切ったら立ち上がらない', !hero.alive, '');
+          }
+
+          // **ウェーブの移行でも立ち上がること。**
+          // ラウンドの家事は、ウェーブが1ラウンドで終わると走らない。
+          // endOfRound にだけ置いていたら、周回で立ち上がりが一度も起きなかった
+          // （実測：主人公が落ちた50%・立ち上がり0.0回）。
+          {
+            const u = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_chariot' }, []);
+            u.side = 'party';
+            const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 2, party: [u], bossFinale: false });
+            const hero = b.party[0];
+            const before = hero.risesLeft;
+            hero.alive = false; hero.hp = 0;
+            for (const e of b.enemies) { e.alive = false; e.hp = 0; }
+            // **advanceWave は phase を見る。** 'wave_clear' でないと何もせずに戻るので、
+            // 敵を倒しただけでは次のウェーブへ進まない（それで一度落とした）。
+            b.phase = 'wave_clear';
+            RPG.battle.advanceWave(b);
+            assertTrue('§21 戦車: ウェーブが変わるときも立ち上がる',
+              hero.alive && hero.risesLeft === before - 1,
+              `alive=${hero.alive} 残り=${hero.risesLeft}`);
+          }
+
+          // **残り回数はウェーブで戻らない。** 戻すと5連戦の場では5倍になる。
+          {
+            const u = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                tree: {}, equipped: {}, arcana: 'ar_chariot' }, []);
+            u.side = 'party';
+            const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 2, party: [u], bossFinale: false });
+            const hero = b.party[0];
+            hero.risesLeft = 1;
+            for (const e of b.enemies) { e.alive = false; e.hp = 0; }
+            b.phase = 'wave_clear';
+            RPG.battle.advanceWave(b);
+            assertTrue('§21 戦車: 残り回数はウェーブで戻らない',
+              hero.risesLeft <= 1, String(hero.risesLeft));
+          }
+
           assertTrue('§21 戦車: 利と害が両方書いてある', !!ch.boon && !!ch.bane, '');
         }
 
