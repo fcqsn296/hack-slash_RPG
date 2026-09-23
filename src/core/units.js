@@ -386,6 +386,9 @@
       baseCritRate: critRate,
       critDamage: tree.critDamage,
       capBreak,
+      // 「恋人」(§21) が同じ札を持つ味方を数えるのに使う。
+      // **効果の合流だけでは札そのものを見分けられない**ので、IDを別に持つ。
+      arcanaId: charSave.arcana || null,
       execute: tree.execute,
       baseReduction: Math.min(1, reduction),
       passives,

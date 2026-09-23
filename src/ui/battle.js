@@ -14,6 +14,8 @@
   let root = null;
   /** @type {string|null} 対象選択待ちのスキルID */
   let pendingSkill = null;
+  /** @type {string|null} 「皇帝」(§21) で選んだ命令先の key。技を選ぶまで覚えておく */
+  let decreeTo = null;
   /** ログを何行までDOMに描いたか */
   let renderedLogs = 0;
   /**
@@ -70,6 +72,7 @@
     root = container;
     battle = b;
     pendingSkill = null;
+    decreeTo = null;
     // 新しい戦闘では作り直す。前の戦闘のログを引き継がない。
     logEl = null;
     logWasFollowing = true;
@@ -307,7 +310,7 @@
     const action = RPG.autoplay.chooseAction(battle);
     if (!action) return;
     pendingSkill = null;
-    act(() => RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true }));
+    act(() => RPG.battle.perform(battle, action, { auto: true }));
     scheduleAuto();
   }
 
@@ -1065,6 +1068,52 @@
       );
     }
 
+    // ── 「皇帝」(§21) — 勅命 ──
+    //
+    // 選ぶ順は 命令先 → 受け手の技 → 対象。
+    // **命令の状態は battle に持たせない。** ここで溜めて、揃ってから
+    // commandDecree を1回呼ぶ。中核側の battle.decree は実行の一瞬だけ生きる。
+    const orders = (actor.passives && actor.passives.decree)
+      ? RPG.battle.decreeTargets(battle, actor) : [];
+    if (orders.length > 0) {
+      const to = decreeTo
+        ? orders.find((/** @type {any} */ u) => u.key === decreeTo) : null;
+      if (!to) {
+        // 命令先がいなくなっていたら選び直させる
+        if (decreeTo) decreeTo = null;
+        return h('div.command-list',
+          h('div.command-actor',
+            W.portrait(actor, 'sm'),
+            h('span', { text: actor.name + ' の勅命 — 誰に振るわせるか' })
+          ),
+          h('div.command-buttons', orders.map((/** @type {any} */ u) =>
+            h('button.skill-btn', { onClick: () => { decreeTo = u.key; render(); } },
+              h('span.skill-name', { text: u.name }),
+              h('span.skill-sub', {
+                text: `HP ${Math.max(0, Math.round(u.hp)).toLocaleString()} / ${u.maxHp.toLocaleString()}`,
+              })
+            )
+          ))
+        );
+      }
+      return h('div.command-list',
+        h('div.command-actor',
+          W.portrait(to, 'sm'),
+          h('span', { text: `${actor.name} の勅命 — ${to.name} が振るう` })
+        ),
+        h('div.command-buttons', RPG.battle.decreeSkills(battle, to).map((/** @type {string} */ id) => {
+          const skill = RPG.data.skills[id];
+          return h('button.skill-btn' + (skill.cls ? '.is-class' : ''), {
+            onClick: () => selectSkill(id),
+          },
+            h('span.skill-name', { text: skill.name }),
+            h('span.skill-sub', { text: skill.desc || '' })
+          );
+        })),
+        W.button('命令先を選び直す', () => { decreeTo = null; render(); }, { variant: 'ghost' })
+      );
+    }
+
     return h('div.command-list',
       h('div.command-actor',
         W.portrait(actor, 'sm'),
@@ -1202,19 +1251,34 @@
     return face;
   }
 
+  /**
+   * 選んだ技を実行する。命令先 (decreeTo) を選んでいれば勅命として送る。
+   * **ここ1か所に寄せる。** 通常と命令で別々に書くと、対象省略のような
+   * 細かい分岐がどちらかにだけ入って食い違う。
+   * @param {string} skillId
+   * @param {any[]} targets
+   */
+  function send(skillId, targets) {
+    const to = decreeTo;
+    decreeTo = null;
+    act(() => (to
+      ? RPG.battle.commandDecree(battle, to, skillId, targets)
+      : RPG.battle.commandSkill(battle, skillId, targets)));
+  }
+
   /** @param {string} skillId */
   function selectSkill(skillId) {
     const skill = RPG.data.skills[skillId];
     const kind = RPG.battle.targetKind(skill);
 
     if (kind === 'none') {
-      act(() => RPG.battle.commandSkill(battle, skillId, []));
+      send(skillId, []);
       return;
     }
     // 対象が1体しかいないなら選択を省略する
     const candidates = kind === 'ally' ? RPG.battle.livingParty(battle) : RPG.battle.livingEnemies(battle);
     if (candidates.length === 1) {
-      act(() => RPG.battle.commandSkill(battle, skillId, [candidates[0]]));
+      send(skillId, [candidates[0]]);
       return;
     }
     // 一覧が対象欄に置き換わると、その分ページが縮んで
@@ -1234,7 +1298,7 @@
     if (!pendingSkill) return;
     const skillId = pendingSkill;
     pendingSkill = null;
-    act(() => RPG.battle.commandSkill(battle, skillId, [target]));
+    send(skillId, [target]);
   }
 
   RPG.ui = RPG.ui || {};

@@ -857,4 +857,36 @@ RPG.data.quests = {
     unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
+
+  // 「皇帝」の解放 (§21)。**主人公を一度も行動させずに抜ける**、という条件。
+  // 札の像（自らは振るわず、誰に振るわせるかだけを決める）を先に体験させる形。
+  // 皇帝そのものは要求しない——既存の支援技と編成だけで組めるようにしてある。
+  q_arcana_emperor: {
+    name: '座して統べる',
+    desc: '忘却の遺構を、主人公を一度も行動させずに抜ける。'
+      + '誰にいつ振るわせるかだけを決める——皇帝の像そのものを問う。',
+    fieldId: 'fl_ruins',
+    waves: 5,
+    bossFinale: true,
+    rules: { idleHero: true, noAuto: true },
+    enemyScale: { hp: 70 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
+
+  // 「恋人」の解放 (§21)。**2人だけで、誰も欠けさずに抜ける**。
+  // 札の像（分かち合う二人）をそのまま条件にしてある。
+  // maxParty と allAlive は既存の組み合わせだが、2人で全員生存は他に無い。
+  q_arcana_lovers: {
+    name: '二人の誓い',
+    desc: '灼獄竜の巣を、二人だけで、どちらも倒れずに抜ける。'
+      + '分かち合うとはどういうことか——恋人の像そのものを問う。',
+    fieldId: 'fl_nest',
+    waves: 5,
+    bossFinale: true,
+    rules: { maxParty: 2, allAlive: true, noAuto: true },
+    enemyScale: { hp: 50 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
 };

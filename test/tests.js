@@ -2039,6 +2039,213 @@
             !!(mq && mq.rules && mq.rules.noRepeat), mq ? JSON.stringify(mq.rules) : '');
         }
 
+        // ── 皇帝 (IV) ──
+        //
+        // **利と害が同じ旗から出ている。** 渡せる相手がいる間は本人が動かない。
+        // 手番が戻る輪を作らないことが、この札の実装の芯。
+        {
+          const em = RPG.data.arcana.ar_emperor;
+          assertTrue('§21 皇帝がある', !!em, '');
+          assertTrue('§21 皇帝: 利と害が両方書いてある', !!em.boon && !!em.bane, '');
+
+          const mkParty = (ids, arcanaBy) => {
+            const party = ids.map((id, i) => {
+              const u = RPG.units.buildCharacterUnit(
+                { id, level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {},
+                  arcana: (arcanaBy && arcanaBy[id]) || null }, []);
+              u.side = 'party';
+              u.key = 'p' + i;
+              return u;
+            });
+            return RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party, bossFinale: false });
+          };
+
+          // 1. 命令先がいる間は本人の技を使えない
+          {
+            const b = mkParty(['ch_hero', 'ch_mia'], { ch_hero: 'ar_emperor' });
+            const e = b.party[0];
+            assertTrue('§21 皇帝: 旗がユニットまで届く', e.passives.decree === 1,
+              String(e.passives.decree));
+            assertTrue('§21 皇帝: 命令先がいる', RPG.battle.decreeTargets(b, e).length > 0, '');
+            const own = e.skills.find((/** @type {string} */ id) => RPG.data.skills[id]);
+            assertTrue('§21 皇帝: 命令先がいる間は本人の技を使えない',
+              !RPG.battle.skillReady(b, e, own).ok, own);
+          }
+
+          // 2. 単騎なら本人が普通に動ける（詰まらせない）
+          {
+            const b = mkParty(['ch_hero'], { ch_hero: 'ar_emperor' });
+            const e = b.party[0];
+            assertTrue('§21 皇帝: 単騎では命令先がいない',
+              RPG.battle.decreeTargets(b, e).length === 0, '');
+            const own = e.skills.find((/** @type {string} */ id) =>
+              RPG.data.skills[id] && RPG.data.skills[id].power > 0);
+            assertTrue('§21 皇帝: 単騎なら本人が動ける',
+              RPG.battle.skillReady(b, e, own).ok, own);
+          }
+
+          // 3. 皇帝どうしは命令し合えない（手番を回し合わせない）
+          {
+            const b = mkParty(['ch_hero', 'ch_mia'],
+              { ch_hero: 'ar_emperor', ch_mia: 'ar_emperor' });
+            assertTrue('§21 皇帝: 他の皇帝へは命令できない',
+              !RPG.battle.canTakeOrder(b, b.party[0], b.party[1]), '');
+          }
+
+          // 4. 手番そのものを生む技は命令で選べない
+          {
+            const turners = Object.keys(RPG.data.skills)
+              .filter((id) => RPG.battle.grantsTurn(RPG.data.skills[id]));
+            assertTrue('§21 皇帝: 手番を生む技を見分けられる', turners.length > 0,
+              String(turners.length));
+            const b = mkParty(['ch_hero', 'ch_mia'], { ch_hero: 'ar_emperor' });
+            const to = b.party[1];
+            // 命令中の扱いで検査する（battle.decree を立てて skillReady を通す）
+            b.decree = { byKey: b.party[0].key, toKey: to.key };
+            const blocked = turners.every((id) => !RPG.battle.skillReady(b, to, id).ok);
+            b.decree = null;
+            assertTrue('§21 皇帝: 命令では手番を生む技を撃てない', blocked, '');
+            assertTrue('§21 皇帝: 命令の候補にも入らない',
+              RPG.battle.decreeSkills(b, to).every((/** @type {string} */ id) =>
+                !RPG.battle.grantsTurn(RPG.data.skills[id])), '');
+          }
+
+          // 5. **命令による行動からは再行動が生まれない。**
+          //    生んでから取り消す形にすると、受け手の残り回数や権利を巻き戻すことになる。
+          {
+            const b = mkParty(['ch_hero', 'ch_mia'], { ch_hero: 'ar_emperor' });
+            const to = b.party[1];
+            to.passives.killExtraAction = 1;   // 倒したら必ず再行動
+            to.passives.extraActionRate = 1;   // 手番の終わりに必ず再行動
+            const before = to.extraActions;
+            const sk = RPG.battle.decreeSkills(b, to)
+              .find((/** @type {string} */ id) => RPG.data.skills[id].power > 0);
+            RPG.battle.commandDecree(b, to.key, sk, [RPG.battle.livingEnemies(b)[0]], { auto: true });
+            assertTrue('§21 皇帝: 命令からは再行動が生まれない',
+              to.extraActions === before && !to.pendingExtra && !to.grantedExtra,
+              `extra=${to.extraActions} pending=${!!to.pendingExtra} granted=${!!to.grantedExtra}`);
+          }
+
+          // 6. 反動や負債で動けない味方へは命令できない（踏み倒させない）
+          {
+            const b = mkParty(['ch_hero', 'ch_mia'], { ch_hero: 'ar_emperor' });
+            const to = b.party[1];
+            to.stunnedRounds = 1;
+            assertTrue('§21 皇帝: 反動で動けない味方へは命令できない',
+              !RPG.battle.canTakeOrder(b, b.party[0], to), '');
+            to.stunnedRounds = 0;
+            to.turnDebt = 1;
+            assertTrue('§21 皇帝: 手番の負債がある味方へも命令できない',
+              !RPG.battle.canTakeOrder(b, b.party[0], to), '');
+          }
+
+          // 7. 候補を調べるだけで乱数を動かさない（見ただけで戦況が変わらない）
+          {
+            const b = mkParty(['ch_hero', 'ch_mia'], { ch_hero: 'ar_emperor' });
+            // **rng の API は next / float / int / chance / pick / weighted。**
+            // random は無く、float は範囲を取る（引数なしだと NaN）。どちらでも一度落ちた。
+            RPG.rng.seed(4242);
+            RPG.battle.decreeTargets(b, b.party[0]);
+            const a1 = RPG.rng.next();
+            RPG.rng.seed(4242);
+            const a2 = RPG.rng.next();
+            RPG.rng.seed(null);
+            assertTrue('§21 皇帝: 候補を調べても乱数が進まない', a1 === a2, `${a1} / ${a2}`);
+          }
+
+          // 8. 共通の実行口が命令を取り違えない
+          {
+            const b = mkParty(['ch_hero', 'ch_mia'], { ch_hero: 'ar_emperor' });
+            const to = b.party[1];
+            const sk = RPG.battle.decreeSkills(b, to)
+              .find((/** @type {string} */ id) => RPG.data.skills[id].power > 0);
+            const before = (b.log || []).length;
+            RPG.battle.perform(b, { decreeTo: to.key, skillId: sk, targets: [RPG.battle.livingEnemies(b)[0]] },
+              { auto: true });
+            const added = (b.log || []).slice(before).map((/** @type {any} */ l) => l.text || '');
+            assertTrue('§21 皇帝: perform が命令を実行する',
+              added.some((/** @type {string} */ t) => t.indexOf('勅命') >= 0), added.slice(0, 3).join(' / '));
+          }
+
+          const eq = RPG.data.quests[em.unlock.quest];
+          assertTrue('§21 皇帝: 解放依頼が実在する', !!eq, String(em.unlock.quest));
+          assertTrue('§21 皇帝: 解放依頼は主人公を動かさせない',
+            !!(eq && eq.rules && eq.rules.idleHero), eq ? JSON.stringify(eq.rules) : '');
+        }
+
+        // ── 恋人 (VI) ──
+        //
+        // **編成そのものを賭ける札。** 1人で持っても何も起きない。
+        {
+          const lv = RPG.data.arcana.ar_lovers;
+          assertTrue('§21 恋人がある', !!lv, '');
+          assertTrue('§21 恋人: 利と害が両方書いてある', !!lv.boon && !!lv.bane, '');
+
+          const mk = (n) => {
+            const ids = ['ch_hero', 'ch_mia', 'ch_gow', 'ch_gald'];
+            const party = ids.map((id, i) => {
+              const u = RPG.units.buildCharacterUnit(
+                { id, level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {},
+                  arcana: i < n ? 'ar_lovers' : null }, []);
+              u.side = 'party'; u.key = 'p' + i;
+              return u;
+            });
+            return RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party, bossFinale: false });
+          };
+
+          // **札のIDがユニットまで届くこと。** 効果の合流だけでは札を見分けられない。
+          {
+            const b = mk(2);
+            assertTrue('§21 恋人: 札のIDがユニットに乗る',
+              b.party[0].arcanaId === 'ar_lovers' && b.party[3].arcanaId === null,
+              `${b.party[0].arcanaId} / ${b.party[3].arcanaId}`);
+            assertTrue('§21 恋人: 絆の旗が届く', b.party[0].passives.bondPower > 0,
+              String(b.party[0].passives.bondPower));
+          }
+
+          // 人数で伸びること。**1人では伸びない**（編成を賭けさせる札なので）
+          {
+            // **1つの戦闘から取ること。** mk() を2回呼ぶと別の戦闘が2つできて、
+            // 片方の味方をもう片方の絆として数えてしまう（実際そう書いて落とした）。
+            const b1 = mk(1); const one = RPG.battle.setPower(b1, b1.party[0]);
+            const b2 = mk(2); const two = RPG.battle.setPower(b2, b2.party[0]);
+            const b4 = mk(4); const four = RPG.battle.setPower(b4, b4.party[0]);
+            assertTrue('§21 恋人: 1人では何も起きない', Math.abs(one - 1) < 1e-9, String(one));
+            assertTrue('§21 恋人: 人数が増えるほど伸びる', four > two && two > one,
+              `${one} / ${two} / ${four}`);
+          }
+
+          // 痛みは**同じ札を持つ者とだけ**分ける
+          {
+            const b = mk(2);
+            const me = b.party[0], kin = b.party[1], other = b.party[3];
+            const kb = kin.hp, ob = other.hp;
+            RPG.battle.applyDamage(b, b.enemies[0], me,
+              RPG.data.skills[b.enemies[0].skills[0]], { silent: true });
+            assertTrue('§21 恋人: 痛みを相方と分ける', kin.hp < kb, `${kb} → ${kin.hp}`);
+            assertTrue('§21 恋人: 札を持たない味方には及ばない', other.hp === ob,
+              `${ob} → ${other.hp}`);
+          }
+
+          // **戦車とは噛み合わない。** ward_null は分配も消す
+          {
+            const b = mk(2);
+            const me = b.party[0], kin = b.party[1];
+            me.passives.wardNull = 1;
+            const kb = kin.hp;
+            RPG.battle.applyDamage(b, b.enemies[0], me,
+              RPG.data.skills[b.enemies[0].skills[0]], { silent: true });
+            assertTrue('§21 恋人: 守りを捨てた者は痛みを分け合えない', kin.hp === kb,
+              `${kb} → ${kin.hp}`);
+          }
+
+          const lq = RPG.data.quests[lv.unlock.quest];
+          assertTrue('§21 恋人: 解放依頼が実在する', !!lq, String(lv.unlock.quest));
+          assertTrue('§21 恋人: 解放依頼は二人で全員生存',
+            !!(lq && lq.rules && lq.rules.maxParty === 2 && lq.rules.allAlive),
+            lq ? JSON.stringify(lq.rules) : '');
+        }
+
         // ── 解放の門 (§21) ──
         // 依頼を達成していないアルカナには就けないこと。
         // 解放状態は依頼の記録から引く。別に持つと二重帳簿になる。
@@ -2581,7 +2788,7 @@
           let g = 0;
           while (!b.finished && b.totalRounds === startRound && g++ < 30) {
             const a = RPG.autoplay.chooseAction(b); if (!a) break;
-            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            RPG.battle.perform(b, a, { auto: true });
           }
           assertTrue('恩返し: 再生でも積む',
             (b.party[0].mendRatio || 0) > before,
@@ -2691,7 +2898,7 @@
           while (!b.finished && b.totalRounds === startRound && g++ < 30) {
             if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
             const a = RPG.autoplay.chooseAction(b); if (!a) break;
-            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            RPG.battle.perform(b, a, { auto: true });
           }
           const got = b.party.map((/** @type {any} */ u) =>
             (u.buffUnique || []).filter((/** @type {any} */ x) => x.label === '号令').length);
@@ -2717,7 +2924,7 @@
             let g = 0;
             while (!b.finished && b.totalRounds === start && g++ < 30) {
               const a = RPG.autoplay.chooseAction(b); if (!a) break;
-              RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+              RPG.battle.perform(b, a, { auto: true });
             }
             RPG.rng.seed(null);
             return b.log.filter((/** @type {any} */ l) => /危急/.test(l.text)).length;
@@ -4576,7 +4783,7 @@
             const a = RPG.autoplay.chooseAction(b);
             if (!a) break;
             if (RPG.data.skills[a.skillId].plugin === 'dye') n++;
-            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            RPG.battle.perform(b, a, { auto: true });
           }
           RPG.rng.seed(null);
           return n;
@@ -4895,7 +5102,7 @@
             action = RPG.autoplay.chooseAction(b);
             if (!action) break;
             if (RPG.data.skills[action.skillId].plugin === 'barrier') break;
-            RPG.battle.commandSkill(b, action.skillId, action.targets, { auto: true });
+            RPG.battle.perform(b, action, { auto: true });
             b.party.forEach((/** @type {any} */ u) => {
               if (u.alive) u.hp = Math.floor(u.maxHp * 0.6);
             });
@@ -4924,7 +5131,7 @@
             if (!action) break;
             if (RPG.data.skills[action.skillId].plugin === 'barrier') break;
             if (RPG.autoplay.isAttack(RPG.data.skills[action.skillId])) break;
-            RPG.battle.commandSkill(b, action.skillId, action.targets, { auto: true });
+            RPG.battle.perform(b, action, { auto: true });
           }
           assertTrue('§9.1 オート: 殴ったほうが得なら障壁を張らない',
             !!action && RPG.data.skills[action.skillId].plugin !== 'barrier',
@@ -6424,7 +6631,7 @@
           if (battle.phase === 'wave_clear') { RPG.battle.advanceWave(battle); continue; }
           const action = RPG.autoplay.chooseAction(battle);
           if (!action) break;
-          RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
+          RPG.battle.perform(battle, action, { auto: true });
         }
         return { battle, result: RPG.tower.resolve(battle) };
       };
@@ -7098,7 +7305,7 @@
           if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
           const a = RPG.autoplay.chooseAction(b);
           if (!a) break;
-          RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          RPG.battle.perform(b, a, { auto: true });
         }
         assertTrue('クエスト: 全員生存の条件を破ると失敗になる',
           b.finished && !b.victory && !!b.ruleBroken, b.ruleBroken || '（失敗していない）');
@@ -7114,7 +7321,7 @@
           if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
           const a = RPG.autoplay.chooseAction(b);
           if (!a) break;
-          RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          RPG.battle.perform(b, a, { auto: true });
         }
         assertTrue('クエスト: ラウンド制限を超えると失敗になる',
           b.finished && !b.victory && b.totalRounds <= 2, `${b.totalRounds} ラウンド / ${b.ruleBroken || '全滅'}`);
@@ -7756,7 +7963,7 @@
           while (!b.finished && guard++ < 9000) {
             const a = RPG.autoplay.chooseAction(b);
             if (!a) break;
-            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            RPG.battle.perform(b, a, { auto: true });
           }
           rounds = b.totalRounds;
           if (!b.finished) stalled++;
@@ -7786,7 +7993,7 @@
         while (!b.finished && guard++ < 5000) {
           const a = RPG.autoplay.chooseAction(b);
           if (!a) break;
-          RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+          RPG.battle.perform(b, a, { auto: true });
         }
         assertTrue('闘技場: 決着しない戦闘が打ち切られる',
           b.finished && !b.victory && b.totalRounds === 5,
@@ -10961,7 +11168,7 @@
               while (!b.finished && g++ < 600) {
                 if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
                 const a = RPG.autoplay.chooseAction(b); if (!a) break;
-                RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+                RPG.battle.perform(b, a, { auto: true });
               }
               if (b.victory) win++;
             }
@@ -11451,7 +11658,7 @@
               while (!b.finished && guard2++ < 500) {
                 if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
                 const a = RPG.autoplay.chooseAction(b); if (!a) break;
-                RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+                RPG.battle.perform(b, a, { auto: true });
               }
               if (b.victory) win++;
             }
@@ -12324,7 +12531,7 @@
             }
             const a = RPG.autoplay.chooseAction(b);
             if (!a) break;
-            RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+            RPG.battle.perform(b, a, { auto: true });
             if (b.round > prevRound) { transitions += b.round - prevRound; }
             prevRound = b.round;
           }
@@ -12371,7 +12578,7 @@
               if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
               const a = RPG.autoplay.chooseAction(b);
               if (!a) break;
-              RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+              RPG.battle.perform(b, a, { auto: true });
             }
             RPG.rng.seed(null);
             return b;
@@ -12547,7 +12754,7 @@
                   if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
                   const a = RPG.autoplay.chooseAction(b);
                   if (!a) break;
-                  RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+                  RPG.battle.perform(b, a, { auto: true });
                 }
                 RPG.rng.seed(null);
                 if (b.victory) cleared++;
@@ -12621,7 +12828,7 @@
                   if (b.phase === 'wave_clear') { RPG.battle.advanceWave(b); continue; }
                   const a = RPG.autoplay.chooseAction(b);
                   if (!a) break;
-                  RPG.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+                  RPG.battle.perform(b, a, { auto: true });
                 }
                 RPG.rng.seed(null);
                 return b.victory;

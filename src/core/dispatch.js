@@ -203,7 +203,7 @@
         if (battle.phase === 'wave_clear') { RPG.battle.advanceWave(battle); continue; }
         const action = RPG.autoplay.chooseAction(battle);
         if (!action) break;
-        RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
+        RPG.battle.perform(battle, action, { auto: true });
       }
 
       const pay = RPG.economy.payout(battle, { partySize: Math.max(1, s.party.length) });

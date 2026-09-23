@@ -600,6 +600,24 @@
       return { ok: false, reason: '同じ術は続かない' };
     }
 
+    // 「皇帝」(§21) — 命令中は、手番そのものを生む技を選べない。
+    // **自動選択と実行時の両方で見る。** 片方だけだと、外から直接呼ばれた経路で漏れる。
+    if (battle.decree && grantsTurn(skill)) {
+      return { ok: false, reason: '勅命では手番を生めない' };
+    }
+
+    // 「皇帝」(§21) — 命令できる味方がいるあいだ、本人の技は使えない。
+    //
+    // **ここに置くとオートも自動的に従う。** オートは skillReady で候補を絞るので、
+    // 禁止をこの外に書くとオートだけ素通りする（魔術師の連打禁止で確かめた）。
+    //
+    // 命令の実行中 (battle.decree) は受け手を見ているので掛けない。
+    // 渡せる相手が一人もいなければ、本人が普通に動く——単騎でも詰まらない。
+    if (actor.passives && actor.passives.decree && !battle.decree
+        && decreeTargets(battle, actor).length > 0) {
+      return { ok: false, reason: '王は自ら剣を抜かない' };
+    }
+
     return { ok: true };
   }
 
@@ -1045,6 +1063,16 @@
     // 連帯: 生きている味方が多いほど強い（常世セットの逆。全員生存を狙う構成向け）
     if (p.partySizePower) mult *= 1 + p.partySizePower * living.length;
     // 孤高: 生き残りが自分だけのとき強い
+    // 「恋人」(§21) — 同じ札を持つ味方1人につき強くなる。
+    //
+    // **倒れている数ではなく、生きている数を見る。** 倒れた数を参照する効果は
+    // ウェーブ移行で味方が戻るため実測で一度も発火しなかった（常世がそれで死んでいる）。
+    if (p.bondPower && attacker.arcanaId) {
+      const kin = battle.party.filter((/** @type {any} */ u) =>
+        u.alive && u !== attacker && u.arcanaId === attacker.arcanaId).length;
+      if (kin > 0) mult *= 1 + p.bondPower * kin;
+    }
+
     if (p.soloPower && living.length === 1) mult *= 1 + p.soloPower;
 
     // 属性で編成を縛ることへの見返り。パーティ全員ぶんを見る。
@@ -2040,6 +2068,16 @@
    */
   function currentActor(battle) {
     if (battle.phase !== 'command') return null;
+    // 「皇帝」(§21) の命令中は受け手を返す。**actorIndex は皇帝を指したまま動かさない。**
+    // 動かすと、受け手の本来の手番が消えたり順番が飛んだりする。
+    //
+    // battle.decree が生きているのは command() の中の同期実行のあいだだけ。
+    // 手動の選び取り（命令先 → 技 → 対象）は UI 側が溜め込んで、
+    // 揃ってから commandDecree を1回呼ぶので、描画も敵フェーズもここを跨がない。
+    if (battle.decree) {
+      const to = battle.party.find((/** @type {any} */ u) => u.key === battle.decree.toKey);
+      if (to) return to;
+    }
     return battle.party[battle.actorIndex] || null;
   }
 
@@ -2428,6 +2466,31 @@
 
     // 「痛みの分配」— 受けたダメージを味方全体で割って背負う (§5.8)。
     // 「庇う」が1人に寄せるのに対し、こちらは全員で薄く分ける。全体攻撃に強い。
+    // 「恋人」(§21) — 痛みを分かつ。**分ける相手が同じ札を持つ者だけ**という点が
+    // 守護者の damage_share と違う。ward_null（戦車）で無効になるのは同じで、
+    // 戦車は痛みを分け合えない。
+    const bond = wardOff ? 0 : ((defender.passives && defender.passives.bondShare) || 0);
+    if (bond > 0 && defender.side === 'party' && result.damage > 0 && defender.arcanaId) {
+      const kin = livingParty(battle).filter((/** @type {any} */ u) =>
+        u !== defender && u.arcanaId === defender.arcanaId);
+      if (kin.length > 0) {
+        const moved = Math.floor(result.damage * bond);
+        const each = Math.floor(moved / kin.length);
+        if (each > 0) {
+          result.damage -= each * kin.length;
+          pushLog(battle, `痛みを分かち合った（各 ${each.toLocaleString()}）`, 'sub');
+          for (const ally of kin) {
+            ally.hp = Math.max(0, ally.hp - each);
+            if (ally.hp === 0) {
+              ally.alive = false;
+              pushLog(battle, `${ally.name} は力尽きた`, 'defeat');
+              pushEvent(battle, { type: 'down', key: ally.key, side: ally.side });
+            }
+          }
+        }
+      }
+    }
+
     const share = wardOff ? 0 : ((defender.passives && defender.passives.damageShare) || 0);
     if (share > 0 && defender.side === 'party' && result.damage > 0) {
       const others = livingParty(battle).filter((/** @type {any} */ u) => u !== defender);
@@ -2707,8 +2770,12 @@
         }
 
         // 「連鎖する死」— 倒したらもう一度動ける。掃除が繋がると一方的になる。
+        // **皇帝 (§21) の命令による行動からは再行動を生まない。**
+        // 生んでから取り消す形にすると、受け手の残り回数や取得済みの権利を
+        // 巻き戻すことになる。**生む前に止める。**
         const killExtra = (attacker.passives && attacker.passives.killExtraAction) || 0;
-        if (killExtra > 0 && attacker.alive && attacker.extraActions < MAX_EXTRA_ACTIONS &&
+        if (killExtra > 0 && attacker.alive && !battle.decree
+            && attacker.extraActions < MAX_EXTRA_ACTIONS &&
             RPG.rng.chance(killExtra)) {
           attacker.extraActions++;
           attacker.pendingExtra = true;
@@ -3319,7 +3386,8 @@
     // 歯止めは MAX_EXTRA_ACTIONS ひとつでよい。ここを通る再行動は
     // 奇襲・号令・前借りと同じ counter に乗るので、1ラウンドの総量が頭打ちになる。
     // 技そのものにもクールタイムを持たせてあるので、連打もできない。
-    if (cb.act && actor.alive) {
+    // 皇帝 (§21) の命令による行動からは再行動を生まない（上と同じ理由）。
+    if (cb.act && actor.alive && !battle.decree) {
       if (actor.extraActions < MAX_EXTRA_ACTIONS) {
         actor.extraActions++;
         actor.grantedExtra = true;
@@ -3472,9 +3540,188 @@
    * @param {any[]} targets
    * @param {{auto?: boolean}} [opts] オート戦闘が選んだ行動なら auto:true。手動ボーナスの判定に使う。
    */
+  /**
+   * パーティメンバーのコマンドを確定して行動させ、進行を1つ進める。
+   * @param {any} battle
+   * @param {string} skillId
+   * @param {any[]} targets
+   * @param {{auto?: boolean}} [opts] オート戦闘が選んだ行動なら auto:true。手動ボーナスの判定に使う。
+   */
   function commandSkill(battle, skillId, targets, opts) {
     const actor = currentActor(battle);
     if (!actor || battle.finished) return;
+    if (!performAction(battle, actor, skillId, targets, opts)) return;
+    finishTurn(battle, actor);
+  }
+
+  /**
+   * コマンドの共通の実行口。
+   *
+   * **オートが返した行動は、必ずここを通す。** 皇帝 (§21) の命令は
+   * `{ decreeTo, skillId, targets }` という別の形で返ってくるので、
+   * 呼び出し側が `commandSkill` を直に叩いていると命令が素通りして
+   * 「皇帝だけ何もしない」という形で壊れる。
+   *
+   * 命令を実在しない技IDに偽装しない——偽装すると、技の履歴や
+   * 攻撃時の効果が嘘の技名で起動する。
+   *
+   * @param {any} battle
+   * @param {{skillId: string, targets: any[], decreeTo?: string}} action
+   * @param {{auto?: boolean}} [opts]
+   */
+  function perform(battle, action, opts) {
+    if (!action) return;
+    if (action.decreeTo) {
+      commandDecree(battle, action.decreeTo, action.skillId, action.targets, opts);
+      return;
+    }
+    commandSkill(battle, action.skillId, action.targets, opts);
+  }
+
+  /**
+   * 手番そのものを生む技か (§21 皇帝)。
+   *
+   * **命令では選ばせない。** 受け手に号令や前借りを撃たせると、
+   * 受け手 → 皇帝 → 受け手 … と手番が戻り続ける輪ができる。
+   *
+   * plugin で見分ける。技のデータ側に旗を足すと、新しい技を書く人が
+   * 忘れた瞬間に輪が開く——**手番を配る仕組みは plugin に集まっている**ので、
+   * そこを見るほうが漏れない。
+   *
+   * @param {any} skill
+   */
+  function grantsTurn(skill) {
+    if (!skill) return false;
+    if (skill.plugin === 'mass_extra' || skill.plugin === 'borrow_turn') return true;
+    // 蘇生は「その場で動かす」指定のときだけ手番を生む
+    if (skill.plugin === 'mass_revive' && skill.params && skill.params.actNow) return true;
+    return false;
+  }
+
+  /**
+   * その味方へ命令できるか (§21 皇帝)。
+   *
+   * **調べるだけで乱数も戦闘状態も動かさないこと。** 候補を数えるたびに
+   * 麻痺の抽選が走ったり負債が減ったりすると、見ただけで戦況が変わる。
+   * `skillReady` は乱数を引かない（解禁ラウンド・クールダウン・連打禁止の3つだけ）ので
+   * そのまま使ってよい。麻痺の判定は performAction 側にあり、ここには混ざらない。
+   *
+   * @param {any} battle
+   * @param {any} by 皇帝
+   * @param {any} to 命令先の候補
+   */
+  function canTakeOrder(battle, by, to) {
+    if (!to || to === by || !to.alive) return false;
+    // 他の皇帝へは命令できない。皇帝どうしで手番を回し合わせない
+    if (to.passives && to.passives.decree) return false;
+    // 反動と負債は命令でも踏み倒さない。skipDeadActors と同じ条件を見る
+    if (to.stunnedRounds > 0) return false;
+    if (to.turnDebt > 0) return false;
+    return decreeSkills(battle, to).length > 0;
+  }
+
+  /**
+   * 命令で撃たせられる技の一覧 (§21 皇帝)。
+   * @param {any} battle
+   * @param {any} to
+   */
+  function decreeSkills(battle, to) {
+    return (to.skills || []).filter((/** @type {string} */ id) => {
+      const sk = RPG.data.skills[id];
+      if (!sk || grantsTurn(sk)) return false;
+      return skillReady(battle, to, id).ok;
+    });
+  }
+
+  /**
+   * 命令できる味方の一覧。**編成の並び順がそのまま優先順位**になる (§21 皇帝)。
+   * オートは先頭から選ぶ。専用の記憶は持たせない。
+   * @param {any} battle
+   * @param {any} by
+   */
+  function decreeTargets(battle, by) {
+    return battle.party.filter((/** @type {any} */ u) => canTakeOrder(battle, by, u));
+  }
+
+  /**
+   * 「皇帝」(§21) — 自分の手番を、味方1人の即時行動に置き換える。
+   *
+   * ── 誰の持ち物かを分ける ──
+   *   受け手 … 技の可否・クールダウン・実行・魔術師の配り・死の刻み
+   *   皇帝   … 麻痺の判定・制圧の判定・再行動の連鎖・順番送り
+   *
+   * 皇帝が麻痺で失敗したら受け手は動かない。
+   * 受け手が麻痺で失敗しても皇帝の1手は払い戻さない（どちらも通常行動と揃える）。
+   *
+   * @param {any} battle
+   * @param {string} toKey 命令先の key
+   * @param {string} skillId 受け手に撃たせる技
+   * @param {any[]} targets
+   * @param {{auto?: boolean}} [opts]
+   */
+  function commandDecree(battle, toKey, skillId, targets, opts) {
+    const by = currentActor(battle);
+    if (!by || battle.finished || battle.decree) return;
+    const to = battle.party.find((/** @type {any} */ u) => u.key === toKey);
+    // **確定時にもう一度検査する。** 選んだ時点では通っていても、
+    // そのあいだに倒れたり反動が入ったりする。
+    if (!canTakeOrder(battle, by, to)) return;
+    const sk = RPG.data.skills[skillId];
+    if (!sk || grantsTurn(sk) || !skillReady(battle, to, skillId).ok) return;
+
+    // 入力は1回だけ数える (§10.1)。命令と技で二重に数えない
+    if (opts && opts.auto) battle.inputs.auto++;
+    else battle.inputs.manual++;
+
+    // 皇帝の麻痺。ここで失敗したら受け手は動かない
+    const numb = statusRatio(by, 'paralyze');
+    if (numb > 0 && RPG.rng.chance(numb)) {
+      pushLog(battle, `${by.name} は痺れて命じられない！`, 'debuff');
+      pushEvent(battle, { type: 'debuff', key: by.key, label: '麻痺' });
+      battle.actorIndex++;
+      skipDeadActors(battle);
+      if (battle.actorIndex >= battle.party.length) runEnemyPhase(battle);
+      return;
+    }
+
+    pushLog(battle, `${by.name} の勅命 — ${to.name} へ`, 'action');
+    pushEvent(battle, { type: 'extra', key: to.key });
+
+    battle.decree = { byKey: by.key, toKey: to.key };
+    try {
+      // 入力は上で数えたので、ここでは数えさせない（opts を渡さない）
+      performAction(battle, to, skillId, targets, null);
+    } finally {
+      battle.decree = null;
+    }
+    finishTurn(battle, by);
+  }
+
+  /**
+   * 行動そのもの。**「誰が動くか」と「誰の手番が終わるか」を分けるための片割れ。**
+   *
+   * 皇帝 (§21) は自分の手番で味方を動かすので、この2つが別人になる。
+   * 分けておかないと、受け手の行動で皇帝の再行動判定まで回ってしまう。
+   *
+   * ── 順番を入れ替えないこと ──
+   * クールダウンを麻痺より**先**に進めているのは意図的な作り (§5.8)。
+   * 麻痺で飛んでもクールダウンは進むので、大技を抱えた相手ほど損が大きい。
+   *
+   * @param {any} battle
+   * @param {any} actor 実際に技を使う者
+   * @param {string} skillId
+   * @param {any[]} targets
+   * @param {{auto?: boolean}} [opts]
+   * @returns {boolean} 動けたら true。撃てなかった・麻痺で飛んだときは false
+   *   （どちらも自前で手番を進めてあるので、呼び出し側は何もしない）
+   */
+  function performAction(battle, actor, skillId, targets, opts) {
+    // 依頼の規則「主人公を行動させない」(§21 皇帝の解放)。
+    // **命令で動かすのは受け手なので引っかからない。** 皇帝の像を先に体験させる条件。
+    if (battle.rules && battle.rules.idleHero && actor.id === 'ch_hero' && !battle.decree) {
+      failQuest(battle, '主人公が自ら動いた（座して統べる条件を満たせなかった）');
+      return false;
+    }
 
     // クラス技の鍵 (§12)。UI 側でも押せないようにしてあるが、
     // 自動戦闘や外部から直接呼ばれても破れないよう、ここでも必ず確かめる。
@@ -3520,6 +3767,19 @@
     // 最後の1体を倒した一撃が数えられずに終わる。
     tickFinal(battle, actor);
 
+    return true;
+  }
+
+  /**
+   * 手番の終わり。制圧の判定と、再行動の連鎖と、順番送り。
+   *
+   * **ここを回すのは「手番の持ち主」であって、技を使った者ではない。**
+   * 皇帝 (§21) が味方に命令したときは、受け手が動いて皇帝の手番が終わる。
+   *
+   * @param {any} battle
+   * @param {any} actor 手番の持ち主
+   */
+  function finishTurn(battle, actor) {
     if (checkWaveCleared(battle)) return;
 
     // 「連鎖する死」で追加行動が確定している (§5.7)。
@@ -4165,7 +4425,7 @@
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
-    skillReady, startCooldown,
+    skillReady, startCooldown, perform, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,

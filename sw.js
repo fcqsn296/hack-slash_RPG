@@ -21,7 +21,7 @@
  * 新しいJSが混ざる。閉じて開き直したときに切り替わるほうが安全。
  */
 
-const CACHE_VERSION = 'v182';
+const CACHE_VERSION = 'v183';
 const CACHE_NAME = `haigin-${CACHE_VERSION}`;
 
 /**
@@ -137,7 +137,9 @@ const PRECACHE = [
   './styles.css',
   './assets/ui/arcana-chariot.svg',
   './assets/ui/arcana-death.svg',
+  './assets/ui/arcana-emperor.svg',
   './assets/ui/arcana-hanged.svg',
+  './assets/ui/arcana-lovers.svg',
   './assets/ui/arcana-magician.svg',
   './assets/ui/arcana-strength.svg',
   './assets/ui/coin.svg',

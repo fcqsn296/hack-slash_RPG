@@ -320,7 +320,7 @@
     'relay_power', 'repeat_power',
     'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
     'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'final_count', 'doom_power',
-    'as_magi', 'weave_gift', 'no_repeat', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'as_magi', 'weave_gift', 'no_repeat', 'decree', 'bond_power', 'bond_share', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -481,6 +481,9 @@
       doomPower: 0,        // 終止符が近いほど火力 (§21 死)。1行動ごとに背水へ加算
       weaveGift: 0,        // 魔術で攻撃するたび味方へ障壁と回復 (§21 魔術師)
       noRepeat: 0,         // 同じ技を続けて使えない (§21 魔術師)
+      decree: 0,           // 手番を味方に渡す (§21 皇帝)。渡せる相手が居る間は本人の技を使えない
+      bondPower: 0,        // 同じ札を持つ味方1人につき火力 (§21 恋人)
+      bondShare: 0,        // 同じ札を持つ味方と被害を分ける (§21 恋人)
       selfBind: 0,         // 自分が常に麻痺している扱いにする確率 (§21 吊るされた男)
       // --- 技の使い分け (§5.8) ---
       repeatPower: 0,      // 同じ技を続けるほど上がる火力
@@ -773,6 +776,9 @@
           case 'doom_power': passives.doomPower += amount; break;
           case 'weave_gift': passives.weaveGift += amount; break;
           case 'no_repeat': passives.noRepeat = Math.max(passives.noRepeat, amount); break;
+          case 'decree': passives.decree = Math.max(passives.decree, amount); break;
+          case 'bond_power': passives.bondPower += amount; break;
+          case 'bond_share': passives.bondShare += amount; break;
           case 'as_magi': situational.asMagi = Math.max(situational.asMagi, amount); break;
           case 'self_bind': passives.selfBind = Math.max(passives.selfBind, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;

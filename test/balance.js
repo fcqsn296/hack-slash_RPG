@@ -611,7 +611,7 @@
       const action = RPG.autoplay.chooseAction(battle);
       if (!action) break;
       // シミュレータはオート戦闘そのものなので、手動ボーナスは付かない扱いにする
-      RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
+      RPG.battle.perform(battle, action, { auto: true });
       commands++;
       waveRoundMax = Math.max(waveRoundMax, battle.round);
     }
@@ -726,7 +726,7 @@
         if (battle.phase === 'wave_clear') { RPG.battle.advanceWave(battle); continue; }
         const action = RPG.autoplay.chooseAction(battle);
         if (!action) break;
-        RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
+        RPG.battle.perform(battle, action, { auto: true });
       }
       if (!battle.victory) continue;
       wins++;
@@ -883,7 +883,7 @@
       }
       const action = RPG.autoplay.chooseAction(battle);
       if (!action) break;
-      RPG.battle.commandSkill(battle, action.skillId, action.targets, { auto: true });
+      RPG.battle.perform(battle, action, { auto: true });
       commands++;
       waveRoundMax = Math.max(waveRoundMax, battle.round);
     }

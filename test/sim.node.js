@@ -204,7 +204,7 @@ function run(o) {
     const actor = R.battle.currentActor ? R.battle.currentActor(b) : null;
     const a = R.autoplay.chooseAction(b);
     if (!a) break;
-    R.battle.commandSkill(b, a.skillId, a.targets, { auto: true });
+    R.battle.perform(b, a, { auto: true });
 
     const now = foeHp();
     if (now < prevFoe) dealt += prevFoe - now;

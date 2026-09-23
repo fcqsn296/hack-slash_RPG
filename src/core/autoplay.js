@@ -199,6 +199,27 @@
     const foes = RPG.battle.livingEnemies(battle);
     if (foes.length === 0) return null;
 
+    // ── 「皇帝」(§21) — 手番を味方に渡す ──
+    //
+    // **編成の並び順がそのまま優先順位。** 誰に渡すのが得かを考える仕組みは
+    // 入れない（オートの判断を増やすと、どの札のせいで結果が変わったのか
+    // 読めなくなる）。渡す相手は中核が選び、撃つ技は**受け手の既存の判断**で決める。
+    //
+    // 渡せる相手が一人もいなければ、この分岐に入らず本人が普通に動く。
+    if (actor.passives && actor.passives.decree && !battle.decree) {
+      const cands = RPG.battle.decreeTargets(battle, actor);
+      if (cands.length > 0) {
+        const to = cands[0];
+        // 受け手の技は、受け手として chooseAction を回して決める。
+        // **命令中の縛り（手番を生む技は選べない）を通すため、
+        // battle.decree を立ててから呼ぶ。** 立てずに呼ぶと号令を選びうる。
+        battle.decree = { byKey: actor.key, toKey: to.key };
+        let inner = null;
+        try { inner = chooseAction(battle); } finally { battle.decree = null; }
+        if (inner) return { decreeTo: to.key, skillId: inner.skillId, targets: inner.targets };
+      }
+    }
+
     // 今このラウンドで撃てる技だけを候補にする (§12)。
     // 解禁前やクールタイム中の技を選ぶと commandSkill が空振りし、
     // 手番が進まないまま同じ技を選び続けて戦闘が止まってしまう。
