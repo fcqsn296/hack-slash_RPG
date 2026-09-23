@@ -889,4 +889,20 @@ RPG.data.quests = {
     unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
+
+  // 「節制」の解放 (§21)。**誰も倒れず、かつ7ラウンド以内**。
+  // 守りと攻めの両方を要求する条件で、札の像（注ぎ分ける）に合わせてある。
+  // allAlive と maxRounds の組み合わせは他の依頼に無い。
+  q_arcana_temperance: {
+    name: '注ぎ分ける者',
+    desc: '封絶の浅層を、誰も倒れさせず、7ラウンド以内に抜ける。'
+      + '守りと攻めのどちらも捨てられない——節制の像そのものを問う。',
+    fieldId: 'fl_sealed',
+    waves: 5,
+    bossFinale: true,
+    rules: { allAlive: true, maxRounds: 7, noAuto: true },
+    enemyScale: { hp: 55 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
 };

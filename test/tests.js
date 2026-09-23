@@ -2239,6 +2239,98 @@
               `${kb} → ${kin.hp}`);
           }
 
+          // ── 節制 (XIV) ──
+          //
+          // **回復量そのものではなく、対象の最大HPに対する割合で交換する。**
+          // 回復は数千、攻撃は数百万以上に伸びるので、固定倍率だと桁が合わない。
+          {
+            const tp = RPG.data.arcana.ar_temperance;
+            assertTrue('§21 節制がある', !!tp, '');
+            assertTrue('§21 節制: 利と害が両方書いてある', !!tp.boon && !!tp.bane, '');
+
+            const mk = () => {
+              const u = RPG.units.buildCharacterUnit(
+                { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                  tree: {}, equipped: {}, arcana: 'ar_temperance' }, []);
+              u.side = 'party'; u.key = 'p0';
+              return RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: [u], bossFinale: false });
+            };
+
+            {
+              const b = mk();
+              const me = b.party[0];
+              assertTrue('§21 節制: 交換の係数が届く', me.passives.temperance > 0,
+                String(me.passives.temperance));
+              assertTrue('§21 節制: 戦闘開始時の蓄えは空',
+                (me.temperPool || 0) === 0 && (me.temperBoost || 0) === 0, '');
+            }
+
+            // **上限の下でも上でも同じ倍率になること。**
+            // cap_break に同じ数値を足す実装だと、既に上限突破を積んだビルドほど
+            // 効きが薄まる。上限そのものを (1 + 蓄え) 倍していることを確かめる。
+            {
+              const b = mk();
+              const me = b.party[0];
+              const foe = RPG.units.buildEnemyUnit('em_drake', 100, false, 0, 1);
+              foe.hp = foe.maxHp = 1e12;
+              const sk = RPG.data.skills[me.skills.find((/** @type {string} */ id) =>
+                RPG.data.skills[id] && RPG.data.skills[id].power > 0
+                && RPG.data.skills[id].plugin !== 'heal')];
+              const hit = (boost, capBreak) => {
+                me.temperBoost = boost; me.capBreak = capBreak;
+                return RPG.damage.calc({
+                  attacker: RPG.units.toAttacker(me, sk), defender: RPG.units.toDefender(foe),
+                  skill: sk, options: { crit: false, random: 1 },
+                }).damage;
+              };
+              const lowPlain = hit(0, 0), lowBoost = hit(1.0, 0);
+              const hiPlain = hit(0, 5), hiBoost = hit(1.0, 5);
+              me.temperBoost = 0;
+              const lowRatio = lowBoost / lowPlain;
+              const hiRatio = hiBoost / hiPlain;
+              assertTrue('§21 節制: 蓄えぶん、実効で倍率どおりに伸びる',
+                Math.abs(lowRatio - 2) < 0.02, lowRatio.toFixed(3));
+              assertTrue('§21 節制: 上限突破を積んでも倍率が薄まらない',
+                Math.abs(hiRatio - lowRatio) < 0.02, `${lowRatio.toFixed(3)} / ${hiRatio.toFixed(3)}`);
+            }
+
+            // **攻撃のあとに必ず捨てること。** 残すと次の行動へ漏れる。
+            {
+              const b = mk();
+              const me = b.party[0];
+              me.temperPool = 0.5;
+              const atk = me.skills.find((/** @type {string} */ id) =>
+                RPG.data.skills[id] && RPG.data.skills[id].power > 0
+                && RPG.data.skills[id].plugin !== 'heal');
+              RPG.battle.perform(b, { skillId: atk, targets: [RPG.battle.livingEnemies(b)[0]] },
+                { auto: true });
+              assertTrue('§21 節制: 攻撃1行動で使い切る',
+                (me.temperBoost || 0) === 0 && (me.temperPool || 0) === 0,
+                `boost=${me.temperBoost} pool=${me.temperPool}`);
+            }
+
+            // **吸収では蓄まらないこと。** 吸収も蘇生も同じ ctx.heal を通るので、
+            // 技で絞らないと「強化攻撃が次の強化を用意する輪」ができる。
+            {
+              const life = Object.keys(RPG.data.skills)
+                .find((id) => RPG.data.skills[id].plugin === 'lifesteal_hit');
+              if (life) {
+                const b = mk();
+                const me = b.party[0];
+                me.hp = me.maxHp;   // 満タン＝吸収は全部あふれる
+                RPG.battle.executeSkill(b, me, life, [RPG.battle.livingEnemies(b)[0]]);
+                assertTrue('§21 節制: 吸収では蓄まらない', (me.temperPool || 0) === 0,
+                  String(me.temperPool));
+              }
+            }
+
+            const tq = RPG.data.quests[tp.unlock.quest];
+            assertTrue('§21 節制: 解放依頼が実在する', !!tq, String(tp.unlock.quest));
+            assertTrue('§21 節制: 解放依頼は全員生存＋ラウンド制限',
+              !!(tq && tq.rules && tq.rules.allAlive && tq.rules.maxRounds),
+              tq ? JSON.stringify(tq.rules) : '');
+          }
+
           const lq = RPG.data.quests[lv.unlock.quest];
           assertTrue('§21 恋人: 解放依頼が実在する', !!lq, String(lv.unlock.quest));
           assertTrue('§21 恋人: 解放依頼は二人で全員生存',

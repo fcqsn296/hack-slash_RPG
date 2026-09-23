@@ -517,6 +517,9 @@
     const selfHp = attacker.hpRatio == null ? 1 : Math.max(0, Math.min(1, attacker.hpRatio));
     let situational = 1;
     // 背水: 自分のHPが減っているほど強い
+    // 「節制」(§21) — 蓄えた過剰回復ぶん、この1行動を強化する。
+    // 上限側（下のステップ8）にも同じ倍率を掛けるので、実効で目標倍率に近づく。
+    if (attacker.temperBoost) situational *= 1 + attacker.temperBoost;
     if (attacker.lowHpPower) situational *= 1 + attacker.lowHpPower * (1 - selfHp);
     // 万全: 自分のHPが満タンに近いほど強い
     if (attacker.highHpPower) situational *= 1 + attacker.highHpPower * selfHp;
@@ -590,11 +593,19 @@
     // 上限突破率を積んでも押し広げられるだけだった。
     // 壁そのものを無い扱いにできる手を1つだけ置くことで、
     // 破壊者を選ぶ理由が「数値が少し大きい」から「規則が違う」に変わる。
-    const capped = options.ignoreCap
-      ? raw
-      : applyCap(raw, (attacker.capBreak || 0) + (options.chargeCapBreak || 0)
-          + (options.highPowerCap || 0)     // 大技だけの上限突破 (§5.16)
-          + (options.midPowerCap || 0));    // 中技だけの上限突破 (§5.16)
+    const capSum = (attacker.capBreak || 0) + (options.chargeCapBreak || 0)
+      + (options.highPowerCap || 0)     // 大技だけの上限突破 (§5.16)
+      + (options.midPowerCap || 0);     // 中技だけの上限突破 (§5.16)
+    // 「節制」(§21) — 上限**そのもの**を同じ倍率で押し広げる。
+    //
+    // **cap_break に同じ数値を足すのでは釣り合わない。**
+    // 上限は 500,000 × (1 + capBreak) なので、足し算だと
+    // 既に上限突破を積んだビルドほど効きが薄まる。
+    // (1 + capBreak) を (1 + B) 倍する形にすれば、
+    // 上限の下でも上でも実効がちょうど (1 + B) 倍になる。
+    const temper = attacker.temperBoost || 0;
+    const capTotal = temper > 0 ? (1 + capSum) * (1 + temper) - 1 : capSum;
+    const capped = options.ignoreCap ? raw : applyCap(raw, capTotal);
 
     return {
       // 軽減が100%に達したときだけ0を許し、それ以外は最低1ダメージを保証する

@@ -695,6 +695,15 @@
    */
   const RISE_HP = 0.5;
 
+  /**
+   * 「節制」(§21) が蓄えられる上限。
+   *
+   * **暫定値。** 仕様書では「+100% は損益比較の起点であり、上限の確定値ではない」
+   * とされている。回復に1手を使った対価として釣り合うかは実測で決める。
+   * 暴走止めとして先に置いてあるだけなので、測ったら書き換えること。
+   */
+  const TEMPER_CAP = 1.0;
+
   const STATUS_CAP = {
     poison: 0.10,     // ラウンド終了時に1回。全振り0.07の上に置いた安全弁
     burn: 0.035,      // 相手が攻撃するたび。全振り0.024の上に置いた安全弁
@@ -1392,6 +1401,9 @@
       u.risesLeft = (u.passives && u.passives.riseCount) || 0;
       // 「死」(§21) の終止符。使った手数を数える。1戦闘ぶん。
       u.finalUsed = 0;
+      // 「節制」(§21) の蓄え。1戦闘ぶんで、ウェーブでは持ち越す。
+      u.temperPool = 0;
+      u.temperBoost = 0;
       // 「戦車」(§21) の手番も同じ場所で配る。
       // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
@@ -2939,6 +2951,29 @@
         // 満タンの相手に回復を撃つことが無駄でなくなる。
         const shield = (target.passives && target.passives.overhealShield) || 0;
         const spill = want - healed;
+
+        // ── 「節制」(§21) — あふれたぶんを次の攻撃へ蓄える ──
+        //
+        // **既にここで過剰分 (spill) を出しているので、それを共有する。**
+        // 回復量から自前で計算し直すと、呪詛や分別の補正を二重に掛けたり
+        // 掛け忘れたりする（`want` は補正後、`healed` は実際に入った量）。
+        //
+        // **純粋な回復技だけを数える。** 吸収 (lifesteal_hit) や蘇生 (mass_revive) も
+        // この ctx.heal を通るので、技で絞らないと
+        // 「強化攻撃の吸収が次の強化を用意する」輪ができる。
+        //
+        // 対象の最大HPに対する割合へ直してから足す。
+        // **パーティの最大HP合計を分母にしない**——各自の最大HPで個別に割る。
+        const temper = (actor.passives && actor.passives.temperance) || 0;
+        if (temper > 0 && spill > 0 && target.maxHp > 0 && skill && skill.plugin === 'heal') {
+          const add = temper * (spill / target.maxHp);
+          const before = actor.temperPool || 0;
+          actor.temperPool = Math.min(TEMPER_CAP, before + add);
+          // **ログは対象ごとに出さない。** 全体回復だと4行並んで、
+          // 「何回蓄えたか」を数えるときに人数ぶん水増しされる（実際に読み違えた）。
+          // 解き放つときに一度だけ出せば、いくら溜まったかは追える。
+          void before;
+        }
         if (shield > 0 && spill > 0) {
           const raw = Math.floor(spill * shield);
           if (raw > 0) {
@@ -3755,7 +3790,25 @@
       return;
     }
 
+    // ── 「節制」(§21) — 蓄えを、この1行動ぶんに固定する ──
+    //
+    // **行動の開始時に移して、保管分を0にする。** こうしておけば
+    // 多段・多重発動・連撃の全段に同じ強化が乗り、
+    // 同じ行動中の吸収回復で蓄え直すこともできない。
+    // 再行動で選ぶ次の技は別行動なので、持ち越さない。
+    const attackSkill = RPG.data.skills[skillId];
+    if ((actor.temperPool || 0) > 0 && attackSkill && attackSkill.power > 0
+        && attackSkill.plugin !== 'heal') {
+      actor.temperBoost = actor.temperPool;
+      actor.temperPool = 0;
+      pushLog(battle, `${actor.name} は蓄えを解き放つ（+${Math.round(actor.temperBoost * 100)}%）`, 'buff');
+    }
+
     executeSkill(battle, actor, skillId, targets);
+
+    // **必ず捨てる。** 不発でも消費する（合法な攻撃を確定したあとなので）。
+    // ここを飛ばすと、次の行動へ強化が漏れる。
+    actor.temperBoost = 0;
 
     // ── 「魔術師」(§21) — 織り上げたものを配る ──
     // 攻撃のたび、味方全員に薄い障壁と回復を置く。
@@ -4425,7 +4478,7 @@
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
-    skillReady, startCooldown, perform, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
+    skillReady, startCooldown, perform, TEMPER_CAP, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,
