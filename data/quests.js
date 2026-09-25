@@ -992,4 +992,27 @@ RPG.data.quests = {
     unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
+
+  // 「教皇」の解放 (§21)。**4人そろって、誰も欠けさせず、12ラウンド以内**。
+  // 札の像（一人が唱えた式を、皆がそれぞれの声で繰り返す）は共同体の儀式。
+  // 全員がそろって最後まで立っていることを条件にした。教皇そのものは要求しない。
+  // minParty・allAlive・maxRounds の3つを同時に使う依頼は他に無い。
+  //
+  // ── 根拠（オート・12戦）──
+  //   臨界の際 敵Lv225 HP×10  終盤4人 12/12・5R ／ Lv200へ下げた検証編成 6/12
+  //     落ちた6戦は「仲間が倒れた」3・「時間切れ」3。両方の条件が効いている
+  //   HP×20 にすると Lv200 が 0/12。封絶区画（敵Lv210）では全員生存が効かなかった（最低HP 95%）
+  q_arcana_hierophant: {
+    name: '四声の祈り',
+    desc: '臨界の際を、4人そろって、誰も倒れさせずに12ラウンド以内で抜ける。'
+      + '一人の式を皆の声で繰り返す——教皇の像そのものを問う。',
+    fieldId: 'fl_verge',
+    enemyLv: 225,
+    waves: 5,
+    bossFinale: true,
+    rules: { minParty: 4, allAlive: true, maxRounds: 12, noAuto: true },
+    enemyScale: { hp: 10 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
 };

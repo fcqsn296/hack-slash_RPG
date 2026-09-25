@@ -2113,6 +2113,8 @@
     while (battle.actorIndex < battle.party.length) {
       const unit = battle.party[battle.actorIndex];
       if (!unit.alive) { battle.actorIndex++; continue; }
+      // 教皇の儀式 (§21) に参加した者は、このラウンドの通常手番を使い終えている
+      if (unit.ritualRound === battle.totalRounds) { battle.actorIndex++; continue; }
       // ── 「吊るされた男」の負債 (§21) ──
       //
       // stunnedRounds と違って **返済できる**。ここで払えるものを順に当てる。
@@ -3651,8 +3653,117 @@
   function commandSkill(battle, skillId, targets, opts) {
     const actor = currentActor(battle);
     if (!actor || battle.finished) return;
+    // 教皇 (§21) の儀式に加わる者は、**本人が動く前に**決める（予約）。
+    // 本人の一撃で生死が変わっても、予約した顔ぶれは変えない。
+    const joiners = ritualParticipants(battle, actor, skillId);
     if (!performAction(battle, actor, skillId, targets, opts)) return;
+    if (joiners.length > 0) runRitual(battle, actor, skillId, targets, joiners, opts);
     finishTurn(battle, actor);
+  }
+
+  /**
+   * 教皇の儀式で共有できる技か (§21)。
+   *
+   * 初版は**攻撃技だけ**。手番を生む技（号令・前借り）、クラス技（解禁ラウンドと
+   * クラスの資源がある）、フルバースト（撃ち手の持ち技をすべて撃つ）は除く。
+   * 共有できない技を選んだら、教皇だけが撃つ。
+   * @param {any} skill
+   */
+  function ritualSkill(skill) {
+    return judgedAttack(skill) && !grantsTurn(skill) && !skill.cls && skill.plugin !== 'full_burst';
+  }
+
+  /**
+   * この技で儀式を始めたら、加わる仲間（隊列順）。始められなければ空。
+   *
+   * 始められるのは**教皇の通常手番**だけ。再行動・奇襲・戦車の手番・勅命では始めない
+   * （追加の手番から、他の者の通常手番を引き出す連鎖を作らない）。
+   * 加わるのは、隊列で教皇より後ろにいて、このラウンドの通常手番がまだ残っていて、
+   * **借りる技のほうが自分の攻撃より削れる**者（worthJoining）。
+   * 反動（stunnedRounds）と手番の負債は踏み倒させない。借りた技を正しく撃てる
+   * （CT・魔術師の縛り・皇帝の縛りを skillReady に通す）者だけ。未習得は理由にしない。
+   * @param {any} battle @param {any} pope @param {string} skillId
+   * @returns {any[]}
+   */
+  function ritualParticipants(battle, pope, skillId) {
+    if (!pope || !(pope.passives && pope.passives.ritual > 0) || battle.decree) return [];
+    if (pope.turnTakenRound === battle.totalRounds) return [];
+    const skill = RPG.data.skills[skillId];
+    if (!skill || !ritualSkill(skill) || !skillReady(battle, pope, skillId).ok) return [];
+    const at = battle.party.indexOf(pope);
+    return battle.party.filter((/** @type {any} */ u, /** @type {number} */ i) => i > at && u.alive
+      && u.turnTakenRound !== battle.totalRounds && u.ritualRound !== battle.totalRounds
+      && !(u.stunnedRounds > 0) && !(u.turnDebt > 0)
+      && skillReady(battle, u, skillId).ok && worthJoining(battle, u, skill));
+  }
+
+  /**
+   * 儀式に加わると得をするか (§21 教皇)。借りる技の見込みが、自分の攻撃技の最大以上なら加わる。
+   *
+   * @知見: 教皇の全員強制参加は、最良の組み合わせでも既存の札に届かない（回復役まで殴らされる）
+   *
+   * ── 全員を強制で加えていた初版は採らなかった ──
+   * Lv255検証編成でシャンタル（一撃の重い固有技）を教皇にしても
+   *   HP×30の周回 10.40R → 9.50R（力 9.00R／吊るされた男 8.20R より遅い）
+   *   ボス1体・倒せなくした6ラウンドの総与ダメ 53M → 40M（毎戦だれかが倒れた）
+   * 回復役や支援役まで、自分の番を捨てて教皇の技を撃たされるため。
+   * 仕様書の「手番を使って弱い攻撃を複製するだけなら不採用」に当たる。
+   * 得なら加わる形にして 8.90R／82M（力と戦車のあいだ）。
+   *
+   * 見積もりの相手は先頭の生きている敵（技を押す前に誰が加わるか見せるため、対象に依らない）。
+   * オートの見積もり（乱数1.0・会心なし）なので、判定で乱数は動かない。手動もオートも同じ規則。
+   * 回復や補助を撃つつもりだった者でも、攻撃で比べて得なら加わる（その損は札の代償のうち）。
+   * @param {any} battle @param {any} u @param {any} skill
+   */
+  function worthJoining(battle, u, skill) {
+    const foe = livingEnemies(battle)[0];
+    if (!foe || !RPG.autoplay) return true;
+    const shared = RPG.autoplay.estimate(u, foe, skill, battle);
+    let own = 0;
+    for (const id of u.skills || []) {
+      const mine = RPG.data.skills[id];
+      if (!isAttackSkill(mine) || !skillReady(battle, u, id).ok) continue;
+      own = Math.max(own, RPG.autoplay.estimate(u, foe, mine, battle));
+    }
+    return shared >= own;
+  }
+
+  /**
+   * 教皇の儀式 (§21)。加わる仲間が、教皇と同じ技を**それぞれの能力で**1回ずつ撃つ。
+   *
+   * 技の威力・段数・属性・系統・範囲は技から、能力・パッシブ・札は撃ち手本人から。
+   * 教皇の最終ダメージは写さない（撃ち手ごとに普通に計算する）。
+   *
+   * 1人1回、その人の**通常手番を1つ使う**（麻痺で飛んでも使ったことになる）。
+   * 敵フェーズやラウンドは参加者ごとには進めない。敵が全滅したらそこで打ち切る。
+   * 単体の相手が先に倒れていたら、先頭の生きている敵へ向ける（手動もオートも同じ）。
+   *
+   * 参加者の追加行動（撃破で得た再行動・戦車の手番・奇襲・確率の再行動）は、
+   * 普段と同じ規則で得て、**ラウンドの終わりに使う権利**（grantedExtra）に変える。
+   * 既に権利を持っている者からは奪わず、新しくも与えない（重ねない）。
+   * @param {any} battle @param {any} pope @param {string} skillId @param {any[]} targets
+   * @param {any[]} joiners @param {{auto?: boolean}} [opts]
+   */
+  function runRitual(battle, pope, skillId, targets, joiners, opts) {
+    const skill = RPG.data.skills[skillId];
+    pushLog(battle, `${pope.name} の儀式 — ${joiners.map((/** @type {any} */ u) => u.name).join('・')} が ${skill.name} を続ける`, 'action');
+    pushEvent(battle, { type: 'buff', key: pope.key, label: '儀式' });
+    for (const u of joiners) {
+      if (battle.finished || livingEnemies(battle).length === 0) break;
+      u.ritualRound = battle.totalRounds;   // 動けても動けなくても、この手番は使った
+      if (!u.alive) continue;
+      const kind = targetKind(skill);
+      let tg = [];
+      if (kind === 'enemy') {
+        const first = targets && targets[0];
+        tg = [first && first.alive && first.side === 'enemy' ? first : livingEnemies(battle)[0]];
+      }
+      performAction(battle, u, skillId, tg,
+        { counted: true, borrowed: true, auto: !!(opts && opts.auto) });
+      if (!u.alive || u.grantedExtra) continue;
+      if (u.pendingExtra) { u.pendingExtra = false; u.grantedExtra = true; continue; }
+      if (earnExtra(battle, u)) u.grantedExtra = true;
+    }
   }
 
   /**
@@ -3788,13 +3899,16 @@
     pushLog(battle, `${by.name} の勅命 — ${to.name} へ`, 'action');
     pushEvent(battle, { type: 'extra', key: to.key });
 
+    // 皇帝の通常手番はここで使う（教皇の儀式の「通常手番が残っているか」に効く）
+    by.turnTakenRound = battle.totalRounds;
     battle.decree = { byKey: by.key, toKey: to.key };
     try {
       // 入力は上で数えたので、ここでは数えさせない。
       // **opts を null にするだけでは止まらない**（performAction は「auto でなければ手動」と
       // 数えるので、null は手動1回になる）。実際に命令1回が2回と数えられ、
       // オートの命令まで手動に数えられていた。counted で明示する。
-      performAction(battle, to, skillId, targets, { counted: true, auto: !!(opts && opts.auto) });
+      performAction(battle, to, skillId, targets,
+        { counted: true, borrowed: true, auto: !!(opts && opts.auto) });
     } finally {
       battle.decree = null;
     }
@@ -3815,7 +3929,8 @@
    * @param {any} actor 実際に技を使う者
    * @param {string} skillId
    * @param {any[]} targets
-   * @param {{auto?: boolean, counted?: boolean}|null} [opts] counted: 入力を呼び出し側で数え済み
+   * @param {{auto?: boolean, counted?: boolean, borrowed?: boolean}|null} [opts]
+   *   counted: 入力を呼び出し側で数え済み／borrowed: 勅命・儀式で借りた行動（手番の持ち主が別にいる）
    * @returns {boolean} 動けたら true。撃てなかった・麻痺で飛んだときは false
    *   （どちらも自前で手番を進めてあるので、呼び出し側は何もしない）
    */
@@ -3832,6 +3947,8 @@
     const ready = skillReady(battle, actor, skillId);
     if (!ready.ok) {
       pushLog(battle, `${RPG.data.skills[skillId].name} はまだ使えない（${ready.reason}）`, 'sub');
+      // 借りた行動（勅命・儀式）は手番の持ち主が別にいる。ここで順番を進めない。
+      if (opts && opts.borrowed) return false;
       // 手動なら選び直せばよいのでその場に留まる。
       // オートは同じ技を選び続けるので、ここで手番を進めないと戦闘が止まる。
       if (opts && opts.auto) {
@@ -3842,6 +3959,8 @@
       return;
     }
     startCooldown(battle, actor, skillId);
+    // このラウンドの通常手番を使ったかどうか (§21 教皇)。借りた行動では立てない。
+    if (!(opts && opts.borrowed)) actor.turnTakenRound = battle.totalRounds;
 
     // 誰が選んだ行動なのかを数えておく (§10.1 手動ボーナス)
     // 勅命 (§21) は命令の側で数え済み（counted）。
@@ -3877,6 +3996,11 @@
     if (numb > 0 && RPG.rng.chance(numb)) {
       pushLog(battle, `${actor.name} は痺れて動けない！`, 'debuff');
       pushEvent(battle, { type: 'debuff', key: actor.key, label: '麻痺' });
+      // **借りた行動（勅命・儀式）では順番を進めない。** 手番の持ち主は別にいて、
+      // 呼び出し側が持ち主の手番を終わらせる。ここで進めると2回進み、
+      // 次の味方の手番が黙って飛ぶ（勅命で実際に起きていた。受け手が麻痺すると
+      // 受け手自身の通常手番が消えていた）。
+      if (opts && opts.borrowed) return false;
       battle.actorIndex++;
       skipDeadActors(battle);
       if (battle.actorIndex >= battle.party.length) runEnemyPhase(battle);
@@ -3965,6 +4089,52 @@
   }
 
   /**
+   * 手番の終わりに、自分の力で得る追加行動（戦車の手番・奇襲・再行動）。得たら true。
+   *
+   * finishTurn から切り出したのは、教皇の儀式 (§21) の参加者にも**同じ規則**で
+   * 追加行動を与えるため。写すと片方だけ直されて食い違う。
+   * @param {any} battle @param {any} actor
+   * @returns {boolean}
+   */
+  function earnExtra(battle, actor) {
+    // 「戦車」(§21) — 毎ラウンド、確実にもう一度動ける。
+    //
+    // 号令と同じ「順番を進めずに返す」形。確率の再行動（下）と違って
+    // 必ず起きるので、**上限の枠も必ず1つ使う**。
+    // 奇襲や再行動と合わさっても MAX_EXTRA_ACTIONS が頭を押さえる。
+    if (actor.turnGiftLeft > 0 && actor.alive
+        && actor.extraActions < MAX_EXTRA_ACTIONS) {
+      actor.turnGiftLeft--;
+      actor.extraActions++;
+      pushLog(battle, `${actor.name} は駆け抜ける！`, 'buff');
+      pushEvent(battle, { type: 'extra', key: actor.key });
+      return true;
+    }
+
+    // --- パッシブ: 奇襲（1ラウンド目だけ、もう一度動ける）(§5.6) ---
+    const ambush = (actor.passives && actor.passives.ambush) || 0;
+    if (ambush > 0 && battle.round === 1 && actor.alive && !actor.ambushed &&
+        actor.extraActions < MAX_EXTRA_ACTIONS && RPG.rng.chance(ambush)) {
+      actor.ambushed = true;
+      actor.extraActions++;
+      pushLog(battle, `${actor.name} の奇襲！`, 'buff');
+      pushEvent(battle, { type: 'extra', key: actor.key });
+      return true;
+    }
+
+    // --- パッシブ: 再行動（同じラウンドで連続しすぎないよう上限を設ける）---
+    const extraRate = (actor.passives && actor.passives.extraActionRate) || 0;
+    if (extraRate > 0 && actor.alive && actor.extraActions < MAX_EXTRA_ACTIONS && RPG.rng.chance(extraRate)) {
+      actor.extraActions++;
+      pushLog(battle, `${actor.name} は続けて動いた！`, 'buff');
+      pushEvent(battle, { type: 'extra', key: actor.key });
+      return true;   // 行動順を進めず、同じキャラがもう一度コマンドを選ぶ
+    }
+
+    return false;
+  }
+
+  /**
    * 手番の終わり。制圧の判定と、再行動の連鎖と、順番送り。
    *
    * **ここを回すのは「手番の持ち主」であって、技を使った者ではない。**
@@ -3990,39 +4160,7 @@
       if (actor.alive) return;
     }
 
-    // 「戦車」(§21) — 毎ラウンド、確実にもう一度動ける。
-    //
-    // 号令と同じ「順番を進めずに返す」形。確率の再行動（下）と違って
-    // 必ず起きるので、**上限の枠も必ず1つ使う**。
-    // 奇襲や再行動と合わさっても MAX_EXTRA_ACTIONS が頭を押さえる。
-    if (actor.turnGiftLeft > 0 && actor.alive
-        && actor.extraActions < MAX_EXTRA_ACTIONS) {
-      actor.turnGiftLeft--;
-      actor.extraActions++;
-      pushLog(battle, `${actor.name} は駆け抜ける！`, 'buff');
-      pushEvent(battle, { type: 'extra', key: actor.key });
-      return;
-    }
-
-    // --- パッシブ: 奇襲（1ラウンド目だけ、もう一度動ける）(§5.6) ---
-    const ambush = (actor.passives && actor.passives.ambush) || 0;
-    if (ambush > 0 && battle.round === 1 && actor.alive && !actor.ambushed &&
-        actor.extraActions < MAX_EXTRA_ACTIONS && RPG.rng.chance(ambush)) {
-      actor.ambushed = true;
-      actor.extraActions++;
-      pushLog(battle, `${actor.name} の奇襲！`, 'buff');
-      pushEvent(battle, { type: 'extra', key: actor.key });
-      return;
-    }
-
-    // --- パッシブ: 再行動（同じラウンドで連続しすぎないよう上限を設ける）---
-    const extraRate = (actor.passives && actor.passives.extraActionRate) || 0;
-    if (extraRate > 0 && actor.alive && actor.extraActions < MAX_EXTRA_ACTIONS && RPG.rng.chance(extraRate)) {
-      actor.extraActions++;
-      pushLog(battle, `${actor.name} は続けて動いた！`, 'buff');
-      pushEvent(battle, { type: 'extra', key: actor.key });
-      return;   // 行動順を進めず、同じキャラがもう一度コマンドを選ぶ
-    }
+    if (earnExtra(battle, actor)) return;
 
     battle.actorIndex++;
     skipDeadActors(battle);
@@ -4945,7 +5083,7 @@
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
-    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, woundsLeft, settleWheel, WHEEL_ORDER, wheelStatus, wheelBreaks, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
+    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, woundsLeft, ritualParticipants, ritualSkill, settleWheel, WHEEL_ORDER, wheelStatus, wheelBreaks, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,

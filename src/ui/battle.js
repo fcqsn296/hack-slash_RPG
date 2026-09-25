@@ -1157,6 +1157,8 @@
         // 押せない理由をボタン上に出しておかないと、なぜ選べないのか分からない。
         const ready = RPG.battle.skillReady(battle, actor, id);
         const breaks = RPG.battle.wheelBreaks(actor, skill);
+        // 「教皇」(§21) — この技で儀式を始めると、誰の手番を使うか。**押す前に**見せる。
+        const joiners = ready.ok ? RPG.battle.ritualParticipants(battle, actor, id) : [];
 
         return h('button.skill-btn' + (skill.cls ? '.is-class' : '') + (ready.ok ? '' : '.is-cooling'), {
           onClick: () => { if (ready.ok) selectSkill(id); },
@@ -1167,6 +1169,10 @@
             h('span', { text: skill.name }),
             skill.cls ? h('span.chip.chip-class', { text: 'クラス' }) : null,
             breaks ? h('span.chip.chip-debuff', { text: '輪に反する' }) : null,
+            joiners.length ? h('span.chip.chip-class', {
+              text: `儀式 ${joiners.length}人`,
+              title: `${joiners.map((/** @type {any} */ u) => u.name).join('・')} も撃ち、このラウンドの手番を使う`,
+            }) : null,
             ready.ok ? null : h('span.chip.chip-cool', { text: ready.reason })
           ),
           h('span.skill-meta',

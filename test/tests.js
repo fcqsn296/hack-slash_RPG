@@ -2888,6 +2888,148 @@
               }
             }
 
+            // ── 教皇 (V) ──
+            //
+            // 儀式: 通常手番で共有できる攻撃技を撃つと、後ろにいて通常手番が残る仲間も撃つ。
+            {
+              const hp = RPG.data.arcana.ar_hierophant;
+              assertTrue('§21 教皇がある', !!hp, '');
+              const multi = Object.keys(RPG.data.skills).find((id) =>
+                RPG.data.skills[id].plugin === 'multi_hit' && !RPG.data.skills[id].cls);
+              /** @param {number} [popeAt] */
+              const mkP = (popeAt) => {
+                const ids = ['ch_hero', 'ch_mia', 'ch_gow', 'ch_gald'];
+                const us = ids.map((id, i) => {
+                  const u = RPG.units.buildCharacterUnit({ id, level: 200, exp: 0, limitBreak: 0,
+                    tree: {}, equipped: {}, arcana: i === (popeAt || 0) ? 'ar_hierophant' : null }, []);
+                  u.side = 'party'; u.key = 'p' + i;
+                  return u;
+                });
+                const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: us, bossFinale: false });
+                for (const e of b.enemies) { e.hp = e.maxHp = 1e12; }
+                b.party[popeAt || 0].skills.push(multi);
+                // 加わるのは「借りる技のほうが自分の攻撃より削れる」者だけ。
+                // 手番の台帳を確かめる検査では、全員が確実に加わるよう他の者の攻撃技を外す。
+                b.party.forEach((/** @type {any} */ u, /** @type {number} */ i) => {
+                  if (i !== (popeAt || 0)) u.skills = [];
+                });
+                return b;
+              };
+
+              // **4人の儀式で通常手番を4つ使い、敵フェーズは1回、入力も1回。**
+              {
+                const b = mkP(0);
+                const pope = b.party[0];
+                const round0 = b.totalRounds;
+                const joiners = RPG.battle.ritualParticipants(b, pope, multi);
+                assertTrue('§21 教皇: 後ろの3人が加わる', joiners.length === 3, String(joiners.length));
+                const from = b.log.length;
+                const in0 = b.inputs.manual + b.inputs.auto;
+                RPG.battle.perform(b, { skillId: multi, targets: [b.enemies[0]] }, { auto: true });
+                const L = logSince(b, from);
+                const casts = L.filter((t) => t.endsWith(' の ' + RPG.data.skills[multi].name + '！')).length;
+                assertTrue('§21 教皇: 4人がそれぞれ1回ずつ撃つ', casts === 4, String(casts));
+                assertTrue('§21 教皇: 敵フェーズは1回だけ進む（次のラウンドの頭）',
+                  b.totalRounds === round0 + 1 && b.actorIndex === 0 && b.phase === 'command',
+                  `${round0}→${b.totalRounds} idx ${b.actorIndex}`);
+                assertTrue('§21 教皇: 入力は1回だけ数える', b.inputs.manual + b.inputs.auto === in0 + 1, '');
+              }
+
+              // **自分の攻撃のほうが削れる者は加わらない。**（全員強制の初版は弱すぎて採らなかった）
+              {
+                const b = mkP(0);
+                const strongest = Object.keys(RPG.data.skills).filter((id) => RPG.battle.isAttackSkill(RPG.data.skills[id])
+                  && !RPG.data.skills[id].cls && !RPG.data.skills[id].readyRound && RPG.battle.targetKind(RPG.data.skills[id]) === 'enemy')
+                  .sort((x, y) => RPG.data.skills[y].power - RPG.data.skills[x].power)[0];
+                b.party[1].skills = [strongest];
+                const joiners = RPG.battle.ritualParticipants(b, b.party[0], multi);
+                assertTrue('§21 教皇: 自分の攻撃のほうが削れる者は加わらない',
+                  joiners.indexOf(b.party[1]) < 0 && joiners.length === 2, joiners.map((u) => u.key).join(','));
+              }
+
+              // **前にいる者（既に動いた者）は加わらない。手番が復活しない。**
+              {
+                const b = mkP(2);
+                b.actorIndex = 2;   // 前の2人は動き終えた扱い
+                b.party[0].turnTakenRound = b.totalRounds;
+                b.party[1].turnTakenRound = b.totalRounds;
+                const joiners = RPG.battle.ritualParticipants(b, b.party[2], multi);
+                assertTrue('§21 教皇: 後ろにいて手番が残る者だけが加わる',
+                  joiners.length === 1 && joiners[0] === b.party[3], joiners.map((u) => u.key).join(','));
+              }
+
+              // **追加の手番（再行動・戦車・奇襲）からは儀式を始めない。勅命からも始めない。**
+              {
+                const b = mkP(0);
+                const pope = b.party[0];
+                pope.turnTakenRound = b.totalRounds;   // 通常手番は使い終えた
+                assertTrue('§21 教皇: 追加の手番からは儀式を始めない',
+                  RPG.battle.ritualParticipants(b, pope, multi).length === 0, '');
+              }
+
+              // **共有できない技（回復・補助・クラス技）では儀式にならない。**
+              {
+                const b = mkP(0);
+                const heal = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].plugin === 'heal');
+                const cls = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].cls
+                  && RPG.battle.isAttackSkill(RPG.data.skills[id]));
+                assertTrue('§21 教皇: 回復技は共有しない', RPG.battle.ritualParticipants(b, b.party[0], heal).length === 0, '');
+                if (cls) assertTrue('§21 教皇: クラス技は共有しない', !RPG.battle.ritualSkill(RPG.data.skills[cls]), cls);
+              }
+
+              // **麻痺した参加者も手番は使う。順番は1つしか進まない。**
+              {
+                const b = mkP(0);
+                const p1 = b.party[1];
+                p1.statusEffects.push({ kind: 'paralyze', ratio: 1, turns: 5, label: '麻痺' });
+                let paralyzed = false;
+                for (let s = 1; s < 40 && !paralyzed; s++) {
+                  const bb = mkP(0);
+                  bb.party[1].statusEffects.push({ kind: 'paralyze', ratio: 1, turns: 5, label: '麻痺' });
+                  RPG.rng.seed(s);
+                  const from = bb.log.length;
+                  RPG.battle.perform(bb, { skillId: multi, targets: [bb.enemies[0]] }, { auto: true });
+                  if (logSince(bb, from).some((t) => t.startsWith(bb.party[1].name + ' は痺れて'))) {
+                    paralyzed = true;
+                    assertTrue('§21 教皇: 麻痺した参加者も手番を使い、順番が乱れない',
+                      bb.party[1].ritualRound === bb.totalRounds - 1 && bb.actorIndex === 0 && bb.phase === 'command',
+                      `idx ${bb.actorIndex}`);
+                  }
+                }
+                RPG.rng.seed(null);
+                assertTrue('§21 教皇: 麻痺の場面を作れた', paralyzed, '');
+                void p1;
+              }
+
+              // **勅命の受け手が麻痺しても、受け手自身の手番は残る**（以前は1つ飛んでいた）
+              {
+                let checked = false;
+                for (let s = 1; s < 40 && !checked; s++) {
+                  const us = ['ch_hero', 'ch_mia', 'ch_gow'].map((id, i) => {
+                    const u = RPG.units.buildCharacterUnit({ id, level: 200, exp: 0, limitBreak: 0,
+                      tree: {}, equipped: {}, arcana: i === 0 ? 'ar_emperor' : null }, []);
+                    u.side = 'party'; u.key = 'p' + i;
+                    return u;
+                  });
+                  const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: us, bossFinale: false });
+                  for (const e of b.enemies) { e.hp = e.maxHp = 1e12; }
+                  const to = b.party[1];
+                  to.statusEffects.push({ kind: 'paralyze', ratio: 1, turns: 5, label: '麻痺' });
+                  RPG.rng.seed(s);
+                  const from = b.log.length;
+                  const sk = to.skills.find((id) => RPG.battle.isAttackSkill(RPG.data.skills[id]));
+                  RPG.battle.commandDecree(b, to.key, sk, [b.enemies[0]]);
+                  if (logSince(b, from).some((t) => t.startsWith(to.name + ' は痺れて'))) {
+                    checked = true;
+                    assertTrue('§21 皇帝: 受け手が麻痺しても受け手の手番は飛ばない', b.actorIndex === 1,
+                      String(b.actorIndex));
+                  }
+                }
+                RPG.rng.seed(null);
+                assertTrue('§21 皇帝: 麻痺の場面を作れた', checked, '');
+              }
+            }
+
             // 解放依頼は「先を取る相」を名指しする。**依頼の相が battle に届くこと。**
             // 出撃画面は空の配列を渡してくるので、優先順を誤ると依頼の相が消える。
             const jq = RPG.data.quests[js.unlock.quest];
