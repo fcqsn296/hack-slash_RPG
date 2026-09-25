@@ -2741,6 +2741,8 @@ h4 { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
 .command-center { display: grid; justify-items: center; gap: 10px; }
 .command-center p { margin: 0; color: var(--text-dim); }
 .targeting { color: var(--gold) !important; font-weight: 600; }
+/* 「運命の輪」(§21) の状態。コマンド欄の頭に1行。技を押す前に、次の系統と違反の重さが読めるように */
+.wheel-line { margin: 4px 0 6px; font-size: 12px; color: var(--gold); line-height: 1.4; }
 
 .command-actor { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-weight: 600; }
 .command-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }

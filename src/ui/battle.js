@@ -418,9 +418,14 @@
       h('div.battle', { style: { background: fieldWash(f, 0.34) } },
         h('div.battle-top',
           h('span.battle-round', {
-            text: rules.maxRounds
+            text: (rules.maxRounds
               ? `ラウンド ${battle.totalRounds} / ${rules.maxRounds}`
-              : `ラウンド ${battle.round}`,
+              : `ラウンド ${battle.round}`)
+              // 依頼「輪を巡らせる」(§21)。足りないまま倒しきると失敗なので、進み具合を常に見せる。
+              + (rules.wheelLaps
+                ? `／輪 ${(battle.ruleWheel && battle.ruleWheel.laps) || 0}/${rules.wheelLaps}周・次は${
+                  ['物理', '魔術', '遺物'][(battle.ruleWheel && battle.ruleWheel.step) || 0]}`
+                : ''),
           }),
           // 取っ手。狭い画面では下の板を開く。広い画面では CSS が消す (§15)。
           //
@@ -1134,16 +1139,24 @@
       );
     }
 
+    // 「運命の輪」(§21) — 次に求められる系統・次の恩恵・未精算の違反・祝福。
+    const wheel = RPG.battle.wheelStatus(actor);
     return h('div.command-list',
       h('div.command-actor',
         W.portrait(actor, 'sm'),
         h('span', { text: actor.name + ' のコマンド' })
       ),
+      wheel ? h('p.wheel-line', {
+        text: `運命の輪 ${wheel.step + 1}/3 — 次は${wheel.wantLabel}（${wheel.boonLabel}）`
+          + (wheel.debt > 0 ? `／違反 ${wheel.debt}（敵が動く前にHP×${Math.pow(0.5, wheel.debt)}）` : '')
+          + (wheel.blessing > 0 ? `／祝福 上限+${Math.round(wheel.blessing * 100)}%` : ''),
+      }) : null,
       h('div.command-buttons', actor.skills.map((/** @type {string} */ id) => {
         const skill = RPG.data.skills[id];
         // クラス技には解禁ラウンドとクールタイムがある (§12)。
         // 押せない理由をボタン上に出しておかないと、なぜ選べないのか分からない。
         const ready = RPG.battle.skillReady(battle, actor, id);
+        const breaks = RPG.battle.wheelBreaks(actor, skill);
 
         return h('button.skill-btn' + (skill.cls ? '.is-class' : '') + (ready.ok ? '' : '.is-cooling'), {
           onClick: () => { if (ready.ok) selectSkill(id); },
@@ -1153,6 +1166,7 @@
           h('span.skill-name',
             h('span', { text: skill.name }),
             skill.cls ? h('span.chip.chip-class', { text: 'クラス' }) : null,
+            breaks ? h('span.chip.chip-debuff', { text: '輪に反する' }) : null,
             ready.ok ? null : h('span.chip.chip-cool', { text: ready.reason })
           ),
           h('span.skill-meta',

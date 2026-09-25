@@ -2712,6 +2712,182 @@
                 mq ? JSON.stringify(mq.rules) : '');
             }
 
+            // ── 運命の輪 (X) ──
+            //
+            // 物理→魔術→遺物の順に攻撃すると恩恵、外れると違反。違反は敵フェーズの直前に精算。
+            {
+              const wh = RPG.data.arcana.ar_wheel;
+              assertTrue('§21 運命の輪がある', !!wh, '');
+              assertTrue('§21 運命の輪: 利と害が両方書いてある', !!wh.boon && !!wh.bane, '');
+              /** 系統ごとの素直な単体攻撃 @param {string} t */
+              const byType = (t) => Object.keys(RPG.data.skills).find((id) => {
+                const s = RPG.data.skills[id];
+                return RPG.battle.isAttackSkill(s) && s.damage_type === t && !s.cls && !s.plugin
+                  && RPG.battle.targetKind(s) === 'enemy';
+              });
+              const multi = Object.keys(RPG.data.skills).find((id) =>
+                RPG.data.skills[id].plugin === 'multi_hit' && RPG.data.skills[id].params
+                && RPG.data.skills[id].params.hits > 1);
+              /** @param {number} [n] @param {number} [waves] */
+              const mkW = (n, waves) => {
+                const ids = ['ch_hero', 'ch_mia', 'ch_gow', 'ch_gald'].slice(0, n || 2);
+                const us = ids.map((id, i) => {
+                  const u = RPG.units.buildCharacterUnit({ id, level: 200, exp: 0, limitBreak: 0,
+                    tree: {}, equipped: {}, arcana: i === 0 ? 'ar_wheel' : null }, []);
+                  u.side = 'party'; u.key = 'p' + i;
+                  u.skills = u.skills.concat([byType('phys'), byType('magi'), byType('reli'), multi]);
+                  return u;
+                });
+                return RPG.battle.start({ fieldId: 'fl_plain', waves: waves || 1, party: us, bossFinale: false });
+              };
+              /** @param {any} b @param {number} i @param {string} sk @param {any[]} t */
+              const act = (b, i, sk, t) => {
+                b.actorIndex = i; b.phase = 'command';
+                RPG.battle.perform(b, { skillId: sk, targets: t }, { auto: true });
+              };
+
+              {
+                const b = mkW();
+                assertTrue('§21 運命の輪: 祝福の値が札のまま届く',
+                  b.party[0].passives.wheel === wh.effects[0].value, String(b.party[0].passives.wheel));
+                assertTrue('§21 運命の輪: 物理から始まる', b.party[0].wheelStep === 0, '');
+              }
+
+              // **物理→魔術→遺物の3行動でちょうど一周。恩恵は当てた敵へ、その攻撃には遡らない。**
+              {
+                const b = mkW();
+                const me = b.party[0];
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                let from = b.log.length;
+                act(b, 0, byType('phys'), [foe]);
+                const firstHit = logSince(b, from).find((t) => t.startsWith(foe.name + ' に ')) || '';
+                assertTrue('§21 運命の輪: 恩恵はその攻撃に遡って効かない', firstHit.indexOf('防御無視') < 0, firstHit);
+                assertTrue('§21 運命の輪: 物理で防御崩壊', foe.defIgnoredTurns > 0, String(foe.defIgnoredTurns));
+                act(b, 0, byType('magi'), [foe]);
+                assertTrue('§21 運命の輪: 魔術で標的', !!(foe.marked && foe.marked.side === 'party'),
+                  JSON.stringify(foe.marked));
+                act(b, 0, byType('reli'), [foe]);
+                assertTrue('§21 運命の輪: 遺物で凍結',
+                  foe.statusEffects.some((/** @type {any} */ e) => e.kind === 'freeze'), '');
+                assertTrue('§21 運命の輪: 3行動でちょうど一周', me.wheelStep === 0 && me.wheelDebt === 0,
+                  `${me.wheelStep} / ${me.wheelDebt}`);
+                assertTrue('§21 運命の輪: 一周で味方全員に祝福',
+                  b.party.every((/** @type {any} */ u) => u.wheelBlessing === wh.effects[0].value),
+                  b.party.map((/** @type {any} */ u) => u.wheelBlessing).join(','));
+
+                // **祝福は回復・補助では消費せず、次の攻撃1行動で使い切る。**
+                const heal = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].plugin === 'heal');
+                me.skills = me.skills.concat([heal]);
+                act(b, 0, heal, RPG.battle.targetKind(RPG.data.skills[heal]) === 'ally' ? [me] : []);
+                assertTrue('§21 運命の輪: 回復では位置も違反も祝福も動かない',
+                  me.wheelStep === 0 && me.wheelDebt === 0 && me.wheelBlessing > 0, '');
+                from = b.log.length;
+                act(b, 0, byType('phys'), [foe]);
+                assertTrue('§21 運命の輪: 次の攻撃で祝福を使い切り、残さない',
+                  me.wheelBlessing === 0 && (me.wheelBoost || 0) === 0
+                  && logSince(b, from).some((t) => /輪の祝福が降りる/.test(t)), '');
+              }
+
+              // **外れた攻撃は違反。輪は進まない。多段でも1回。**
+              {
+                const b = mkW();
+                const me = b.party[0];
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                act(b, 0, byType('magi'), [foe]);
+                assertTrue('§21 運命の輪: 外れた攻撃は違反し、輪は進まない',
+                  me.wheelDebt === 1 && me.wheelStep === 0, `${me.wheelDebt} / ${me.wheelStep}`);
+                if (RPG.data.skills[multi].damage_type !== 'phys') {
+                  act(b, 0, multi, [foe]);
+                  assertTrue('§21 運命の輪: 多段でも違反は1回', me.wheelDebt === 2, String(me.wheelDebt));
+                }
+                assertTrue('§21 運命の輪: 輪に反する技を画面で示せる',
+                  RPG.battle.wheelBreaks(me, RPG.data.skills[byType('magi')])
+                  && !RPG.battle.wheelBreaks(me, RPG.data.skills[byType('phys')]), '');
+              }
+
+              // **精算は現在HPを 0.5^違反 倍。障壁・軽減を通さない。**
+              {
+                const b = mkW();
+                const me = b.party[0];
+                me.maxHp = 100000; me.hp = 8000; me.shield = 999999;
+                me.wheelDebt = 1;
+                RPG.battle.settleWheel(b);
+                assertTrue('§21 運命の輪: 違反1回で 8,000 → 4,000（障壁は通らない）',
+                  me.hp === 4000 && me.wheelDebt === 0, String(me.hp));
+                me.hp = 8000; me.wheelDebt = 2;
+                RPG.battle.settleWheel(b);
+                assertTrue('§21 運命の輪: 違反2回で 8,000 → 2,000', me.hp === 2000, String(me.hp));
+                me.hp = 1; me.wheelDebt = 3;
+                RPG.battle.settleWheel(b);
+                assertTrue('§21 運命の輪: 精算では倒れない（最低1）', me.hp === 1 && me.alive, String(me.hp));
+              }
+
+              // **敵フェーズの直前に1回だけ精算。最終ウェーブの勝利では精算しない。**
+              {
+                const b = mkW(1);
+                const me = b.party[0];
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                const from = b.log.length;
+                act(b, 0, byType('magi'), [foe]);   // 違反 → 1人なのでそのまま敵フェーズへ
+                const settles = logSince(b, from).filter((t) => /輪の報い/.test(t)).length;
+                assertTrue('§21 運命の輪: 敵フェーズの直前に1回だけ精算', settles === 1, String(settles));
+              }
+              {
+                const b = mkW(2, 1);
+                const me = b.party[0];
+                for (const e of RPG.battle.livingEnemies(b)) { e.hp = 1; }
+                me.wheelDebt = 1;
+                const hp0 = me.hp;
+                const area = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].plugin === 'all_enemies');
+                me.skills = me.skills.concat([area]);
+                act(b, 0, area, []);
+                assertTrue('§21 運命の輪: 最終ウェーブの勝利では精算しない',
+                  b.victory && me.hp === hp0, `${b.victory} ${hp0} → ${me.hp}`);
+              }
+              {
+                const b = mkW(2, 2);
+                const me = b.party[0];
+                for (const e of RPG.battle.livingEnemies(b)) { e.hp = 1; }
+                me.wheelDebt = 1;
+                const area = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].plugin === 'all_enemies');
+                me.skills = me.skills.concat([area]);
+                const from = b.log.length;
+                act(b, 0, area, []);
+                assertTrue('§21 運命の輪: 途中のウェーブ制圧で精算する',
+                  b.phase === 'wave_clear' && logSince(b, from).some((t) => /輪の報い/.test(t)) && me.wheelDebt === 0,
+                  b.phase);
+              }
+
+              // 解放依頼の規則 wheelLaps。**足りないまま倒しきったら失敗**、足りていれば勝ち。
+              const wq = RPG.data.quests[wh.unlock.quest];
+              assertTrue('§21 運命の輪: 解放依頼が実在する', !!wq, String(wh.unlock.quest));
+              assertTrue('§21 運命の輪: 解放依頼は輪を巡らせる規則', !!(wq && wq.rules && wq.rules.wheelLaps > 0),
+                wq ? JSON.stringify(wq.rules) : '');
+              {
+                const us = ['ch_hero'].map((id, i) => {
+                  const u = RPG.units.buildCharacterUnit({ id, level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, []);
+                  u.side = 'party'; u.key = 'p' + i;
+                  u.skills = u.skills.concat([byType('phys'), byType('magi'), byType('reli')]);
+                  return u;
+                });
+                const q = { rules: { wheelLaps: 1 } };
+                const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: us, bossFinale: false, quest: q });
+                const foes = RPG.battle.livingEnemies(b);
+                for (const e of foes) { e.hp = e.maxHp = 1e12; }
+                for (const t of ['phys', 'magi']) act(b, 0, byType(t), [foes[0]]);
+                for (const e of foes) { e.hp = 1; }
+                const area = Object.keys(RPG.data.skills).find((id) =>
+                  RPG.data.skills[id].plugin === 'all_enemies' && RPG.data.skills[id].damage_type !== 'reli');
+                us[0].skills = us[0].skills.concat([area]);
+                act(b, 0, area, []);
+                assertTrue('§21 運命の輪: 周回が足りないまま倒しきると依頼は失敗',
+                  b.finished && !b.victory && /輪を/.test(b.ruleBroken || ''), String(b.ruleBroken));
+              }
+            }
+
             // 解放依頼は「先を取る相」を名指しする。**依頼の相が battle に届くこと。**
             // 出撃画面は空の配列を渡してくるので、優先順を誤ると依頼の相が消える。
             const jq = RPG.data.quests[js.unlock.quest];

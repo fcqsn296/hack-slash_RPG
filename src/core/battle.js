@@ -1409,6 +1409,12 @@
       u.temperBoost = 0;
       // 「正義」(§21) の上限強化。1行動ぶんで、行動の終わりに必ず捨てる。
       u.judgedBoost = 0;
+      // 「運命の輪」(§21)。**1戦闘ぶんの持ち物**で、ウェーブでは戻さない。
+      // 位置（物理→魔術→遺物）・未精算の違反・一周の祝福。
+      u.wheelStep = 0;
+      u.wheelDebt = 0;
+      u.wheelBlessing = 0;
+      u.wheelBoost = 0;
       // 「戦車」(§21) の手番も同じ場所で配る。
       // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
@@ -2275,7 +2281,9 @@
         // 「正義」(§21) — 裁きを耐えた一撃の上限。
         // **反撃・連鎖（isCounter）には渡さない。** 渡すと応撃を耐えた手番のあいだ、
         // 本人のおまけの一撃まで上限が広がる。
-        judgedCap: opts.isCounter ? 0 : (attacker.judgedBoost || 0),
+        // 「運命の輪」(§21) の祝福も同じ式で乗せる。別々の出どころなので掛け合わせる。
+        judgedCap: opts.isCounter ? 0
+          : (1 + (attacker.judgedBoost || 0)) * (1 + (attacker.wheelBoost || 0)) - 1,
       },
     });
 
@@ -3889,6 +3897,15 @@
       pushLog(battle, `${actor.name} は蓄えを解き放つ（+${Math.round(actor.temperBoost * 100)}%）`, 'buff');
     }
 
+    // ── 「運命の輪」(§21) の祝福 — 次の攻撃1行動ぶんに固定する ──
+    // 節制と同じく、行動の開始時に移して保管分を0にする。多段の全段に乗り、次の行動へ漏れない。
+    // 回復・補助では消費しない。麻痺で飛んだ手番（上で return 済み）でも消費しない。
+    if ((actor.wheelBlessing || 0) > 0 && judgedAttack(attackSkill)) {
+      actor.wheelBoost = actor.wheelBlessing;
+      actor.wheelBlessing = 0;
+      pushLog(battle, `${actor.name} に輪の祝福が降りる（上限 +${Math.round(actor.wheelBoost * 100)}%）`, 'buff');
+    }
+
     // 裁きを耐えた一撃だけ、上限を押し広げる。反撃・棘・連鎖（isCounter）には
     // applyDamage 側で渡さないので、この技の本体と多段の各段にだけ乗る。
     actor.judgedBoost = judged ? ((actor.passives && actor.passives.justice) || 0) : 0;
@@ -3927,6 +3944,12 @@
     // ここを飛ばすと、次の行動へ強化が漏れる。
     actor.temperBoost = 0;
     actor.judgedBoost = 0;
+    actor.wheelBoost = 0;
+
+    // ── 「運命の輪」(§21) — 撃った技の系統で輪を回す ──
+    // **攻撃を解いた後**に判定する。恩恵はその攻撃へ遡って効かない。
+    turnWheel(battle, actor, RPG.data.skills[skillId], hits);
+    ruleWheel(battle, actor, RPG.data.skills[skillId]);
 
     // ── 「魔術師」(§21) — 織り上げたものを配る ──
     // 攻撃のたび、味方全員に薄い障壁と回復を置く。
@@ -4038,6 +4061,9 @@
    */
   function runEnemyPhase(battle) {
     battle.phase = 'enemy';
+    // 「運命の輪」(§21) の違反は、**通常の敵フェーズへ進む直前**に精算する。
+    // enemiesAct を直接呼ぶ先制（開幕）と正義の応撃では精算しない。
+    settleWheel(battle);
     enemiesAct(battle);
     endOfRound(battle);
   }
@@ -4295,6 +4321,137 @@
     battle.phase = 'command';
     skipDeadActors(battle);
     if (battle.actorIndex >= battle.party.length) runEnemyPhase(battle);
+  }
+
+  /** 「運命の輪」(§21) の順番。物理 → 魔術 → 遺物 → 物理 … */
+  const WHEEL_ORDER = ['phys', 'magi', 'reli'];
+  const WHEEL_LABEL = { phys: '物理', magi: '魔術', reli: '遺物' };
+  // 恩恵の中身は、既存の技が同じ効果に使っている値に揃えた（新しい効果を作らない）。
+  //   防御崩壊 2ターン … 破鎧撃などの def_ignore と同じ
+  //   標的 +35% 3ターン … 単体の照準（mark）と同じ
+  //   凍結 +20% 3ターン … 単体の凍結技と同じ
+  const WHEEL_BOONS = {
+    phys: { label: '防御崩壊', turns: 2 },
+    magi: { label: '標的', value: 0.35, turns: 3 },
+    reli: { label: '凍結', ratio: 0.2, turns: 3 },
+  };
+
+  /**
+   * 「運命の輪」(§21) — 撃った攻撃の系統を見て、輪を回すか違反を記録する。
+   *
+   * 系統は**実効の系統**（魔術師の書き換えがあればそちら）。装備の系統タグ倍率とは別物。
+   * 多段・多重発動でも1行動で1段。反撃・棘は performAction を通らないので数えない。
+   * @param {any} battle @param {any} actor @param {any} skill
+   * @param {Set<string>|null} hits この行動で実際に当てた敵
+   */
+  function turnWheel(battle, actor, skill, hits) {
+    const bless = (actor.passives && actor.passives.wheel) || 0;
+    if (bless <= 0 || !judgedAttack(skill)) return;
+    const type = wheelType(actor, skill);
+    const want = WHEEL_ORDER[actor.wheelStep || 0];
+    if (type !== want) {
+      actor.wheelDebt = (actor.wheelDebt || 0) + 1;
+      pushLog(battle, `${actor.name} は輪に背いた（${WHEEL_LABEL[want] || want}の番に${WHEEL_LABEL[type] || type}／違反 ${actor.wheelDebt}）`, 'debuff');
+      return;
+    }
+    // 恩恵は、この行動で実際に当てた生きている敵へ
+    const boon = WHEEL_BOONS[want];
+    const ctx = makeContext(battle, actor, EMPTY_SKILL, []);
+    for (const key of hits || []) {
+      const foe = battle.enemies.find((/** @type {any} */ e) => e.key === key);
+      if (!foe || !foe.alive) continue;
+      if (want === 'phys') ctx.setDefIgnore(foe, boon.turns);
+      else if (want === 'magi') {
+        // 強い標的を弱い値で上書きしない
+        const now = foe.marked;
+        if (!(now && now.side === actor.side && now.value > boon.value)) {
+          ctx.mark(foe, boon.value, boon.turns, boon.label);
+        }
+      } else if (want === 'reli') {
+        ctx.addStatus(foe, { kind: 'freeze', label: boon.label, turns: boon.turns, ratio: boon.ratio });
+      }
+    }
+    actor.wheelStep = ((actor.wheelStep || 0) + 1) % WHEEL_ORDER.length;
+    if (actor.wheelStep === 0) {
+      // 一周。味方全員（倒れている者は除く）の次の攻撃1行動の上限を押し上げる。
+      // 使う前にもう一周しても**足さずに更新**する。複数の輪の持ち主からでも同じ枠。
+      for (const u of livingParty(battle)) u.wheelBlessing = Math.max(u.wheelBlessing || 0, bless);
+      pushLog(battle, `運命の輪が一周した——味方の次の一撃の上限が +${Math.round(bless * 100)}%`, 'buff');
+      pushEvent(battle, { type: 'buff', key: actor.key, label: '輪の祝福' });
+    }
+  }
+
+  /**
+   * 依頼の規則「輪を巡らせる」(rules.wheelLaps、§21 運命の輪の解放)。
+   *
+   * **パーティ全体で**物理→魔術→遺物の順を数える。順に合う攻撃だけが進め、外れても失敗にはしない
+   * （札と同じく、背くことは許す）。周回数が足りないまま最後の敵を倒すと失敗（checkWaveCleared）。
+   * @param {any} battle @param {any} actor @param {any} skill
+   */
+  function ruleWheel(battle, actor, skill) {
+    const need = battle.rules && battle.rules.wheelLaps;
+    if (!need || !judgedAttack(skill)) return;
+    const rw = battle.ruleWheel || (battle.ruleWheel = { step: 0, laps: 0 });
+    if (wheelType(actor, skill) !== WHEEL_ORDER[rw.step]) return;
+    rw.step = (rw.step + 1) % WHEEL_ORDER.length;
+    if (rw.step === 0) {
+      rw.laps++;
+      pushLog(battle, `輪が巡った（${Math.min(rw.laps, need)} / ${need} 周）`, 'buff');
+    }
+  }
+
+  /**
+   * 「運命の輪」(§21) の実効の系統。魔術師の書き換えがあればそちら。
+   * @param {any} unit @param {any} skill
+   */
+  function wheelType(unit, skill) {
+    return unit.forceType || (unit.situational && unit.situational.asMagi ? 'magi' : null)
+      || (skill && skill.damage_type);
+  }
+
+  /**
+   * 画面に出す輪の状態。輪を持たなければ null。**画面は規則を持たないので、ここで組み立てる。**
+   * @param {any} unit
+   */
+  function wheelStatus(unit) {
+    const bless = (unit && unit.passives && unit.passives.wheel) || 0;
+    if (bless <= 0) return null;
+    const want = WHEEL_ORDER[unit.wheelStep || 0];
+    return {
+      step: unit.wheelStep || 0, want, wantLabel: WHEEL_LABEL[want], boonLabel: WHEEL_BOONS[want].label,
+      debt: unit.wheelDebt || 0, blessing: unit.wheelBlessing || 0,
+    };
+  }
+
+  /**
+   * この技を撃つと輪に背くか。**押せなくはしない**（使えるが、違反になると示すだけ）。
+   * @param {any} unit @param {any} skill
+   */
+  function wheelBreaks(unit, skill) {
+    const st = wheelStatus(unit);
+    return !!st && judgedAttack(skill) && wheelType(unit, skill) !== st.want;
+  }
+
+  /**
+   * 「運命の輪」(§21) の違反を精算する。現在HPを 0.5^違反回数 倍にする。
+   *
+   * **通常の被ダメージではない。** 防御・軽減・障壁を通さず、反射・棘・被弾の反応も起こさない。
+   * hurt() を通さないのは、闘技場の「1ラウンドの傷の上限」は敵が受ける傷の話で、
+   * これは味方が自分に課す代償だから。倒れはしない（切り上げ、最低1）。
+   * 倒れている者は蘇らせず、違反だけ消す。
+   * @param {any} battle
+   */
+  function settleWheel(battle) {
+    for (const u of battle.party) {
+      const n = u.wheelDebt || 0;
+      if (n <= 0) continue;
+      u.wheelDebt = 0;
+      if (!u.alive || u.hp <= 0) continue;
+      const before = u.hp;
+      u.hp = Math.max(1, Math.ceil(before * Math.pow(0.5, n)));
+      pushLog(battle, `${u.name} は輪の報いを受けた（違反 ${n}回 — HP ${before.toLocaleString()} → ${u.hp.toLocaleString()}）`, 'debuff');
+      pushEvent(battle, { type: 'debuff', key: u.key, label: '輪の報い' });
+    }
   }
 
   /**
@@ -4740,12 +4897,21 @@
     }
 
     if (battle.wave >= battle.totalWaves) {
+      // 依頼「輪を巡らせる」(§21)。周回が足りないまま倒しきったら失敗。
+      const need = battle.rules && battle.rules.wheelLaps;
+      if (need && (!battle.ruleWheel || battle.ruleWheel.laps < need)) {
+        failQuest(battle, `輪を ${need} 周させる前に倒しきった（${(battle.ruleWheel && battle.ruleWheel.laps) || 0} 周）`);
+        return true;
+      }
       battle.finished = true;
       battle.victory = true;
       battle.phase = 'result';
       pushLog(battle, '戦闘に勝利した！', 'victory');
       pushEvent(battle, { type: 'wave', text: 'VICTORY', result: true });
     } else {
+      // 「運命の輪」(§21) — 途中のウェーブ制圧でも精算する（次のウェーブの回復より前）。
+      // 最終ウェーブの勝利では精算しない（終了時のHPに使い道が無いため）。
+      settleWheel(battle);
       battle.phase = 'wave_clear';
       pushLog(battle, `ウェーブ ${battle.wave} 制圧。次の敵が迫る…`, 'wave');
     }
@@ -4779,7 +4945,7 @@
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
-    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, woundsLeft, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
+    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, woundsLeft, settleWheel, WHEEL_ORDER, wheelStatus, wheelBreaks, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,

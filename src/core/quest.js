@@ -165,6 +165,9 @@
     if (r.elements) out.push(r.elements.map((/** @type {string} */ e) => RPG.damage.ELEMENT_LABEL[e]).join('・') + '属性のみ');
     if (r.maxRounds) out.push(`${r.maxRounds}ラウンド以内`);
     if (r.allAlive) out.push('全員生存');
+    if (r.noRepeat) out.push('同じ技を続けない');
+    if (r.idleHero) out.push('主人公は動かない');
+    if (r.wheelLaps) out.push(`物理→魔術→遺物を${r.wheelLaps}周`);
     if (r.noAuto) out.push('オート禁止');
     if (quest.enemyLv) out.push(`敵Lv${quest.enemyLv}`);
     // 難度倍率はステータスごとにも書ける (§10.3)。挑む前に何が厚いのか読めるようにする。
