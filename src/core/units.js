@@ -143,15 +143,34 @@
    */
   const UNIQUE_EFFECT_KEYS = Object.keys(ROUTES());
 
-  function buildCharacterUnit(charSave, inventory) {
+  /**
+   * @param {any} charSave @param {any[]} inventory
+   * @param {Record<string, any>[]} [received] 女帝 (§21) から受け取る共有分（ツリーの層へ足す）
+   */
+  function buildCharacterUnit(charSave, inventory, received) {
     const def = RPG.data.characters[charSave.id];
     const stats = statsAtLevel(def, charSave.level);
     const items = equippedItems(charSave, inventory);
+
+    // ── 女帝 (§21) はツリーの層で扱う ──
+    // 分ける元は**SPで取ったツリーの効果だけ**（クラス・固有・装備・アルカナは分けない）。
+    // 出どころを区別できるのは合流させる前のここしかない。最終の passives から逆算しない。
+    // 女帝本人は規則表のキーが半分になる。受け手は共有分を足してから、ツリーぶんの上限を掛け直す。
+    // そのあとクラス・アルカナと合流するので、クラスで上限を越える分は削られない。
+    const treeFx = RPG.tree.effects(charSave.tree || {});
+    if (RPG.arcana && RPG.arcana.isEmpress && RPG.arcana.isEmpress(charSave)) {
+      RPG.arcana.empressSelf(treeFx.passives);
+    }
+    if (received && received.length && RPG.arcana && RPG.arcana.addShare) {
+      for (const share of received) RPG.arcana.addShare(treeFx.passives, share);
+      RPG.tree.capPassives(treeFx.passives);
+    }
+
     // スキルツリー (§5)・クラス (§12)・アルカナ (§21) は同じ効果種別を使うので、
     // ここで1つに合流させてしまえば、以降の組み立ては出どころを区別しなくてよい。
     const tree = RPG.tree.mergeEffects(
       RPG.tree.mergeEffects(
-        RPG.tree.effects(charSave.tree || {}),
+        treeFx,
         RPG.klass ? RPG.klass.effects(charSave) : null
       ),
       RPG.arcana ? RPG.arcana.effects(charSave) : null

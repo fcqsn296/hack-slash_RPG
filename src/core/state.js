@@ -1565,12 +1565,34 @@
     return true;
   }
 
-  /** 現在のパーティを戦闘用ユニット配列に変換する。 */
+  /**
+   * 現在のパーティを戦闘用ユニット配列に変換する。
+   *
+   * 女帝 (§21) の共有はここで配る。戦闘の入口（出撃・依頼・塔・闘技場・派遣・物語）は
+   * どれもここを通るので、1か所で済む。**保存された育成は書き換えない**（戦闘用の値だけ）。
+   * 共有分は各女帝の**ツリーの効果**から独立に作る。受け取った分は再配布しない
+   * （受け手の最終値ではなく、女帝のツリーから作るため）。女帝どうしも互いに受け取る。
+   * 複数の女帝から同じ効果を受け取るときは、足さずに最大を採る。
+   */
   function partyUnits() {
     const s = get();
-    return s.party
-      .filter((/** @type {string} */ id) => !!s.characters[id])
-      .map((/** @type {string} */ id) => RPG.units.buildCharacterUnit(s.characters[id], s.inventory));
+    const ids = s.party.filter((/** @type {string} */ id) => !!s.characters[id]);
+    /** @type {{from: string, share: Record<string, any>}[]} */
+    const shares = [];
+    if (RPG.arcana && RPG.arcana.isEmpress) {
+      for (const id of ids) {
+        const c = s.characters[id];
+        if (!RPG.arcana.isEmpress(c)) continue;
+        const share = RPG.arcana.empressShare(RPG.tree.effects(c.tree || {}).passives);
+        if (Object.keys(share).length) shares.push({ from: id, share });
+      }
+    }
+    // 複数の女帝から受け取る分は、同じ効果を足さずに最大だけを採る（RPG.arcana.combineShares）
+    return ids.map((/** @type {string} */ id) => {
+      const got = shares.filter((x) => x.from !== id).map((x) => x.share);
+      return RPG.units.buildCharacterUnit(s.characters[id], s.inventory,
+        got.length ? [RPG.arcana.combineShares(got)] : []);
+    });
   }
 
   /**

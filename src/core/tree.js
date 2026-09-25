@@ -320,7 +320,7 @@
     'relay_power', 'repeat_power',
     'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
     'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'final_count', 'doom_power',
-    'as_magi', 'weave_gift', 'no_repeat', 'decree', 'bond_power', 'bond_share', 'temperance', 'justice', 'moon', 'wheel', 'ritual', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'as_magi', 'weave_gift', 'no_repeat', 'decree', 'bond_power', 'bond_share', 'temperance', 'justice', 'moon', 'wheel', 'ritual', 'empress', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -486,6 +486,7 @@
       bondShare: 0,        // 同じ札を持つ味方と被害を分ける (§21 恋人)
       temperance: 0,       // 過剰回復を次の攻撃へ変える係数 (§21 節制)
       justice: 0,          // 裁きを耐えた一撃の上限倍率。0より大きければ応撃を受ける (§21 正義)
+      empress: 0,          // 分与。ツリーのパッシブを半分ずつ分ける (§21 女帝)
       ritual: 0,           // 儀式。仲間も同じ技を撃ち、その通常手番を使う (§21 教皇)
       wheel: 0,            // 輪の一周の祝福（上限倍率）。0より大きければ違反を数える (§21 運命の輪)
       moon: 0,             // 幻傷を開ける回数（敵1体・1ラウンド）。0より大きければ自分では削れない (§21 月)
@@ -789,6 +790,7 @@
           case 'moon': passives.moon += amount; break;
           case 'wheel': passives.wheel += amount; break;
           case 'ritual': passives.ritual = Math.max(passives.ritual, amount); break;
+          case 'empress': passives.empress = Math.max(passives.empress, amount); break;
           case 'as_magi': situational.asMagi = Math.max(situational.asMagi, amount); break;
           case 'self_bind': passives.selfBind = Math.max(passives.selfBind, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;
@@ -872,6 +874,23 @@
     // **クラスを選ぶ理由そのものが消える**。
     // 「ツリーでは 0.5 まで、それを越えられるのは戦術家だけ」が
     // このクラスの特色になっている。
+    capPassives(passives);
+
+    return {
+      statPct, statCost, tagBonuses, crit, critDamage, capBreak,
+      execute, reduction, skills, passives, situational, elementMods,
+    };
+  }
+
+  /**
+   * ツリーぶんの上限 (§5.7)。effectsOf の最後で掛ける。
+   *
+   * 切り出したのは、女帝 (§21) の共有分を**受け手のツリーの層**に足したあと、
+   * 同じ上限をもう一度掛けるため。共有でツリーの上限を越えられないようにし、
+   * クラスで越える分（戦術家の再行動など）は削らない（クラスはこのあとで合流する）。
+   * @param {any} passives 破壊的に変更する
+   */
+  function capPassives(passives) {
     passives.extraActionRate = Math.min(0.5, passives.extraActionRate);
 
     // 連鎖・防御無視・耐えは確率なので上限を設ける
@@ -895,10 +914,6 @@
     passives.critSpread = Math.min(1, passives.critSpread);
     passives.counterAll = Math.min(1, passives.counterAll);
 
-    return {
-      statPct, statCost, tagBonuses, crit, critDamage, capBreak,
-      execute, reduction, skills, passives, situational, elementMods,
-    };
   }
 
   /**
@@ -995,7 +1010,7 @@
   RPG.tree = {
     nodes, node, grouped, category, byCategory, searchText,
     investedLevels, tierUnlocked, tierRemaining,
-    spentSp, canInvest, canRefund, effects, effectsOf, mergeEffects, resetCost, refundCost,
+    spentSp, canInvest, canRefund, effects, effectsOf, mergeEffects, resetCost, refundCost, capPassives,
     KNOWN_EFFECT_KINDS,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

@@ -1015,4 +1015,27 @@ RPG.data.quests = {
     unlock: { level: 200 },
     reward: { gold: 40000, boxes: { box_astral: 1 } },
   },
+
+  // 「女帝」の解放 (§21)。**あまねく相（敵の攻撃が全員へ届く）の中で、誰も欠けさせずに抜ける**。
+  // 札の像（実りを全員へ行き渡らせる）の裏返し——災いが全員に届く場で、全員を生かす。
+  // 正義の依頼と同じく、規則を新設せず異相を名指しする（aspectIds）。
+  //
+  // ── 根拠（オート・12戦、創世の残響・HP×30）──
+  //   敵Lv150  Lv200へ下げた検証編成 9/12
+  //   敵Lv160  Lv200 5/12（落ちた7戦はすべて「仲間が倒れた」）／終盤4人 12/12  ← 採用
+  //   敵Lv180  Lv200 0/12（あまねく相は敵の攻撃力も2倍）
+  q_arcana_empress: {
+    name: '行き渡る実り',
+    desc: '創世の残響を、敵の攻撃が全員へ届くまま、誰も倒れさせずに抜ける。'
+      + '皆に行き渡らせる——女帝の像そのものを問う。',
+    fieldId: 'fl_origin',
+    enemyLv: 160,
+    waves: 5,
+    bossFinale: true,
+    aspectIds: ['as_omnipresent'],
+    rules: { allAlive: true, noAuto: true },
+    enemyScale: { hp: 30 },
+    unlock: { level: 200 },
+    reward: { gold: 40000, boxes: { box_astral: 1 } },
+  },
 };

@@ -4090,7 +4090,8 @@ ${nextCost.toLocaleString()} G
             h('div.arcana-current-body',
               h('b', { text: cur.name }),
               h('div.arcana-boon', { text: '利 ' + cur.boon }),
-              h('div.arcana-bane', { text: '害 ' + cur.bane })
+              h('div.arcana-bane', { text: '害 ' + cur.bane }),
+              empressLine(charSave)
             ),
             W.button('外す', () => {
               const res = RPG.state.setArcana(selectedChar, null);
@@ -4103,6 +4104,28 @@ ${nextCost.toLocaleString()} G
       h('div.arcana-deck', list.map((a) => arcanaChoice(root, charSave, a))),
       arcanaDetail(root, charSave)
     );
+  }
+
+  /**
+   * 女帝 (§21) を就けているとき、実際に何が分けられるかを出す。
+   * **取っても配れないもの**（半分で0になる回数・分けない種類）も並べる。
+   * 数字が見えないと、どのノードに振れば仲間に届くのかが分からない。
+   * @param {any} charSave
+   */
+  function empressLine(charSave) {
+    if (!RPG.arcana.isEmpress || !RPG.arcana.isEmpress(charSave)) return null;
+    const pv = RPG.arcana.empressPreview(charSave);
+    /** @param {number} v @param {string} fmt */
+    const fmt = (v, fmt) => (fmt === 'count' ? `${v}` : `${Math.round(v * 1000) / 10}%`);
+    const parts = [];
+    parts.push('分ける（各自へ／自分も同じ値）: ' + (pv.shared.length
+      ? pv.shared.map((x) => `${x.label}${x.sub ? '（' + x.sub + '）' : ''} ${fmt(x.value, x.fmt)}`).join('、')
+      : 'まだ無い'));
+    if (pv.zeroed.length) {
+      parts.push('半分で0になり配れない: ' + pv.zeroed.map((x) => `${x.label} ${fmt(x.value, x.fmt)}`).join('、'));
+    }
+    if (pv.kept.length) parts.push('分けない（自分には満額）: ' + pv.kept.join('、'));
+    return h('div.arcana-empress', parts.map((t) => h('div.hint.hint-sm', { text: t })));
   }
 
   /**

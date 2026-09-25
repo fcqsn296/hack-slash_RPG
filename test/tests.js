@@ -3030,6 +3030,80 @@
               }
             }
 
+            // ── 女帝 (III) ──
+            //
+            // ツリーのパッシブの半分を他の味方へ分け、自分も半分になる。
+            {
+              const em = RPG.data.arcana.ar_empress;
+              const A = RPG.arcana;
+              assertTrue('§21 女帝がある', !!em && !!em.boon && !!em.bane, '');
+
+              assertTrue('§21 女帝: 割合 40% は 20% で分ける',
+                Math.abs(A.empressShare({ statusOnHit: 0.4 }).statusOnHit - 0.2) < 1e-9, '');
+              const cnt = [1, 2, 3].map((n) => A.empressShare({ doubleHits: n }).doubleHits || 0);
+              assertTrue('§21 女帝: 回数 1・2・3 は 0・1・1（小数を渡さない）',
+                cnt.join(',') === '0,1,1', cnt.join(','));
+              assertTrue('§21 女帝: 倍率・有無・規則変更は分けない',
+                Object.keys(A.empressShare({ escalate: 2, atkScale: 0.5, allSpread: 1, alwaysCrit: 1,
+                  decree: 1, lastStand: 0.5, reviveHp: 0.5, buffCapBonus: 0.5 })).length === 0, '');
+              const keyed = A.empressShare({ statusOnHitKind: { burn: 0.2 }, statusResistKind: { poison: 3 } });
+              assertTrue('§21 女帝: 種類ごとの表は要素ごと（確率は半分、ターンは切り捨て）',
+                Math.abs(keyed.statusOnHitKind.burn - 0.1) < 1e-9 && keyed.statusResistKind.poison === 1,
+                JSON.stringify(keyed));
+
+              // 規則表のキーは実在すること（打ち間違えると黙って分けられない）
+              const known = Object.keys(RPG.tree.effects({}).passives).concat(['atkToDef', 'defToAtk']);
+              const bad = Object.keys(A.EMPRESS_SHARE).filter((k) => known.indexOf(k) < 0);
+              assertTrue('§21 女帝: 規則表のキーが実在する', bad.length === 0, bad.join(','));
+
+              // **同じ元から作るので、自分も分ける値も半分（1/4 にならない）。**
+              const extraNode = RPG.data.skillTree.find((n) => (n.effects || []).some((e) => e.kind === 'extra_action'));
+              if (extraNode) {
+                const tree = {}; tree[extraNode.id] = 2;
+                const src = RPG.tree.effects(tree).passives.extraActionRate;
+                const mk1 = (arc) => RPG.units.buildCharacterUnit({ id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+                  tree: Object.assign({}, tree), equipped: {}, arcana: arc }, []);
+                const plain = mk1(null).passives.extraActionRate;
+                const self = mk1('ar_empress').passives.extraActionRate;
+                const give = A.empressShare(RPG.tree.effects(tree).passives).extraActionRate;
+                assertTrue('§21 女帝: 自分の値と分ける値が同じ半分', Math.abs(plain - self - src / 2) < 1e-9
+                  && Math.abs(give - src / 2) < 1e-9, `${plain} → ${self} / 分ける ${give}`);
+              }
+
+              // **受け手はツリーの上限を守る。** 共有で 0.5 を越えない（ツリーぶん）。
+              {
+                const r = RPG.units.buildCharacterUnit({ id: 'ch_mia', level: 200, exp: 0, limitBreak: 0,
+                  tree: {}, equipped: {}, arcana: null }, [], [{ extraActionRate: 0.9 }]);
+                const base = RPG.units.buildCharacterUnit({ id: 'ch_mia', level: 200, exp: 0, limitBreak: 0,
+                  tree: {}, equipped: {}, arcana: null }, []);
+                assertTrue('§21 女帝: 受け取ってもツリーの上限（再行動0.5）を越えない',
+                  r.passives.extraActionRate - base.passives.extraActionRate <= 0.5 + 1e-9,
+                  `${base.passives.extraActionRate} → ${r.passives.extraActionRate}`);
+              }
+
+              // **複数の女帝は足さずに最大。**
+              const comb = A.combineShares([{ defToAtk: 1.4, lifesteal: 0.01 }, { defToAtk: 0.6, regen: 0.02 },
+                { statusOnHitKind: { burn: 0.1 } }, { statusOnHitKind: { burn: 0.3 } }]);
+              assertTrue('§21 女帝: 複数の女帝は同じ効果を足さず最大',
+                comb.defToAtk === 1.4 && comb.lifesteal === 0.01 && comb.regen === 0.02
+                && comb.statusOnHitKind.burn === 0.3, JSON.stringify(comb));
+
+              // **保存された育成は書き換えない。**
+              {
+                const cs = { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0, tree: { [extraNode ? extraNode.id : 'x']: 2 },
+                  equipped: {}, arcana: 'ar_empress' };
+                const before = JSON.stringify(cs);
+                RPG.units.buildCharacterUnit(cs, []);
+                RPG.units.buildCharacterUnit(cs, [], [{ extraActionRate: 0.1 }]);
+                assertTrue('§21 女帝: 組み立てても育成は変わらない', JSON.stringify(cs) === before, '');
+              }
+
+              const eq = RPG.data.quests[em.unlock.quest];
+              assertTrue('§21 女帝: 解放依頼はあまねく相＋全員生存',
+                !!(eq && eq.rules && eq.rules.allAlive && (eq.aspectIds || []).indexOf('as_omnipresent') >= 0),
+                eq ? JSON.stringify(eq.rules) : 'なし');
+            }
+
             // 解放依頼は「先を取る相」を名指しする。**依頼の相が battle に届くこと。**
             // 出撃画面は空の配列を渡してくるので、優先順を誤ると依頼の相が消える。
             const jq = RPG.data.quests[js.unlock.quest];
