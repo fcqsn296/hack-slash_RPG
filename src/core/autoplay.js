@@ -511,6 +511,23 @@
       return { skillId: any.id, targets: kind === 'none' ? [] : [kind === 'ally' ? actor : foes[0]] };
     }
 
+    /**
+     * 「月」(§21) — この一撃が開く幻傷の値。
+     *
+     * **新しい判断ではなく、削れる量の勘定。** 当てれば幻傷が開くので、
+     * 実際に削れる量は「自分の一撃＋幻傷」になる。これを数えないと、
+     * 味方は幻傷のある敵を殴らず、実測で幻傷がほとんど開かなかった
+     * （主人公が刻んで10ラウンドで開いたのは8回、味方の攻撃は30回以上）。
+     *
+     * 月の持ち主自身は開けない（刻む側）ので 0。
+     * @param {any} target
+     */
+    const woundOf = (target) => {
+      if (actor.passives && actor.passives.moon > 0) return 0;
+      if (!target.phantom || !RPG.battle.woundsLeft) return 0;
+      return RPG.battle.woundsLeft(battle, target) > 0 ? target.phantom.value : 0;
+    };
+
     let best = null;
     for (const s of attacks) {
       // 全体攻撃は敵全員に入るので、削れる量を合計して評価する。
@@ -519,7 +536,8 @@
       const wide = s.def.plugin === 'all_enemies'
         || (s.def.plugin === 'detonate' && s.def.params && s.def.params.all);
       if (wide) {
-        const total = foes.reduce((sum, t) => sum + Math.min(estimate(actor, t, s.def, battle), t.hp), 0);
+        const total = foes.reduce((sum, t) =>
+          sum + Math.min(estimate(actor, t, s.def, battle) + woundOf(t), t.hp), 0);
         if (!best || total > best.score) {
           best = { score: total, dmg: total, skillId: s.id, target: foes[0] };
         }
@@ -603,7 +621,8 @@
       for (const target of foes) {
         const dmg = estimate(actor, target, s.def, battle);
         // 過剰ダメージは価値が無いので、実際に削れる量で評価する
-        const score = Math.min(dmg, target.hp) + guardReturn(dmg) + dyeReturn(target);
+        // 幻傷は自分の一撃を解いた後に開くので、合わせて残りHPで頭打ちにする。
+        const score = Math.min(dmg + woundOf(target), target.hp) + guardReturn(dmg) + dyeReturn(target);
         // ── 同点は「切り詰める前の火力」で割る ──
         // **これが無いと、全部が過剰殺傷になる終盤で技の並び順が勝敗を決める。**
         // 実際に踏んだ——見積もり 2,848,410 の城撃が 759,834 の覇王斬に

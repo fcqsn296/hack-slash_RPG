@@ -2161,7 +2161,8 @@
    * @param {any} attacker
    * @param {any} defender
    * @param {any} skill
-   * @param {{powerScale?: number, ignoreDefense?: boolean, silent?: boolean, guarded?: boolean, crit?: boolean, isCounter?: boolean}} [opts]
+   * @param {{powerScale?: number, ignoreDefense?: boolean, silent?: boolean, guarded?: boolean, crit?: boolean, isCounter?: boolean, phantom?: number}} [opts]
+   *   phantom: 幻傷の実体化 (§21 月)。計算をせず、この値をそのまま通す
    */
   function applyDamage(battle, attacker, defender, skill, opts) {
     opts = opts || {};
@@ -2201,7 +2202,8 @@
     //
     // 反撃や追撃 (isCounter) にも同じように働かせる。片方だけ避けられると
     // 「どの経路で来たか」で結果が変わり、盤面から読めなくなる。
-    const evade = (defender.passives && defender.passives.evade) || 0;
+    // 幻傷の実体化 (§21 月) は避けられない。避ける機会は刻まれた一撃の側で済んでいる。
+    const evade = opts.phantom != null ? 0 : ((defender.passives && defender.passives.evade) || 0);
     if (evade > 0 && RPG.rng.chance(Math.min(0.75, evade))) {
       if (!opts.silent) pushLog(battle, `${defender.name} は攻撃をかわした`, 'sub');
       pushEvent(battle, { type: 'blocked', key: defender.key, label: '回避' });
@@ -2214,7 +2216,12 @@
       attackerDefender.reduction + situationalGuard(battle, defender)
       + ((defender.stance && defender.stance.reduction) || 0));
 
-    const result = RPG.damage.calc({
+    // 幻傷の実体化 (§21 月) は**計算し直さない。** 刻んだ時点の値（防御・属性・上限を
+    // 通した後）で固定する。ここで再計算すると、保存した値に防御と上限が二重に掛かる。
+    const result = opts.phantom != null
+      ? { damage: Math.max(0, Math.floor(opts.phantom)), raw: opts.phantom, crit: false,
+        breakdown: /** @type {any} */ ({}) }
+      : RPG.damage.calc({
       attacker: RPG.units.toAttacker(attacker),
       defender: attackerDefender,
       skill,
@@ -2301,7 +2308,8 @@
     // 「虹を喰らう獣」— 有利属性の攻撃を回復として受ける (§17)。
     // 吸収するかどうかとその割合は absorbRatio() が持っている。
     // オートの見積も同じ関数を読むので、判定が二重にならない。
-    const absorbRate = absorbRatio(battle, attacker, defender, skill);
+    // 実体化は吸収しない。刻んだ時点で吸収後の値を保存してある（二重に喰わせない）。
+    const absorbRate = opts.phantom != null ? 0 : absorbRatio(battle, attacker, defender, skill);
 
     if (absorbRate > 0 && result.damage > 0) {
       const absorbed = Math.floor(result.damage * absorbRate);
@@ -2318,6 +2326,24 @@
       }
       result.damage = through;
       if (through <= 0) return result;
+    }
+
+    // ── 「月」(§21) — 現実のHPを削らず、幻傷として刻む ──
+    //
+    // **闘技場の関門と吸収の後に置く。** 通らない攻撃（衛士に守られている・
+    // 吸収されきった）は刻まない。刻んだ一撃も「当たった1発」として関門の数に入る。
+    // HPを減らす処理（障壁・不屈・hurt）より前で止めるので、
+    // 吸収・反射・棘・撃破・残響・刻印は起きない。1ラウンドの傷の上限も消費しない。
+    //
+    // 1行動のあいだ敵ごとに合算し、行動の終わりに1つの幻傷として置く（commitCarving）。
+    // 最後の1ヒットだけで上書きすると、多段技が損をする。
+    if (battle.carving && battle.carving.actorKey === attacker.key && defender.side === 'enemy'
+        && !opts.isCounter && opts.phantom == null && result.damage > 0) {
+      const slot = battle.carving.sums[defender.key]
+        || (battle.carving.sums[defender.key] = { value: 0 });
+      slot.value += result.damage;
+      pushEvent(battle, { type: 'blocked', key: defender.key, label: '幻傷' });
+      return Object.assign(result, { carved: result.damage, damage: 0 });
     }
 
     // 闘技場のボスから受けるダメージには上限を設ける (§17)。
@@ -2417,7 +2443,8 @@
     }
 
     // 与えた結果を見てコンボを更新する。計算に使った値と食い違わないよう、必ず計算の後で。
-    if (attacker.side === 'party') updateCombo(battle, attacker, defender, skill);
+    // 実体化 (§21 月) はコンボを進めない。コンボは「仲間の攻撃」の側で既に数えてある。
+    if (attacker.side === 'party' && opts.phantom == null) updateCombo(battle, attacker, defender, skill);
 
     // 「癒しの余剰」で張った障壁が先に削れる (§5.6)
     //
@@ -2580,7 +2607,7 @@
       pushEvent(battle, { type: 'buff', key: defender.key, label: '不屈' });
     } else {
       // 「溢れる災禍」— HPを超えたぶんを控えておく (§5.7)。控えるのは倒しきったときだけ。
-      const carry = (attacker.passives && attacker.passives.overkillCarry) || 0;
+      const carry = opts.phantom != null ? 0 : ((attacker.passives && attacker.passives.overkillCarry) || 0);
       if (carry > 0 && result.damage > defender.hp && defender.hp > 0) {
         attacker.carryDamage = (attacker.carryDamage || 0) + (result.damage - defender.hp) * carry;
       }
@@ -2590,6 +2617,13 @@
 
     // 被弾の回数を数える。「痛みの記憶」の材料 (§5.7)。
     if (result.damage > 0) defender.hitsTaken = (defender.hitsTaken || 0) + 1;
+
+    // 「月」(§21) の実体化の起点。**この行動で実際に当てた敵**を控える。
+    // 反撃・連鎖（isCounter）や実体化そのものは起点にしない。
+    if (battle.actionHits && attacker.side === 'party' && defender.side === 'enemy'
+        && !opts.isCounter && opts.phantom == null && result.damage > 0) {
+      battle.actionHits.add(defender.key);
+    }
 
     // 「出血」— 殴られるたびに傷口が開く (§5.8)。
     // 毒がラウンド単位なのに対し、こちらは被弾回数で効くので、多段技に刺さる。
@@ -2609,7 +2643,8 @@
     // 残響: 味方が敵に与えたぶんを控えて、後のラウンドで撃ち込む
     {
       const echo = (attacker.setEffects || {}).echoRatio;
-      if (echo && attacker.side === 'party' && defender.side === 'enemy' && result.damage > 0) {
+      if (echo && attacker.side === 'party' && defender.side === 'enemy' && result.damage > 0
+          && opts.phantom == null) {
         const delay = (attacker.setEffects || {}).echoDelay;
         if (delay) {
           battle.echoes.push({
@@ -2687,7 +2722,8 @@
     // 検査で固定してあるので、うっかり塞がないこと。
     // ダメージ表示より後に置いてあるのは、ログが「殴られた → 返した」の順に読めるようにするため。
     const reflect = (defender.passives && defender.passives.reflect) || 0;
-    if (reflect > 0 && result.damage > 0 && attacker.alive) {
+    // 実体化 (§21 月) は跳ね返さない。刻まれた傷が開くだけで、仲間が殴ったわけではない。
+    if (reflect > 0 && result.damage > 0 && attacker.alive && opts.phantom == null) {
       // 相手のレベルに応じた倍率 (§5.17)。
       //
       // ── なぜ要るのか ──
@@ -2723,13 +2759,14 @@
     // --- パッシブ: 刻印（殴るたびに積み、溜まりきると弾ける）---
     // 判定を applyDamage に置いてあるので、多段ヒットは1撃ずつ数えられる。
     const sigil = (attacker.passives && attacker.passives.sigilBurst) || 0;
-    if (sigil > 0 && result.damage > 0 && defender.alive) {
+    if (sigil > 0 && result.damage > 0 && defender.alive && opts.phantom == null) {
       addSigil(battle, defender, attacker, sigil);
     }
 
     // --- パッシブ: 吸命（与ダメージの一部をHPへ）---
     const lifesteal = (attacker.passives && attacker.passives.lifesteal) || 0;
-    if (lifesteal > 0 && result.damage > 0 && attacker.alive && attacker.hp < attacker.maxHp) {
+    if (lifesteal > 0 && result.damage > 0 && attacker.alive && attacker.hp < attacker.maxHp
+        && opts.phantom == null) {
       // 「呪詛」は吸命も止める (§5.8)。回復手段をまとめて塞ぐのがこの異常の役割。
       const curse = Math.min(1, statusRatio(attacker, 'curse'));
       const got = gainHp(attacker, Math.max(1, result.damage * lifesteal * (1 - curse)));
@@ -2776,14 +2813,17 @@
 
         // --- 撃破で誘発するパッシブ (§5.7) ---
         // 「戦場の糧」— 倒すたびに立て直せるので、殴り合いを続けやすくなる。
-        const healKill = (attacker.passives && attacker.passives.healOnKill) || 0;
+        // 実体化 (§21 月) による撃破は、撃破で誘発するパッシブを起こさない。
+        // 撃破そのもの（図鑑・報酬）は数える。
+        const byPhantom = opts.phantom != null;
+        const healKill = byPhantom ? 0 : ((attacker.passives && attacker.passives.healOnKill) || 0);
         if (healKill > 0 && attacker.alive && attacker.hp < attacker.maxHp) {
           const got = gainHp(attacker, Math.max(1, attacker.maxHp * healKill));
           pushLog(battle, `${attacker.name} は ${got.toLocaleString()} HP回復した（撃破）`, 'heal');
         }
         // 「戦果の高揚」— 倒すたびに固有バフが乗る (§5.8)。
         // 開幕バフと同じ枠なので、雑魚を掃除しながらボス戦へ持ち込める。
-        const onKill = (attacker.passives && attacker.passives.buffOnKill) || 0;
+        const onKill = byPhantom ? 0 : ((attacker.passives && attacker.passives.buffOnKill) || 0);
         if (onKill > 0 && attacker.alive) {
           attacker.buffUnique.push({ value: onKill, turns: buffTurns(attacker, 3), label: '戦果' });
           pushLog(battle, `${attacker.name} が勢いづいた（+${Math.round(onKill * 100)}%）`, 'buff');
@@ -2794,7 +2834,7 @@
         // **皇帝 (§21) の命令による行動からは再行動を生まない。**
         // 生んでから取り消す形にすると、受け手の残り回数や取得済みの権利を
         // 巻き戻すことになる。**生む前に止める。**
-        const killExtra = (attacker.passives && attacker.passives.killExtraAction) || 0;
+        const killExtra = byPhantom ? 0 : ((attacker.passives && attacker.passives.killExtraAction) || 0);
         if (killExtra > 0 && attacker.alive && !battle.decree
             && attacker.extraActions < MAX_EXTRA_ACTIONS &&
             RPG.rng.chance(killExtra)) {
@@ -3289,6 +3329,15 @@
    */
   function executeSkill(battle, actor, skillId, targets) {
     const skill = RPG.data.skills[skillId];
+
+    // 「月」(§21) — 敵が動くと、その敵の幻傷は消える。
+    // 麻痺で飛んだ手番はここまで来ないので、幻傷は残る。
+    // 正義の応撃もここを通る（敵の実際の攻撃なので消える）。
+    // **使った回数は消さない**（刻み直しで回数が戻らないように、幻傷とは別に持つ）。
+    if (actor.side === 'enemy' && actor.phantom) {
+      actor.phantom = null;
+      pushLog(battle, `${actor.name} が動き、幻傷は消えた`, 'sub');
+    }
 
     // 「執着」の材料 (§5.9)。狙った相手が前回と同じなら数える。
     // 追撃や余波は executeSkill を通らないので、ここで数えれば
@@ -3850,7 +3899,29 @@
     // 全体技の「主対象」は裁きの相手を決めるためだけのもの。
     // 技そのものへは渡さない——渡すと「執着」(focusCount) が全体技で積み上がる。
     const execTargets = judgeFoe && targetKind(RPG.data.skills[skillId]) === 'none' ? [] : targets;
-    executeSkill(battle, actor, skillId, execTargets);
+
+    // ── 「月」(§21) ──
+    // 月の持ち主の行動は、当てた一撃を幻傷として敵ごとに集める（carving）。
+    // それ以外の味方の行動は、実際に当てた敵を控える（actionHits）。行動の終わりに実体化する。
+    const moon = (actor.passives && actor.passives.moon) || 0;
+    if (moon > 0 && judgedAttack(RPG.data.skills[skillId]) && !livingParty(battle).some(
+      (/** @type {any} */ u) => !(u.passives && u.passives.moon > 0))) {
+      // 現実を削れる仲間が1人もいない。月だけの編成は勝てないので、ここで打ち切る。
+      // **打ち切らないと、敵が弱い場では永久に終わらない**（倒されもしない）。
+      failQuest(battle, '幻傷を現実にする仲間がいない（月だけでは敵を倒せない）');
+      return true;
+    }
+    battle.carving = moon > 0 ? { actorKey: actor.key, cap: moon, sums: {} } : null;
+    battle.actionHits = moon > 0 ? null : new Set();
+    let carving = null, hits = null;
+    try {
+      executeSkill(battle, actor, skillId, execTargets);
+    } finally {
+      carving = battle.carving; hits = battle.actionHits;
+      battle.carving = null; battle.actionHits = null;
+    }
+    if (carving) commitCarving(battle, actor, carving, RPG.data.skills[skillId]);
+    else if (hits && hits.size > 0) openWounds(battle, actor, hits);
 
     // **必ず捨てる。** 不発でも消費する（合法な攻撃を確定したあとなので）。
     // ここを飛ばすと、次の行動へ強化が漏れる。
@@ -4224,6 +4295,75 @@
     battle.phase = 'command';
     skipDeadActors(battle);
     if (battle.actorIndex >= battle.party.length) runEnemyPhase(battle);
+  }
+
+  /**
+   * 「月」(§21) — この行動で集めた幻傷を、敵ごとに1つ置く。
+   *
+   * **置き換えで、足し込まない。** 別の月の持ち主が刻んだ幻傷も同じ枠を置き換える。
+   * 使った回数（phantomUsed）は幻傷とは別に持つので、刻み直しても戻らない。
+   * @param {any} battle @param {any} actor
+   * @param {{cap: number, sums: Record<string, {value: number}>}} carving
+   * @param {any} skill
+   */
+  function commitCarving(battle, actor, carving, skill) {
+    for (const key of Object.keys(carving.sums)) {
+      const foe = battle.enemies.find((/** @type {any} */ e) => e.key === key);
+      if (!foe || !foe.alive) continue;
+      const value = Math.floor(carving.sums[key].value);
+      if (value <= 0) continue;
+      foe.phantom = {
+        value, byKey: actor.key, byName: actor.name, cap: carving.cap,
+        element: (skill && skill.element) || actor.element || 'none',
+        damageType: (skill && skill.damage_type) || 'phys',
+      };
+      pushLog(battle, `${foe.name} に幻傷を刻んだ（${value.toLocaleString()}）`, 'buff');
+      pushEvent(battle, { type: 'buff', key: foe.key, label: '幻傷' });
+    }
+  }
+
+  /**
+   * このラウンドに、その敵の幻傷をあと何回開けるか。
+   * **ラウンドが変わったときだけ**数え直す。幻傷が消えても、置き換わっても戻らない。
+   *
+   * 読むだけで状態を変えない（オートの見積もりからも呼ぶため）。
+   * 数え直しの書き込みは openWounds 側で行う。
+   * @param {any} battle @param {any} foe
+   */
+  function woundsLeft(battle, foe) {
+    if (!foe || !foe.phantom) return 0;
+    const used = foe.phantomRound === battle.totalRounds ? (foe.phantomUsed || 0) : 0;
+    return Math.max(0, foe.phantom.cap - used);
+  }
+
+  /**
+   * 「月」(§21) — 仲間の攻撃が当たった敵の幻傷を開く。
+   *
+   * 攻撃1行動・敵1体につき1回。多段でも1回、再行動で撃った別の攻撃ならもう1回。
+   * **仲間自身の攻撃を解いた後**に開くので、その攻撃で倒れた敵には何も起きない。
+   *
+   * 実体化は applyDamage を `phantom` で通す。闘技場の関門・障壁・凍結・1ラウンドの傷の上限は
+   * 普段どおり効き、吸命・反射・残響・刻印・撃破で誘発するパッシブは起きない。
+   * 実体化から実体化は起きない（actionHits を立てていないため）。
+   * @param {any} battle @param {any} trigger 攻撃した仲間 @param {Set<string>} hits
+   */
+  function openWounds(battle, trigger, hits) {
+    for (const key of hits) {
+      const foe = battle.enemies.find((/** @type {any} */ e) => e.key === key);
+      if (!foe || !foe.alive || !foe.phantom) continue;
+      const left = woundsLeft(battle, foe);
+      if (left <= 0) continue;
+      if (foe.phantomRound !== battle.totalRounds) {
+        foe.phantomRound = battle.totalRounds;
+        foe.phantomUsed = 0;
+      }
+      foe.phantomUsed = (foe.phantomUsed || 0) + 1;
+      const ph = foe.phantom;
+      pushLog(battle, `${ph.byName} の幻傷が ${foe.name} に開いた（このラウンド残り ${left - 1}）`, 'action');
+      applyDamage(battle, trigger, foe,
+        { id: 'phantom_wound', name: '幻傷', power: 0, element: ph.element, damage_type: ph.damageType },
+        { phantom: ph.value, isCounter: true, crit: false });
+    }
   }
 
   /**
@@ -4639,7 +4779,7 @@
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
-    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
+    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, woundsLeft, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,

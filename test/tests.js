@@ -2578,6 +2578,140 @@
                 `manual ${m0}→${b.inputs.manual} auto ${a0}→${b.inputs.auto}`);
             }
 
+            // ── 月 (XVIII) ──
+            //
+            // 自分の攻撃はHPを削らず、幻傷を刻む。仲間の攻撃で開く。
+            {
+              const mn = RPG.data.arcana.ar_moon;
+              assertTrue('§21 月がある', !!mn, '');
+              assertTrue('§21 月: 利と害が両方書いてある', !!mn.boon && !!mn.bane, '');
+
+              /** @param {number} [n] */
+              const mkMoon = (n) => mk(n || 4, 'ar_moon');
+              /** 並びを無視して、指定した味方に行動させる @param {any} b @param {number} i @param {string} sk @param {any[]} t */
+              const act = (b, i, sk, t) => {
+                b.actorIndex = i; b.phase = 'command';
+                RPG.battle.perform(b, { skillId: sk, targets: t }, { auto: true });
+              };
+
+              {
+                const b = mkMoon();
+                assertTrue('§21 月: 開ける回数が札の値のまま届く',
+                  b.party[0].passives.moon === mn.effects[0].value, String(b.party[0].passives.moon));
+              }
+
+              // **刻むだけではHPが減らない。累撃は普段どおり進む。**
+              {
+                const b = mkMoon();
+                const me = b.party[0];
+                me.passives.escalate = 2;
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                const st0 = me.escalateStack || 0;
+                act(b, 0, atkOf(me), [foe]);
+                assertTrue('§21 月: 刻む攻撃では敵のHPが減らない', foe.hp === 1e12, String(foe.hp));
+                assertTrue('§21 月: 幻傷が置かれる', !!(foe.phantom && foe.phantom.value > 0),
+                  JSON.stringify(foe.phantom));
+                assertTrue('§21 月: 累撃は普段どおり進む', (me.escalateStack || 0) === st0 + 1,
+                  `${st0} → ${me.escalateStack}`);
+              }
+
+              // **仲間の攻撃で開く。多段でも1行動1回。回数は全員で共有。**
+              {
+                const b = mkMoon();
+                const me = b.party[0];
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                act(b, 0, atkOf(me), [foe]);
+                const wound = foe.phantom.value;
+                const ally = b.party[1];
+                const multi = Object.keys(RPG.data.skills).find((id) =>
+                  RPG.data.skills[id].plugin === 'multi_hit' && RPG.data.skills[id].params
+                  && RPG.data.skills[id].params.hits > 1);
+                ally.skills = ally.skills.concat([multi]);
+                const hp0 = foe.hp;
+                const from = b.log.length;
+                act(b, 1, multi, [foe]);
+                const opened = logSince(b, from).filter((t) => /幻傷が .* に開いた/.test(t)).length;
+                assertTrue('§21 月: 多段でも1行動につき1回だけ開く', opened === 1, String(opened));
+                assertTrue('§21 月: 開いた幻傷の分だけHPが減る', hp0 - foe.hp >= wound,
+                  `${hp0 - foe.hp} / ${wound}`);
+                // **隊列の最後（3）を動かさないこと。** 動かすとラウンドが終わって
+                // 敵が動き、幻傷が消えて回数も戻る——このあとの検査が空振りする（一度そうなった）。
+                // 再行動の代わりに同じ味方をもう一度動かす（別の攻撃1行動なら、また開ける）。
+                act(b, 2, atkOf(b.party[2]), [foe]);
+                act(b, 1, atkOf(ally), [foe]);
+                assertTrue('§21 月: 同じラウンドのうち', b.phase === 'command' && !!foe.phantom, b.phase);
+                assertTrue('§21 月: 3回開けば残り0', RPG.battle.woundsLeft(b, foe) === 0,
+                  String(RPG.battle.woundsLeft(b, foe)));
+                const from2 = b.log.length;
+                act(b, 2, atkOf(b.party[2]), [foe]);
+                assertTrue('§21 月: 上限を超えては開かない',
+                  !logSince(b, from2).some((t) => /に開いた/.test(t)), '');
+
+                // **刻み直しても回数は戻らない。**
+                act(b, 0, atkOf(me), [foe]);
+                assertTrue('§21 月: 刻み直しても回数は戻らない', RPG.battle.woundsLeft(b, foe) === 0,
+                  String(RPG.battle.woundsLeft(b, foe)));
+
+                // **敵が動くと幻傷は消える。使った回数は残る。**
+                RPG.battle.executeSkill(b, foe, foe.skills[0], [me]);
+                assertTrue('§21 月: 敵が動くと幻傷は消える', !foe.phantom, JSON.stringify(foe.phantom));
+                assertTrue('§21 月: 消えても使った回数は残る', foe.phantomUsed === 3, String(foe.phantomUsed));
+
+                // **ラウンドが変わったときだけ戻る。**
+                act(b, 0, atkOf(me), [foe]);
+                b.totalRounds++;
+                assertTrue('§21 月: ラウンドが変われば回数が戻る',
+                  RPG.battle.woundsLeft(b, foe) === mn.effects[0].value, String(RPG.battle.woundsLeft(b, foe)));
+              }
+
+              // **実体化の撃破は、撃破で誘発するパッシブを起こさない。撃破そのものは数える。**
+              {
+                const b = mkMoon();
+                const me = b.party[0];
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                act(b, 0, atkOf(me), [foe]);
+                foe.phantom.value = 1e12;   // 必ず幻傷で倒れるように
+                const ally = b.party[1];
+                ally.passives.killExtraAction = 1;
+                const before = b.defeatedEnemies[foe.id] || 0;
+                act(b, 1, atkOf(ally), [foe]);
+                assertTrue('§21 月: 幻傷で倒れる', !foe.alive, String(foe.hp));
+                assertTrue('§21 月: 幻傷の撃破から再行動は生まれない', !ally.pendingExtra, '');
+                assertTrue('§21 月: 幻傷の撃破も図鑑に数える',
+                  (b.defeatedEnemies[foe.id] || 0) === before + 1, '');
+              }
+
+              // **月だけの編成では勝てないので打ち切る。** 放っておくと敵が弱い場で永久に終わらない。
+              {
+                const b = mkMoon(1);
+                const me = b.party[0];
+                act(b, 0, atkOf(me), [RPG.battle.livingEnemies(b)[0]]);
+                assertTrue('§21 月: 月だけの編成は打ち切る', b.finished && !b.victory && !!b.ruleBroken,
+                  String(b.ruleBroken));
+              }
+
+              // **皇帝に命令された月も刻む。**
+              {
+                const b = mk(2, 'ar_emperor');
+                const to = b.party[1];
+                to.passives.moon = 3;
+                const foe = RPG.battle.livingEnemies(b)[0];
+                foe.hp = foe.maxHp = 1e12;
+                RPG.battle.commandDecree(b, to.key, atkOf(to), [foe]);
+                assertTrue('§21 月: 命令されても刻む（HPは減らない）',
+                  foe.hp === 1e12 && !!foe.phantom, `${foe.hp} ${JSON.stringify(foe.phantom)}`);
+              }
+
+              const mq = RPG.data.quests[mn.unlock.quest];
+              assertTrue('§21 月: 解放依頼が実在する', !!mq, String(mn.unlock.quest));
+              assertTrue('§21 月: 解放依頼は4人そろって・ラウンド制限',
+                !!(mq && mq.rules && mq.rules.minParty === 4 && mq.rules.maxRounds),
+                mq ? JSON.stringify(mq.rules) : '');
+            }
+
             // 解放依頼は「先を取る相」を名指しする。**依頼の相が battle に届くこと。**
             // 出撃画面は空の配列を渡してくるので、優先順を誤ると依頼の相が消える。
             const jq = RPG.data.quests[js.unlock.quest];

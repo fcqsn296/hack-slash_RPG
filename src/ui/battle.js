@@ -792,6 +792,23 @@
     );
   }
 
+  /**
+   * 「月」(§21) の幻傷。大きさと、このラウンドにあと何回開けるか。
+   *
+   * **幻傷が消えていても、使った回数は見せる。** 刻み直しても回数は戻らないので、
+   * 「消えた → 刻み直した → なぜ1回しか開かないのか」が盤面から読めるようにする。
+   * @param {any} e
+   */
+  function woundChip(e) {
+    const usedNow = e.phantomRound === battle.totalRounds ? (e.phantomUsed || 0) : 0;
+    if (!e.alive || (!e.phantom && usedNow === 0)) return null;
+    if (!e.phantom) return h('span.chip', { text: `幻傷 使用${usedNow}` });
+    const left = RPG.battle.woundsLeft(battle, e);
+    return h('span.chip.chip-debuff', {
+      text: `幻傷 ${e.phantom.value.toLocaleString()}（残り${left}）`,
+    });
+  }
+
   /** @param {any} e */
   function enemyCard(e) {
     const targeting = pendingSkill && pickKindFor(RPG.data.skills[pendingSkill]) === 'enemy';
@@ -823,6 +840,7 @@
           // 常時出すと、選んでいないときも画面が賑やかになるので出さない。
           targeting ? advantageChip(RPG.data.skills[pendingSkill], e) : null,
           e.defIgnoredTurns > 0 ? h('span.chip.chip-debuff', { text: '防御崩壊' }) : null,
+          woundChip(e),
           ...e.statusEffects.filter((/** @type {any} */ s) => s.kind === 'poison')
             .map(() => h('span.chip.chip-debuff', { text: '毒' }))
         )
