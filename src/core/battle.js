@@ -1271,8 +1271,11 @@
     // 要求するのは強さではなく組み替えなので、選ばなければ従来どおりの周回になる。
     // 相は重なる (§22)。config.aspectIds が新しい口で、
     // config.aspectId は 1 つだけ渡す旧い形（呼び出し側を一気に直さないため残す）。
+    //
+    // 依頼も相を名指しできる（`quest.aspectIds`）。**依頼の指定を優先する。**
+    // 出撃画面は空の配列を渡してくるので、`||` の後ろに置くと依頼の相が消える。
     const aspect = RPG.aspect
-      ? RPG.aspect.resolve(config.aspectIds || config.aspectId) : null;
+      ? RPG.aspect.resolve((quest && quest.aspectIds) || config.aspectIds || config.aspectId) : null;
 
     /** @type {any} */
     const battle = {
@@ -1404,6 +1407,8 @@
       // 「節制」(§21) の蓄え。1戦闘ぶんで、ウェーブでは持ち越す。
       u.temperPool = 0;
       u.temperBoost = 0;
+      // 「正義」(§21) の上限強化。1行動ぶんで、行動の終わりに必ず捨てる。
+      u.judgedBoost = 0;
       // 「戦車」(§21) の手番も同じ場所で配る。
       // 片方だけ別の場所に置くと、1ラウンド目に効かない同じ罠を踏む。
       u.turnGiftLeft = (u.passives && u.passives.turnGift) || 0;
@@ -2260,6 +2265,10 @@
         chargeRatio: charge ? (charge.ratio || 1) : 1,
         chargeCrit: charge ? (charge.critRate || 0) : 0,
         chargeCapBreak: charge ? (charge.capBreak || 0) : 0,
+        // 「正義」(§21) — 裁きを耐えた一撃の上限。
+        // **反撃・連鎖（isCounter）には渡さない。** 渡すと応撃を耐えた手番のあいだ、
+        // 本人のおまけの一撃まで上限が広がる。
+        judgedCap: opts.isCounter ? 0 : (attacker.judgedBoost || 0),
       },
     });
 
@@ -3724,8 +3733,11 @@
 
     battle.decree = { byKey: by.key, toKey: to.key };
     try {
-      // 入力は上で数えたので、ここでは数えさせない（opts を渡さない）
-      performAction(battle, to, skillId, targets, null);
+      // 入力は上で数えたので、ここでは数えさせない。
+      // **opts を null にするだけでは止まらない**（performAction は「auto でなければ手動」と
+      // 数えるので、null は手動1回になる）。実際に命令1回が2回と数えられ、
+      // オートの命令まで手動に数えられていた。counted で明示する。
+      performAction(battle, to, skillId, targets, { counted: true, auto: !!(opts && opts.auto) });
     } finally {
       battle.decree = null;
     }
@@ -3746,7 +3758,7 @@
    * @param {any} actor 実際に技を使う者
    * @param {string} skillId
    * @param {any[]} targets
-   * @param {{auto?: boolean}} [opts]
+   * @param {{auto?: boolean, counted?: boolean}|null} [opts] counted: 入力を呼び出し側で数え済み
    * @returns {boolean} 動けたら true。撃てなかった・麻痺で飛んだときは false
    *   （どちらも自前で手番を進めてあるので、呼び出し側は何もしない）
    */
@@ -3775,8 +3787,32 @@
     startCooldown(battle, actor, skillId);
 
     // 誰が選んだ行動なのかを数えておく (§10.1 手動ボーナス)
-    if (opts && opts.auto) battle.inputs.auto++;
-    else battle.inputs.manual++;
+    // 勅命 (§21) は命令の側で数え済み（counted）。
+    if (!(opts && opts.counted)) {
+      if (opts && opts.auto) battle.inputs.auto++;
+      else battle.inputs.manual++;
+    }
+
+    // ── 「正義」(§21) — 先に裁きを受ける ──
+    //
+    // **麻痺の抽選より前に置く。** 応撃で受けた麻痺も、この手番の抽選1回で
+    // 通常どおり効く。後ろに置くと、抽選を予約時と実行時の2回に分けることになる。
+    //
+    // クールダウンと入力の集計は上で済ませてある。応撃を起こした予約は
+    // **無料で取り消せない**ので、不発でも消費は残る。
+    const judgeFoe = judgeTarget(battle, actor, skillId, targets);
+    let judged = false;
+    if (judgeFoe) {
+      const verdict = judgment(battle, actor, judgeFoe);
+      if (verdict === 'fell' || verdict === 'slain') {
+        // 本人が倒れた・相手が先に倒れた。どちらも予約した技は撃たない。
+        // 全体技でも他の敵へ無料で撃ち直さない（次の手番から選び直す）。
+        // 「死」の刻限や魔術師の配り物は**実行した技**に付くので、ここでは数えない。
+        pushLog(battle, `${actor.name} の ${RPG.data.skills[skillId].name} は放たれなかった`, 'sub');
+        return true;
+      }
+      judged = verdict === 'endured';
+    }
 
     // --- 「麻痺」— 行動そのものが飛ぶ (§5.8) ---
     // 数字を削るのではなく手番を奪うので、大技を抱えた相手ほど損が大きい。
@@ -3804,11 +3840,22 @@
       pushLog(battle, `${actor.name} は蓄えを解き放つ（+${Math.round(actor.temperBoost * 100)}%）`, 'buff');
     }
 
-    executeSkill(battle, actor, skillId, targets);
+    // 裁きを耐えた一撃だけ、上限を押し広げる。反撃・棘・連鎖（isCounter）には
+    // applyDamage 側で渡さないので、この技の本体と多段の各段にだけ乗る。
+    actor.judgedBoost = judged ? ((actor.passives && actor.passives.justice) || 0) : 0;
+    if (judged && actor.judgedBoost > 0) {
+      pushLog(battle, `${actor.name} は裁きを耐えた（上限 +${Math.round(actor.judgedBoost * 100)}%）`, 'buff');
+    }
+
+    // 全体技の「主対象」は裁きの相手を決めるためだけのもの。
+    // 技そのものへは渡さない——渡すと「執着」(focusCount) が全体技で積み上がる。
+    const execTargets = judgeFoe && targetKind(RPG.data.skills[skillId]) === 'none' ? [] : targets;
+    executeSkill(battle, actor, skillId, execTargets);
 
     // **必ず捨てる。** 不発でも消費する（合法な攻撃を確定したあとなので）。
     // ここを飛ばすと、次の行動へ強化が漏れる。
     actor.temperBoost = 0;
+    actor.judgedBoost = 0;
 
     // ── 「魔術師」(§21) — 織り上げたものを配る ──
     // 攻撃のたび、味方全員に薄い障壁と回復を置く。
@@ -4180,6 +4227,120 @@
   }
 
   /**
+   * 「正義」(§21) の応撃を呼ぶ技か。
+   *
+   * 攻撃と支援を兼ねる技（張りながら殴る・吸収など）は攻撃として扱う。
+   * フルバーストは威力0の器だが、中身は持っている攻撃技の一斉射なので含める。
+   * @param {any} skill
+   */
+  function judgedAttack(skill) {
+    return !!skill && (isAttackSkill(skill) || skill.plugin === 'full_burst');
+  }
+
+  /**
+   * 応撃する敵。正義を持たない・攻撃でない・相手がいないなら null。
+   *
+   * 単体技はその対象。全体技は**明示した主対象1体だけ**が応撃する（敵全員からは受けない）。
+   * 主対象が渡されていなければ（オートの全体技）先頭の敵にする。
+   * @param {any} battle @param {any} actor @param {string} skillId @param {any[]} targets
+   */
+  function judgeTarget(battle, actor, skillId, targets) {
+    if (!(actor.passives && actor.passives.justice > 0)) return null;
+    const skill = RPG.data.skills[skillId];
+    if (!judgedAttack(skill)) return null;
+    const kind = targetKind(skill);
+    if (kind === 'ally') return null;
+    const pick = targets && targets[0];
+    if (pick && pick.side === 'enemy' && pick.alive) return pick;
+    if (kind === 'enemy') return null;
+    return livingEnemies(battle)[0] || null;
+  }
+
+  /**
+   * 手動で対象を選ばせる種類。正義の全体技だけ、主対象を選ばせるので 'enemy' に変わる。
+   * **画面はこれを読む。** targetKind を直接読むと、全体技で主対象を選べない。
+   * @param {any} battle @param {any} actor @param {any} skill
+   */
+  function pickKind(battle, actor, skill) {
+    const kind = targetKind(skill);
+    if (kind === 'none' && actor && actor.passives && actor.passives.justice > 0
+        && judgedAttack(skill)) return 'enemy';
+    return kind;
+  }
+
+  /**
+   * 敵が本人へ向けて使える攻撃のうち、**予測ダメージが最大の技**。
+   *
+   * 技の威力欄ではなく、多段・属性・防御・上限まで含めた見積もりで選ぶ。
+   * オートの見積もり（乱数1.0・会心なし）を使うので、**選ぶだけでは乱数を消費しない**。
+   * 残りHPで切り詰めない（全部が同点になる）。同点は技IDの順で決める。
+   *
+   * 敵の技には手番待ち（CT）が無い。enemiesAct は持ち技から無作為に引くだけなので、
+   * 「使用可能」は**持っている攻撃技すべて**になる。正義のために敵の規則は変えない。
+   * @param {any} battle @param {any} foe @param {any} victim
+   * @returns {string|null}
+   */
+  function strongestAgainst(battle, foe, victim) {
+    let best = null;
+    let bestDmg = -1;
+    const ids = Array.from(new Set(foe.skills || [])).sort();
+    for (const id of ids) {
+      const s = RPG.data.skills[id];
+      if (!isAttackSkill(s) || targetKind(s) === 'ally') continue;
+      const d = RPG.autoplay ? RPG.autoplay.estimate(foe, victim, s, battle) : (s.power || 0);
+      if (d > bestDmg) { best = id; bestDmg = d; }
+    }
+    return best;
+  }
+
+  /**
+   * 「正義」(§21) の応撃。対象の敵が、本人へ最強の攻撃を1回だけ使う。
+   *
+   * ── 敵フェーズを呼ばない ──
+   * runEnemyPhase / enemiesAct を呼ぶと、他の敵の行動とラウンドの経過まで走る。
+   * **敵1体の技1つ**を executeSkill で撃つ。敵の通常手番は減らず、
+   * 闘技場のボスでも actionsPerRound 回ぶんは呼ばない。
+   *
+   * ── isCounter にしない ──
+   * 反撃扱いで撃つと、本人の棘・反撃（isCounter で止まる）が働かなくなる。
+   * 反射・棘型にとって被弾の機会が利益になるのは**正式な用途**なので、普通の攻撃として通す。
+   * 応撃から新たな応撃は起きない——応撃は performAction を通らないため。
+   *
+   * @param {any} battle @param {any} actor @param {any} foe
+   * @returns {'none'|'endured'|'fell'|'slain'}
+   *   none: 応撃が成立しなかった（技が無い・麻痺）。上限強化なし
+   *   endured: 耐えた（回避・障壁で防いだ場合も含む。防御の成功を罰しない）
+   *   fell: 本人が倒れた / slain: 反射・棘などで相手が先に倒れた
+   */
+  function judgment(battle, actor, foe) {
+    const skillId = strongestAgainst(battle, foe, actor);
+    if (!skillId) {
+      pushLog(battle, `${foe.name} は裁きの刃を持たない`, 'sub');
+      return 'none';
+    }
+    const numb = statusRatio(foe, 'paralyze');
+    if (numb > 0 && RPG.rng.chance(numb)) {
+      pushLog(battle, `${foe.name} は痺れて裁きを下せない`, 'debuff');
+      pushEvent(battle, { type: 'debuff', key: foe.key, label: '麻痺' });
+      return 'none';
+    }
+    pushLog(battle, `${actor.name} は裁きを待つ——${foe.name} が先に刃を振るう`, 'action');
+    // 敵の全体化（あまねく相）は本来の範囲を保つ。味方も巻き込む。
+    const hitAll = !!(battle.aspect && battle.aspect.effects.allHit);
+    const targets = hitAll ? livingParty(battle).slice() : [actor];
+    battle.judging = actor.key;
+    try {
+      executeSkill(battle, foe, skillId, targets);
+    } finally {
+      battle.judging = null;
+    }
+    if (!actor.alive) return 'fell';
+    if (!foe.alive) return 'slain';
+    return 'endured';
+  }
+
+
+  /**
    * 「魔術師」(§21) — 魔術の技で攻撃するたび、味方全員へ薄い障壁と回復を配る。
    *
    * ── なぜ「配る」札が要るのか ──
@@ -4478,7 +4639,7 @@
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,
     HIGH_POWER, isHighPower, statusRatio, inflict, debuffTurns, buffTurns,
-    skillReady, startCooldown, perform, TEMPER_CAP, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
+    skillReady, startCooldown, perform, TEMPER_CAP, judgeTarget, judgedAttack, pickKind, strongestAgainst, commandDecree, decreeTargets, decreeSkills, grantsTurn, canTakeOrder,
     arenaGate, arenaRoundTick, isArenaBoss, absorbRatio, elementNulled,
     currentActor, livingParty, livingEnemies, targetKind,
     threatOf, pickTarget, THREAT_MIN, THREAT_MAX, grantShield, dye,

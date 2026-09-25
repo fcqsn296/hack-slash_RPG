@@ -224,6 +224,7 @@
    * @property {number} [midPowerCap]    中技だけの上限突破加算 (§5.16)
    * @property {boolean} [elementNull] 属性相性を常に等倍に均す。闘技場のギミック (§17)
    * @property {boolean} [ignoreCap]   ダメージ上限の減衰を通さない (§12 破壊者)
+   * @property {number} [judgedCap]    裁きを耐えた一撃の上限倍率 (§21 正義)
    * @property {number} [chargeRatio]   溜めの威力倍率 (§9.1)。1で溜め無し
    * @property {number} [chargeCrit]    溜めによる会心率の上乗せ (§9.1)
    * @property {number} [chargeCapBreak] 溜めによる上限突破の上乗せ (§9.1)
@@ -605,7 +606,26 @@
     // 上限の下でも上でも実効がちょうど (1 + B) 倍になる。
     const temper = attacker.temperBoost || 0;
     const capTotal = temper > 0 ? (1 + capSum) * (1 + temper) - 1 : capSum;
-    const capped = options.ignoreCap ? raw : applyCap(raw, capTotal);
+    // 「正義」(§21) — 裁きを耐えた一撃は、**上限で削られた後の値**を (1 + 値) 倍まで引き上げる。
+    // ただし上限が無かった場合の値（raw）は超えない。
+    //
+    // @知見: 終盤の強化済みの一撃は上限の十数倍に達し、上限の「壁」を広げても ×0.1 の減衰側が支配する
+    //
+    // 節制と同じく壁だけを (1 + 値) 倍にすると、壁の先の減衰（×0.1）はそのまま残る。
+    // 実測で、終盤の主人公の黄昏は闘気・号令・累撃が乗って素点が上限の約12倍になり、
+    // 壁を +200% しても一撃は ×1.17 にしかならなかった（21.0M → 24.5M）。
+    // 壁だけで意味のある差を出すには +1000% 級が要り、それは実質「上限を無視する」＝
+    // 破壊者の終焉の一撃 (§12) だけに許した規則へ踏み込む。
+    //
+    // ⚠「曲線ごと (1 + 値) 倍に拡大する」形 `(1+X)·cap(raw/(1+X))` は**壁を広げるのと同じ式**になる
+    // （減衰の傾き 0.1 は拡大しても変わらない）。一度それで書いて、数値が1桁も動かなかった。
+    //
+    // この形なら、上限に届かない一撃には何も起きず（札の文面どおり）、
+    // 上限を越えた一撃は、越え方が深いほど (1 + 値) 倍に近づく。途中で段差も生じない。
+    const judged = options.judgedCap || 0;
+    const plainCapped = options.ignoreCap ? raw : applyCap(raw, capTotal);
+    const capped = judged > 0 && plainCapped < raw
+      ? Math.min(raw, plainCapped * (1 + judged)) : plainCapped;
 
     return {
       // 軽減が100%に達したときだけ0を許し、それ以外は最低1ダメージを保証する

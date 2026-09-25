@@ -2331,6 +2331,272 @@
               tq ? JSON.stringify(tq.rules) : '');
           }
 
+          // ── 正義 (XI) ──
+          //
+          // 攻撃の前に、対象の敵から最も重い攻撃を1回受ける。耐えれば上限が上がる。
+          // **応撃は敵フェーズを呼ばない。** 敵1体の技1つだけを撃つ。
+          {
+            const js = RPG.data.arcana.ar_justice;
+            assertTrue('§21 正義がある', !!js, '');
+            assertTrue('§21 正義: 利と害が両方書いてある', !!js.boon && !!js.bane, '');
+
+            /** @param {number} [n] @param {string} [arcana] */
+            const mk = (n, arcana) => {
+              const ids = ['ch_hero', 'ch_mia', 'ch_gow', 'ch_gald'].slice(0, n || 1);
+              const us = ids.map((id, i) => {
+                const u = RPG.units.buildCharacterUnit(
+                  { id, level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {},
+                    arcana: i === 0 ? (arcana || 'ar_justice') : null }, []);
+                u.side = 'party'; u.key = 'p' + i;
+                return u;
+              });
+              return RPG.battle.start({ fieldId: 'fl_plain', waves: 1, party: us, bossFinale: false });
+            };
+            /** @param {any} u */
+            const atkOf = (u) => u.skills.find((/** @type {string} */ id) =>
+              RPG.battle.isAttackSkill(RPG.data.skills[id])
+              && RPG.battle.targetKind(RPG.data.skills[id]) === 'enemy');
+            /** @param {any} b @param {number} from */
+            const logSince = (b, from) => b.log.slice(from).map((/** @type {any} */ l) => l.text || '');
+
+            {
+              const b = mk();
+              assertTrue('§21 正義: 上限の倍率が札の値のまま届く',
+                b.party[0].passives.justice === js.effects[0].value,
+                String(b.party[0].passives.justice));
+            }
+
+            // **順序: 予約 → 敵の応撃 → 耐えた → 本人の攻撃。**
+            // 応撃は敵の通常手番を消費しない。ラウンドも進まない。
+            {
+              const b = mk(2);
+              const me = b.party[0];
+              const foe = RPG.battle.livingEnemies(b)[0];
+              foe.hp = foe.maxHp = 1e12;   // 撃破で流れが変わらないように
+              const round0 = b.round;
+              const from = b.log.length;
+              RPG.battle.perform(b, { skillId: atkOf(me), targets: [foe] }, { auto: true });
+              const L = logSince(b, from);
+              const iWait = L.findIndex((t) => /裁きを待つ/.test(t));
+              const iFoe = L.findIndex((t) => t.startsWith(foe.name + ' の '));
+              const iOk = L.findIndex((t) => /裁きを耐えた/.test(t));
+              const iMe = L.findIndex((t) => t.startsWith(me.name + ' の ' + RPG.data.skills[atkOf(me)].name));
+              assertTrue('§21 正義: 予約→応撃→耐えた→本人の攻撃 の順に解決する',
+                iWait >= 0 && iWait < iFoe && iFoe < iOk && iOk < iMe, [iWait, iFoe, iOk, iMe].join(','));
+              const foeActs = L.filter((t) => t.startsWith(foe.name + ' の ')
+                && /！$/.test(t)).length;
+              assertTrue('§21 正義: 応撃は技1回きり', foeActs === 1, String(foeActs));
+              assertTrue('§21 正義: 応撃でラウンドは進まない', b.round === round0,
+                `${round0} → ${b.round}`);
+              assertTrue('§21 正義: 手番は次の味方へ渡る（敵フェーズに入らない）',
+                b.phase === 'command' && b.actorIndex === 1, `${b.phase} / ${b.actorIndex}`);
+              assertTrue('§21 正義: 行動のあと上限強化を捨てる', (me.judgedBoost || 0) === 0,
+                String(me.judgedBoost));
+            }
+
+            // **最強を選ぶだけで乱数を消費しない。** 見積もりは乱数1.0・会心なしで引く。
+            {
+              const b = mk();
+              const me = b.party[0];
+              const foe = RPG.battle.livingEnemies(b)[0];
+              RPG.rng.seed(4242);
+              const pick = RPG.battle.strongestAgainst(b, foe, me);
+              const after = RPG.rng.next();
+              RPG.rng.seed(4242);
+              const fresh = RPG.rng.next();
+              assertTrue('§21 正義: 最強の技を選んでも乱数は動かない', after === fresh, '');
+              let best = null, bestD = -1;
+              for (const id of Array.from(new Set(foe.skills)).sort()) {
+                const s = RPG.data.skills[id];
+                if (!RPG.battle.isAttackSkill(s)) continue;
+                const d = RPG.autoplay.estimate(foe, me, s, b);
+                if (d > bestD) { best = id; bestD = d; }
+              }
+              assertTrue('§21 正義: 本人への見積もりが最大の技を選ぶ', pick === best, `${pick} / ${best}`);
+            }
+
+            // **本人が倒れたら予約は不発。** 手番は消費する。
+            {
+              const b = mk(2);
+              const me = b.party[0];
+              const foe = RPG.battle.livingEnemies(b)[0];
+              me.hp = 1;
+              me.passives.reviveHp = 0;
+              const foeHp = foe.hp;
+              const from = b.log.length;
+              RPG.battle.perform(b, { skillId: atkOf(me), targets: [foe] }, { auto: true });
+              const L = logSince(b, from);
+              assertTrue('§21 正義: 応撃で倒れたら撃たない',
+                !me.alive && foe.hp === foeHp && L.some((t) => /放たれなかった/.test(t)),
+                `alive=${me.alive} foe ${foeHp}→${foe.hp}`);
+              assertTrue('§21 正義: 倒れても手番は消費する', b.actorIndex === 1, String(b.actorIndex));
+            }
+
+            // **棘で相手が先に倒れたら撃破成立。予約攻撃は撃たない。**
+            {
+              const b = mk(2);
+              const me = b.party[0];
+              const foes = RPG.battle.livingEnemies(b);
+              const foe = foes[0];
+              me.passives.thorns = 50;
+              foe.hp = 1;
+              const from = b.log.length;
+              RPG.battle.perform(b, { skillId: atkOf(me), targets: [foe] }, { auto: true });
+              const L = logSince(b, from);
+              assertTrue('§21 正義: 棘は応撃にも働く（反撃扱いで止めない）', !foe.alive, String(foe.hp));
+              assertTrue('§21 正義: 相手が先に倒れたら予約した技は撃たない',
+                !L.some((t) => t === me.name + ' の ' + RPG.data.skills[atkOf(me)].name + '！')
+                && L.some((t) => /放たれなかった/.test(t)),
+                L.join(' / '));
+            }
+
+            // **回復・補助だけの技には応撃しない。**
+            {
+              const b = mk();
+              const me = b.party[0];
+              const heal = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].plugin === 'heal');
+              me.skills = me.skills.concat([heal]);
+              const from = b.log.length;
+              RPG.battle.perform(b, { skillId: heal,
+                targets: RPG.battle.targetKind(RPG.data.skills[heal]) === 'ally' ? [me] : [] }, { auto: true });
+              const L = logSince(b, from);
+              assertTrue('§21 正義: 回復技では応撃が起きない',
+                L.some((t) => t.startsWith(me.name + ' の ')) && !L.some((t) => /裁きを待つ/.test(t)),
+                L.join(' / '));
+            }
+
+            // **上限の式。** 上限で削られた後の値を (1 + 値) 倍まで、ただし素点を超えない。
+            // 壁だけを広げる式（節制と同じ）にすると、深く越えた一撃では ×0.1 の減衰に呑まれて
+            // ほとんど伸びない。「曲線ごと拡大」も同じ式に化ける（減衰の傾きは拡大で変わらない）。
+            {
+              const b = mk();
+              const me = b.party[0];
+              const foe = RPG.units.buildEnemyUnit('em_drake', 100, false, 0, 1);
+              foe.hp = foe.maxHp = 1e15;
+              const sk = RPG.data.skills[atkOf(me)];
+              /** @param {number} capBreak @param {number} judged */
+              const hit = (capBreak, judged) => {
+                me.capBreak = capBreak;
+                return RPG.damage.calc({
+                  attacker: RPG.units.toAttacker(me, sk), defender: RPG.units.toDefender(foe),
+                  skill: sk, options: { crit: false, random: 1, judgedCap: judged },
+                });
+              };
+              // 上限を極端に下げると、どの一撃も深く越える
+              const deepPlain = hit(-0.9999, 0), deepJudged = hit(-0.9999, 1);
+              const r = deepJudged.damage / deepPlain.damage;
+              assertTrue('§21 正義: 深く越えた一撃は ×(1 + 値) に伸びる', Math.abs(r - 2) < 0.01, r.toFixed(3));
+              // 上限に届かない一撃には何も起きない
+              const under = hit(1e6, 0), underJ = hit(1e6, 1);
+              assertTrue('§21 正義: 上限に届かない一撃は変わらない', under.damage === underJ.damage,
+                `${under.damage} / ${underJ.damage}`);
+              // 少しだけ越えた一撃は、素点を超えない
+              const cap = 500000;
+              const needed = deepPlain.raw / cap;   // これだけあれば上限ちょうど
+              const near = hit(needed / 1.5 - 1, 1);
+              assertTrue('§21 正義: 素点を超えて伸びない', near.damage <= Math.ceil(near.raw), `${near.damage} / ${near.raw}`);
+              me.capBreak = 0;
+            }
+
+            // **反撃・連鎖（isCounter）には渡らない。** 渡すと応撃を耐えた手番のあいだ、
+            // 本人のおまけの一撃まで上限が広がる。
+            {
+              const b = mk();
+              const me = b.party[0];
+              const foe = RPG.battle.livingEnemies(b)[0];
+              foe.hp = foe.maxHp = 1e15;
+              const sk = RPG.data.skills[atkOf(me)];
+              me.capBreak = -0.9999;
+              me.judgedBoost = 1;
+              RPG.rng.seed(99);
+              const h0 = foe.hp;
+              RPG.battle.applyDamage(b, me, foe, sk, { isCounter: true, silent: true, crit: false });
+              const counterHit = h0 - foe.hp;
+              me.judgedBoost = 0;
+              RPG.rng.seed(99);
+              const h1 = foe.hp;
+              RPG.battle.applyDamage(b, me, foe, sk, { isCounter: true, silent: true, crit: false });
+              const plainCounter = h1 - foe.hp;
+              assertTrue('§21 正義: 反撃には上限強化が乗らない', counterHit === plainCounter,
+                `${counterHit} / ${plainCounter}`);
+              me.capBreak = 0;
+            }
+
+            // **全体技は主対象1体だけが応撃する。** 画面は pickKind を読んで主対象を選ばせる。
+            {
+              const area = Object.keys(RPG.data.skills).find((id) => RPG.data.skills[id].plugin === 'all_enemies');
+              if (area) {
+                const b = mk(2);
+                const me = b.party[0];
+                const other = b.party[1];
+                assertTrue('§21 正義: 全体技でも主対象を選ばせる',
+                  RPG.battle.pickKind(b, me, RPG.data.skills[area]) === 'enemy'
+                  && RPG.battle.pickKind(b, other, RPG.data.skills[area]) === 'none', '');
+                const foes = RPG.battle.livingEnemies(b);
+                for (const f of foes) { f.hp = f.maxHp = 1e12; }
+                const main = foes[foes.length - 1];
+                me.skills = me.skills.concat([area]);
+                const from = b.log.length;
+                RPG.battle.perform(b, { skillId: area, targets: [main] }, { auto: true });
+                const L = logSince(b, from);
+                const judges = L.filter((t) => /裁きを待つ/.test(t));
+                assertTrue('§21 正義: 全体技の応撃は主対象1体だけ',
+                  judges.length === 1 && judges[0].indexOf(main.name) >= 0, judges.join(' / '));
+                assertTrue('§21 正義: 主対象は技そのものへ渡さない（執着を積まない）',
+                  me.lastAimKey == null, String(me.lastAimKey));
+              }
+            }
+
+            // **皇帝に命令された正義も応撃を受ける。** 入力は1回だけ数える。
+            {
+              const b = mk(2, 'ar_emperor');
+              const emp = b.party[0];
+              const to = b.party[1];
+              to.passives.justice = 1;
+              const foe = RPG.battle.livingEnemies(b)[0];
+              foe.hp = foe.maxHp = 1e12;
+              const before = b.inputs.manual + b.inputs.auto;
+              const from = b.log.length;
+              RPG.battle.commandDecree(b, to.key, atkOf(to), [foe]);
+              const L = logSince(b, from);
+              assertTrue('§21 正義: 命令で振るっても応撃を受ける',
+                L.some((t) => /裁きを待つ/.test(t) && t.indexOf(to.name) >= 0), L.join(' / '));
+              assertTrue('§21 正義: 命令の入力は1回だけ数える',
+                b.inputs.manual + b.inputs.auto === before + 1,
+                `manual=${b.inputs.manual} auto=${b.inputs.auto}`);
+              void emp;
+            }
+            // オートの命令は**手動に数えない**。以前は null を渡して「数えさせない」つもりが、
+            // performAction が null を手動1回と数えていた（§10.1 手動ボーナスが歪む）。
+            {
+              const b = mk(2, 'ar_emperor');
+              const to = b.party[1];
+              const m0 = b.inputs.manual, a0 = b.inputs.auto;
+              RPG.battle.commandDecree(b, to.key, atkOf(to), [RPG.battle.livingEnemies(b)[0]], { auto: true });
+              assertTrue('§21 皇帝: オートの命令は手動に数えない',
+                b.inputs.manual === m0 && b.inputs.auto === a0 + 1,
+                `manual ${m0}→${b.inputs.manual} auto ${a0}→${b.inputs.auto}`);
+            }
+
+            // 解放依頼は「先を取る相」を名指しする。**依頼の相が battle に届くこと。**
+            // 出撃画面は空の配列を渡してくるので、優先順を誤ると依頼の相が消える。
+            const jq = RPG.data.quests[js.unlock.quest];
+            assertTrue('§21 正義: 解放依頼が実在する', !!jq, String(js.unlock.quest));
+            assertTrue('§21 正義: 解放依頼は先制の相＋全員生存',
+              !!(jq && jq.rules && jq.rules.allAlive && (jq.aspectIds || []).indexOf('as_first_strike') >= 0),
+              jq ? JSON.stringify(jq) : '');
+            if (jq) {
+              const u = RPG.units.buildCharacterUnit(
+                { id: 'ch_hero', level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, []);
+              u.side = 'party'; u.key = 'p0';
+              const qb = RPG.battle.start({ fieldId: jq.fieldId, waves: 1, party: [u],
+                bossFinale: false, quest: jq, aspectIds: [] });
+              assertTrue('§21 正義: 依頼の相が戦闘に届く',
+                !!(qb.aspect && qb.aspect.ids && qb.aspect.ids.indexOf('as_first_strike') >= 0),
+                JSON.stringify(qb.aspect && qb.aspect.ids));
+            }
+          }
+
           const lq = RPG.data.quests[lv.unlock.quest];
           assertTrue('§21 恋人: 解放依頼が実在する', !!lq, String(lv.unlock.quest));
           assertTrue('§21 恋人: 解放依頼は二人で全員生存',

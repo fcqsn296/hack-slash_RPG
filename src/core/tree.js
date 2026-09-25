@@ -320,7 +320,7 @@
     'relay_power', 'repeat_power',
     'barrier_power', 'revive', 'round_stack', 'shield_power', 'shield_regen',
     'turn_gift', 'ward_null', 'draw_fire', 'rise_count', 'final_count', 'doom_power',
-    'as_magi', 'weave_gift', 'no_repeat', 'decree', 'bond_power', 'bond_share', 'temperance', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
+    'as_magi', 'weave_gift', 'no_repeat', 'decree', 'bond_power', 'bond_share', 'temperance', 'justice', 'self_bind', 'solo_power', 'smite', 'stable_damage', 'stealth', 'support_stack',
     'start_shield', 'stat_cost', 'stat_pct', 'status_immune', 'status_on_hit', 'status_on_hit_kind',
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
@@ -485,6 +485,7 @@
       bondPower: 0,        // 同じ札を持つ味方1人につき火力 (§21 恋人)
       bondShare: 0,        // 同じ札を持つ味方と被害を分ける (§21 恋人)
       temperance: 0,       // 過剰回復を次の攻撃へ変える係数 (§21 節制)
+      justice: 0,          // 裁きを耐えた一撃の上限倍率。0より大きければ応撃を受ける (§21 正義)
       selfBind: 0,         // 自分が常に麻痺している扱いにする確率 (§21 吊るされた男)
       // --- 技の使い分け (§5.8) ---
       repeatPower: 0,      // 同じ技を続けるほど上がる火力
@@ -781,6 +782,7 @@
           case 'bond_power': passives.bondPower += amount; break;
           case 'bond_share': passives.bondShare += amount; break;
           case 'temperance': passives.temperance += amount; break;
+          case 'justice': passives.justice += amount; break;
           case 'as_magi': situational.asMagi = Math.max(situational.asMagi, amount); break;
           case 'self_bind': passives.selfBind = Math.max(passives.selfBind, amount); break;
           case 'shield_power': situational.shieldPower += amount; break;

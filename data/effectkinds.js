@@ -210,6 +210,14 @@ RPG.data.effectKinds = {
   // 吸収・攻撃付随・再生・他者からの回復は入らない。
   temperance: { to: 'passives', shape: 'add', uniq: null, key: 'temperance', label: '過剰回復を次の攻撃へ', fmt: 'pct' },
 
+  // ── 裁き (§21)「正義」──
+  // 攻撃する前に、対象の敵から最強の攻撃を1回受ける。耐えれば、その一撃の上限を (1 + 値) 倍に広げる。
+  //
+  // 値が 0 より大きいことが「応撃を受ける」旗も兼ねる。利と害が同じ旗から出るので、
+  // 利だけを持って害を持たない状態が作れない。
+  // 上限は cap_break に足さず掛ける（節制と同じ理由。足すと上限突破を積んだビルドほど薄まる）。
+  justice: { to: 'passives', shape: 'add', uniq: null, key: 'justice', label: '裁きを耐えた一撃の上限', fmt: 'pct' },
+
   // ── 絆 (§21)「恋人」──
   // 同じ札（恋人）を持つ味方1人につき火力が上がる。
   bond_power: { to: 'passives', shape: 'add', uniq: null, key: 'bondPower', label: '同じ札を持つ味方1人につき火力', fmt: 'pct' },

@@ -794,7 +794,7 @@
 
   /** @param {any} e */
   function enemyCard(e) {
-    const targeting = pendingSkill && RPG.battle.targetKind(RPG.data.skills[pendingSkill]) === 'enemy';
+    const targeting = pendingSkill && pickKindFor(RPG.data.skills[pendingSkill]) === 'enemy';
     const clickable = targeting && e.alive;
     return h('div.enemy-card' + (e.alive ? '' : '.is-dead') + (clickable ? '.is-targetable' : ''), {
       'data-key': e.key,
@@ -834,7 +834,7 @@
   function partyCard(u) {
     const actor = RPG.battle.currentActor(battle);
     const isActive = actor === u;
-    const targeting = pendingSkill && RPG.battle.targetKind(RPG.data.skills[pendingSkill]) === 'ally';
+    const targeting = pendingSkill && pickKindFor(RPG.data.skills[pendingSkill]) === 'ally';
     const clickable = targeting && u.alive;
 
     return h('div.party-card' + (isActive ? '.is-active' : '') + (u.alive ? '' : '.is-dead') + (clickable ? '.is-targetable' : ''), {
@@ -1029,7 +1029,7 @@
 
     if (pendingSkill) {
       const skill = RPG.data.skills[pendingSkill];
-      const kind = RPG.battle.targetKind(skill);
+      const kind = pickKindFor(skill);
       const candidates = kind === 'ally'
         ? RPG.battle.livingParty(battle) : RPG.battle.livingEnemies(battle);
 
@@ -1040,7 +1040,9 @@
       // 対象は数が知れているので、コマンド欄にそのまま並べたほうが速い。
       // 上のカードを押す道も残してあるので、慣れた人はそちらでも選べる。
       return h('div.command-target',
-        h('p.targeting', { text: `${skill.name} — ${kind === 'ally' ? '味方' : '敵'}を選ぶ` }),
+        h('p.targeting', { text: judgedBy(skill)
+          ? `${skill.name} — 先に裁きを受ける敵を選ぶ`
+          : `${skill.name} — ${kind === 'ally' ? '味方' : '敵'}を選ぶ` }),
         h('div.target-buttons', candidates.map((/** @type {any} */ t) =>
           h('button.target-btn' + (t.side === 'enemy' ? '.is-foe' : ''), {
             onClick: () => confirmTarget(t),
@@ -1266,10 +1268,35 @@
       : RPG.battle.commandSkill(battle, skillId, targets)));
   }
 
+  /**
+   * この技を実際に振るう者。勅命 (§21) で命令先を選んでいれば受け手。
+   * @returns {any}
+   */
+  function wielder() {
+    const cur = RPG.battle.currentActor(battle);
+    if (!decreeTo) return cur;
+    return battle.party.find((/** @type {any} */ u) => u.key === decreeTo) || cur;
+  }
+
+  /**
+   * 対象を選ばせる種類。**targetKind を直接読まないこと。**
+   * 「正義」(§21) の全体技は、先に裁きを受ける主対象を選ばせるので 'enemy' に変わる。
+   * @param {any} skill
+   */
+  function pickKindFor(skill) {
+    return RPG.battle.pickKind(battle, wielder(), skill);
+  }
+
+  /** この技が「正義」の応撃を呼ぶか (§21)。対象選びの見出しを変えるために使う。 @param {any} skill */
+  function judgedBy(skill) {
+    const w = wielder();
+    return !!(w && w.passives && w.passives.justice > 0 && RPG.battle.judgedAttack(skill));
+  }
+
   /** @param {string} skillId */
   function selectSkill(skillId) {
     const skill = RPG.data.skills[skillId];
-    const kind = RPG.battle.targetKind(skill);
+    const kind = pickKindFor(skill);
 
     if (kind === 'none') {
       send(skillId, []);
