@@ -2171,6 +2171,47 @@
           assertTrue('§21 皇帝: 解放依頼が実在する', !!eq, String(em.unlock.quest));
           assertTrue('§21 皇帝: 解放依頼は主人公を動かさせない',
             !!(eq && eq.rules && eq.rules.idleHero), eq ? JSON.stringify(eq.rules) : '');
+
+          // **待機が無いので、主人公に勅命を持たせないと成立しない。**
+          // 以前は「主人公を最後尾に置き、手番が回る前に倒しきる」しか解き方が無かった。
+          assertTrue('§21 皇帝: 解放依頼のあいだ主人公は勅命を使える',
+            !!(eq && eq.rules && eq.rules.heroDecree), eq ? JSON.stringify(eq.rules) : '');
+          {
+            const mkQ = () => {
+              const us = ['ch_hero', 'ch_mia', 'ch_gow'].map((id, i) => {
+                const u = RPG.units.buildCharacterUnit({ id, level: 200, exp: 0, limitBreak: 0,
+                  tree: {}, equipped: {}, arcana: null }, []);
+                u.side = 'party'; u.key = 'p' + i;
+                return u;
+              });
+              const b = RPG.battle.start({ fieldId: eq.fieldId, waves: 1, party: us, bossFinale: false, quest: eq });
+              for (const e of b.enemies) { e.hp = e.maxHp = 1e12; }
+              return b;
+            };
+            const b = mkQ();
+            const hero = b.party[0];
+            assertTrue('§21 皇帝: 依頼では札なしの主人公に勅命が付く', hero.passives.decree > 0, '');
+            const atkId = hero.skills.find((/** @type {string} */ id) => RPG.battle.isAttackSkill(RPG.data.skills[id]));
+            assertTrue('§21 皇帝: 命じられる仲間がいるあいだ、主人公は自ら撃てない',
+              !RPG.battle.skillReady(b, hero, atkId).ok, '');
+            const to = b.party[1];
+            const sk = RPG.battle.decreeSkills(b, to).find((/** @type {string} */ id) => RPG.data.skills[id].power > 0);
+            RPG.battle.commandDecree(b, to.key, sk, [b.enemies[0]]);
+            assertTrue('§21 皇帝: 命じれば依頼は失敗しない', !b.ruleBroken && RPG.battle.currentActor(b) === b.party[1],
+              String(b.ruleBroken));
+            // 命じられる仲間がいなければ、主人公が自ら動くしかなく失敗する
+            const b2 = mkQ();
+            b2.party[1].alive = false; b2.party[2].alive = false;
+            RPG.battle.commandSkill(b2, atkId, [b2.enemies[0]]);
+            assertTrue('§21 皇帝: 命じられる仲間がいなければ失敗', b2.finished && /命じられる仲間/.test(b2.ruleBroken || ''),
+              String(b2.ruleBroken));
+            // 札を持たない通常の戦闘では勅命は付かない
+            const u = RPG.units.buildCharacterUnit({ id: 'ch_hero', level: 200, exp: 0, limitBreak: 0,
+              tree: {}, equipped: {}, arcana: null }, []);
+            u.side = 'party'; u.key = 'p0';
+            const b3 = RPG.battle.start({ fieldId: eq.fieldId, waves: 1, party: [u], bossFinale: false });
+            assertTrue('§21 皇帝: 依頼の外では主人公に勅命は付かない', !(b3.party[0].passives.decree > 0), '');
+          }
         }
 
         // ── 恋人 (VI) ──

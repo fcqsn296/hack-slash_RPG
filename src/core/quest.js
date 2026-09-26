@@ -167,6 +167,7 @@
     if (r.allAlive) out.push('全員生存');
     if (r.noRepeat) out.push('同じ技を続けない');
     if (r.idleHero) out.push('主人公は動かない');
+    if (r.heroDecree) out.push('主人公は勅命を使える');
     if (r.wheelLaps) out.push(`物理→魔術→遺物を${r.wheelLaps}周`);
     if (r.noAuto) out.push('オート禁止');
     if (quest.enemyLv) out.push(`敵Lv${quest.enemyLv}`);
