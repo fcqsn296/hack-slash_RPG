@@ -281,6 +281,12 @@
           RPG.state.get().inventory.push(item);
           lines.push(`${f}階: ${item.name}`);
         }
+        // 道具（星霜の欠片など）。100階より先の節目で、上限解放と再抽選の代金を配るために足した
+        for (const id of Object.keys(m.items || {})) {
+          RPG.state.addItem(id, m.items[id]);
+          const def = (RPG.data.items || {})[id];
+          lines.push(`${f}階: ${def ? def.name : id}×${m.items[id]}`);
+        }
       }
     }
 

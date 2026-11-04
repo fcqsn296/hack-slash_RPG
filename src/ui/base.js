@@ -2243,6 +2243,10 @@
     for (const b of Object.keys(m.boxes || {})) parts.push(`${RPG.data.boxes[b].name}×${m.boxes[b]}`);
     if (m.autoCharge) parts.push(`オート回数の上限 +${m.autoCharge}`);
     if (m.equip) parts.push(m.equip.name);
+    for (const id of Object.keys(m.items || {})) {
+      const def = (RPG.data.items || {})[id];
+      parts.push(`${def ? def.name : id}×${m.items[id]}`);
+    }
     return parts.join('／') || '—';
   }
 

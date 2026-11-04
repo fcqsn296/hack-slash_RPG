@@ -374,7 +374,48 @@ function table(head, rows) {
   for (const r of rows) console.log(line(r));
 }
 
+/**
+ * 塔 (§10.7) をオートで登る。倒れた階の1つ手前が到達階。
+ *
+ * 本物の塔と同じ道を通す（tower.start → enter → resolve）。HPの持ち越しと
+ * ボス階の回復はそちらが持っているので、ここで真似て書かない。
+ * 到達記録を `from - 1` まで上書きしてから始めるので、途中の帯から測れる。
+ * **セーブの塔の記録を書き換える。** 測るたびに useSave で読み直すこと。
+ *
+ * @param {{from?: number, seed?: number, maxFloor?: number}} [o]
+ * @returns {{reached: number, from: number, floors: number}}
+ */
+function climb(o) {
+  const R = RPG();
+  o = o || {};
+  const from = o.from || 1;
+  const maxFloor = o.maxFloor || 400;
+  const t = R.tower.store();
+  t.best = Math.max(t.best || 0, from - 1);
+  t.claimed = Math.max(t.claimed || 0, from - 1);
+  const ok = R.tower.start(from);
+  if (!ok.ok) throw new Error('塔に入れない: ' + ok.reason);
+  if (o.seed != null) R.rng.seed(o.seed);
+  let reached = from - 1;
+  for (let f = from; f <= maxFloor; f++) {
+    const b = R.tower.enter();
+    if (!b) break;
+    let g = 0;
+    while (!b.finished && g++ < 9000) {
+      if (b.phase === 'wave_clear') { R.battle.advanceWave(b); continue; }
+      const a = R.autoplay.chooseAction(b);
+      if (!a) break;
+      R.battle.perform(b, a, { auto: true });
+    }
+    const r = R.tower.resolve(b);
+    if (!r.cleared) break;
+    reached = b.tower.floor;
+  }
+  if (R.tower.run()) R.tower.retire();
+  return { reached, from, floors: reached - from + 1 };
+}
+
 module.exports = {
-  load, RPG, useSave, invest, run, repeat, fmt, calc, statusCap, ignoresCap, table,
+  load, RPG, useSave, invest, run, repeat, fmt, calc, statusCap, ignoresCap, table, climb,
   get ctx() { return ctx; },
 };

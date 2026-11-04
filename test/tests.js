@@ -7768,6 +7768,30 @@
           deeper.length > 0, deeper.join(' / '));
       }
 
+      // --- 節目の道具（100階より先）---
+      // 星霜の欠片を配る節目を足したとき、受け取り処理に道具の口が無かった。
+      // 書いても何も起きない形にならないよう、節目に書いた道具が実際に増えることを見る。
+      {
+        const withItems = RPG.data.tower.milestones.filter((m) => m.items);
+        const t = RPG.tower.store();
+        let ok = withItems.length > 0;
+        const detail = [];
+        for (const m of withItems) {
+          t.claimed = m.floor - 1;
+          const before = Object.keys(m.items).map((id) => RPG.state.itemCount(id));
+          RPG.tower.claimTo(m.floor);
+          Object.keys(m.items).forEach((id, i) => {
+            const got = RPG.state.itemCount(id) - before[i];
+            if (got !== m.items[id]) ok = false;
+            detail.push(`${m.floor}階 ${id} +${got}`);
+          });
+        }
+        assertTrue('塔: 節目に書いた道具が受け取れる', ok, detail.join(' / '));
+        // 100階より先にも節目がある（目標が100階で尽きていた）
+        assertTrue('塔: 100階より先にも節目がある',
+          RPG.data.tower.milestones.some((m) => m.floor > 100), '');
+      }
+
       // --- 節目の報酬 ---
       {
         const t = RPG.tower.store();
