@@ -1839,6 +1839,14 @@ RPG.data.skillTree = [
     desc: '凍結している敵への火力 +12%',
   },
   {
+    // 呪詛だけ中級の見極めが欠けていた（他の5種には揃っている）。撒く側の枝
+    // （tr_hit_curse / tr_hit_curse_mid / tr_grant_curse）はあるのに、
+    // 呪詛を当てにした火力の伸ばし先が初級の呪縛狩りで止まっていた。
+    id: 'tr_vs_curse_mid', tier: 'mid', name: '呪縛の見極め', cost: 3, maxLevel: 4,
+    effects: [{ kind: 'vs_status_power', status: 'curse', value: 0.12 }],
+    desc: '呪詛にかかった敵への火力 +12%',
+  },
+  {
     id: 'tr_hit_burn_mid', tier: 'mid', name: '業火の伝播', cost: 3, maxLevel: 4,
     effects: [{ kind: 'status_on_hit_kind', status: 'burn', value: 0.14 }],
     desc: '攻撃時 14%の確率で火傷を付与',
