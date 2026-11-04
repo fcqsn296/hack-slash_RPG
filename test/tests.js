@@ -8095,9 +8095,26 @@
         assertTrue('コンボ: 敵の攻撃では伸びない', b.combo.count === 0, `${b.combo.count} 段`);
       }
 
-      // --- オートAIはコンボを考慮しない（手動の取り分であるため）---
-      assertTrue('コンボ: オートAIは考慮しない（手動の利点として残す）',
-        RPG.autoplay.estimate.toString().indexOf('combo') < 0, '');
+      // --- オートも段の技では段を読む（2026-11 に方針を変えた）---
+      // 以前は「オートはコンボを考慮しない（手動の取り分）」として見張っていた。だが段の技
+      // （継ぎ穂・断ち切る一閃など）がオートで一度も選ばれず、段を伸ばす枝・ユニークが効果なしと
+      // 1点も違わなかったので、ユーザーの判断でオートにも段を読ませた（autoplay.js の estimate）。
+      // 弱点を突いて段を積むこと自体はもともとオートでも起きていた（長いボス戦で平均3.7段）。
+      {
+        const me = b.party[0];
+        me.alive = true;
+        const foe = b.enemies.find((/** @type {any} */ e) => e.alive) || b.enemies[0];
+        const est = (/** @type {string} */ id, /** @type {number} */ n) => {
+          b.combo.count = n;
+          return RPG.autoplay.estimate(me, foe, RPG.data.skills[id], b);
+        };
+        const surge0 = est('sk_combo_surge', 0), surge5 = est('sk_combo_surge', 5);
+        assertTrue('コンボ: オートは段の上乗せを見積もりに入れる（継ぎ穂）',
+          surge5 > surge0 * 1.5, `${surge0} → ${surge5}`);
+        assertTrue('コンボ: 必要な段が足りない技は見積もり0（断ち切る一閃は3段から）',
+          est('sk_combo_verdict', 2) === 0 && est('sk_combo_verdict', 3) > 0, '');
+        b.combo.count = 0;
+      }
 
       if (before === null) localStorage.removeItem(RPG.state.STORAGE_KEY);
       else localStorage.setItem(RPG.state.STORAGE_KEY, before);

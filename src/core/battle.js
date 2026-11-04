@@ -97,12 +97,14 @@
    * 弱点を突き続けるとパーティ全体の火力が上がる仕組み。
    *
    * ── 何のためにあるか ──
-   * オートAIは「今いちばん削れる技」しか選ばない。属性有利を維持したり、
-   * デバフを入れてから殴ったりという段取りは組まない。
-   * つまりこの仕組みは、手動で考えて戦う人だけが受け取れる報酬になっている。
-   * （そのため autoplay.js は意図的にコンボを考慮しない）
+   * オートAIは「今いちばん削れる技」を選ぶ。見積もりに属性の有利が入るので、弱点を突いて
+   * 段を積むことはオートでも起きる（長いボス戦で平均3.7段）。
+   * 段の技（継ぎ穂・断ち切る一閃など）の上乗せも、2026-11 から見積もりに入れている。
+   * 以前は「手動で考えた人への報酬」としてオートに一切読ませなかったが、段の技がオートで
+   * 一度も選ばれず、段を伸ばす枝・装備が死んでいたので、ユーザーの判断で変えた。
+   * 段を積む順番を組み立てる・前借りで溜める、といった段取りは今も手動のほうが上手い。
    */
-  // @知見: オートは弱点コンボを見ない（手動で考えた人への報酬として意図的）
+  // @知見: オートも段の技では段を読む（2026-11〜）。段取りを組む手動の上手さは別に残る
   const COMBO_MAX = 5;
   /** 1段あたりの上乗せ */
   const COMBO_STEP = 0.08;
@@ -171,7 +173,8 @@
    *
    * @知見: 段の刻みは積み重ねにする。上の段だけ効く形だと途中の刻みが飾りになる
    * @知見: spendAll の技には needs を最初の刻みに揃える。無いと段を捨てて撃てる
-   * @知見: autoplay はコンボを一切読まない。段の技は手動で遊ぶ軸
+   * 2026-11: オートも段を読むようにした（autoplay.js の estimate / comboReturn）。以前は一切読まず、
+   * 段の技（継ぎ穂・手繰りなど）はオートで一度も選ばれなかった
    *
    * ── cool / act を足した理由 (§5.10) ──
    * それまで段の出口は **威力倍率しか無かった**（実際、段を使う技5本は全部が攻撃技）。
@@ -5141,7 +5144,7 @@
 
   RPG.battle = {
     start, commandSkill, advanceWave, retreat, failQuest,
-    comboPower, comboMax, updateCombo, COMBO_MAX, COMBO_STEP,
+    comboPower, comboMax, updateCombo, resolveCombo, COMBO_MAX, COMBO_STEP,
     setPower, targetPower, resolveEchoes, skipDeadActors, riseFallen, tickFinal, weaveGifts,
     LOW_POWER, HIGH_POWER, isLowPower, isMidPower, isHighPower, isAttackSkill, scaledEnemyLv,
     lowPowerSkills, lowPowerBoost,

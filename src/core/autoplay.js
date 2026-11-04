@@ -87,6 +87,9 @@
    */
   const OVERKILL_GUARD = 0.35;
 
+  /** 段を積む技の値打ちを数えるときの重み（comboReturn）。理由はそちらに */
+  const GAIN_WEIGHT = 0.5;
+
   /**
    * 攻撃技かどうか。
    * @param {any} skill
@@ -157,6 +160,16 @@
     }
     // 「連撃」持ちは同じ技が複数回出る
     hits *= 1 + ((actor.passives && actor.passives.doubleHits) || 0);
+    // ── 段の技 (§5.10) は、段の読み方まで見積もる ──
+    // 以前は段を一切読まず、継ぎ穂（1段ごとに+18%）は威力95の技にしか見えなかった。
+    // 段の技はオートで一度も選ばれず、段を伸ばすユニークや枝は効果なしと1点も違わなかった。
+    // 実際に撃ったときと同じ関数（battle.js の resolveCombo）を通す。盤面は変えない。
+    let comboScale;
+    if (battle && skill.params && skill.params.combo && RPG.battle.resolveCombo) {
+      const cb = RPG.battle.resolveCombo(battle, actor, skill);
+      if (cb.blocked) return 0;   // 必要な段が足りなければ不発
+      comboScale = cb.scale;
+    }
     const result = RPG.damage.calc({
       attacker: RPG.units.toAttacker(actor),
       defender: RPG.units.toDefender(target),
@@ -172,6 +185,7 @@
         // 異相「○○を拒む相」(§22)。上とまったく同じ理由で、
         // 見積にも渡さないと否定されている属性の技を「有利だから重い」と誤読する。
         denyElement: (battle && battle.aspect && battle.aspect.effects.denyElement) || null,
+        powerScale: comboScale,
       },
     });
     // 起爆 (§5.8) は、たまっている弱体ぶんが本体で、
@@ -293,6 +307,11 @@
       // そちらで判別しようとすると**一度も引っかからない**。実際それで外した。
       const noSelf = !!(actor.passives && actor.passives.noSelfBuff);
       const selfOnly = (/** @type {any} */ def) => !(def.params && def.params.party);
+      // ── 全体バフを先に張る、は一度入れて外した ──
+      // 手札の並び順で拾うのをやめて全体バフ（鼓舞の号令）を優先させたら、闘技場の主で
+      // 12/24→5/24 に落ちた。主人公が自己バフ（闘気集中 +50%）を張らなくなり、全体バフは
+      // 他の仲間も張っていたので重複するだけだった。全体バフはもともと誰かが張っている。
+      // @知見: オートは全体バフも張っている（持っている者が張る）。優先度を変えると自己バフが消えて弱くなる
       const buff = skills.find((s) => BUFF_PLUGINS.includes(s.def.plugin)
         && !buffActive(actor, s.def)
         && !(noSelf && selfOnly(s.def)));
@@ -528,6 +547,56 @@
       return RPG.battle.woundsLeft(battle, target) > 0 ? target.phantom.value : 0;
     };
 
+    /**
+     * 段の増減が生む「味方の火力の戻り」(§10.6 / §5.10)。
+     *
+     * 染色・障壁と同じ考え方で、**そのあと味方の火力がいくら変わるか**で測る。
+     * 段は1つにつき味方全員の火力を COMBO_STEP（＋各自の combo_power）だけ押し上げる。
+     *   積む技（手繰り gain 2）… 積めた段 × 1段の重さ × 味方1ラウンドぶんの火力 を足す
+     *   払う技（削ぎ落とし spend 2 など）… 払った段 × 同じもの を引く（積み直すまで薄くなる）
+     * 上限に張り付いていれば積んでも増えないので 0。1ラウンドぶんにするのは染色と同じ理由
+     * （1人ぶんだと実際の値打ちの1/4にしかならず永久に選ばれない）。
+     *
+     * @知見: 段の技の値打ちは「段の増減 × 味方1ラウンドぶんの火力」で測る。段を読まないと段の技は永久に選ばれない
+     * @param {any} def
+     */
+    let roundPower = -1;
+    let roundDamage = 0;   // 味方1ラウンドぶんの火力（過剰殺傷を除く）。積む価値があるかの判定に使う
+    const comboReturn = (def) => {
+      const c = def.params && def.params.combo;
+      if (!c || !battle.combo || !RPG.battle.resolveCombo) return 0;
+      const cb = RPG.battle.resolveCombo(battle, actor, def);
+      if (cb.blocked) return 0;
+      const max = RPG.battle.comboMax(battle);
+      const gained = Math.max(0, Math.min(max, battle.combo.count - cb.spent + (cb.gain || 0))
+        - Math.min(max, battle.combo.count));
+      const lost = Math.min(cb.spent, Math.min(max, battle.combo.count));
+      if (roundPower < 0) {
+        roundPower = 0;
+        for (const u of allies) {
+          const step = (RPG.battle.COMBO_STEP || 0.08) + ((u.passives && u.passives.comboPower) || 0);
+          let bestDmg = 0;
+          for (const id of u.skills) {
+            const d = RPG.data.skills[id];
+            if (!isAttack(d) || (d.params && d.params.combo)) continue;
+            bestDmg = Math.max(bestDmg, estimate(u, foes[0], d, battle));
+          }
+          // 過剰殺傷は火力に数えない。雑魚戦で積む技が止めの一撃より高く見えるのを防ぐ
+          roundPower += Math.min(bestDmg, remaining) * step;
+          roundDamage += Math.min(bestDmg, remaining);
+        }
+      }
+      // 積んでも使う前に終わる戦いでは、積む価値は無い。
+      //   終わりかけ（バフと同じ線）か、味方が2ラウンド以内に削りきれる残り
+      // 後者が無いと、2ラウンドで終わる塔の階で手繰りを撃ち、到達階が平均 134.1→132.8 に落ちた。
+      const short = remaining <= totalMax * OVERKILL_GUARD || remaining <= roundDamage * 2;
+      // 積んだ段は半分で数える。段は弱点を突くたびに誰かが積むので、放っておいても戻ってくる
+      // （長いボス戦で平均3.7段・行動の64%が上限）。満額で数えると手繰りを撃ちすぎ、
+      // REFERENCE 4人のボス戦の与ダメが 98M→95M に下がった。
+      const delta = (short ? 0 : gained * GAIN_WEIGHT) - lost;
+      return delta * roundPower;
+    };
+
     let best = null;
     for (const s of attacks) {
       // 全体攻撃は敵全員に入るので、削れる量を合計して評価する。
@@ -618,11 +687,12 @@
         return Math.min(gain, target.hp);
       };
 
+      const combo = comboReturn(s.def);
       for (const target of foes) {
         const dmg = estimate(actor, target, s.def, battle);
         // 過剰ダメージは価値が無いので、実際に削れる量で評価する
         // 幻傷は自分の一撃を解いた後に開くので、合わせて残りHPで頭打ちにする。
-        const score = Math.min(dmg + woundOf(target), target.hp) + guardReturn(dmg) + dyeReturn(target);
+        const score = Math.min(dmg + woundOf(target), target.hp) + guardReturn(dmg) + dyeReturn(target) + combo;
         // ── 同点は「切り詰める前の火力」で割る ──
         // **これが無いと、全部が過剰殺傷になる終盤で技の並び順が勝敗を決める。**
         // 実際に踏んだ——見積もり 2,848,410 の城撃が 759,834 の覇王斬に
