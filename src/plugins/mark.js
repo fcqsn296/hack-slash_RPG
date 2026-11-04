@@ -37,7 +37,7 @@
         // 先に殴ってから印を付ける。倒しきれたなら印に意味がない。
         if (ctx.skill.power > 0) ctx.damage(target);
         if (!target.alive) continue;
-        ctx.mark(target, p.value || 0.3, p.turns || 2, label);
+        ctx.mark(target, p.value || 0.3, p.turns || 2, label, p.capAfter);
       }
     },
   };

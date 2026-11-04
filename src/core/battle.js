@@ -2219,15 +2219,19 @@
    * 1 を掛けて 1 を引く形は浮動小数で値がずれるので、乗せるものが無いときは通さない。
    * @param {any} attacker
    */
-  function judgedCapOf(attacker) {
+  function judgedCapOf(attacker, defender) {
     // 正義・運命の輪は従来の式のまま（検証テストが一撃の値まで見ている）
     const base = (1 + (attacker.judgedBoost || 0)) * (1 + (attacker.wheelBoost || 0)) - 1;
     let formation = 0;
     for (const b of attacker.buffUnique || []) {
       if (b.capAfter > formation) formation = b.capAfter;
     }
-    if (!(formation > 0)) return base;
-    return (1 + base) * (1 + formation) - 1;
+    // 照準（mark）の印も同じ。印は敵に載り、付けた陣営の一撃だけが伸びる。
+    // 照準の +45% も上限の手前で掛かるので、終盤は撃つと1手ぶん損だった（総員狙撃・狩りの合図）。
+    const m = defender && defender.marked;
+    const aim = m && m.turns > 0 && m.side === attacker.side ? (m.capAfter || 0) : 0;
+    if (!(formation > 0) && !(aim > 0)) return base;
+    return (1 + base) * (1 + formation) * (1 + aim) - 1;
   }
 
   /**
@@ -2353,7 +2357,7 @@
         // 「運命の輪」(§21) の祝福も同じ式で乗せる。別々の出どころなので掛け合わせる。
         // 陣立て（戦術家/布陣）の陣も同じ式。重ねがけは強いほうだけ（足すと戦術家2人で倍になる）。
         judgedCap: opts.isCounter ? 0
-          : judgedCapOf(attacker),
+          : judgedCapOf(attacker, defender),
       },
     });
 
@@ -3352,7 +3356,7 @@
        * 標的指定。付けた陣営の全員が、この相手に対して強くなる (§9.1)。
        * @param {any} target @param {number} value @param {number} turns @param {string} label
        */
-      mark: (target, value, turns, label) => {
+      mark: (target, value, turns, label, capAfter) => {
         // 重ねがけは強い方で上書きする。足すと2人で撃つだけで倍になり、
         // 「一人が印を付け、残りが殴る」という形が崩れる。
         const now = target.marked;
@@ -3363,6 +3367,7 @@
         target.marked = {
           side: actor.side, value, turns: buffTurns(actor, turns), label,
         };
+        if (capAfter && capAfter > 0) target.marked.capAfter = capAfter;
         pushLog(battle, `${target.name} に${label}（+${Math.round(value * 100)}%）`, 'debuff');
         pushEvent(battle, { type: 'debuff', key: target.key, label });
       },

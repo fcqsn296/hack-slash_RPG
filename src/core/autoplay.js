@@ -343,6 +343,23 @@
         && !stillUp(s.def)
         && !(noSelf && selfOnly(s.def)));
       if (buff) return { skillId: buff.id, targets: RPG.battle.targetKind(buff.def) === 'none' ? [] : [actor] };
+
+      // ── 照準（mark）も同じ扱いで張る ──
+      // 威力0で回復でもバフでもないので、どの分岐にも入らず一度も撃たれていなかった
+      // （戦術家/照準の総員狙撃、ツリーの狩りの合図。4戦×10Rで0回）。
+      // 印は敵に載るので、「生きている敵に自陣営の印が無い（または浅い）」で見る。
+      /** @param {any} def @param {any} foe */
+      const markedBy = (def, foe) => {
+        const m = foe.marked;
+        return !!m && m.turns > 0 && m.side === actor.side && m.value >= ((def.params && def.params.value) || 0);
+      };
+      const markSkill = skills.find((s) => s.def.plugin === 'mark' && !(s.def.power > 0)
+        && foes.some((f) => !markedBy(s.def, f)));
+      if (markSkill) {
+        if (markSkill.def.params && markSkill.def.params.all) return { skillId: markSkill.id, targets: [] };
+        const bare = foes.filter((f) => !markedBy(markSkill.def, f)).sort((x, y) => y.hp - x.hp);
+        return { skillId: markSkill.id, targets: [bare[0]] };
+      }
     }
 
     // 障壁の分岐が「殴ったほうが得か」を見るので、ここで先に出しておく。

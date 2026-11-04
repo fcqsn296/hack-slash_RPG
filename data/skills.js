@@ -1009,8 +1009,10 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
     power: 0, crit_rate: 0,
     readyRound: 2, cooldown: 4,
-    params: { value: 0.45, turns: 3, label: '照準', all: true },
-    desc: '【クラス】敵全体に3ターンの照準。味方全員のその相手への火力が45%上がる。' +
+    params: { value: 0.45, turns: 3, label: '照準', all: true, capAfter: 0.3 },
+    // capAfter: 2026-11。+45% は上限の手前で掛かり、オートに撃たせると終盤のボス戦で与ダメが下がった
+    // （主人公 140→131M）。上限の後 +30% を足して 140→156M・アストラ 119→152M（10R）。
+    desc: '【クラス】敵全体に3ターンの照準。味方全員のその相手への火力が45%、上限で削られた一撃も30%上がる。' +
       '号令が手番を増やすのに対し、こちらは1手の重さを増やす。' +
       '2ラウンド目以降・使用後4ラウンド使えない。',
   },
@@ -1105,8 +1107,10 @@ RPG.data.skills = {
     name: '狩りの合図', kind: 'active', plugin: 'mark',
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
     power: 0, crit_rate: 0,
-    params: { value: 0.18, turns: 2, label: '照準', all: true },
-    desc: '敵全体に2ターンの照準。味方全員の火力が18%上がる。' +
+    params: { value: 0.18, turns: 3, label: '照準', all: true, capAfter: 0.12 },
+    // 2026-11: 持続 2→3・上限の後 +12%。オートが撃つようになり、2ターンだと手番の半分を張り直しに使って
+    // 持ち主によってはボス戦の与ダメが下がった（カグラ 76→69M）。3ターンで損が消え、雑魚5W 12R→10〜11R。
+    desc: '敵全体に3ターンの照準。味方全員の火力が18%、上限で削られた一撃も12%上がる。' +
       '数が多いほど価値が出るので、単体戦では狙い撃ちの号に劣る。',
   },
 

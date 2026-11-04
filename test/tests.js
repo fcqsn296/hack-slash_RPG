@@ -5786,6 +5786,40 @@
           `選んだ技: ${RPG.data.skills[down.skillId].name}`);
       }
 
+      // --- 照準（mark）は、印の無い敵がいれば張る ---
+      // 威力0で回復でもバフでもないので、総員狙撃も狩りの合図も一度も撃たれていなかった。
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        const me = RPG.battle.currentActor(b);
+        const atk = me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]));
+        me.skills = [atk, 'sk_hunters_call'];
+        const first = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 印の無い敵がいれば照準を張る', first.skillId === 'sk_hunters_call',
+          `選んだ技: ${RPG.data.skills[first.skillId].name}`);
+        for (const f of RPG.battle.livingEnemies(b)) f.marked = { side: me.side, value: 0.18, turns: 2, label: '照準' };
+        const again = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 全員に印があれば照準を張り直さない', again.skillId !== 'sk_hunters_call',
+          `選んだ技: ${RPG.data.skills[again.skillId].name}`);
+      }
+
+      // --- 照準の印は、上限で削られた後の一撃を伸ばす ---
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        const me = b.party[0];
+        const foe = RPG.battle.livingEnemies(b)[0];
+        foe.hp = foe.maxHp = 1e15;
+        const sk = RPG.data.skills[me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]))];
+        me.capBreak = -0.9999;
+        const hit = () => { RPG.rng.seed(7); const h = foe.hp;
+          RPG.battle.applyDamage(b, me, foe, sk, { silent: true, crit: false }); return h - foe.hp; };
+        const plain = hit();
+        foe.marked = { side: me.side, value: 0, turns: 3, label: '照準', capAfter: 0.3 };
+        assertNear('照準: 印の付いた相手への深く越えた一撃は ×1.3', hit() / plain, 1.3, 0.02);
+        foe.marked = { side: 'enemy', value: 0, turns: 3, label: '照準', capAfter: 0.3 };
+        assertNear('照準: 相手陣営の印では伸びない', hit() / plain, 1, 0.001);
+        me.capBreak = 0;
+      }
+
       // --- 陣立ての陣は、上限で削られた後の一撃を伸ばす（戦術家/布陣） ---
       {
         const b = makeBattle(['ch_hero', 'ch_noa']);
