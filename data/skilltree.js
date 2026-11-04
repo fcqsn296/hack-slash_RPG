@@ -1778,9 +1778,11 @@ RPG.data.skillTree = [
     desc: 'HPが減っていない敵への火力 +8%（追い打ちのちょうど裏返し）',
   },
   {
+    // 2026-11: 0.07→0.12。ボス戦の与ダメが 20SP で +27%（1.4%/SP）と、ラウンドごとに火力（3.9%/SP）の
+    // 3分の1しか無く、長い戦いの型の中で選ぶ理由が無かった。測定は作業ログ「ビルドの幅と奥深さ」。
     id: 'tr_wave_power', tier: 'basic', name: '大詰めの気迫', cost: 2, maxLevel: 4,
-    effects: [{ kind: 'wave_power', value: 0.07 }],
-    desc: '最終ウェーブ（ボス戦）での火力 +7%',
+    effects: [{ kind: 'wave_power', value: 0.12 }],
+    desc: '最終ウェーブ（ボス戦）での火力 +12%（1戦だけの戦いと塔の各階では常に最終ウェーブ）',
   },
   {
     id: 'tr_damage_share', tier: 'basic', name: '痛みの分配', cost: 2, maxLevel: 4,
@@ -2039,8 +2041,15 @@ RPG.data.skillTree = [
   },
   {
     id: 'tr_wave_power_mid', tier: 'mid', name: '決戦の気迫', cost: 3, maxLevel: 4,
-    effects: [{ kind: 'wave_power', value: 0.12 }],
-    desc: '最終ウェーブ（ボス戦）での火力 +12%',
+    effects: [{ kind: 'wave_power', value: 0.20 }],
+    desc: '最終ウェーブ（ボス戦）での火力 +20%',
+  },
+  {
+    // 最終ウェーブの型の上級。ラウンドごとに火力（基本・中級）には上級が無いのに対し、
+    // こちらは立ち上がりが要らない（1ラウンド目から効く）ぶん、短いボス戦で先に立つ型として伸ばし先を置いた。
+    id: 'tr_wave_power_hi', tier: 'high', name: '大一番', cost: 5, maxLevel: 3,
+    effects: [{ kind: 'wave_power', value: 0.25 }],
+    desc: '最終ウェーブ（ボス戦）での火力 +25%',
   },
   {
     id: 'tr_damage_share_mid', tier: 'mid', name: '絆の盾', cost: 3, maxLevel: 4,
