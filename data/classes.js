@@ -111,9 +111,12 @@ RPG.data.classes = {
         // どれも **代償のある強い効果** にしてある。ポイントが余るからと
         // 素直な上積みを置くと、ただの数値インフレになるため。
         branch: 'br_gd_fortress',
+        // 2026-11: damage_share → guard_ally。説明は最初から「味方の被害を肩代わり」だったが、
+        // 効果は逆向きの damage_share（自分の被害を味方へ配る）だった。挑発で集めた一撃を
+        // 一撃圏内の後衛へ配るので、塔では城塞が守護者の4つの型で最下位（144階、クラス無し 153階）。
         id: 'gd_bastion', name: '【極】不動の城塞', cost: 6, maxLevel: 1,
         effects: [
-          { kind: 'damage_share', value: 0.35 },
+          { kind: 'guard_ally', value: 0.35 },
           { kind: 'stat_pct', stat: 'def', value: 0.6 },
           { kind: 'stat_cost', stat: 'atk', value: -0.5 },
         ],

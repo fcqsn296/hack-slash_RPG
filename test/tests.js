@@ -1384,6 +1384,21 @@
           `全取り ${need} CP / Lv100 で ${cpAt100} CP（${Math.round(cpAt100 / need * 100)}%まで到達）`);
       }
 
+      // 「肩代わり」と「分ける」は向きが逆。説明と効果がずれると、守る節が守りを崩す節になる。
+      // 城塞の極（不動の城塞）は「味方の被害を肩代わり」と書きながら damage_share（自分の被害を
+      // 味方へ配る）を持っていて、塔では城塞が守護者の4つの型で最下位だった（2026-11 に修正）。
+      {
+        const bad = [];
+        const nodesAll = [].concat(...ids.map((id) => classes[id].nodes), RPG.data.skillTree);
+        for (const n of nodesAll) {
+          const ks = (n.effects || []).map((/** @type {any} */ e) => e.kind);
+          const d = n.desc || '';
+          if (/肩代わり/.test(d) && !ks.includes('guard_ally')) bad.push(`${n.id}: 肩代わりと書いて guard_ally が無い`);
+          if (ks.includes('damage_share') && !/分け/.test(d)) bad.push(`${n.id}: damage_share なのに「分ける」と書いていない`);
+        }
+        assertTrue('§12 肩代わり（庇う）と分配の説明が効果の向きと合っている', bad.length === 0, bad.join(' / '));
+      }
+
       // 効果の畳み込みがツリーと同じ経路を通っているか
       const save = { level: 100, klass: 'cls_guardian', klassTree: { gd_guard: 3 } };
       const fx = RPG.klass.effects(save);
