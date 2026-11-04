@@ -223,6 +223,10 @@ function run(o) {
   let guard = 0;
   let minHp = 1;
   let dealt = 0;
+  // 弱点コンボ (§10.6)。味方が攻撃した直後の段数を数える。
+  // **オートでも積む。** 段は「属性有利を突いた／相手が弱体中」で伸び、手動かどうかは見ていない
+  // （battle.js updateCombo）。以前「オートはコンボを組めない」と書かれていたのは誤りだった。
+  let comboSum = 0, comboN = 0, comboAtMax = 0;
   let prevFoe = foeHp();
   const downed = new Set();
 
@@ -243,6 +247,11 @@ function run(o) {
     const a = R.autoplay.chooseAction(b);
     if (!a) break;
     R.battle.perform(b, a, { auto: true });
+    if (actor && actor.side === 'party' && b.combo) {
+      const max = R.battle.comboMax(b);
+      comboSum += b.combo.count; comboN++;
+      if (b.combo.count >= max) comboAtMax++;
+    }
 
     const now = foeHp();
     if (now < prevFoe) dealt += prevFoe - now;
@@ -266,6 +275,8 @@ function run(o) {
     hpLeft: tot ? cur / tot : 0,
     downed: downed.size,
     dealt,
+    combo: { avg: comboN ? comboSum / comboN : 0, atMax: comboN ? comboAtMax / comboN : 0,
+      best: b.combo ? b.combo.best : 0 },
     stuck: guard >= 9000,
     battle: b,
   };
@@ -306,6 +317,9 @@ function repeat(n, fn, opts) {
     hpLeft: med(rows.map((r) => r.hpLeft)),
     downed: rows.reduce((s, r) => s + r.downed, 0) / n,
     dealt: med(rows.map((r) => r.dealt)),
+    // 弱点コンボ: 味方の攻撃直後の平均段数・上限に達していた割合（行動ごと）の平均
+    comboAvg: rows.reduce((s, r) => s + ((r.combo && r.combo.avg) || 0), 0) / n,
+    comboAtMax: rows.reduce((s, r) => s + ((r.combo && r.combo.atMax) || 0), 0) / n,
     stuck: rows.filter((r) => r.stuck).length,
     rows,
   };
