@@ -1790,7 +1790,7 @@ RPG.data.skillTree = [
   {
     id: 'tr_wave_revive', tier: 'basic', name: '不撓', cost: 3, maxLevel: 3,
     effects: [{ kind: 'wave_revive', value: 0.15 }],
-    desc: 'ウェーブが変わるとき、倒れていてもHP15%で立ち上がる',
+    desc: 'ウェーブが変わるとき（塔では階を上がるとき）、倒れていてもHP15%で立ち上がる',
   },
 
   /* ===== 初級で覚える技 (§5.8) ===== */
@@ -2050,18 +2050,18 @@ RPG.data.skillTree = [
   {
     id: 'tr_wave_revive_mid', tier: 'mid', name: '不屈の魂', cost: 4, maxLevel: 3,
     effects: [{ kind: 'wave_revive', value: 0.3 }],
-    desc: 'ウェーブが変わるとき、倒れていてもHP30%で立ち上がる',
+    desc: 'ウェーブが変わるとき（塔では階を上がるとき）、倒れていてもHP30%で立ち上がる',
   },
   /* ===== 呼び戻し（回復役が味方を起こす）=====
    * 不撓・不屈の魂は**自分**が起き上がる。こちらは持ち主が立っている限り**味方**を起こす。
    * 回復役は、塔では一撃で落ちる味方に回復が間に合わず、落ちた者は次の階に戻らない
    * （蘇生の技は readyRound 3〜4 で、2ラウンドで終わる塔の1階には間に合わない）。
    * 「倒れさせない」守り役に対して、「倒れたあとを立て直す」役の道として足した。
-   * 塔ではボス階の休息（5階ごと）でだけ働く。毎階戻ると塔の緊張が消えるため。 */
+   * 塔では階を上がるたびに働く（ウェーブの切り替わりと同じ扱い。src/core/tower.js）。 */
   {
     id: 'tr_rally_revive', tier: 'mid', name: '呼び戻しの祈り', cost: 4, maxLevel: 3,
     effects: [{ kind: 'rally_revive', value: 0.15 }],
-    desc: '自分が立っていれば、ウェーブの切り替わりと塔のボス階の休息で、倒れた味方をHP15%で起こす',
+    desc: '自分が立っていれば、ウェーブの切り替わりと塔の階を上がるときに、倒れた味方をHP15%で起こす',
   },
   {
     id: 'tr_rally_revive_hi', tier: 'high', name: '還し人', cost: 6, maxLevel: 2,
@@ -2156,7 +2156,7 @@ RPG.data.skillTree = [
   {
     id: 'tr_wave_revive_hi', tier: 'high', name: '輪廻', cost: 6, maxLevel: 2,
     effects: [{ kind: 'wave_revive', value: 0.6 }],
-    desc: 'ウェーブが変わるとき、倒れていてもHP60%で立ち上がる',
+    desc: 'ウェーブが変わるとき（塔では階を上がるとき）、倒れていてもHP60%で立ち上がる',
   },
   {
     // 元は 8SP × 3段（1段あたり6%）だった。SPあたりの効率は特化型より

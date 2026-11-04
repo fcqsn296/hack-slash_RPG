@@ -223,16 +223,25 @@
     }
 
     // ボス階を越えたら少し立て直せる
+    // ── 階を上がるのは、ウェーブの切り替わりと同じ扱い ──
+    // 塔は1階＝1戦なので、ウェーブの切り替わりで働く起き上がり（不撓 wave_revive・
+    // 呼び戻し rally_revive）が一度も働かなかった。連戦の中で倒れた者を立て直すための
+    // 効果なのに、いちばん連戦らしい塔で死んでいた。階の移動でも同じ規則で起こす。
+    // どちらも振っていなければ、従来どおり倒れた仲間は戻らない（緊張はそこに残る）。
+    const rally = RPG.battle.rallyReviveOf(battle.party);
+    for (const unit of battle.party) {
+      if (hp[unit.id] > 0) continue;
+      const self = (unit.passives && unit.passives.waveRevive) || 0;
+      const up = Math.min(1, Math.max(self, rally));
+      if (up > 0) hp[unit.id] = up;
+    }
+
     let healed = false;
     if (isBossFloor(floor)) {
       healed = true;
-      // 呼び戻し（rally_revive）を持つ者が立っていれば、倒れた仲間をここで起こす。
-      // 持っていなければ従来どおり、倒れた仲間は起き上がらない。
-      // 休息（ボス階）だけにしてある。毎階起こすと「倒れても次の階で戻る」になり、塔の緊張が消える。
-      const rally = RPG.battle.rallyReviveOf(battle.party);
       for (const id of Object.keys(hp)) {
+        // 休息で回復するのは、立っている者（起き上がった者を含む）だけ。
         if (hp[id] > 0) hp[id] = Math.min(1, hp[id] + RPG.data.tower.restHeal);
-        else if (rally > 0) hp[id] = rally;
       }
     }
 

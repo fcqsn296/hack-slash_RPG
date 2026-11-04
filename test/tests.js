@@ -7772,10 +7772,30 @@
         };
         if (RPG.state.get().party.length >= 2) {
           const up = run(true);
+          // 起こしてから休息の回復が乗る（起き上がった者も立っている者として回復する）
+          const want = Math.min(1, 0.4 + RPG.data.tower.restHeal);
           assertTrue('塔: 呼び戻しを持つ者が立っていれば、休息で倒れた仲間が起きる',
-            Math.abs(up - 0.4) < 1e-9, String(up));
+            Math.abs(up - want) < 1e-9, `${up}（期待 ${want}）`);
           assertTrue('塔: 持ち主も倒れていれば起きない', run(false) === 0, '');
         }
+      }
+
+      // --- 不撓（wave_revive）: 塔では階を上がるのがウェーブの切り替わりと同じ扱い ---
+      // 1階＝1戦なので、以前は塔で一度も働かなかった。休息（ボス階）でない階でも起きる。
+      {
+        const t = RPG.tower.store();
+        const up = (rate) => {
+          t.run = { floor: 3, hp: {}, cleared: 2, startedAt: 0 };
+          const battle = RPG.tower.enter();
+          battle.victory = true; battle.finished = true;
+          battle.party[0].alive = false; battle.party[0].hp = 0;
+          battle.party[0].passives.waveRevive = rate;
+          for (const u of battle.party) u.passives.rallyRevive = 0;
+          RPG.tower.resolve(battle);
+          return t.run.hp[battle.party[0].id];
+        };
+        assertTrue('塔: 不撓を持つ者は、休息でない階でも次の階で立ち上がる', Math.abs(up(0.3) - 0.3) < 1e-9, String(up(0.3)));
+        assertTrue('塔: 不撓が無ければ戻らない', up(0) === 0, '');
       }
 
       // --- 到達報酬は記録更新時のみ ---
