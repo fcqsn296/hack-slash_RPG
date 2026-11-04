@@ -1159,7 +1159,7 @@
         'low_hp_guard', 'reflect', 'front_power', 'back_guard',
         'round_stack', 'hit_stack', 'party_size_power', 'solo_power',
         'mono_element_power', 'rainbow_power',
-        'weak_hunter', 'neutral_power', 'weak_guard', 'crit_pierce',
+        'weak_hunter', 'neutral_power', 'weak_guard', 'crit_pierce', 'crit_cap',
         'first_hit_crit', 'overkill_carry', 'status_on_hit',
         'kill_extra_action', 'debuff_spread', 'all_spread',
         // 状態異常・会心の広がり・手の選び方 (§5.8)
@@ -1416,6 +1416,29 @@
       assertNear('背水: 満タンなら効果なし', dmg({ lowHpPower: 0.8, hpRatio: 1 }), 1000, 0);
       assertNear('背水: HP50%で+40%', dmg({ lowHpPower: 0.8, hpRatio: 0.5 }), 1400, 0);
       assertNear('背水: 瀕死で+80%', dmg({ lowHpPower: 0.8, hpRatio: 0 }), 1800, 0);
+
+      // 壁抜き (crit_cap、暗殺者/必殺)。会心した一撃だけ、上限で削られた後の値が (1+値) 倍。
+      // 壁を広げる形で一度書いたが、終盤の一撃は上限の十倍を越えていて +70% でも与ダメ +3% だった。
+      // 上限を極端に下げ（capBreak −0.9999 → 上限50）、素点1000の一撃を深く越えさせて見る。
+      {
+        const deep = (/** @type {any} */ atk, /** @type {boolean} */ crit) => dmg(
+          Object.assign({ capBreak: -0.9999, critDamage: -0.5 }, atk), null, { crit });
+        // critDamage −0.5 で会心倍率を等倍にし、会心そのものの差を消してから比べる
+        const plain = deep({}, true), cut = deep({ critCap: 0.5 }, true);
+        assertNear('壁抜き: 会心した一撃は上限後の値が ×1.5', cut / plain, 1.5, 0.02);
+        assertNear('壁抜き: 会心しない一撃には何も起きない', deep({ critCap: 0.5 }, false), deep({}, false), 0);
+        // 上限に届かない一撃は変わらない（素点を超えて伸びない）
+        assertNear('壁抜き: 上限に届かない一撃は変わらない',
+          dmg({ critCap: 0.5, critDamage: -0.5 }, null, { crit: true }),
+          dmg({ critDamage: -0.5 }, null, { crit: true }), 0);
+        // 正義と重ねると掛け算になる
+        const both = dmg(Object.assign({ capBreak: -0.9999, critDamage: -0.5, critCap: 0.5 }), null, { crit: true, judgedCap: 1 });
+        assertNear('壁抜き: 正義とは掛け算で重なる', both / plain, 3, 0.05);
+        // 必殺の派生だけが持つ（極で +50%、痛打の極み3段で +30%）
+        const lethal = RPG.klass.effects({ level: 255, klass: 'cls_assassin',
+          klassTree: { as_lethal: 1, as_l_dmg: 3 } });
+        assertNear('壁抜き: 必殺の極と痛打の極みで +80%', lethal.situational.critCap, 0.8, 0.001);
+      }
 
       assertNear('万全: 満タンで+45%', dmg({ highHpPower: 0.45, hpRatio: 1 }), 1450, 0);
       assertNear('万全: 瀕死なら効果なし', dmg({ highHpPower: 0.45, hpRatio: 0 }), 1000, 0);
@@ -2278,7 +2301,10 @@
           assertTrue('§21 恋人: 利と害が両方書いてある', !!lv.boon && !!lv.bane, '');
 
           const mk = (n) => {
-            const ids = ['ch_hero', 'ch_mia', 'ch_gow', 'ch_gald'];
+            // 4人目（札を持たない側）は、痛みを引き受けるパッシブを持たない仲間にする。
+            // ガルドは固有パッシブで味方の被害を15%肩代わりするようになり（2026-11）、
+            // 「札を持たない味方には及ばない」が庇いの分だけ揺れて落ちた。
+            const ids = ['ch_hero', 'ch_mia', 'ch_gow', 'ch_ryn'];
             const party = ids.map((id, i) => {
               const u = RPG.units.buildCharacterUnit(
                 { id, level: 200, exp: 0, limitBreak: 0, tree: {}, equipped: {},
@@ -11487,6 +11513,7 @@
           midPowerBoost: (r) => (r.unit.situational || {}).midPowerBoost,
           midPowerCap: (r) => (r.unit.situational || {}).midPowerCap,
           critPierce: (r) => r.attacker.critPierce,
+          critCap: (r) => r.attacker.critCap,
           execute: (r) => r.attacker.execute,
           bossSlayer: (r) => r.attacker.bossSlayer,
           debuffAmp: (r) => r.attacker.debuffAmp,

@@ -1115,13 +1115,18 @@ RPG.data.classes = {
       {
         // ── 極点 (§12) ──
         branch: 'br_as_lethal',
+        // 会心率・倍率は上限の手前で掛かる。終盤（素点が上限の十倍前後）では1/10に薄まり、
+        // 必殺の派生は幹だけ振るより弱かった（HP×100 のボス 9〜11R 対 幹のみ 8〜9R、
+        // 位相 7R 対 6R、この極を外したほうが与ダメが多い）。壁抜き (crit_cap) を足し、
+        // 主人公に就けて 97M → 139M（ボス10R）。値は正義（+100%・条件付き）を越えない。
         id: 'as_lethal', name: '【極】必殺の理', cost: 6, maxLevel: 1,
         effects: [
           { kind: 'crit', value: 0.5 },
           { kind: 'crit_damage', value: 1.2 },
+          { kind: 'crit_cap', value: 0.5 },
           { kind: 'stat_cost', stat: 'def', value: -0.6 },
         ],
-        desc: 'クリティカル率 +50%、倍率 +1.2。ただし DEF -60%',
+        desc: 'クリティカル率 +50%、倍率 +1.2。会心した一撃は上限で削られた後の値が +50%。ただし DEF -60%',
       },
       /* ── 上限を伸ばしてから触る帯 (§12)。全部で73点かかる ── */
       {
@@ -1172,8 +1177,8 @@ RPG.data.classes = {
       {
         branch: 'br_as_lethal',
         id: 'as_l_dmg', name: '痛打の極み', cost: 2, maxLevel: 3,
-        effects: [{ kind: 'crit_damage', value: 0.15 }],
-        desc: 'クリティカル倍率 +0.15',
+        effects: [{ kind: 'crit_damage', value: 0.15 }, { kind: 'crit_cap', value: 0.10 }],
+        desc: 'クリティカル倍率 +0.15。会心した一撃は上限で削られた後の値が +10%',
       },
       {
         branch: 'br_as_lethal',

@@ -159,6 +159,45 @@ function invest(charSave, priority, opts) {
 }
 
 /**
+ * クラスに就かせてクラスポイントを振る。
+ *
+ * ── なぜ要るのか ──
+ * 測定用のセーブ（REFERENCE を土台に作ったもの）は**誰もクラスに就いていない**。
+ * そのまま測ると、クラスの素質も派生も一度も効いていない編成で結論を出すことになる。
+ * 2026-11 までのユニーク・セット・ツリーの測定はすべてクラス無しだった。
+ *
+ * 振る順: priority → 派生のノード（定義順） → 幹のノード（定義順）。
+ * 派生を先に振るのは、派生を選んだ意味（技・極）が51点に収まるようにするため。
+ * Lv255 で51点、幹50〜57点＋派生32〜38点なので、幹の後ろのほうは取りきれない。
+ *
+ * @param {any} charSave 破壊的に変更する
+ * @param {string|null} classId null ならクラスを外す
+ * @param {{branch?: string|null, priority?: string[], ban?: string[]}} [opts]
+ *   branch: 振る派生（null/省略なら派生に振らず幹だけ）
+ */
+function investClass(charSave, classId, opts) {
+  const R = RPG();
+  const o = opts || {};
+  charSave.klass = classId || null;
+  charSave.klassTree = {};
+  if (!classId) return charSave;
+  const def = R.data.classes[classId];
+  if (!def) throw new Error('investClass: 不明なクラス ' + classId);
+  if (o.branch && !(def.branches || {})[o.branch]) throw new Error('investClass: ' + classId + ' に派生 ' + o.branch + ' は無い');
+  const ban = o.ban || [];
+  const pool = (o.priority || [])
+    .concat(def.nodes.filter((n) => o.branch && n.branch === o.branch).map((n) => n.id))
+    .concat(def.nodes.filter((n) => !n.branch).map((n) => n.id));
+  let guard = 0;
+  while (guard++ < 500) {
+    const next = pool.find((id) => ban.indexOf(id) < 0 && R.klass.canInvest(charSave, id).ok);
+    if (!next) break;
+    charSave.klassTree[next] = (charSave.klassTree[next] || 0) + 1;
+  }
+  return charSave;
+}
+
+/**
  * 戦闘を1回回す。
  *
  * @param {object} o
@@ -430,6 +469,6 @@ function climb(o) {
 }
 
 module.exports = {
-  load, RPG, useSave, invest, run, repeat, fmt, calc, statusCap, ignoresCap, table, climb,
+  load, RPG, useSave, invest, investClass, run, repeat, fmt, calc, statusCap, ignoresCap, table, climb,
   get ctx() { return ctx; },
 };

@@ -300,7 +300,7 @@
     'solo_buff', 'self_buff_lock', 'ally_heal_lock', 'buff_cap',
     'high_power_cap', 'mid_power_boost', 'mid_power_cap',
     'counter_power', 'crit', 'crit_combo', 'crit_damage', 'crit_execute', 'crit_heal',
-    'crit_pierce', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
+    'crit_pierce', 'crit_cap', 'crit_spread', 'crit_stack', 'damage_share', 'debuff_amp',
     'debuff_duration', 'debuff_resist', 'debuff_spread', 'def_to_atk', 'double_hits',
     'escalate',
     'dual_element', 'element_adapt', 'element_convert', 'element_crit', 'element_mastery',
@@ -541,6 +541,7 @@
       neutralPower: 0,        // 等倍のときに伸びる（無属性ビルドの受け皿）
       weakGuard: 0,           // 弱点を突かれたときの被害を減らす
       critPierce: 0,          // 会心のときだけ防御を無視する割合
+      critCap: 0,             // 会心した一撃を上限の先へ押し出す（上限後の値に掛かる）
       // §5.8
       highPowerBoost: 0,      // 威力の大きい技だけを底上げする
       highPowerCap: 0,        // 威力の大きい技だけ上限を押し上げる (§5.16)
@@ -718,6 +719,7 @@
           case 'neutral_power': situational.neutralPower += amount; break;
           case 'weak_guard': situational.weakGuard += amount; break;
           case 'crit_pierce': situational.critPierce += amount; break;
+          case 'crit_cap': situational.critCap += amount; break;
           case 'element_power':
             // element: 'all' なら全属性まとめて。属性を絞るほど1段あたりが大きい。
             for (const el of (e.element === 'all' ? ELEMENTS : [e.element])) {

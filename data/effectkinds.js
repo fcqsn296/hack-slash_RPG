@@ -103,6 +103,10 @@ RPG.data.effectKinds = {
   crit_execute: { to: 'situational', shape: 'add', uniq: null, key: 'critExecute', label: '瀕死の相手に会心しやすい', fmt: 'pct' },
   crit_heal: { to: 'passives', shape: 'add', uniq: null, key: 'critHeal', label: '回復が会心する', fmt: 'pct' },
   crit_pierce: { to: 'situational', shape: 'add', uniq: 'critPierce', route: 'situational', key: 'critPierce', label: '会心時に防御を無視', fmt: 'pct' },
+  // 会心した一撃は、上限で削られたあとの値が (1+値) 倍になる（上限が無かった場合の値は超えない）。
+  // 会心率・会心倍率はどちらも上限の手前で掛かるので、終盤（素点が上限の数倍）では1/10に薄まる。
+  // 会心へ投資した型が上限の先へ届く手がこれしか無い。形は正義 (§21) の judgedCap と同じ。
+  crit_cap: { to: 'situational', shape: 'add', uniq: 'critCap', route: 'situational', key: 'critCap', label: '会心の一撃が上限を押し切る', fmt: 'pct' },
   crit_spread: { to: 'passives', shape: 'add', uniq: null, key: 'critSpread', label: '会心が他の敵へこぼれる', fmt: 'pct' },
   crit_stack: { to: 'passives', shape: 'add', uniq: null, key: 'critStack', label: '会心するほど会心率上昇', fmt: 'pct' },
   damage_share: { to: 'passives', shape: 'add', uniq: null, key: 'damageShare', label: '被害を味方で分ける', fmt: 'pct' },

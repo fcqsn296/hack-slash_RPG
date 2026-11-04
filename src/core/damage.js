@@ -159,6 +159,7 @@
    * @property {number} [weakHunter]            弱点狩り。素で有利を取れたときに伸びる (§5.7)
    * @property {number} [neutralPower]          等倍のときに伸びる。無属性ビルドの受け皿 (§5.7)
    * @property {number} [critPierce]            会心のときだけ防御を無視する割合 (§5.7)
+   * @property {number} [critCap]               会心した一撃の、上限で削られた後の値に掛かる倍率加算
    * @property {number} [critExecute]           会心したときだけ追い打ちが強くなる (§5.8)
    * @property {number} [fullHpFoePower]        HPが減っていない敵への火力 (§5.8)
    * @property {boolean} [isBoss]               自分がボスか。相手の「巨獣への備え」判定に使う (§5.8)
@@ -622,7 +623,19 @@
     //
     // この形なら、上限に届かない一撃には何も起きず（札の文面どおり）、
     // 上限を越えた一撃は、越え方が深いほど (1 + 値) 倍に近づく。途中で段差も生じない。
-    const judged = options.judgedCap || 0;
+    // 「壁抜き」(crit_cap、暗殺者/必殺) — 会心した一撃も正義と同じ形で引き上げる。
+    //
+    // @知見: 会心率・会心倍率は上限の手前で掛かるので、終盤は減衰（×0.1）に吸われて会心への投資が1/10になる
+    //
+    // 必殺の派生は会心率と倍率しか持たず、終盤のボス戦で「幹だけ振る」にすら負けていた
+    // （主人公の覇王斬は素点 15M に対して上限後 2.7M）。最初は壁を広げる形で書いたが、
+    // +70% でも与ダメ +3% だった（上の正義の注記と同じ理由）。上限の後で掛ける形にした。
+    // 正義（+100%・裁きを耐えたときだけ）を越えない値にとどめ、会心しない一撃には何も起きない。
+    const critCap = crit ? (attacker.critCap || 0) : 0;
+    // critCap が 0 のときは掛け算を通さない。(1+x)·1−1 は浮動小数で x とずれ、
+    // 床関数を挟んで正義・運命の輪の一撃が1だけ変わる（検証テストの恋人で実際に出た）。
+    const judged = critCap > 0
+      ? (1 + (options.judgedCap || 0)) * (1 + critCap) - 1 : (options.judgedCap || 0);
     const plainCapped = options.ignoreCap ? raw : applyCap(raw, capTotal);
     const capped = judged > 0 && plainCapped < raw
       ? Math.min(raw, plainCapped * (1 + judged)) : plainCapped;

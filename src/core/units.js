@@ -640,6 +640,7 @@
       weakHunter: s.weakHunter || 0,
       neutralPower: s.neutralPower || 0,
       critPierce: s.critPierce || 0,
+      critCap: s.critCap || 0,             // 会心した一撃を上限の先へ押し出す
       // §5.8
       critExecute: s.critExecute || 0,
       fullHpFoePower: s.fullHpFoePower || 0,
