@@ -118,6 +118,13 @@ function useSave(save, partyIds, mutate) {
   }
   const s = JSON.parse(JSON.stringify(game));
   if (partyIds) s.party = partyIds.slice();
+  // ── 同じキャラが編成に2回入っていたら止める ──
+  // 主人公は LEGEND なので「LEGEND の先頭3人＋主人公」で組むと主人公が2回入る。
+  // 装備は「1つを1人だけ」なので片方が素手になり、編成が黙って弱くなる。
+  // 実際それで蝕む相の効きを 26/48→46/48 と過大に見積もった（正しい編成では 44/48→48/48）。
+  // @知見: 測定用の編成に主人公が2回入ると片方が素手になる。LEGEND の一覧には主人公も含まれる
+  const dup = (s.party || []).filter((id, i, a) => a.indexOf(id) !== i);
+  if (dup.length) throw new Error('編成に同じキャラが2回入っている: ' + dup.join(', '));
   if (mutate) mutate(s.characters, s);
   ctx.localStorage.setItem(R.state.STORAGE_KEY, JSON.stringify(s));
   R.state.load();
