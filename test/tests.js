@@ -11422,6 +11422,8 @@
           statusImmune: (r) => r.unit.passives.statusImmune,
           statusOnHit: (r) => r.unit.passives.statusOnHit,
           rallyRevive: (r) => r.unit.passives.rallyRevive,
+          roundStack: (r) => r.unit.passives.roundStack,
+          wavePower: (r) => r.unit.passives.wavePower,
           evade: (r) => r.unit.passives.evade,
           focusPower: (r) => r.unit.passives.focusPower,
           relayPower: (r) => r.unit.passives.relayPower,

@@ -397,7 +397,8 @@ RPG.data.effectKinds = {
   regen: { to: 'passives', shape: 'add', uniq: null, key: 'regen', label: '毎ラウンド回復', fmt: 'pct' },
   repeat_power: { to: 'passives', shape: 'add', uniq: null, key: 'repeatPower', label: '同じ技を続けるほど火力', fmt: 'pct' },
   revive: { to: 'passives', shape: 'max', uniq: 'reviveHp', route: 'build', key: 'reviveHp', label: '復活時のHP', fmt: 'pct' },
-  round_stack: { to: 'passives', shape: 'add', uniq: null, key: 'roundStack', label: 'ラウンドごとに火力', fmt: 'pct' },
+  // ラウンドごと・最終ウェーブはユニーク装備（『刻みの指輪』『持久の護符』『決戦の剣』『決戦の書』）から使えるよう開けた
+  round_stack: { to: 'passives', shape: 'add', uniq: 'roundStack', route: 'passives', key: 'roundStack', label: 'ラウンドごとに火力', fmt: 'pct' },
   self_curse_power: { to: 'passives', shape: 'add', uniq: 'selfCursePower', route: 'passives', key: 'selfCursePower', label: '自分の弱体1つにつき火力', fmt: 'pct' },
   shield_regen: { to: 'passives', shape: 'add', uniq: 'shieldRegen', route: 'passives', key: 'shieldRegen', label: '毎ラウンド障壁を張り直す', fmt: 'pct' },
   sigil_burst: { to: 'passives', shape: 'add', uniq: 'sigilBurst', route: 'passives', key: 'sigilBurst', label: '刻印の炸裂', fmt: 'pct' },
@@ -419,7 +420,7 @@ RPG.data.effectKinds = {
   variety_power: { to: 'passives', shape: 'add', uniq: 'varietyPower', route: 'passives', key: 'varietyPower', label: '技を変えると火力', fmt: 'pct' },
   vs_status_power: { to: 'passives', shape: 'keyed', needs: ["status"], uniq: null, key: 'vsStatusPower', label: '弱体中の敵への火力', fmt: 'keyed' },
   wave_heal: { to: 'passives', shape: 'add', uniq: null, key: 'waveHeal', label: 'ウェーブ移行時に回復', fmt: 'pct' },
-  wave_power: { to: 'passives', shape: 'add', uniq: null, key: 'wavePower', label: '最終ウェーブの火力', fmt: 'pct' },
+  wave_power: { to: 'passives', shape: 'add', uniq: 'wavePower', route: 'passives', key: 'wavePower', label: '最終ウェーブの火力', fmt: 'pct' },
   wave_revive: { to: 'passives', shape: 'max', uniq: null, key: 'waveRevive', label: 'ウェーブ移行時に復活', fmt: 'pct' },
   // 不撓（wave_revive）は**自分**が起き上がる。こちらは持ち主が立っている限り**味方**を起こす。
   // 回復役が「倒れたあとを立て直す」役になれるよう足した（塔では倒れた者が戻らず、
