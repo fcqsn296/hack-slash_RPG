@@ -344,6 +344,19 @@
         && !(noSelf && selfOnly(s.def)));
       if (buff) return { skillId: buff.id, targets: RPG.battle.targetKind(buff.def) === 'none' ? [] : [actor] };
 
+      // ── 迎撃の構え（counter_stance）は、殴られる者だけが張る ──
+      // 威力0で回復でもバフでもないので、一度も撃たれていなかった
+      // （守護者/修羅の報復の構え、エコーの返る音。4戦×10Rで0回）。
+      // 殴られなければ構えは1手の損になる。狙われやすさ・庇う・反撃のどれも持たない修羅に構えさせると、
+      // ボス戦の与ダメが 97M→81M に下がった（倒れない測定なので軽減の利は数えていない）。
+      // 狙われやすさ（挑発）か反撃を持つ型だけに絞る。反撃の型（エコー）は構えると
+      // 還らぬ位相 20/24→23/24・無の封絶 11/16→13/16（ボス10R は 180M→169M）で、倒れうる戦いでは得。
+      // 庇う（guardAlly）は数えない。守護者は幹の盾の誓いで誰でも持つので、攻め役の修羅まで構えてしまう。
+      const p = actor.passives || {};
+      const getsHit = (p.taunt || 0) > 0 || (p.counterRate || 0) > 0 || (p.counterAll || 0) > 0;
+      const stance = getsHit && !actor.stance && skills.find((s) => s.def.plugin === 'counter_stance');
+      if (stance) return { skillId: stance.id, targets: [] };
+
       // ── 照準（mark）も同じ扱いで張る ──
       // 威力0で回復でもバフでもないので、どの分岐にも入らず一度も撃たれていなかった
       // （戦術家/照準の総員狙撃、ツリーの狩りの合図。4戦×10Rで0回）。

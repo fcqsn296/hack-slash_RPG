@@ -5786,6 +5786,27 @@
           `選んだ技: ${RPG.data.skills[down.skillId].name}`);
       }
 
+      // --- 迎撃の構えは、殴られる者（挑発・反撃の型）だけが張る ---
+      // 威力0で回復でもバフでもないので、報復の構えも返る音も一度も撃たれていなかった。
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        const me = RPG.battle.currentActor(b);
+        const atk = me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]));
+        me.skills = [atk, 'sk_lg_echo_guard'];
+        me.passives = Object.assign({}, me.passives, { taunt: 0, counterRate: 0, counterAll: 0 });
+        const plain = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 狙われず反撃も持たない者は構えない', plain.skillId !== 'sk_lg_echo_guard',
+          `選んだ技: ${RPG.data.skills[plain.skillId].name}`);
+        me.passives.taunt = 0.4;
+        const tank = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 挑発を持つ者は構える', tank.skillId === 'sk_lg_echo_guard',
+          `選んだ技: ${RPG.data.skills[tank.skillId].name}`);
+        me.stance = { turns: 2, reduction: 0.35, skillId: null };
+        const kept = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 構えているあいだは構え直さない', kept.skillId !== 'sk_lg_echo_guard',
+          `選んだ技: ${RPG.data.skills[kept.skillId].name}`);
+      }
+
       // --- 照準（mark）は、印の無い敵がいれば張る ---
       // 威力0で回復でもバフでもないので、総員狙撃も狩りの合図も一度も撃たれていなかった。
       {
