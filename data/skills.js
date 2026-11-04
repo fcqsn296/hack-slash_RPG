@@ -1637,4 +1637,30 @@ RPG.data.skills = {
       ratios: { curse: 0.60, freeze: 0.35, bleed: 0.35 }, all: true },
     desc: '名を剥ぎ取る。全員に呪詛・凍結・出血を刻む。',
   },
+
+  // ── 残っていたボス3体の専用の一手 ──
+  // 浅層・封絶区画のボスは物語モードでも出る。回廊は「どう組んでも安定して稼げる」狩場にしてある。
+  // どれも**置き換える技とほぼ同じ威力の単体技**にし、弱い異常を1つだけ乗せた。
+  // 個性は付けるが、難度は動かさない（測定は docs/作業ログ/終盤の張り合い.md）。
+  sk_enemy_copied_order: {
+    // 二番機ドゥオ。一番機の命令の写しを、写しのまま読み上げる
+    name: '写しの命令', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'reli', element: 'none',
+    power: 140, crit_rate: 0.10, params: { status: 'paralyze', turns: 1, ratio: 0.10 },
+    desc: '預かったままの命令を読み上げる。弱く麻痺させる。',
+  },
+  sk_enemy_withheld_key: {
+    // 初代管理機ウーヌス。渡す相手を待ち続けた鍵
+    name: '渡せぬ鍵', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+    power: 120, crit_rate: 0.05, params: { status: 'curse', turns: 2, ratio: 0.30 },
+    desc: '誰にも渡せなかった鍵を突きつける。呪詛を残し、回復を鈍らせる。',
+  },
+  sk_enemy_layered_face: {
+    // 累なる貌。重ねた顔のどれかの爪で裂く
+    name: '累ねの貌', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 145, crit_rate: 0.10, params: { status: 'bleed', turns: 2, ratio: 0.25 },
+    desc: '重ねた顔のひとつが牙を剥く。出血させる。',
+  },
 };

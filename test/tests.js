@@ -449,6 +449,14 @@
           lack.length ? '撒かれない: ' + lack.join(', ') : [...kinds].join(', '));
         assertTrue('敵: 撒く異常の種類が実在する', badStatus.length === 0, badStatus.join(' / ') || 'OK');
 
+        // フィールドのボスは、どれも自分だけの技を1つ以上持つ。
+        // テストプレイで「ボス12体に専用技が無く、汎用技の組み合わせだけ」と指摘されて足した。
+        const users = {};
+        for (const e of Object.values(RPG.data.enemies)) for (const sid of e.skills) users[sid] = (users[sid] || 0) + 1;
+        const plain = Object.values(RPG.data.fields).map((f) => f.boss)
+          .filter((id) => !RPG.data.enemies[id].skills.some((sid) => users[sid] === 1));
+        assertTrue('敵: フィールドのボスはどれも専用の技を持つ', plain.length === 0, plain.join(', ') || 'OK');
+
         // 敵の手番は enemiesAct が対象を決める。'ally' は敵の味方、それ以外は味方パーティの1人を渡す。
         // 下の一覧は「渡された対象をそう解釈する」と確かめたプラグインだけ。
         // コンボ・印・借りる手番などは味方側の資源を前提にしているので、敵に持たせると黙って壊れる。
