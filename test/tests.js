@@ -9777,6 +9777,9 @@
       // setEffects を読んでよいのは、battle.js が本当にそこから読むキーだけ。
       /** @param {any} x @param {string} k */
       const read = (x, k) => {
+        // 会心率はユニットでは baseCritRate に入り、toAttacker が critRate にする（units.js）。
+        // ユニークが会心率を持ったのは『極点の指輪』が初めてで、それまでこの読み口が無かった。
+        if (k === 'critRate') return x.baseCritRate || 0;
         if (x.passives && x.passives[k] != null) return x.passives[k];
         if (x.situational && x.situational[k] != null) return x.situational[k];
         if (READ_FROM_SET.includes(k) && x.setEffects && x.setEffects[k] != null) {
