@@ -11401,6 +11401,7 @@
           debuffResist: (r) => r.unit.passives.debuffResist,
           statusImmune: (r) => r.unit.passives.statusImmune,
           statusOnHit: (r) => r.unit.passives.statusOnHit,
+          rallyRevive: (r) => r.unit.passives.rallyRevive,
           evade: (r) => r.unit.passives.evade,
           focusPower: (r) => r.unit.passives.focusPower,
           relayPower: (r) => r.unit.passives.relayPower,

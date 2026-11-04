@@ -424,7 +424,7 @@ RPG.data.effectKinds = {
   // 不撓（wave_revive）は**自分**が起き上がる。こちらは持ち主が立っている限り**味方**を起こす。
   // 回復役が「倒れたあとを立て直す」役になれるよう足した（塔では倒れた者が戻らず、
   // 蘇生の技は readyRound で2ラウンドの戦いに間に合わなかった）。塔ではボス階の休息で働く。
-  rally_revive: { to: 'passives', shape: 'max', uniq: null, key: 'rallyRevive', label: '戦いの合間に味方を起こす', fmt: 'pct' },
+  rally_revive: { to: 'passives', shape: 'max', uniq: 'rallyRevive', route: 'passives', key: 'rallyRevive', label: '戦いの合間に味方を起こす', fmt: 'pct' },
   wave_stack: { to: 'passives', shape: 'add', uniq: null, key: 'waveStack', label: 'ウェーブごとに火力', fmt: 'pct' },
   weak_guard: { to: 'situational', shape: 'add', uniq: null, key: 'weakGuard', label: '不利属性で受ける被害を軽減', fmt: 'pct' },
   weak_hunter: { to: 'situational', shape: 'add', uniq: null, key: 'weakHunter', label: '有利を取れたときの火力', fmt: 'pct' },
