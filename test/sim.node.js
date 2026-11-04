@@ -188,6 +188,8 @@ function invest(charSave, priority, opts) {
  * @param {boolean} [o.immortal] 耐久を切り離す（火力だけを見たいとき）
  * @param {number} [o.maxRounds] 強制的に打ち切る（決着しない条件を測るとき）
  * @param {string[]} [o.aspectIds] 異相のID（例: ['as_afflict']）
+ * @param {string} [o.arenaId] 闘技場のボスID。指定すると fieldId などは無視して闘技場で戦う
+ * @param {boolean} [o.hard] 闘技場のハード
  * @param {(b:any, actor:any) => void} [o.onAction] 各行動の直後
  * @param {(b:any) => void} [o.onWave] ウェーブ開始直後（敵を弄るならここ）
  */
@@ -213,7 +215,8 @@ function run(o) {
   if (o.enemyScale != null) cfg.enemyScale = o.enemyScale;
   // 異相（§22）。画面で選ぶのと同じ形で渡す。解放条件（ボス撃破）は見ない
   if (o.aspectIds) cfg.aspectIds = o.aspectIds;
-  const b = R.battle.start(cfg);
+  // 闘技場 (§17)。器は battle.start の流用で、編成はセーブの party から取る（o.party は効かない）
+  const b = o.arenaId ? R.arena.start(o.arenaId, { hard: !!o.hard }) : R.battle.start(cfg);
 
   const foeHp = () => b.enemies.reduce((s, e) => s + Math.max(0, e.hp), 0);
   if (o.onWave) o.onWave(b);

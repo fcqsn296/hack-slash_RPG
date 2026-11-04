@@ -8865,6 +8865,27 @@
           `${RPG.battle.kindOf(b)} / ${RPG.battle.kindOf(hard)}`);
       }
 
+      // --- 闘技場のボスと取り巻きは、定義に書いた技だけを使う ---
+      // 流用元の敵に状態異常の技を足したら、1ラウンドに3〜4回動くボスで全体異常が重なり、
+      // 千葬の守り手 24/24→5/24 まで落ちた。闘技場の仕掛けを守るため、技を定義で固定してある。
+      {
+        const bad = [];
+        for (const def of RPG.arena.bosses()) {
+          const b = RPG.arena.start(def.id);
+          const main = b.enemies.find((/** @type {any} */ e) => e.arenaBoss);
+          if (def.skills && JSON.stringify(main.skills) !== JSON.stringify(def.skills)) bad.push(def.id);
+          const adds = b.enemies.filter((/** @type {any} */ e) => !e.arenaBoss);
+          let i = 0;
+          for (const add of def.adds || []) {
+            for (let k = 0; k < add.count; k++, i++) {
+              if (add.skills && JSON.stringify(adds[i].skills) !== JSON.stringify(add.skills)) bad.push(def.id + '/' + add.enemyId);
+            }
+          }
+          if (!def.skills) bad.push(def.id + '（技が未指定）');
+        }
+        assertTrue('闘技場: ボスと取り巻きは定義に書いた技を使う', bad.length === 0, bad.join(', ') || 'OK');
+      }
+
       // 種類の判定が、どの戦闘でも取り違えないこと。
       // 決着後の「もう一度」と「戻り先のタブ」が、両方ともこれを見ている。
       {

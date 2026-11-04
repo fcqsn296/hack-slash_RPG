@@ -40,6 +40,12 @@ RPG.data.arena = {
   /** 挑戦できるようになる主人公のレベル。 */
   unlockLevel: 60,
 
+  // ── 技は闘技場の側で決めている（skills） ──
+  // ボスは既存の敵を流用するが、**技まで流用すると、フィールドの敵を直したときに闘技場が黙って変わる。**
+  // 敵に状態異常の技を足したとき（docs/作業ログ/敵の技と状態異常.md）、闘技場のボスは1ラウンドに
+  // 3〜4回動くので全体異常が3〜4回飛び、千葬の守り手 24/24→5/24・闘技場の主 12/24→0/24 まで落ちた。
+  // 各ボスの仕掛けは「名指しで否定する」形で測ってあるので、技はここで固定する。
+  // 書いていなければ流用元の敵の技を使う（src/core/arena.js）。
   bosses: [
 
     /* ---------- A: 属性の否定 ---------- */
@@ -47,6 +53,7 @@ RPG.data.arena = {
       id: 'ar_null_sovereign',
       name: '無貌の簒奪者', title: '属性を持たぬもの',
       enemyId: 'em_null_weaver',
+      skills: ['sk_enemy_devour', 'sk_enemy_wither', 'sk_enemy_stain'],
       lv: 100, scale: 26,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -67,6 +74,7 @@ RPG.data.arena = {
       id: 'ar_prism_eater',
       name: '虹を喰らう獣', title: '有利を糧とするもの',
       enemyId: 'em_solar_seraph',
+      skills: ['sk_enemy_judgment', 'sk_enemy_dragon_breath'],
       lv: 110, scale: 34,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -97,6 +105,7 @@ RPG.data.arena = {
       id: 'ar_shielded_tyrant',
       name: '三重の守護者', title: '守られしもの',
       enemyId: 'bs_ruin_keeper',
+      skills: ['sk_enemy_pulse', 'sk_enemy_crush', 'sk_enemy_devour'],
       lv: 105, scale: 24,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -106,7 +115,7 @@ RPG.data.arena = {
       color: '#7fb3ff',
       // 取り巻きは「壁」。倒すまで本体に一切通らない。
       adds: [
-        { enemyId: 'em_glass_sentinel', lv: 95, scale: 1.6, count: 3 },
+        { enemyId: 'em_glass_sentinel', lv: 95, scale: 1.6, count: 3, skills: ['sk_enemy_crush', 'sk_enemy_pulse'] },
       ],
       desc: '3体の衛士に守られ、衛士が立っている限り傷ひとつ付かない。',
       hint: '全体攻撃で薄く削っても本体には届かない。衛士を1体ずつ落とす順番が要る。',
@@ -123,6 +132,7 @@ RPG.data.arena = {
       id: 'ar_one_moment',
       name: '刹那の巨兵', title: '一度きりを見るもの',
       enemyId: 'em_void_titan',
+      skills: ['sk_enemy_crush', 'sk_enemy_pulse'],
       lv: 115, scale: 20,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -143,6 +153,7 @@ RPG.data.arena = {
       id: 'ar_thousand_ward',
       name: '千葬の守り手', title: '数を数えるもの',
       enemyId: 'em_hollow_choir',
+      skills: ['sk_enemy_judgment', 'sk_enemy_wither'],
       lv: 115, scale: 13,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -182,6 +193,7 @@ RPG.data.arena = {
       id: 'ar_last_hour',
       name: '終刻の審判者', title: '刻を数えるもの',
       enemyId: 'bs_ashen_monarch',
+      skills: ['sk_enemy_apocalypse', 'sk_enemy_dragon_breath', 'sk_enemy_judgment'],
       lv: 120, scale: 12,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -226,6 +238,7 @@ RPG.data.arena = {
       id: 'ar_the_warden',
       name: '闘技場の主', title: 'すべてを備えしもの',
       enemyId: 'bs_genesis_echo',
+      skills: ['sk_enemy_apocalypse', 'sk_enemy_devour', 'sk_enemy_judgment'],
       lv: 130, scale: 3,
       // 1発で受ける被害の上限（味方の最大HPに対する割合）。
       // 攻撃力を絞るだけでは技の威力と属性有利で貫かれるため、割合で頭を押さえる。
@@ -234,7 +247,7 @@ RPG.data.arena = {
       actionsPerRound: 3,
       color: '#ff8a4c',
       adds: [
-        { enemyId: 'em_first_flame', lv: 120, scale: 1.0, count: 2 },
+        { enemyId: 'em_first_flame', lv: 120, scale: 1.0, count: 2, skills: ['sk_enemy_dragon_breath', 'sk_enemy_apocalypse'] },
       ],
       desc: '属性を均し、衛士に守られ、手数を数え、そして刻を告げる。',
       hint: 'ここまでのすべてが同時に来る。1つのビルドでは足りない。',

@@ -167,6 +167,9 @@
     const main = RPG.units.buildEnemyUnit(def.enemyId, lv, true, 0, scale);
     main.name = def.name + (hard ? '（ハード）' : '');
     main.arenaBoss = true;
+    // 技は闘技場の定義で固定できる（data/arena.js の冒頭に理由）。
+    // 流用元の敵の技を直しても、闘技場の仕掛けの測り直しが要らないようにする。
+    if (def.skills) main.skills = def.skills.slice();
 
     // ハード専用の味付け (§17.2)。
     //
@@ -187,9 +190,11 @@
 
     for (const add of def.adds || []) {
       for (let i = 0; i < add.count; i++) {
-        enemies.push(RPG.units.buildEnemyUnit(
+        const u = RPG.units.buildEnemyUnit(
           add.enemyId, hard ? Math.max(add.lv, lv - 10) : add.lv,
-          false, enemies.length, hard ? add.scale * HARD_ADD_SCALE : add.scale));
+          false, enemies.length, hard ? add.scale * HARD_ADD_SCALE : add.scale);
+        if (add.skills) u.skills = add.skills.slice();
+        enemies.push(u);
       }
     }
     enemies.forEach((e, i) => { e.key = 'e' + i; });
