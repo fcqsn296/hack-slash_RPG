@@ -32,6 +32,20 @@ const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
 
+/**
+ * 無くても読み込みを続けてよいファイル。
+ *
+ * data/artprompts.js は商業作品名を含むので .gitignore で外してある。
+ * 手元にしか無く、クラウドなど clone しただけの環境には存在しない。
+ * ゲーム本体は読まず、test/index.html も無ければその節を飛ばす
+ * （tests.js は RPG.data.artPrompts が undefined なら飛ばす）。
+ * ここだけ必須にしていたせいで、clone 直後は sim が起動しなかった。
+ *
+ * **ここに足すのは「戦闘の計算に関わらないもの」だけ。**
+ * 規則のファイルを黙って飛ばすと、壊れたまま測ることになる。
+ */
+const OPTIONAL_SOURCES = new Set(['data/artprompts.js']);
+
 /** @type {any} 読み込んだゲームの入れ物 */
 let ctx = null;
 
@@ -68,6 +82,10 @@ function load(opts) {
     const rel = s.replace(/^\.\.\//, '');
     const patched = opts && opts.patch && opts.patch[rel];
     const file = patched ? path.resolve(ROOT, patched) : path.join(ROOT, 'test', s);
+    if (!patched && OPTIONAL_SOURCES.has(rel) && !fs.existsSync(file)) {
+      console.warn(`[sim] ${rel} が無いので飛ばした（公開対象外のファイル。測定には影響しない）`);
+      continue;
+    }
     vm.runInContext(fs.readFileSync(file, 'utf8'), ctx, { filename: rel });
   }
   return ctx.RPG;
