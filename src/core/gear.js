@@ -232,9 +232,10 @@
    *
    * @param {number} uid
    * @param {string} boxId
+   * @param {string} [fixedId] 指定すればそのユニークを作る（厳選で個体差だけ振り直すとき）
    */
-  function rollUnique(uid, boxId) {
-    const id = RPG.rng.pick(Object.keys(RPG.data.uniqueEquips));
+  function rollUnique(uid, boxId, fixedId) {
+    const id = fixedId || RPG.rng.pick(Object.keys(RPG.data.uniqueEquips));
     const def = RPG.data.uniqueEquips[id];
     const base = RPG.data.equipBases[def.base];
 

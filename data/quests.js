@@ -858,7 +858,7 @@ RPG.data.quests = {
   // 既存4枚が maxParty / maxRounds / allAlive を使っているので、ここは新しい規則。
   q_arcana_magician: {
     name: '一度きりの術式',
-    desc: '封絶の浅層を、同じ技を続けて使わずに抜ける。手札の広さを問う——魔術師の像そのもの。',
+    desc: '封絶区画を、同じ技を続けて使わずに抜ける。手札の広さを問う——魔術師の像そのもの。',
     fieldId: 'fl_sealed',
     waves: 5,
     bossFinale: true,
@@ -919,7 +919,7 @@ RPG.data.quests = {
   // allAlive と maxRounds の組み合わせは他の依頼に無い。
   q_arcana_temperance: {
     name: '注ぎ分ける者',
-    desc: '封絶の浅層を、誰も倒れさせず、7ラウンド以内に抜ける。'
+    desc: '封絶区画を、誰も倒れさせず、7ラウンド以内に抜ける。'
       + '守りと攻めのどちらも捨てられない——節制の像そのものを問う。',
     fieldId: 'fl_sealed',
     waves: 5,

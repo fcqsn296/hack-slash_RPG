@@ -932,9 +932,10 @@
     const hard = battle.arena.hard;
     const label = def.name + (hard ? '（ハード）' : '');
 
-    // 挑めるかどうかを **報酬を受け取る前に** 確かめる。
-    // 先に finishBattle を呼んでから弾かれると、報酬だけ入って
-    // 決着画面に留まり、もう一度押せば二重に受け取れてしまう。
+    // 挑めないならボタン自体を出さない。
+    // 以前は「押してから弾かれると報酬だけ入り、もう一度押せば二重に受け取れる」穴があった。
+    // いまは報酬を結果画面の表示時に1回だけ払う（settleBattle）ので二重払いは起きないが、
+    // 押せるのに何も起きないボタンを出さないために残している。
     const gate = RPG.arena.canChallenge();
     const hardGate = hard ? RPG.arena.canChallengeHard(def.id) : { ok: true };
     if (!gate.ok || !hardGate.ok) return null;
@@ -949,6 +950,10 @@
   function renderCommands() {
     if (battle.finished) {
       stopAuto();
+      // 報酬は結果画面を出した時点で払う。ボタンを待つと、閉じただけで消える
+      // （理由は main.js の settleBattle）。2回目以降の描き直しでは何もしない。
+      // @知見: 報酬は結果画面を出した時点で確定させる。ボタン押下で払うと、閉じただけで報酬が消える
+      RPG.app.settleBattle(battle);
       // 連戦 (§10.5)。進めないときは中で畳まれて、いつもの結果画面に戻る。
       scheduleChain();
       const sortie = {
@@ -960,7 +965,8 @@
       // 拠点で実際に入る額と同じものをここで見せる（手動ボーナス込み）
       const pay = RPG.economy.payout(battle, { partySize: battle.party.length });
       const questDone = battle.questId && battle.victory && !battle.ruleBroken;
-      const firstClear = questDone && !RPG.quest.isCleared(battle.questId);
+      // 払い済みなので isCleared は既に真。初回かどうかは払った時点の控えを読む
+      const firstClear = questDone && !!(battle.settled && battle.settled.firstClear);
       return h('div.result-panel',
         chainPanel(),
         h('h2', {

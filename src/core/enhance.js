@@ -252,14 +252,29 @@
       return { ok: false, reason: `ゴールドが ${(cost - s.gold).toLocaleString()} 足りません` };
     }
 
+    // ユニークは「同じユニークのまま個体差（基礎値 ±15%）だけ」を振り直す。
+    //
+    // ── 以前は普通の装備に化けていた ──
+    // ここで identify を呼んでいたので、星辰のユニークを厳選すると
+    // uniqueId と固有効果が消え、名前だけ同じ「系統タグ付きの普通の LEGEND」になった。
+    // スコアは上がって見える（222→603 の実例）ので、押した人は損に気づけない。
+    // ユニークは系統タグ倍率を持たない約束（data/uniques.js の冒頭）も破っていた。
+    // item.unique（クエスト報酬）しか弾いておらず、星辰の uniqueId を見ていなかったのが原因。
+    if (item.uniqueId && !RPG.data.uniqueEquips[item.uniqueId]) {
+      return { ok: false, reason: 'このユニーク装備は厳選できません' };
+    }
+
     const before = RPG.gear.score(item);
     RPG.state.addGold(-cost);
 
-    const rolled = RPG.gear.identify(item.boxId, item.uid, {
-      baseId: item.base, rarityId: item.rarity,
-      // セットは引き継ぐ。厳選でセットが外れると揃えた意味が消えてしまう。
-      setId: item.setId || null,
-    });
+    // @知見: ユニークの判定は item.unique（クエスト報酬）と item.uniqueId（星辰）の2つある。片方だけ見ると素通りする
+    const rolled = item.uniqueId
+      ? RPG.gear.rollUnique(item.uid, item.boxId, item.uniqueId)
+      : RPG.gear.identify(item.boxId, item.uid, {
+        baseId: item.base, rarityId: item.rarity,
+        // セットは引き継ぐ。厳選でセットが外れると揃えた意味が消えてしまう。
+        setId: item.setId || null,
+      });
     // 引き継ぐもの: 強化値・ロック・名前（名前が変わると別物に見えてしまう）
     rolled.plus = plusOf(item);
     rolled.locked = !!item.locked;

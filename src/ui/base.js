@@ -2440,7 +2440,9 @@
                   { text: info.rerollGold.toLocaleString() + ' G' })
               ),
               h('p.hint.hint-sm', {
-                text: '主ステータスと副オプションを振り直します。強化値はそのまま残ります。',
+                text: item.uniqueId
+                  ? '固有効果はそのままで、基礎値の個体差（±15%）だけを振り直します。強化値はそのまま残ります。'
+                  : '主ステータスと副オプションを振り直します。強化値はそのまま残ります。',
               }),
               W.button('厳選する', () => {
                 const before = RPG.gear.score(item);

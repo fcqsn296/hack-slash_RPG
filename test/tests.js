@@ -7126,6 +7126,32 @@
           RPG.enhance.enhanceCost(unique) !== null, '');
       }
 
+      // --- 星辰のユニークは、同じユニークのまま個体差だけ振り直す ---
+      // 以前は identify に回して普通の装備に化け、固有効果が消えていた
+      // （item.unique しか見ておらず、星辰の uniqueId を素通りさせていた）。
+      {
+        const uq = RPG.gear.identify('box_astral', RPG.state.nextUid());
+        save.inventory.push(uq);
+        uq.locked = true;
+        const effBefore = JSON.stringify(uq.uniqueEffects);
+        const def = RPG.data.uniqueEquips[uq.uniqueId];
+        let kept = true;
+        let detail = '';
+        for (let i = 0; i < 8 && kept; i++) {
+          const res = RPG.enhance.reroll(uq.uid);
+          const now = save.inventory.find((/** @type {any} */ it) => it.uid === uq.uid);
+          const inRange = Object.keys(def.stats).every((k) =>
+            now.baseStats[k] >= Math.floor(def.stats[k] * 0.85) &&
+            now.baseStats[k] <= Math.ceil(def.stats[k] * 1.15));
+          kept = res.ok && now.uniqueId === uq.uniqueId &&
+            JSON.stringify(now.uniqueEffects) === effBefore &&
+            now.tagBonuses.length === 0 && !now.critRate && !now.capBreak &&
+            now.name === def.name && now.locked === true && inRange;
+          detail = `${now.name} uniqueId=${now.uniqueId} 系統タグ${now.tagBonuses.length}`;
+        }
+        assertTrue('厳選: 星辰のユニークは固有効果を保ったまま個体差だけ振り直す', kept, detail);
+      }
+
       /* ----- 再抽選 (§7.9) ----- */
       {
         const shardId = RPG.enhance.SHARD_ITEM;
@@ -8127,6 +8153,22 @@
       const before = localStorage.getItem(RPG.state.STORAGE_KEY);
       RPG.state.reset();
       const save = RPG.state.get();
+
+      // --- 説明文が出撃先と違う場所を名指ししていない ---
+      // 封絶区画の依頼2件が「封絶の浅層を〜」と書いていた。名前が似ているので
+      // 書いた側も読んだ側も気づかず、テストプレイで初めて見つかった。
+      {
+        const names = Object.keys(RPG.data.fields).map((id) => [id, RPG.data.fields[id].name]);
+        const wrong = Object.keys(RPG.data.quests).filter((qid) => {
+          const q = RPG.data.quests[qid];
+          if (!q.fieldId || !q.desc) return false;
+          const own = RPG.data.fields[q.fieldId];
+          const named = names.filter(([, n]) => q.desc.indexOf(n) >= 0);
+          return named.length > 0 && !(own && q.desc.indexOf(own.name) >= 0);
+        });
+        assertTrue('クエスト: 説明文が出撃先と別のフィールドを名指ししていない',
+          wrong.length === 0, wrong.join(', ') || 'なし');
+      }
 
       // --- 解放条件 ---
       const locked = RPG.quest.def('q_trial_aegis');
@@ -13240,6 +13282,25 @@
           stopBody.indexOf('battle.victory') >= 0 && stopBody.indexOf('canAuto') >= 0, '');
       })
       .catch((err) => check('連戦: 実装を読めた', false, String(err)))
+      // ── 報酬は結果画面を出した時点で払う ──
+      // 「拠点へ戻る」を押したときに払っていたので、結果画面のまま閉じると
+      // 報酬がまるごと消えていた。払う場所と二重払いの止めを実装から見張る。
+      .then(() => Promise.all([fetch('../src/ui/battle.js'), fetch('../src/main.js')]))
+      .then((rs) => Promise.all(rs.map((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))))
+      .then(([ui, main]) => {
+        const rc = ui.indexOf('function renderCommands');
+        const fin = rc < 0 ? -1 : ui.indexOf('if (battle.finished)', rc);
+        const head = fin < 0 ? '' : ui.slice(fin, fin + 400);
+        check('決着: 結果画面を出した時点で報酬を払う', head.indexOf('RPG.app.settleBattle(battle)') >= 0, '');
+        const st = main.indexOf('function settleBattle');
+        const stBody = st < 0 ? '' : main.slice(st, st + 400);
+        check('決着: 払うのは1つの戦闘につき1回だけ', stBody.indexOf('battle.settled') >= 0, '');
+        const fb = main.indexOf('function finishBattle');
+        const fbBody = fb < 0 ? '' : main.slice(fb, fb + 600);
+        check('決着: 閉じる側は払わず settleBattle に任せる',
+          fbBody.indexOf('settleBattle(battle)') >= 0 && fbBody.indexOf('payout') < 0, '');
+      })
+      .catch((err) => check('決着: 実装を読めた', false, String(err)))
       // **この連鎖に繋ぐこと。** 別の連鎖にすると、結果の締め（onDone）が
       // 先に走って、ここの検査結果が画面に出ないまま消える。
       .then(() => fetch('../docs/拡張コンテンツの作り方.md'))

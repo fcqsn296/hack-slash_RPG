@@ -772,13 +772,26 @@
   }
 
   /**
-   * 戦闘終了。蓄積された報酬をここでまとめて付与する (§10.1)。
+   * 決着した戦闘の報酬をまとめて付与する (§10.1)。**1つの戦闘につき1回だけ**効く。
    * 装備の生成は行わず、宝箱の個数だけを加算する (§2.2)。
+   *
+   * ── なぜ決着した時点で払うのか ──
+   * 以前は「拠点へ戻る」を押したとき（finishBattle）に払っていた。
+   * そのため結果画面のままアプリを閉じる・再読み込みすると、
+   * ゴールド・経験値・宝箱・初回クリア報酬が**まるごと消えていた**
+   * （戦闘数だけは出撃時に数えているので増える）。
+   * スマホでは結果を見てそのまま閉じるのが普通の動きなので、
+   * 結果画面を出した時点（ui/battle.js の renderCommands）でここを呼ぶ。
+   *
+   * 画面は何度も描き直されるので、battle.settled で二重払いを止めている。
+   * 結果画面のボタンは全部 finishBattle を通り、そこでもここを呼ぶが、
+   * 払い済みなら何もしない。
+   *
    * @param {any} battle
-   * @param {{silent?: boolean}} [opts] silent なら拠点へ戻らず報酬付与だけ行う（連続周回用）
    */
-  function finishBattle(battle, opts) {
-    opts = opts || {};
+  function settleBattle(battle) {
+    if (!battle || !battle.finished || battle.settled) return;
+    battle.settled = { boxCount: 0 };
     const save = RPG.state.get();
     // 手動ボーナスと経験値の分配はここで一括して決める (§10.1)
     const pay = RPG.economy.payout(battle, { partySize: Math.max(1, save.party.length) });
@@ -822,6 +835,9 @@
     if (battle.questId && battle.victory && !battle.ruleBroken) {
       const res = RPG.quest.complete(battle.questId);
       if (res.granted) questLines = res.lines;
+      // 結果画面は払ったあとに描かれるので、isCleared を見ると「達成済み」と出てしまう。
+      // 初回だったかどうかはここで控えて、画面はこちらを読む。
+      battle.settled.firstClear = !!res.granted;
     }
     // 出撃先を問わない達成条件型は、どの戦闘の勝利でも判定する (§10.3-2)
     const challenges = RPG.quest.evaluateChallenges(battle);
@@ -842,16 +858,29 @@
       toast(`${tower.floor}階 到達報酬: ` + tower.rewards.join(' ／ '));
     }
 
-    // 種別の判定は RPG.battle.kindOf に一本化してある。
-    // ここだけ生のフラグを見ていると、UI側の「もう一度」と食い違う。
-    const backToMap = RPG.battle.kindOf(battle) === 'map';
-
     // 決まった相手を倒した印 (§20.4)。
     // 報酬を配り終えてから立てる。先に立てると、負けたときにも話が進む。
-    if (backToMap && battle.mapFlag && battle.victory) {
+    if (RPG.battle.kindOf(battle) === 'map' && battle.mapFlag && battle.victory) {
       RPG.worldmap.setFlag(battle.mapFlag);
       RPG.state.persist();
     }
+    battle.settled.boxCount = boxCount;
+    refreshTopbar();
+  }
+
+  /**
+   * 戦闘を閉じて元の画面へ戻る。報酬は settleBattle が払う（払い済みなら何もしない）。
+   * @param {any} battle
+   * @param {{silent?: boolean}} [opts] silent なら画面を移さない（「もう一度」など、呼び出し側が次の戦闘を始める）
+   */
+  function finishBattle(battle, opts) {
+    opts = opts || {};
+    settleBattle(battle);
+    const boxCount = battle.settled ? battle.settled.boxCount : 0;
+
+    // 種別の判定は RPG.battle.kindOf に一本化してある。
+    // ここだけ生のフラグを見ていると、UI側の「もう一度」と食い違う。
+    const backToMap = RPG.battle.kindOf(battle) === 'map';
     currentBattle = null;
     refreshTopbar();
     if (opts.silent) return;   // 「もう一度」からは呼び出し側が次の戦闘を始める
@@ -880,7 +909,7 @@
   }
 
   RPG.app = {
-    boot, showBase, startBattle, startQuest, startTowerFloor, startArena, finishBattle,
+    boot, showBase, startBattle, startQuest, startTowerFloor, startArena, settleBattle, finishBattle,
     showMap, startStoryBattle, showStory, leaveStory, playPendingScene, replayScene,
     toast, refreshTopbar, showNameDialog, showDataDialog,
   };
