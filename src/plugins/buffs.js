@@ -23,7 +23,8 @@
     /** @param {any} ctx */
     execute(ctx) {
       for (const target of resolveTargets(ctx)) {
-        ctx.addUniqueBuff(target, ctx.params.value, ctx.params.turns, ctx.params.label || '固有バフ');
+        ctx.addUniqueBuff(target, ctx.params.value, ctx.params.turns, ctx.params.label || '固有バフ',
+          ctx.params.capAfter);
       }
     },
   };

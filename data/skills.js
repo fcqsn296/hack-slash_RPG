@@ -1070,8 +1070,10 @@ RPG.data.skills = {
     scaling_stat: 'magi_power', damage_type: 'reli', element: 'none',
     power: 0, crit_rate: 0,
     readyRound: 2, cooldown: 4,
-    params: { value: 0.6, turns: 3, label: '陣', party: true },
-    desc: '【クラス】味方全員に3ターンの固有バフ +60%（別枠乗算）。' +
+    params: { value: 0.6, turns: 3, label: '陣', party: true, capAfter: 0.5 },
+    // capAfter: 陣のあいだ、一撃が上限で削られた後に ×1.5。固有 +60% は上限の手前で掛かるので、
+    // 終盤は ×0.1 に吸われ、布陣は3ラウンドのボス戦でもクラス無しを下回っていた（docs/作業ログ/ビルドの幅と奥深さ.md）。
+    desc: '【クラス】味方全員に3ターンの固有バフ +60%（別枠乗算）。陣のあいだ、上限で削られた一撃も +50% 伸びる。' +
       '号令が手番を配るのに対し、こちらは1手ずつを重くする。' +
       '2ラウンド目以降・使用後4ラウンド使えない。',
   },

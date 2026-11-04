@@ -5733,6 +5733,47 @@
         }
       }
 
+      // --- 全体バフは、味方から切れたら張り直す ---
+      // 張った本人だけを見ていた。戦術家は「自分が受けるバフの持続 +1」を持つので、
+      // 陣立ての陣が本人に残り味方から先に切れる。10ラウンドで陣立てを1回しか撃たなかった。
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        b.round = 2;
+        const me = RPG.battle.currentActor(b);
+        const atk = me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]));
+        me.skills = ['sk_cls_formation', atk];
+        const mate = b.party.find((/** @type {any} */ u) => u !== me);
+        me.buffUnique.push({ value: 0.6, turns: 5, label: '陣' });
+        const lacking = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 全体バフは味方から切れていれば張り直す', lacking.skillId === 'sk_cls_formation',
+          `選んだ技: ${RPG.data.skills[lacking.skillId].name}`);
+        mate.buffUnique.push({ value: 0.6, turns: 2, label: '陣' });
+        const allUp = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 全員に残っている全体バフは張り直さない', allUp.skillId !== 'sk_cls_formation',
+          `選んだ技: ${RPG.data.skills[allUp.skillId].name}`);
+      }
+
+      // --- 陣立ての陣は、上限で削られた後の一撃を伸ばす（戦術家/布陣） ---
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        assertTrue('陣立て: 上限の後の倍率を持つ', RPG.data.skills.sk_cls_formation.params.capAfter > 0, '');
+        const me = b.party[0];
+        const foe = RPG.battle.livingEnemies(b)[0];
+        foe.hp = foe.maxHp = 1e15;
+        const sk = RPG.data.skills[me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]))];
+        me.capBreak = -0.9999;   // 上限を極端に下げ、どの一撃も深く越えさせる
+        const hit = () => { RPG.rng.seed(7); const h = foe.hp;
+          RPG.battle.applyDamage(b, me, foe, sk, { silent: true, crit: false }); return h - foe.hp; };
+        const plain = hit();
+        me.buffUnique.push({ value: 0, turns: 3, label: '陣', capAfter: 0.5 });
+        const under = hit();
+        assertNear('陣立て: 陣のあいだ、深く越えた一撃は ×1.5', under / plain, 1.5, 0.02);
+        // 戦術家2人で重ねても強いほうだけ
+        me.buffUnique.push({ value: 0, turns: 3, label: '陣', capAfter: 0.5 });
+        assertNear('陣立て: 重ねがけは強いほうだけ', hit() / plain, 1.5, 0.02);
+        me.capBreak = 0;
+      }
+
       // --- 染色: 敵の属性を塗り替える (§9.1) ---
       //
       // 攻撃側の属性操作はツリーが埋め尽くしているのに、**受け側の属性に触る

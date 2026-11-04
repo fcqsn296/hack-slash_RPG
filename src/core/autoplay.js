@@ -312,8 +312,23 @@
       // 12/24→5/24 に落ちた。主人公が自己バフ（闘気集中 +50%）を張らなくなり、全体バフは
       // 他の仲間も張っていたので重複するだけだった。全体バフはもともと誰かが張っている。
       // @知見: オートは全体バフも張っている（持っている者が張る）。優先度を変えると自己バフが消えて弱くなる
+      // ── 全体バフは「受け取れる味方が全員まだ持っているか」で見る ──
+      // 張った本人だけを見ていた。戦術家は素質で「自分が受けるバフの持続 +1」を持つので、
+      // 陣立ての陣が本人には残り、味方からは先に切れる。本人を見て「まだ効いている」と判断し、
+      // 10ラウンドのボス戦で陣立てを1回しか撃っていなかった（味方の陣は3ラウンドだけ）。
+      // 受け取れない者（本人の旗手＝自分に乗らない、孤影＝味方に乗らない）は数えない。
+      // 数えると永久に「まだ切れている」になり、毎ターン撃ち続けて手番が溶ける（上の旗手の罠と同じ）。
+      const fx = actor.setEffects || {};
+      const soloBuff = !!((actor.passives && actor.passives.soloBuff) || fx.soloBuff);
+      /** @param {any} def */
+      const stillUp = (def) => {
+        if (selfOnly(def)) return buffActive(actor, def);
+        const receivers = allies.filter((u) => (u === actor ? !noSelf : !soloBuff));
+        if (receivers.length === 0) return true;
+        return receivers.every((u) => buffActive(u, def));
+      };
       const buff = skills.find((s) => BUFF_PLUGINS.includes(s.def.plugin)
-        && !buffActive(actor, s.def)
+        && !stillUp(s.def)
         && !(noSelf && selfOnly(s.def)));
       if (buff) return { skillId: buff.id, targets: RPG.battle.targetKind(buff.def) === 'none' ? [] : [actor] };
     }

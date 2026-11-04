@@ -2209,6 +2209,28 @@
   }
 
   /**
+   * 一撃が「上限で削られた後」に何倍まで伸びるか（から 1 を引いた値）。
+   * 正義の裁き・運命の輪の祝福・陣立ての陣は出どころが別なので掛け合わせる。
+   *
+   * @知見: 終盤は一撃が上限の十倍前後で、上限の手前の倍率（固有バフ・先制など）は ×0.1 に吸われる
+   *
+   * 陣立て（固有 +60%）だけでは、戦術家/布陣は3ラウンドのボス戦でもクラス無しを下回った
+   * （アストラ 22M 対 24M）。利がすべて上限の手前で掛かっていたため。
+   * 1 を掛けて 1 を引く形は浮動小数で値がずれるので、乗せるものが無いときは通さない。
+   * @param {any} attacker
+   */
+  function judgedCapOf(attacker) {
+    // 正義・運命の輪は従来の式のまま（検証テストが一撃の値まで見ている）
+    const base = (1 + (attacker.judgedBoost || 0)) * (1 + (attacker.wheelBoost || 0)) - 1;
+    let formation = 0;
+    for (const b of attacker.buffUnique || []) {
+      if (b.capAfter > formation) formation = b.capAfter;
+    }
+    if (!(formation > 0)) return base;
+    return (1 + base) * (1 + formation) - 1;
+  }
+
+  /**
    * ダメージを適用する。ダメージ計算そのものは §3 の RPG.damage.calc に委譲する。
    * @param {any} battle
    * @param {any} attacker
@@ -2329,8 +2351,9 @@
         // **反撃・連鎖（isCounter）には渡さない。** 渡すと応撃を耐えた手番のあいだ、
         // 本人のおまけの一撃まで上限が広がる。
         // 「運命の輪」(§21) の祝福も同じ式で乗せる。別々の出どころなので掛け合わせる。
+        // 陣立て（戦術家/布陣）の陣も同じ式。重ねがけは強いほうだけ（足すと戦術家2人で倍になる）。
         judgedCap: opts.isCounter ? 0
-          : (1 + (attacker.judgedBoost || 0)) * (1 + (attacker.wheelBoost || 0)) - 1,
+          : judgedCapOf(attacker),
       },
     });
 
@@ -3154,9 +3177,12 @@
 
       /**
        * 固有ユニークバフ。すべて独立した別枠で乗算される (§3.2 ステップ3)。
+       * capAfter を渡すと、バフが残っているあいだ受け手の一撃が「上限で削られた後」に
+       * (1 + capAfter) 倍になる（陣立て）。効果量の補正は掛けない（下の注記）。
        * @param {any} target @param {number} value @param {number} turns @param {string} label
+       * @param {number} [capAfter]
        */
-      addUniqueBuff: (target, value, turns, label) => {
+      addUniqueBuff: (target, value, turns, label, capAfter) => {
         // 「持続の心得」で受け手側の持続が延びる (§5.8)
         // 効果量のほうは **かけた側** を見る (§5.9)。
         // 弱体には「与える量」の軸があるのに、バフ側は受け手の持続しか無かった。
@@ -3169,8 +3195,14 @@
         if (!(value > 0)) return;
         // 持続も「かける側」で伸ばせる (§5.10)。受け手の buffDuration とは別枠。
         const extend = (actor.passives && actor.passives.buffExtend) || 0;
-        target.buffUnique.push({ value, turns: buffTurns(target, turns) + extend, label });
-        pushLog(battle, `${target.name} に ${label}（固有 +${Math.round(value * 100)}%）`, 'buff');
+        /** @type {any} */
+        const entry = { value, turns: buffTurns(target, turns) + extend, label };
+        // 上限の後の倍率はバフの効果量（旗手の杖・号令の心得など）で膨らませない。
+        // 膨らませると支援を積むほど正義（×2・条件付き）に近づき、上限の規則が崩れる。
+        if (capAfter && capAfter > 0) entry.capAfter = capAfter;
+        target.buffUnique.push(entry);
+        pushLog(battle, `${target.name} に ${label}（固有 +${Math.round(value * 100)}%`
+          + (entry.capAfter ? `・上限の先 +${Math.round(entry.capAfter * 100)}%` : '') + '）', 'buff');
         pushEvent(battle, { type: 'buff', key: target.key, label });
         afterBuff(battle, actor, target);
         countSupport();

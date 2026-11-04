@@ -1052,12 +1052,17 @@ RPG.data.classes = {
       },
       {
         branch: 'br_tc_array',
+        // 以前は「1ラウンド目 +90%・ラウンドごとに −8%」。利が上限の手前・本人だけで、オートは1ラウンド目に
+        // 闘気集中を張るので乗らず、10Rのボス戦では極を外したほうが与ダメが多かった（122M 対 142M）。
+        // 陣を途切れさせない形にし、代償を号令の極（ATK −45%）と同じ向きに。
+        // 着ける人で得失が分かれる（10R: 主人公 139M 対 142M・アストラ 115M 対 134M・エレナ 146M 対 115M）。
         id: 'tc_f_master', name: '【極】完全布陣', cost: 8, maxLevel: 1,
-        effects: [{ kind: 'first_round_power', value: 0.9 },
+        effects: [{ kind: 'buff_extend', value: 2 },
+          { kind: 'cooldown_cut', value: 1 },
           { kind: 'opening_buff', value: 0.5 },
           { kind: 'start_shield', value: 0.3 },
-          { kind: 'round_stack', value: -0.08 }],
-        desc: '1ラウンド目の火力 +90%、開幕バフ +50%、開幕障壁 +30%。ただしラウンドごとに火力 -8%',
+          { kind: 'stat_cost', stat: 'atk', value: -0.4 }],
+        desc: 'かけるバフの持続 +1・クラス技の待ち時間 -1（陣が途切れなくなる）、開幕バフ +50%、開幕障壁 +30%。ただし ATK -40%',
       },
     ],
   },
