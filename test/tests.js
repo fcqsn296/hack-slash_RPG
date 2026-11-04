@@ -5786,6 +5786,29 @@
           `選んだ技: ${RPG.data.skills[down.skillId].name}`);
       }
 
+      // --- 刻印の技は、その場で弾けるぶんを見積もりに入れる ---
+      // 威力だけを見て、呪印乱舞（その場で必ず1回・最大HPの8%）も刻印刃も一度も選ばれなかった。
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        const me = b.party[0];
+        const foe = RPG.battle.livingEnemies(b)[0];
+        foe.hp = foe.maxHp = 1e9;
+        const storm = RPG.data.skills.sk_cls_sigilstorm;
+        me.sigils = 0;
+        const est = RPG.autoplay.estimate(me, foe, storm, b);
+        assertTrue('オート: 呪印乱舞の見積もりに炸裂（最大HPの8%）が入る', est >= foe.maxHp * storm.params.ratio,
+          `見積 ${Math.round(est).toLocaleString()} / 炸裂 ${(foe.maxHp * storm.params.ratio).toLocaleString()}`);
+        const edge = RPG.data.skills.sk_sigil_edge;
+        me.sigils = 0;
+        const noBurst = RPG.autoplay.estimate(me, foe, edge, b);
+        me.sigils = 1;
+        const burst = RPG.autoplay.estimate(me, foe, edge, b);
+        assertTrue('オート: 刻印刃は溜まった数で弾けるときだけ炸裂を見込む',
+          noBurst < foe.maxHp * edge.params.ratio && burst >= foe.maxHp * edge.params.ratio,
+          `0個 ${Math.round(noBurst)} / 1個 ${Math.round(burst)}`);
+        me.sigils = 0;
+      }
+
       // --- 迎撃の構えは、殴られる者（挑発・反撃の型）だけが張る ---
       // 威力0で回復でもバフでもないので、報復の構えも返る音も一度も撃たれていなかった。
       {

@@ -197,6 +197,18 @@
         actor, target, skill, battle);
     }
 
+    // 刻印の技 (§9.1) は、その場で弾けるぶんが本体。起爆と同じく技の威力だけを見ると
+    // 威力85〜120の弱い技にしか見えず、呪印乱舞（その場で必ず1回・最大HPの8%）も
+    // 刻印刃も一度も選ばれなかった（呪印の派生の主人公で4戦×10R・0回）。
+    // 実際に弾ける回数は battle.js の addSigil と同じ式（溜まった数＋刻む数を閾値で割る）。
+    if (skill.plugin === 'sigil_strike') {
+      const p = skill.params || {};
+      const threshold = (RPG.battle && RPG.battle.SIGIL_THRESHOLD) || 3;
+      const bursts = Math.floor(((actor.sigils || 0) + (p.count || 2)) / threshold);
+      return absorbed(result.damage * hits + target.maxHp * (p.ratio || 0.06) * bursts,
+        actor, target, skill, battle);
+    }
+
     return absorbed(result.damage * hits, actor, target, skill, battle);
   }
 
