@@ -124,7 +124,9 @@ RPG.data.quests = {
     // 主人公は編成から外せないので縛りの対象外 (§10.3-3)。
     // 無属性の仲間は主人公を除いて8人いるので、並びは選べる。
     rules: { elements: ['none'] },
-    enemyScale: { hp: 120 },
+    // 2026-11: 純度と帝の素のHPを30倍にした（data/enemies.js）。敵の実際の厚さを
+    // 上の測定と同じ HP×120 相当に保つため、ここは 120÷30 = 4 にしてある。
+    enemyScale: { hp: 4 },
     unlock: { level: 250 },
     reward: {
       gold: 120000,

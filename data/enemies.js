@@ -541,11 +541,20 @@ RPG.data.enemies = {
    *
    * 臨界点を**越えてしまった**もの。もう生物ではないので、数で来ない。
    * 1体が桁違いに濃い。
+   *
+   * ── HPを30倍にした（docs/作業ログ/終盤の張り合い.md）──
+   * 「一体が桁違いに濃い」と書きながら、実際は1発で倒れていた（HP 3万台、
+   * 終盤の主力の1発は100万を超える）。どう組んでも同じ結果になり、
+   * 「育っても張り合いが残るDPSの試験場」（data/fields.js）になっていなかった。
+   * 30倍で初めて組み方が結果を分ける（REFERENCE の型・Lv255・seed固定24回）:
+   *   攻撃専念 11/24・3.0人倒れる   既定(軽減20%) 18/24・16R   守り役1＋攻撃3 24/24・10R・誰も倒れない
+   * 攻撃力は触っていない。上げると一撃死の二択になり、耐久の比較にならない。
+   * @知見: 還らぬ位相は敵HP×30で初めて組み方が結果を分ける。×10では誰でも抜け、×35では既定の振り方も崩れる
    */
   em_pure_ether: {
     name: '純度', element: 'none',
-    base: { hp: 30000, atk: 700, def: 900, magi_power: 850 },
-    growth: { hp: 1000, atk: 24, def: 30, magi_power: 28 },
+    base: { hp: 900000, atk: 700, def: 900, magi_power: 850 },
+    growth: { hp: 30000, atk: 24, def: 30, magi_power: 28 },
     skills: ['sk_enemy_apocalypse', 'sk_enemy_pulse', 'sk_enemy_devour'],
     gold: 2600, exp: 15000,
     drops: [{ box: 'box_dragon', chance: 1.0, count: 2 },
@@ -556,8 +565,8 @@ RPG.data.enemies = {
 
   bs_nameless_sovereign: {
     name: '名を失くした帝', element: 'dark', boss: true,
-    base: { hp: 80000, atk: 980, def: 1220, magi_power: 1100 },
-    growth: { hp: 2150, atk: 38, def: 45, magi_power: 42 },
+    base: { hp: 2400000, atk: 980, def: 1220, magi_power: 1100 },
+    growth: { hp: 64500, atk: 38, def: 45, magi_power: 42 },
     skills: ['sk_enemy_apocalypse', 'sk_enemy_devour', 'sk_enemy_unnaming', 'sk_enemy_crush'],
     gold: 16000, exp: 60000,
     drops: [{ box: 'box_dragon', chance: 1.0, count: 8 },
