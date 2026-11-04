@@ -5768,6 +5768,24 @@
           `選んだ技: ${RPG.data.skills[allUp.skillId].name}`);
       }
 
+      // --- 倒れた味方がいれば蘇生の技を撃つ ---
+      // 蘇生はどの分岐にも入らず、再臨の光も還りの祈りもオートで一度も撃たれていなかった。
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        b.round = 5;
+        const me = RPG.battle.currentActor(b);
+        const atk = me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]));
+        me.skills = [atk, 'sk_cls_rebirth'];
+        const fallen = b.party.find((/** @type {any} */ u) => u !== me);
+        const allUp = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 全員立っていれば蘇生の技は撃たない', allUp.skillId !== 'sk_cls_rebirth',
+          `選んだ技: ${RPG.data.skills[allUp.skillId].name}`);
+        fallen.alive = false; fallen.hp = 0;
+        const down = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 倒れた味方がいれば蘇生の技を撃つ', down.skillId === 'sk_cls_rebirth',
+          `選んだ技: ${RPG.data.skills[down.skillId].name}`);
+      }
+
       // --- 陣立ての陣は、上限で削られた後の一撃を伸ばす（戦術家/布陣） ---
       {
         const b = makeBattle(['ch_hero', 'ch_noa']);

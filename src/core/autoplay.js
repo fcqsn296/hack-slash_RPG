@@ -245,6 +245,18 @@
     // 万一そうなっても、commandSkill 側が手番を進めてくれるので戦闘は止まらない。
     if (!skills.length) return { skillId: actor.skills[0], targets: [foes[0]] };
 
+    // --- 0. 倒れた味方がいれば、蘇生の技を撃つ ---
+    // 蘇生（mass_revive）は回復でもバフでも攻撃でもないので、どの分岐にも入らず**一度も選ばれなかった**。
+    // 癒し手/復活の再臨の光も、LEGEND 固有の還りの祈りも、オートでは持っていないのと同じだった。
+    // 実測: 長い依頼（無の封絶・33R）で再臨の光が6戦で0回、復活の派生は 3/16 と幹だけ（6/16）を下回った。
+    // 倒れたのを見て起こすだけで、先を読む判断ではない（手動の利点は削らない）。
+    // @知見: 蘇生の技はオートの分岐に無く、2026-11 まで一度も撃たれていなかった
+    const downed = (battle.party || []).filter((/** @type {any} */ u) => !u.alive);
+    if (downed.length > 0) {
+      const revive = skills.find((s) => s.def.plugin === 'mass_revive');
+      if (revive) return { skillId: revive.id, targets: [] };
+    }
+
     // --- 1. 回復を優先する ---
     const heals = skills.filter((s) => s.def.plugin === 'heal');
     if (heals.length) {
