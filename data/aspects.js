@@ -250,6 +250,34 @@ RPG.data.aspects = {
     enemyScale: { atk: 5, magi_power: 5 },
   },
 
+  as_afflict: {
+    name: '蝕む相', reading: 'むしばむそう',
+    color: '#9be86a', icon: 'st-debuff',
+    effect: '敵の攻撃が当たるたび、6種のうち1つの弱体が残る',
+    flavor: '傷よりも、残るもののほうが重い。',
+    desc: 'この相では敵の一撃ごとに弱体が刻まれる。種類は選べないので、'
+      + '1つの耐性では受けきれない。全種に効く守りか、解く手が要る。',
+    // ── なぜこの相を足したか ──
+    // 敵が6種の異常を撒くようになったが、通常のフィールドでは味方を完全免疫にしても
+    // 勝率もラウンドもほぼ動かなかった（深淵 27/32→28/32、灰燼・創世・臨界は同値）。
+    // 戦闘が短く、異常が効く前に終わる。耐性・解除・不動心は**どこで取っても損**だった
+    // （20SP を耐性に回すと、創世で 31/32→27/32 に落ちた）。
+    // 選んで入る相なら「異常が重い戦場」が作れて、耐性がビルドの答えになる。
+    //
+    // 強さは味方の「ついでに撒く」枝（STATUS_ON_HIT_RATIO）より重くしてある。
+    // あちらは数を撒く前提の値で、1回で効かせるには軽すぎる。
+    // 上限 STATUS_CAP は敵が撒いたぶんにも効く（毒10%・火傷3.5%など）。
+    axis: 'affliction',
+    fields: ['fl_abyss', 'fl_ashfall', 'fl_sealed', 'fl_origin', 'fl_verge', 'fl_beyond'],
+    effects: {
+      afflict: {
+        turns: 3,
+        ratios: { poison: 0.06, burn: 0.025, bleed: 0.40, paralyze: 0.30, freeze: 0.35, curse: 0.60 },
+      },
+    },
+    rewardMult: 1.30,
+  },
+
   as_deny_light: {
     name: '光を拒む相', reading: 'ひかりをこばむそう',
     color: '#d9c98a', icon: 'elem-light',

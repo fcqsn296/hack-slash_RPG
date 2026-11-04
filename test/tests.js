@@ -3271,7 +3271,7 @@
           // 異相の効果は battle.js / damage.js が読むけれど、
           // 読む側に無いキーを書いても**データ上は正しく見える**。
           // 実装されている効果名を一覚えで固定しておく。
-          const KNOWN = ['denyElement', 'enemyFirst', 'allHit', 'targetRule'];
+          const KNOWN = ['denyElement', 'enemyFirst', 'allHit', 'targetRule', 'afflict'];
           const unknown = [];
           ids.forEach((id) => Object.keys(RPG.data.aspects[id].effects || {}).forEach((k) => {
             if (KNOWN.indexOf(k) < 0) unknown.push(id + '.' + k);
@@ -3383,6 +3383,35 @@
             stuck === 0, `${stuck} / 12 回、敵0体のまま続いた`);
           assertTrue('§22 先制の相: そのとき報酬も配られる',
             noReward === 0, `${noReward} / 12 回、報酬ゼロで勝った`);
+        }
+
+        // ── 蝕む相: 敵の一撃が弱体を残し、全種に効く耐性で受けきれる ──
+        // 通常のフィールドでは敵の異常が軽く、耐性の枝が死んでいた。この相がその受け皿。
+        {
+          const mk = (/** @type {number} */ resist) => {
+            const u = RPG.units.buildCharacterUnit(
+              { id: 'ch_hero', level: 120, exp: 0, limitBreak: 0, tree: {}, equipped: {} }, []);
+            u.side = 'party'; u.key = 'p0';
+            u.passives.debuffResist = resist;
+            const b = RPG.battle.start({ fieldId: 'fl_abyss', waves: 1, bossFinale: false,
+              party: [u], aspectIds: ['as_afflict'] });
+            const foe = b.enemies[0];
+            foe.atk = 1; foe.magi_power = 1;   // 倒さずに異常だけを見る
+            // 素の噛みつき（異常を持たない技）で殴る。残った弱体は相のぶんだけ
+            RPG.battle.executeSkill(b, foe, 'sk_enemy_bite', [b.party[0]]);
+            return (b.party[0].statusEffects || []).filter((/** @type {any} */ e) =>
+              e.turns > 0 && RPG.data.statusKinds.indexOf(e.kind) >= 0);
+          };
+          const left = mk(0);
+          assertTrue('§22 蝕む相: 異常を持たない技でも、当たれば弱体が1つ残る',
+            left.length === 1, left.map((/** @type {any} */ e) => e.kind).join(',') || 'なし');
+          const turns = RPG.data.aspects.as_afflict.effects.afflict.turns;
+          assertTrue('§22 蝕む相: 持続を削り切る耐性があれば残らない',
+            mk(turns).length === 0, '');
+          assertTrue('§22 蝕む相: 独立した軸なので他の相と重ねられる',
+            RPG.aspect.AXES.some((a) => a.id === RPG.data.aspects.as_afflict.axis) &&
+            ['as_omnipresent', 'as_first_strike', 'as_deny_dark'].every((id) =>
+              RPG.data.aspects[id].axis !== RPG.data.aspects.as_afflict.axis), '');
         }
 
         // ── 選ばなければ何も変わらないこと ──
@@ -11529,6 +11558,9 @@
           const atk = b.party[0];
           atk.passives = Object.assign({}, atk.passives, { debuffResist: 1 });
           atk.statusEffects = [];
+          // 手番のあとに敵も動く。敵が異常を撒くようになったので、
+          // 素の技に差し替えて「自分で受けた分」だけを数える（そうしないと乱数で3個になる）
+          for (const e of b.enemies) e.skills = ['sk_enemy_bite'];
           RPG.battle.commandSkill(b, 'sk_embrace_the_rot', [b.enemies[0]], { auto: true });
           assertTrue('自傷を糧: 耐性があっても自分の弱体は入る',
             RPG.battle.debuffsOn(atk).length === 2,

@@ -180,6 +180,7 @@ function invest(charSave, priority, opts) {
  * @param {number} [o.seed]
  * @param {boolean} [o.immortal] 耐久を切り離す（火力だけを見たいとき）
  * @param {number} [o.maxRounds] 強制的に打ち切る（決着しない条件を測るとき）
+ * @param {string[]} [o.aspectIds] 異相のID（例: ['as_afflict']）
  * @param {(b:any, actor:any) => void} [o.onAction] 各行動の直後
  * @param {(b:any) => void} [o.onWave] ウェーブ開始直後（敵を弄るならここ）
  */
@@ -195,7 +196,16 @@ function run(o) {
     seed: o.seed,
   };
   if (quest) cfg.quest = quest;
+  // ── seed は乱数源へ自分で渡す ──
+  // battle.start は cfg.seed を**読まない**。ここで渡していなかったので、
+  // seed を指定しても全部 Math.random のままで、同じ条件・同じ seed の 32 回が
+  // 実行ごとに 15/32・19/32・22/32 とぶれていた（2026-11-04、蝕む相の測定で発覚）。
+  // それ以前の「前後比較」は、ぶれの中での比較だったことになる。
+  // @知見: sim.run の seed は 2026-11-04 まで効いていなかった。それ以前の実測は乱数を止めていない
+  if (o.seed != null) R.rng.seed(o.seed);
   if (o.enemyScale != null) cfg.enemyScale = o.enemyScale;
+  // 異相（§22）。画面で選ぶのと同じ形で渡す。解放条件（ボス撃破）は見ない
+  if (o.aspectIds) cfg.aspectIds = o.aspectIds;
   const b = R.battle.start(cfg);
 
   const foeHp = () => b.enemies.reduce((s, e) => s + Math.max(0, e.hp), 0);

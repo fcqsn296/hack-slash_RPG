@@ -3646,6 +3646,26 @@
       }
     }
 
+    // --- 異相「蝕む相」(§22) — 敵の攻撃が当たるたびに弱体を1つ残す ---
+    //
+    // ── なぜ要るか ──
+    // 敵が6種の異常を撒くようにしても、通常のフィールドでは**味方を完全免疫にしても
+    // 勝率もラウンドも変わらなかった**（深淵 27/32→28/32、他は同値）。戦闘が短く、
+    // 異常が効く前に終わる。耐性・解除・不動心の枝は、どこで取っても損のままだった。
+    // 選んで入る相なら「異常が重い戦場」を作れる。そこで初めて耐性がビルドの答えになる。
+    //
+    // 種類は毎回抽選する。決め打ちの耐性1本では受けきれず、
+    // 全種に効く枝（精神耐性・万象の胆力・不動心）か、解除が要る。
+    // 付与は inflict → addStatus を通るので、耐性・免疫・上限はいつもどおり効く。
+    const afflict = actor.side === 'enemy' && battle.aspect && battle.aspect.effects.afflict;
+    if (afflict && attackSkill && actor.alive) {
+      for (const target of targets) {
+        if (!target.alive || target.side !== 'party') continue;
+        const kind = RPG.rng.pick(RPG.data.statusKinds);
+        inflict(battle, actor, target, kind, afflict.turns || 3, (afflict.ratios || {})[kind] || 0.05);
+      }
+    }
+
     // --- 小技の自動発動 (§4.3) ---
     // 追撃は applyDamage を直接呼ぶので executeSkill には戻らない。無限連鎖はしない。
     if (attackSkill) fireAutoLowSkill(battle, actor, targets);

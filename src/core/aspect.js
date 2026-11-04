@@ -62,6 +62,8 @@
     { id: 'element', label: '属性' },
     { id: 'tempo', label: '手番' },
     { id: 'aim', label: '狙い' },
+    // 蝕み … 敵の一撃が弱体を残す（蝕む相）。他の軸と同時に成立する
+    { id: 'affliction', label: '蝕み' },
   ];
 
   /**
