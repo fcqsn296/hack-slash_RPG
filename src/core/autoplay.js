@@ -170,6 +170,13 @@
       if (cb.blocked) return 0;   // 必要な段が足りなければ不発
       comboScale = cb.scale;
     }
+    // 報復 (§5.8) は被弾した回数がそのまま威力の倍率になる（vengeance.js と同じ式）。
+    // 威力だけを見ていたので、フィリアの受難の光聖剣（威力180）はボス戦で一度も選ばれなかった。
+    if (skill.plugin === 'vengeance') {
+      const vp = skill.params || {};
+      const bonus = Math.min(vp.maxBonus || 5, (actor.hitsTaken || 0) * (vp.perHit || 0.3));
+      comboScale = (comboScale == null ? 1 : comboScale) * (1 + bonus);
+    }
     const result = RPG.damage.calc({
       attacker: RPG.units.toAttacker(actor),
       defender: RPG.units.toDefender(target),

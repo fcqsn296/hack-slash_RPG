@@ -5786,6 +5786,21 @@
           `選んだ技: ${RPG.data.skills[down.skillId].name}`);
       }
 
+      // --- 報復は、被弾した回数ぶんの上乗せを見積もりに入れる ---
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        const me = b.party[0];
+        const foe = RPG.battle.livingEnemies(b)[0];
+        const sk = RPG.data.skills.sk_tree_vengeance;
+        me.hitsTaken = 0;
+        const fresh = RPG.autoplay.estimate(me, foe, sk, b);
+        me.hitsTaken = 4;   // ×(1 + 4×0.35) = ×2.4
+        const hurt = RPG.autoplay.estimate(me, foe, sk, b);
+        assertTrue('オート: 報復の見積もりは被弾した回数で伸びる', hurt > fresh * 1.5,
+          `被弾0 ${Math.round(fresh)} / 被弾4 ${Math.round(hurt)}`);
+        me.hitsTaken = 0;
+      }
+
       // --- 消えない弱体を撒く技（疫病の坩堝）は、乗っていない敵がいれば撒く ---
       {
         const b = makeBattle(['ch_hero', 'ch_noa']);
