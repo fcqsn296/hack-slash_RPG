@@ -5087,6 +5087,8 @@
       // 強さになり、次の周回を速くするので賫う。
       const aBox = RPG.aspect ? RPG.aspect.boxMult(battle.aspect && battle.aspect.ids) : 1;
       const boxMult = (battle.field.box_mult == null ? 1 : battle.field.box_mult) * aBox;
+      // 一部のフィールドは竜の宝箱を色違い（セットの系統が偏る）に替える (data/fields.js boxVariant)
+      const variant = battle.field.boxVariant || {};
       for (const drop of enemy.drops) {
         // 1回ぶんを超えたところは確定として数え、端数だけを抽選に回す。
         // 抽選の回数は倍率によらず drops の数と一致するので、乱数の並びは崩れない。
@@ -5094,8 +5096,9 @@
         const sure = Math.floor(times);
         const count = sure + (RPG.rng.chance(times - sure) ? 1 : 0);
         if (count > 0) {
-          battle.rewards.boxes[drop.box] =
-            (battle.rewards.boxes[drop.box] || 0) + drop.count * count;
+          const boxId = variant[drop.box] || drop.box;
+          battle.rewards.boxes[boxId] =
+            (battle.rewards.boxes[boxId] || 0) + drop.count * count;
         }
       }
     }

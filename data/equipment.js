@@ -41,6 +41,38 @@ RPG.data.boxes = {
     name: '星辰の宝箱', color: '#cfe3f0', stat_mult: 8.5,
     rarity_weights: { COMMON: 0, RARE: 0, SUPER_RARE: 25, LEGEND: 75 },
   },
+
+  // ── 竜の宝箱の色違い（セットの出やすさだけが違う）──
+  // セットが20種に増え、特定のセットの4点が竜の宝箱で約210箱かかるようになった。
+  // **狙う場所**を作るため、一部のフィールドの竜の宝箱を、セットの系統が偏った色違いに替える
+  // （data/fields.js の boxVariant）。数値・レアリティは竜の宝箱と同じで、セットが出たとき
+  // setFavor の確率で setPool から、残りは全セットから選ぶ（src/core/equipset.js の rollSet）。
+  // 宝箱は「種類ごとの個数」で持つので、拾った場所は覚えられない。色違いを別の種類にしたのはそのため。
+  // 段階（tools/count_content.py の宝箱の数）には数えない（名前に _ が2つ）。
+  box_dragon_offense: {
+    name: '猛き竜の宝箱', color: '#ff5a3a', stat_mult: 7.5, variantOf: 'box_dragon',
+    rarity_weights: { COMMON: 0, RARE: 8, SUPER_RARE: 42, LEGEND: 50 },
+    setFavor: 0.7,
+    setPool: ['set_decisive', 'set_fixation', 'set_skyrend', 'set_median', 'set_echo'],
+  },
+  box_dragon_guard: {
+    name: '堅き竜の宝箱', color: '#8fb0d8', stat_mult: 7.5, variantOf: 'box_dragon',
+    rarity_weights: { COMMON: 0, RARE: 8, SUPER_RARE: 42, LEGEND: 50 },
+    setFavor: 0.7,
+    setPool: ['set_bulwark', 'set_rampart', 'set_homeward', 'set_warding', 'set_undying'],
+  },
+  box_dragon_rhythm: {
+    name: '巡る竜の宝箱', color: '#7be0b5', stat_mult: 7.5, variantOf: 'box_dragon',
+    rarity_weights: { COMMON: 0, RARE: 8, SUPER_RARE: 42, LEGEND: 50 },
+    setFavor: 0.7,
+    setPool: ['set_cadence', 'set_enduring', 'set_adapt', 'set_blitz', 'set_resonance'],
+  },
+  box_dragon_heresy: {
+    name: '蝕む竜の宝箱', color: '#a87fd8', stat_mult: 7.5, variantOf: 'box_dragon',
+    rarity_weights: { COMMON: 0, RARE: 8, SUPER_RARE: 42, LEGEND: 50 },
+    setFavor: 0.7,
+    setPool: ['set_blight', 'set_stigma', 'set_wrath', 'set_solitude', 'set_banner'],
+  },
 };
 
 /**

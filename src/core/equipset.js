@@ -118,6 +118,10 @@
     const chance = (RPG.data.equipSetChance || {})[boxId] || 0;
     if (chance <= 0) return null;
     if (!RPG.rng.chance(chance)) return null;
+    // 色違いの宝箱は、setFavor の確率で偏った系統（setPool）から選ぶ (data/equipment.js)
+    const box = (RPG.data.boxes || {})[boxId] || {};
+    const pool = (box.setPool || []).filter((id) => RPG.data.equipSets[id]);
+    if (pool.length && RPG.rng.chance(box.setFavor || 0)) return RPG.rng.pick(pool);
     return RPG.rng.pick(Object.keys(RPG.data.equipSets));
   }
 

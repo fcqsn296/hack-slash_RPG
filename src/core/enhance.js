@@ -422,6 +422,51 @@
   }
 
   /**
+   * セットの付け替えの代金 (§7.7)。星霜の欠片1個＋厳選の2倍のゴールド。
+   *
+   * ── なぜ要るのか ──
+   * セットが20種に増え、全種から均等に抽選されるので、特定のセットの4点は竜の宝箱で約210箱かかる。
+   * 色違いの竜の宝箱（data/equipment.js）で「狙う場所」は作ったが、最後の1点が揃わない詰まりは残る。
+   * **セットを持っている装備だけ**を別のセットへ移せる。セット無しの装備には付けられないので、
+   * セットの出る率（data/equipsets.js の equipSetChance）の意味は残る。
+   * 欠片は闘技場・塔の節目でしか手に入らないので、乱発はできない。
+   * @param {any} item
+   */
+  function reforgeSetCost(item) {
+    return { shards: 1, gold: rerollCost(item) * 2 };
+  }
+
+  /**
+   * 装備のセットを別のセットへ付け替える (§7.7)。数値・副オプション・強化値はそのまま。
+   * @param {number} uid
+   * @param {string} setId
+   * @returns {{ok: boolean, reason?: string}}
+   */
+  function reforgeSet(uid, setId) {
+    const gate = canForge();
+    if (!gate.ok) return gate;
+    const s = RPG.state.get();
+    const item = s.inventory.find((/** @type {any} */ it) => it.uid === uid);
+    if (!item) return { ok: false, reason: '装備が見つかりません' };
+    if (item.unique || item.uniqueId) return { ok: false, reason: 'ユニーク装備・専用装備にはセットが付きません' };
+    if (!item.setId) return { ok: false, reason: 'セットを持っている装備だけが付け替えられます' };
+    if (!RPG.data.equipSets[setId]) return { ok: false, reason: 'そのセットはありません' };
+    if (item.setId === setId) return { ok: false, reason: 'すでにそのセットです' };
+    const cost = reforgeSetCost(item);
+    if (RPG.state.itemCount(SHARD_ITEM) < cost.shards) {
+      return { ok: false, reason: `${RPG.data.items[SHARD_ITEM].name}が足りません` };
+    }
+    if (s.gold < cost.gold) {
+      return { ok: false, reason: `ゴールドが ${(cost.gold - s.gold).toLocaleString()} 足りません` };
+    }
+    RPG.state.addItem(SHARD_ITEM, -cost.shards);
+    RPG.state.addGold(-cost.gold);
+    item.setId = setId;
+    RPG.state.persist();
+    return { ok: true };
+  }
+
+  /**
    * 鍛冶が使えるか (§7.6)。**主人公のレベル**で見る。
    * 装備はキャラ間で共有するので、1人ずつ開けても意味がない。
    * @returns {{ok: boolean, reason?: string, need: number}}
@@ -442,6 +487,6 @@
     REFINE_SHARDS, SHARD_ITEM,
     grade, plusOf, materialValue, enhanceCost, rerollCost, refineCost, applyPlus,
     usableAsMaterial, materialCandidates, autoPickMaterials,
-    enhance, reroll, refine, info,
+    enhance, reroll, refine, info, reforgeSet, reforgeSetCost,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));

@@ -98,6 +98,8 @@ RPG.data.fields = {
     pool: ['em_cinder_queen', 'em_glass_sentinel', 'em_hollow_choir'],
     boss: 'bs_ashen_monarch',
     gold_mult: 0.35, exp_mult: 0.55, postGacha: true,
+    // 竜の宝箱は色違いの「猛き竜の宝箱＝攻めのセット」（セットの系統が偏る。data/equipment.js）
+    boxVariant: { box_dragon: 'box_dragon_offense' },
     bg: ['#3a2018', '#120806'],
     desc: '燃え尽きた世界の縁。属性が入り乱れ、単一属性のビルドでは押し切れない。',
   },
@@ -115,6 +117,8 @@ RPG.data.fields = {
     // 1.32 では手前を 4.9% 上回るだけで、24周平均の揺れ（実測で数%動く）に
     // 埋もれる幅だった。順序が種依存にならないよう 1.42 まで広げてある。
     gold_mult: 0.28, exp_mult: 0.42, box_mult: 1.42, postGacha: true,
+    // 竜の宝箱は色違いの「蝕む竜の宝箱＝異常・代償のセット」（セットの系統が偏る。data/equipment.js）
+    boxVariant: { box_dragon: 'box_dragon_heresy' },
     bg: ['#1b2338', '#07090f'],
     desc: '世界が始まった場所の余韻。ここまで来ると、強化と厳選を詰めていなければ削りきれない。',
   },
@@ -229,6 +233,8 @@ RPG.data.fields = {
     // 5,739 → 7,100 前後。回廊との差を1割ほど確保する（1.22 では 6.5% しか無く、
     // 24周平均の揺れに埋もれる幅だった）。
     gold_mult: 0.36, exp_mult: 0.56, box_mult: 1.28, postGacha: true,
+    // 竜の宝箱は色違いの「巡る竜の宝箱＝巡り・技巧のセット」（セットの系統が偏る。data/equipment.js）
+    boxVariant: { box_dragon: 'box_dragon_rhythm' },
     bg: ['#2b2536', '#0c0a12'],
     // 最初は据え置き（固定Lv225）で作ったが、検証テストに弾かれた。
     // **据え置きの狩場は初期上限(150)で相手にできなければならない** (§6.5)。
@@ -254,6 +260,8 @@ RPG.data.fields = {
     // 実測（REFERENCE の型・Lv255・24回、1ラウンドあたり、負けた回も含む）は作業ログに。
     // 以前は 金0.40／経験0.62／箱1.0（×30前の、1発で倒れていた頃の値）。
     gold_mult: 0.88, exp_mult: 1.62, box_mult: 4.0, postGacha: true,
+    // 竜の宝箱は色違いの「堅き竜の宝箱＝守りのセット」（セットの系統が偏る。data/equipment.js）
+    boxVariant: { box_dragon: 'box_dragon_guard' },
     bg: ['#1a1630', '#07050f'],
     // 上乗せは小さめ。回廊ほど厳しくせず、際より少し上を置く。
     scaling: { floor: 250, above: 5 },

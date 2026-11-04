@@ -6897,6 +6897,67 @@
           RPG.data.equipSetChance.box_bronze === 0, '序盤の対象にしない');
       }
 
+      // --- 竜の色違い: セットの系統が偏る（data/equipment.js の setPool / setFavor）---
+      // セットが20種に増えて揃えにくくなったので、狙う場所を作った。偏りが効いているかを数で見る。
+      {
+        const pool = RPG.data.boxes.box_dragon_guard.setPool;
+        const share = (/** @type {string} */ boxId) => {
+          RPG.rng.seed(4321);
+          let inPool = 0, sets = 0;
+          for (let i = 0; i < 4000; i++) {
+            const id = RPG.equipset.rollSet(boxId);
+            if (!id) continue;
+            sets++;
+            if (pool.includes(id)) inPool++;
+          }
+          RPG.rng.seed(null);
+          return inPool / Math.max(1, sets);
+        };
+        const plain = share('box_dragon'), guard = share('box_dragon_guard');
+        const n = Object.keys(RPG.data.equipSets).length;
+        const want = RPG.data.boxes.box_dragon_guard.setFavor + (1 - RPG.data.boxes.box_dragon_guard.setFavor) * pool.length / n;
+        assertTrue('セット: 色違いの竜の宝箱は、偏った系統が出やすい',
+          Math.abs(guard - want) < 0.04 && Math.abs(plain - pool.length / n) < 0.04,
+          `系統の割合 竜 ${(plain * 100).toFixed(0)}% ／ 堅き竜 ${(guard * 100).toFixed(0)}%（期待 ${(want * 100).toFixed(0)}%）`);
+        const badPool = Object.keys(RPG.data.boxes).filter((b) =>
+          (RPG.data.boxes[b].setPool || []).some((/** @type {string} */ id) => !RPG.data.equipSets[id]));
+        assertTrue('セット: 色違いの宝箱が指すセットは実在する', badPool.length === 0, badPool.join(', ') || 'OK');
+        // 還らぬ位相で倒した敵の竜の宝箱は、堅き竜の宝箱になる
+        // 報酬はウェーブを片付けたとき（checkWaveCleared）に積まれる。HPを0にしてから呼ぶ
+        const fb = RPG.battle.start({ fieldId: 'fl_beyond', waves: 1, party: RPG.state.partyUnits(), bossFinale: true });
+        for (const e of fb.enemies) { e.hp = 0; e.alive = false; }
+        RPG.battle.checkWaveCleared(fb);
+        const box = Object.keys(fb.rewards.boxes || {});
+        assertTrue('セット: フィールドの色違いの指定（boxVariant）が宝箱に反映される',
+          box.includes('box_dragon_guard') && !box.includes('box_dragon'), box.join(',') || 'なし');
+      }
+
+      // --- セットの付け替え（鍛冶）---
+      {
+        const s = RPG.state.get();
+        s.characters.ch_hero.level = Math.max(s.characters.ch_hero.level, RPG.data.forgeUnlockLevel);
+        s.gold = 1e9;
+        RPG.state.addItem(RPG.enhance.SHARD_ITEM, 3);
+        RPG.rng.seed(99);
+        const item = RPG.gear.identify('box_dragon', RPG.state.nextUid(), { setId: 'set_echo' });
+        RPG.rng.seed(null);
+        s.inventory.push(item);
+        const stats = JSON.stringify(item.stats), shards = RPG.state.itemCount(RPG.enhance.SHARD_ITEM);
+        const res = RPG.enhance.reforgeSet(item.uid, 'set_rampart');
+        assertTrue('セットの付け替え: セットだけが変わり、数値はそのまま',
+          res.ok && item.setId === 'set_rampart' && JSON.stringify(item.stats) === stats, res.reason || item.setId);
+        assertTrue('セットの付け替え: 星霜の欠片を1個払う',
+          RPG.state.itemCount(RPG.enhance.SHARD_ITEM) === shards - 1, '');
+        const plain = RPG.gear.identify('box_dragon', RPG.state.nextUid(), { setId: null });
+        s.inventory.push(plain);
+        assertTrue('セットの付け替え: セットの無い装備には付けられない',
+          RPG.enhance.reforgeSet(plain.uid, 'set_rampart').ok === false, '');
+        const uq = RPG.gear.identify('box_astral', RPG.state.nextUid());
+        s.inventory.push(uq);
+        assertTrue('セットの付け替え: ユニーク装備には付けられない',
+          RPG.enhance.reforgeSet(uq.uid, 'set_rampart').ok === false, '');
+      }
+
       // --- 集計 ---
       {
         const mk = (/** @type {string} */ setId) =>

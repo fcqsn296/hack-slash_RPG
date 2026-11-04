@@ -332,6 +332,11 @@ RPG.data.equipSetChance = {
   box_silver: 0.10,
   box_gold: 0.22,
   box_dragon: 0.38,
+  // 竜の色違い。出る率は竜と同じで、どのセットが出やすいかだけが違う（data/equipment.js）
+  box_dragon_offense: 0.38,
+  box_dragon_guard: 0.38,
+  box_dragon_rhythm: 0.38,
+  box_dragon_heresy: 0.38,
   // 星辰の宝箱はユニーク装備 (§7.8) が主役なので、セットは出さない。
   box_astral: 0,
 };

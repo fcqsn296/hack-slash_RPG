@@ -97,11 +97,12 @@ def main():
              count(eq, r"id: '(af_\w+)'"),
              count(read('equipsets.js'), r'\n  (\w+): \{'),
              count(read('uniques.js'), r'\n  (\w+): \{')))
+    # 宝箱の段階は box_xxx だけを数える。竜の色違い（box_dragon_guard など、セットの偏りだけが違う）は段階ではない
     print('- フィールド %d、塔の階層帯 %d、依頼 %d、宝箱 %d段階'
           % (count(read('fields.js'), r'\n  (fl_\w+): \{'),
              count(tiers, r'\{ *from:'),
              count(read('quests.js'), r'\n  (q_\w+): \{'),
-             count(eq, r'\n  (box_\w+): \{')))
+             count(eq, r'\n  (box_[a-z]+): \{')))
     print('- 物語 %d章、地図 %d枚'
           % (count(read('story.js'), r"id: 'ch\d+',"),
              count(read('maps.js'), r'\n  (mp_\w+): \{')))

@@ -87,6 +87,8 @@
   let forgeTarget = null;
   /** 再抽選でいま選んでいる副オプションの枠。装備を替えたら外す。 */
   let forgeSlot = 0;
+  /** 鍛冶の「セットの付け替え」で選んでいる行き先 */
+  let forgeSetTarget = null;
   /** 狭い画面で、鍛冶の装備一覧（横から出る板）を開いているか */
   let forgeListOpen = false;
 
@@ -563,8 +565,9 @@
     let best = RPG.data.boxes.box_bronze;
     for (const enemyId of ids) {
       for (const drop of (RPG.data.enemies[enemyId].drops || [])) {
-        const box = RPG.data.boxes[drop.box];
-        if (box && box.stat_mult > best.stat_mult) best = box;
+        // 竜の宝箱を色違いに替えるフィールドでは、色違いの名前で見せる (data/fields.js boxVariant)
+        const box = RPG.data.boxes[(field.boxVariant || {})[drop.box] || drop.box];
+        if (box && box.stat_mult >= best.stat_mult) best = box;
       }
     }
     return best;
@@ -2469,6 +2472,9 @@
       // --- 再抽選 (§7.9) ---
       refineBlock(root, item, info, save),
 
+      // --- セットの付け替え (§7.7) ---
+      reforgeSetBlock(root, item, info, save),
+
       h('p.hint.hint-sm', {
         text: `強化で伸びるのは平坦ステータスだけです。系統タグ倍率・クリティカル率・` +
           `上限突破・軽減は伸びません（ダメージ曲線を宝箱のグレードで決めてしまわないため）。`,
@@ -2577,6 +2583,48 @@
       atMax ? null : h('p.hint.hint-sm', {
         text: `1経験値あたり ${RPG.state.GOLD_PER_EXP} G。周回で同時に入る額のおよそ2倍なので、`
           + `出撃して稼ぐほうが得です。貯まっている経験値のぶんは差し引かれます。`,
+      })
+    );
+  }
+
+  /**
+   * セットの付け替え (§7.7)。セットを持っている装備だけを、別のセットへ移す。
+   * 理由は src/core/enhance.js の reforgeSetCost。
+   * @param {HTMLElement} root @param {any} item @param {any} info @param {any} save
+   */
+  function reforgeSetBlock(root, item, info, save) {
+    const shardDef = RPG.data.items[RPG.enhance.SHARD_ITEM];
+    const head = h('div.forge-block-head',
+      h('h4', { text: 'セットの付け替え' }),
+      h('span.hint.hint-sm', { text: `${shardDef.name} ×${info.shards}` })
+    );
+    if (item.unique || item.uniqueId || !item.setId) {
+      return h('div.forge-block', head,
+        h('p.hint.hint-sm', { text: 'セットを持っている装備だけが付け替えられます。' }));
+    }
+    const ids = Object.keys(RPG.data.equipSets).filter((id) => id !== item.setId);
+    if (!forgeSetTarget || forgeSetTarget === item.setId || !RPG.data.equipSets[forgeSetTarget]) forgeSetTarget = ids[0];
+    const cost = RPG.enhance.reforgeSetCost(item);
+    const ok = info.shards >= cost.shards && save.gold >= cost.gold;
+    const now = RPG.data.equipSets[item.setId];
+    return h('div.forge-block', head,
+      h('p.hint.hint-sm', { text: `いまは「${now.name}」。数値・副オプション・強化値はそのままで、セットだけが変わります。` }),
+      h('select.gear-sort', {
+        'aria-label': '付け替え先のセット',
+        onChange: (/** @type {any} */ e) => { forgeSetTarget = e.currentTarget.value; render(root); },
+      }, ...ids.map((id) => h('option', {
+        value: id, selected: forgeSetTarget === id ? 'selected' : null,
+      }, h('span', { text: RPG.data.equipSets[id].name })))),
+      h('p.hint.hint-sm', { text: RPG.data.equipSets[forgeSetTarget].desc }),
+      W.button('付け替える', () => {
+        const res = RPG.enhance.reforgeSet(item.uid, forgeSetTarget);
+        if (!res.ok) { RPG.app.toast(res.reason || '失敗'); return; }
+        RPG.app.toast(`「${now.name}」→「${RPG.data.equipSets[forgeSetTarget].name}」`);
+        RPG.app.refreshTopbar();
+        render(root);
+      }, {
+        variant: ok ? 'primary' : 'ghost', disabled: !ok,
+        sub: `${shardDef.icon}${cost.shards} / ${cost.gold.toLocaleString()} G`,
       })
     );
   }
