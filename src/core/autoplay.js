@@ -369,6 +369,20 @@
       const stance = getsHit && !actor.stance && skills.find((s) => s.def.plugin === 'counter_stance');
       if (stance) return { skillId: stance.id, targets: [] };
 
+      // ── 消えない弱体を撒く技（疫病の坩堝）も、張る技として扱う ──
+      // 見積もりは技の威力（140）だけで、時間で消えない6種の弱体（毒・火傷の削り、
+      // 弱体中の敵への火力）を数えないので、火力の小さい仲間しか撃たなかった
+      // （呪術師/疫病の主人公・アストラ・エレナで4戦×10Rとも0回）。
+      // 弱体の価値を正しく見積もるのは難しいので、照準と同じく「乗っていない敵がいれば撒く」。
+      const lastingSkill = skills.find((s) => s.def.plugin === 'status' && s.def.params && s.def.params.lasting
+        && foes.some((f) => !(f.statusEffects || []).some((e) => e.lasting)));
+      if (lastingSkill) {
+        if (lastingSkill.def.params.all) return { skillId: lastingSkill.id, targets: [] };
+        const bare = foes.filter((f) => !(f.statusEffects || []).some((e) => e.lasting))
+          .sort((x, y) => y.hp - x.hp);
+        return { skillId: lastingSkill.id, targets: [bare[0]] };
+      }
+
       // ── 照準（mark）も同じ扱いで張る ──
       // 威力0で回復でもバフでもないので、どの分岐にも入らず一度も撃たれていなかった
       // （戦術家/照準の総員狙撃、ツリーの狩りの合図。4戦×10Rで0回）。

@@ -5786,6 +5786,24 @@
           `選んだ技: ${RPG.data.skills[down.skillId].name}`);
       }
 
+      // --- 消えない弱体を撒く技（疫病の坩堝）は、乗っていない敵がいれば撒く ---
+      {
+        const b = makeBattle(['ch_hero', 'ch_noa']);
+        b.round = 2;
+        const me = RPG.battle.currentActor(b);
+        const atk = me.skills.find((/** @type {string} */ id) => RPG.autoplay.isAttack(RPG.data.skills[id]));
+        me.skills = [atk, 'sk_cls_crucible'];
+        const first = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 消えない弱体が無ければ疫病の坩堝を撒く', first.skillId === 'sk_cls_crucible',
+          `選んだ技: ${RPG.data.skills[first.skillId].name}`);
+        for (const f of RPG.battle.livingEnemies(b)) {
+          f.statusEffects = (f.statusEffects || []).concat([{ kind: 'poison', label: '毒', turns: 4, ratio: 0.01, lasting: true }]);
+        }
+        const again = RPG.autoplay.chooseAction(b);
+        assertTrue('オート: 全員に消えない弱体があれば撒き直さない', again.skillId !== 'sk_cls_crucible',
+          `選んだ技: ${RPG.data.skills[again.skillId].name}`);
+      }
+
       // --- 刻印の技は、その場で弾けるぶんを見積もりに入れる ---
       // 威力だけを見て、呪印乱舞（その場で必ず1回・最大HPの8%）も刻印刃も一度も選ばれなかった。
       {
