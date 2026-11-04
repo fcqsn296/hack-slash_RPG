@@ -108,7 +108,9 @@ RPG.data.effectKinds = {
   damage_share: { to: 'passives', shape: 'add', uniq: null, key: 'damageShare', label: '被害を味方で分ける', fmt: 'pct' },
   debuff_amp: { to: 'situational', shape: 'add', uniq: 'debuffAmp', route: 'situational', key: 'debuffAmp', label: '弱体中の相手への火力', fmt: 'pct' },
   debuff_duration: { to: 'passives', shape: 'add', uniq: 'debuffDuration', route: 'passives', key: 'debuffDuration', label: '与える弱体の持続', fmt: 'turn' },
-  debuff_resist: { to: 'passives', shape: 'add', uniq: null, key: 'debuffResist', label: '受ける弱体の持続を短縮', fmt: 'pct' },
+  // 耐性・はねのけ・毒手はユニーク装備からも使えるように開けた（『祓魔の板金』『蛇牙の大斧』）。
+  // 敵が6種の異常を撒き、蝕む相で耐性が答えになったので、装備で受け持つ道を作る。
+  debuff_resist: { to: 'passives', shape: 'add', uniq: 'debuffResist', route: 'passives', key: 'debuffResist', label: '受ける弱体の持続を短縮', fmt: 'pct' },
   debuff_spread: { to: 'passives', shape: 'add', uniq: 'debuffSpread', route: 'passives', key: 'debuffSpread', label: '弱体が隣へ伝染', fmt: 'pct' },
   def_to_atk: { to: 'passives', shape: 'add', uniq: null, key: 'defToAtk', label: 'DEFをATKへ上乗せ', fmt: 'pct' },
   double_hits: { to: 'passives', shape: 'add', uniq: 'doubleHits', route: 'passives', key: 'doubleHits', label: '同じ技がもう一度', fmt: 'pct' },
@@ -404,8 +406,8 @@ RPG.data.effectKinds = {
   start_shield: { to: 'passives', shape: 'add', uniq: null, key: 'startShield', label: '開幕の障壁', fmt: 'pct' },
   stat_cost: { to: 'build', shape: 'keyed', needs: ["stat"], uniq: null },
   stat_pct: { to: 'build', shape: 'keyed', needs: ["stat"], uniq: null },
-  status_immune: { to: 'passives', shape: 'add', uniq: null, key: 'statusImmune', label: '弱体をはねのける', fmt: 'pct' },
-  status_on_hit: { to: 'passives', shape: 'add', uniq: null, key: 'statusOnHit', label: '攻撃時に弱体を付与', fmt: 'pct' },
+  status_immune: { to: 'passives', shape: 'add', uniq: 'statusImmune', route: 'passives', key: 'statusImmune', label: '弱体をはねのける', fmt: 'pct' },
+  status_on_hit: { to: 'passives', shape: 'add', uniq: 'statusOnHit', route: 'passives', key: 'statusOnHit', label: '攻撃時に弱体を付与', fmt: 'pct' },
   status_on_hit_kind: { to: 'passives', shape: 'keyed', needs: ["status"], uniq: null, key: 'statusOnHitKind', label: '攻撃時に特定の弱体を付与', fmt: 'keyed' },
   status_power: { to: 'passives', shape: 'add', uniq: 'statusPower', route: 'passives', key: 'statusPower', label: '与える継続ダメージ', fmt: 'pct' },
   status_resist_kind: { to: 'passives', shape: 'keyed', needs: ["status"], uniq: null, key: 'statusResistKind', label: '特定の弱体に耐性', fmt: 'keyed' },

@@ -1951,8 +1951,10 @@
             // 敵の技をそのまま使う。威力を作った偽の技だと、
             // 属性や系統タグの経路を通らずに「通った」ことにしてしまう。
             hero.hp = 5;
-            const foeSkill = RPG.data.skills[b.enemies[0].skills[0]];
-            RPG.battle.applyDamage(b, b.enemies[0], hero, foeSkill, { silent: true });
+            // 敵の先頭の技を借りていたら、草原のスライムが弱い魔術技（水鉄砲）を先頭に持った途端、
+            // 並び次第で致死に届かず落ちるようになった。実在の敵技に固定し、威力で必ず致死にする。
+            const foeSkill = RPG.data.skills.sk_enemy_bite;
+            RPG.battle.applyDamage(b, b.enemies[0], hero, foeSkill, { silent: true, powerScale: 999 });
             assertTrue('§21 死: 終止符までは致死でも倒れない',
               hero.alive && hero.hp === 1, `alive=${hero.alive} hp=${hero.hp}`);
 
@@ -11301,6 +11303,10 @@
           healOnKill: (r) => r.unit.passives.healOnKill,
           debuffSpread: (r) => r.unit.passives.debuffSpread,
           selfCursePower: (r) => r.unit.passives.selfCursePower,
+          // 異常の守りと毒手。装備から開けたので、ユニットまで届くかをここで見る
+          debuffResist: (r) => r.unit.passives.debuffResist,
+          statusImmune: (r) => r.unit.passives.statusImmune,
+          statusOnHit: (r) => r.unit.passives.statusOnHit,
           evade: (r) => r.unit.passives.evade,
           focusPower: (r) => r.unit.passives.focusPower,
           relayPower: (r) => r.unit.passives.relayPower,
