@@ -60,6 +60,10 @@ RPG.data.characters = {
     growth: { hp: 40, atk: 3.0, def: 2.4, magi_power: 11.0 },
     unique_skills: ['sk_rizel_surge'],
     common_skills: ['sk_fire_bolt', 'sk_stone_press', 'sk_mind_bash', 'sk_relic_ember'],
+    // ── LEGEND 以外にも型の柱を1つ（2026-11）──
+    // 14人はパッシブが0で、ステータスと技1つの違いしか無く、序盤の10連で引いても組み替える動機が無かった
+    // （テストプレイの序盤担当の指摘）。役どころに沿った小さな柱を1つずつ持たせた。値は LEGEND の同じ効果の4〜5割。
+    passives: { capBreak: 0.12 },
     color: '#ee684a', accent: '#48251d', glyph: '緋',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -78,6 +82,7 @@ RPG.data.characters = {
     growth: { hp: 82, atk: 6.0, def: 7.5, magi_power: 2.5 },
     unique_skills: ['sk_gald_bulwark'],
     common_skills: ['sk_heavy_slash', 'sk_armor_break', 'sk_phys_roar'],
+    passives: { guardAlly: 0.15, taunt: 0.4 },
     color: '#e5e4dd', accent: '#464543', glyph: '巌',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -96,6 +101,7 @@ RPG.data.characters = {
     growth: { hp: 44, atk: 10.5, def: 2.8, magi_power: 3.0 },
     unique_skills: ['sk_shiki_flurry'],
     common_skills: ['sk_double_strike', 'sk_gale_edge', 'sk_poison_fang', 'sk_relic_gust'],
+    passives: { lowPowerBoost: 0.2 },
     color: '#91c7de', accent: '#2f3d43', glyph: '疾',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -114,6 +120,7 @@ RPG.data.characters = {
     growth: { hp: 48, atk: 2.8, def: 3.4, magi_power: 9.0 },
     unique_skills: ['sk_noa_tide'],
     common_skills: ['sk_heal_light', 'sk_aqua_lance', 'sk_fire_bolt'],
+    passives: { healPower: 0.2, cleanse: 0.25 },
     color: '#6aade2', accent: '#253745', glyph: '静',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -132,6 +139,7 @@ RPG.data.characters = {
     growth: { hp: 46, atk: 8.0, def: 3.0, magi_power: 8.0 },
     unique_skills: ['sk_poison_fang'],
     common_skills: ['sk_magic_blade', 'sk_mind_bash', 'sk_focus', 'sk_relic_umbra'],
+    passives: { statusPower: 0.15, debuffDuration: 1 },
     color: '#be8df2', accent: '#3c2f49', glyph: '宵',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -171,6 +179,7 @@ RPG.data.characters = {
     growth: { hp: 42, atk: 3.2, def: 2.5, magi_power: 10.5 },
     unique_skills: ['sk_ryn_veil'],
     common_skills: ['sk_fire_bolt', 'sk_poison_fang', 'sk_magic_blade'],
+    passives: { guardBreak: 0.15 },
     color: '#745c9b', accent: '#251e2f', glyph: '帳',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -189,6 +198,7 @@ RPG.data.characters = {
     growth: { hp: 44, atk: 4.0, def: 2.8, magi_power: 8.8 },
     unique_skills: ['sk_selen_ray'],
     common_skills: ['sk_heal_light', 'sk_gale_edge', 'sk_fire_bolt'],
+    passives: { healSpread: 0.2 },
     color: '#fde0e4', accent: '#4d4546', glyph: '聖',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -207,6 +217,7 @@ RPG.data.characters = {
     growth: { hp: 70, atk: 7.5, def: 5.8, magi_power: 2.2 },
     unique_skills: ['sk_gow_roar'],
     common_skills: ['sk_heavy_slash', 'sk_double_strike', 'sk_slash'],
+    passives: { buffPower: 0.15, buffExtend: 1 },
     color: '#937877', accent: '#2c2525', glyph: '剛',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -225,6 +236,7 @@ RPG.data.characters = {
     growth: { hp: 55, atk: 6.5, def: 3.8, magi_power: 1.8 },
     unique_skills: ['sk_bran_smash'],
     common_skills: ['sk_slash', 'sk_heavy_slash', 'sk_stone_press', 'sk_relic_root'],
+    passives: { midPowerCrit: 0.15 },
     color: '#b2ab94', accent: '#36342e', glyph: '傭',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -243,6 +255,7 @@ RPG.data.characters = {
     growth: { hp: 38, atk: 2.2, def: 2.2, magi_power: 7.5 },
     unique_skills: ['sk_mia_splash'],
     common_skills: ['sk_heal_light', 'sk_aqua_lance', 'sk_fire_bolt', 'sk_relic_tide'],
+    passives: { lowHpHeal: 0.04 },
     color: '#a4e3f8', accent: '#35464b', glyph: '水',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -261,6 +274,7 @@ RPG.data.characters = {
     growth: { hp: 40, atk: 7.2, def: 2.4, magi_power: 2.0 },
     unique_skills: ['sk_tor_flame'],
     common_skills: ['sk_gale_edge', 'sk_double_strike', 'sk_slash'],
+    passives: { statusOnHitKind: { burn: 0.15 } },
     color: '#e1724f', accent: '#44271e', glyph: '斥',
     art: {
       // 立ち絵から切り出す顔の範囲（画像サイズに対する割合）
@@ -280,6 +294,7 @@ RPG.data.characters = {
     growth: { hp: 42, atk: 9.4, def: 2.6, magi_power: 2.8 },
     unique_skills: ['sk_kaze_dance'],
     common_skills: ['sk_gale_edge', 'sk_double_strike', 'sk_slash'],
+    passives: { extraActionRate: 0.06 },
     color: '#8ce0c8', accent: '#1a4a40', glyph: '舞',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
@@ -298,6 +313,7 @@ RPG.data.characters = {
     growth: { hp: 46, atk: 2.4, def: 3.2, magi_power: 7.8 },
     unique_skills: ['sk_hikari_veil'],
     common_skills: ['sk_heal_light', 'sk_fire_bolt', 'sk_aqua_lance'],
+    passives: { startShield: 0.08, buffShield: 0.06 },
     color: '#ffeab8', accent: '#5c4a20', glyph: '灯',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
@@ -316,6 +332,7 @@ RPG.data.characters = {
     growth: { hp: 62, atk: 6.8, def: 4.6, magi_power: 2.0 },
     unique_skills: ['sk_mu_impact'],
     common_skills: ['sk_heavy_slash', 'sk_slash', 'sk_focus'],
+    passives: { repeatPower: 0.12 },
     color: '#c8c4bc', accent: '#3c3a34', glyph: '無',
     art: {
       // 立ち絵から自動計測（tools/detect_faces.py）。調整は test/art.html から。
