@@ -1411,9 +1411,11 @@ RPG.data.skills = {
     power: 245, crit_rate: 0.12, desc: '',
   },
   sk_enemy_frost: {
-    name: '氷結波', kind: 'active', plugin: null,
+    // 氷結の乙女だけが持つ。名前どおり凍結を乗せる（以前は素のダメージ技だった）
+    name: '氷結波', kind: 'active', plugin: 'status',
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
-    power: 145, crit_rate: 0.05, desc: '',
+    power: 130, crit_rate: 0.05, params: { status: 'freeze', turns: 2, ratio: 0.18 },
+    desc: '凍てつく波。凍結させ、受けるダメージが増える。',
   },
   sk_enemy_thunder: {
     name: '雷撃', kind: 'active', plugin: 'multi_hit',
@@ -1448,5 +1450,191 @@ RPG.data.skills = {
     name: '終焉の吐息', kind: 'active', plugin: null,
     scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
     power: 240, crit_rate: 0.12, desc: '',
+  },
+
+  /* ---------------- 敵専用：状態異常と固有の一手 ----------------
+   *
+   * ── なぜ足したか ──
+   * テストプレイで「敵46体が使う技は20種、状態異常は6種あるのに敵が撒くのは毒だけ、
+   * ボス12体に専用技が無い」と4人が別々に指摘した（docs/作業ログ/敵の技と状態異常.md）。
+   * 味方側には弱体の持続短縮（debuff_resist）・種類別耐性（status_resist_kind）・
+   * 回復時の解除（cleanse）が揃っているのに、**毒しか来ないので取る理由が無かった。**
+   *
+   * ── 強さの段 ──
+   * 割合は最大HP・被ダメージ・確率に掛かるのでレベルで目減りしない。
+   * だから帯で段を付けた。序盤（草原・廃坑）は「こういう異常がある」と知るための弱さ、
+   * 中盤（巣〜深淵）で効き始め、終盤（灰燼以降）は耐性を積む理由になる強さ。
+   * 味方側の上限 STATUS_CAP（battle.js）は敵が撒いた分にも効く。
+   *
+   * ── 全体技の威力は単体技の半分程度 ──
+   * 敵の全体技は味方の人数ぶん総ダメージが増える。単体185の技を全体120に置き換えたら
+   * 深淵が 15/16→10/16 に落ちた（異常の強さを削っても戻らず、原因は威力の側だった）。
+   * 全体技を置き換えた単体技の半分程度に下げると、勝率は元のまま最低HPだけが下がった。
+   * @知見: 敵の単体技を全体技に替えるなら威力は半分程度に。人数ぶん総ダメージが増える
+   *
+   * 封絶の浅層・封絶区画の雑魚は物語モードでも出るので触っていない。
+   * 回廊の敵は「姿を借りる」仕組みと絡むので触っていない。
+   */
+
+  // ── 序盤：草原・廃坑 ──
+  sk_enemy_bubble: {
+    name: '泡沫の檻', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'water',
+    power: 80, crit_rate: 0.05, params: { status: 'freeze', turns: 2, ratio: 0.10 },
+    desc: '泡で包み、凍えさせる。受けるダメージが少し増える。',
+  },
+  sk_enemy_fang: {
+    name: '裂き牙', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 85, crit_rate: 0.05, params: { status: 'bleed', turns: 2, ratio: 0.15 },
+    desc: '傷口を広げる牙。出血させ、被弾のたびに傷が開く。',
+  },
+  sk_enemy_singe: {
+    name: '焦がし羽', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
+    power: 80, crit_rate: 0.05, params: { status: 'burn', turns: 3, ratio: 0.010 },
+    desc: '火の粉を纏った羽ばたき。火傷させ、攻撃するたびに焼ける。',
+  },
+  sk_enemy_static: {
+    name: '帯電の羽', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 90, crit_rate: 0.05, params: { status: 'paralyze', turns: 1, ratio: 0.12 },
+    desc: '雷を孕んだ羽で打つ。麻痺させ、手番を奪うことがある。',
+  },
+  sk_enemy_will_o: {
+    name: '鬼火の囁き', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 75, crit_rate: 0.05, params: { status: 'curse', turns: 3, ratio: 0.30 },
+    desc: '耳元で燃える声。呪詛を残し、回復が効きにくくなる。',
+  },
+  // ボスの一手。喰王は自分を猛らせ、暴君は落盤で全員を打つ
+  sk_enemy_gnaw_roar: {
+    name: '王の咆哮', kind: 'active', plugin: 'unique_buff',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 0, crit_rate: 0, params: { value: 0.30, turns: 3, label: '猛り' },
+    desc: '吠えて猛る。3ターンのあいだ与ダメージが増える。',
+  },
+  sk_enemy_cave_in: {
+    name: '暴君の落盤', kind: 'active', plugin: 'all_enemies',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    power: 55, crit_rate: 0.05,
+    desc: '天井を崩し、全員を打ち据える。',
+  },
+
+  // ── 中盤：巣・遺構・深淵 ──
+  sk_enemy_scorch: {
+    name: '焼き焦がす爪', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'fire',
+    power: 125, crit_rate: 0.08, params: { status: 'burn', turns: 3, ratio: 0.018 },
+    desc: '灼けた爪で裂く。火傷させ、攻撃するたびに焼ける。',
+  },
+  sk_enemy_cursed_blade: {
+    name: '朽ちた呪剣', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 120, crit_rate: 0.08, params: { status: 'curse', turns: 3, ratio: 0.45 },
+    desc: '錆びた刃が呪詛を刻む。回復とHP吸収が大きく減る。',
+  },
+  sk_enemy_inferno: {
+    name: '灼獄の大炎', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
+    power: 70, crit_rate: 0.08, params: { status: 'burn', turns: 3, ratio: 0.020, all: true },
+    desc: '巣ごと焼き払う炎。全員を火傷させる。',
+  },
+  sk_enemy_thunderclap: {
+    name: '轟雷', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'wind',
+    power: 50, crit_rate: 0.08, params: { status: 'paralyze', turns: 1, ratio: 0.15, all: true },
+    desc: '落雷で全員を打つ。麻痺させ、手番を奪うことがある。',
+  },
+  sk_enemy_halt: {
+    name: '強制停止', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'reli', element: 'none',
+    power: 110, crit_rate: 0.05, params: { status: 'paralyze', turns: 2, ratio: 0.30 },
+    desc: '統制機関の停止命令。強く麻痺させる。',
+  },
+  sk_enemy_void_weight: {
+    name: '虚無の重圧', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 130, crit_rate: 0.05, params: { status: 'freeze', turns: 2, ratio: 0.15 },
+    desc: '芯から凍える重さ。受けるダメージが増える。',
+  },
+  sk_enemy_solar_ring: {
+    name: '灼陽の輪', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+    power: 60, crit_rate: 0.08, params: { status: 'burn', turns: 2, ratio: 0.015, all: true },
+    desc: '頭上に陽の輪を掲げ、全員を灼く。',
+  },
+  sk_enemy_end_decree: {
+    name: '終焉の宣告', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 75, crit_rate: 0.10,
+    params: { statuses: ['curse', 'bleed'], turns: 3, ratios: { curse: 0.40, bleed: 0.15 }, all: true },
+    desc: '終わりを告げる声。全員に呪詛と出血を刻む。',
+  },
+
+  // ── 終盤：灰燼・創世・臨界・位相 ──
+  sk_enemy_glass_shard: {
+    name: '硝子の破片', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 140, crit_rate: 0.10, params: { status: 'bleed', turns: 3, ratio: 0.35 },
+    desc: '砕けた硝子を浴びせる。深く出血させる。',
+  },
+  sk_enemy_hollow_hymn: {
+    name: '虚ろの聖歌', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+    power: 60, crit_rate: 0.05, params: { status: 'paralyze', turns: 2, ratio: 0.18, all: true },
+    desc: '意味の抜けた讃美。全員を麻痺させる。',
+  },
+  sk_enemy_coronation: {
+    name: '灰燼の戴冠', kind: 'active', plugin: 'unique_buff',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
+    power: 0, crit_rate: 0, params: { value: 0.40, turns: 3, label: '戴冠', party: true },
+    desc: '灰の冠を戴く。3ターンのあいだ、配下も含めて与ダメージが増える。',
+  },
+  sk_enemy_root_bind: {
+    name: '絡みつく根', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'earth',
+    power: 125, crit_rate: 0.05, params: { status: 'paralyze', turns: 2, ratio: 0.25 },
+    desc: '根が手足を縛る。強く麻痺させる。',
+  },
+  sk_enemy_primal_fire: {
+    name: '原初の業火', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'fire',
+    power: 85, crit_rate: 0.10, params: { status: 'burn', turns: 3, ratio: 0.028, all: true },
+    desc: '最初に灯った火。全員を深く焼く。',
+  },
+  sk_enemy_genesis_echo: {
+    name: '創世の反響', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'none',
+    power: 85, crit_rate: 0.10,
+    params: { statuses: ['freeze', 'curse'], turns: 2, ratios: { freeze: 0.30, curse: 0.55 }, all: true },
+    desc: '始まりの音が返ってくる。全員を凍えさせ、呪詛を刻む。',
+  },
+  sk_enemy_fading_song: {
+    name: '名残の歌', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'light',
+    power: 70, crit_rate: 0.08, params: { status: 'curse', turns: 3, ratio: 0.60, all: true },
+    desc: '誰のものでもない声の合唱。全員の回復を大きく塞ぐ。',
+  },
+  sk_enemy_gradient_fang: {
+    name: '傾ぐ牙', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'dark',
+    power: 150, crit_rate: 0.12, params: { status: 'bleed', turns: 3, ratio: 0.40 },
+    desc: '獣とも人ともつかない噛み跡。深く出血させる。',
+  },
+  sk_enemy_threshold: {
+    name: '臨界の一線', kind: 'active', plugin: 'status',
+    scaling_stat: 'atk', damage_type: 'phys', element: 'none',
+    power: 90, crit_rate: 0.10,
+    params: { statuses: ['freeze', 'paralyze'], turns: 2, ratios: { freeze: 0.30, paralyze: 0.25 }, all: true },
+    desc: '越えてはならない線を引く。全員を凍えさせ、麻痺させる。',
+  },
+  sk_enemy_unnaming: {
+    name: '名の剥奪', kind: 'active', plugin: 'status',
+    scaling_stat: 'magi_power', damage_type: 'magi', element: 'dark',
+    power: 95, crit_rate: 0.12,
+    params: { statuses: ['curse', 'freeze', 'bleed'], turns: 3,
+      ratios: { curse: 0.60, freeze: 0.35, bleed: 0.35 }, all: true },
+    desc: '名を剥ぎ取る。全員に呪詛・凍結・出血を刻む。',
   },
 };

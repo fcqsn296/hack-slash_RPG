@@ -419,6 +419,51 @@
       }
       assertTrue('参照整合性: ドロップの宝箱IDがすべて存在する', badDrops.length === 0,
         badDrops.length ? badDrops.join(' / ') : '未解決の参照なし');
+
+      // --- 敵が撒く状態異常 ---
+      // 以前は6種あるのに敵が撒くのは毒だけで、味方の耐性・解除の枝を取る理由が無かった。
+      // 1種でもフィールドから消えたら、その耐性はまた死に枝になる。
+      {
+        const inField = new Set();
+        for (const f of Object.values(RPG.data.fields)) {
+          f.pool.forEach((e) => inField.add(e));
+          if (f.boss) inField.add(f.boss);
+        }
+        /** @type {Set<string>} */
+        const kinds = new Set();
+        const badStatus = [];
+        for (const id of inField) {
+          for (const sid of RPG.data.enemies[id].skills) {
+            const s = RPG.data.skills[sid];
+            const p = s.params || {};
+            if (s.plugin === 'poison') kinds.add('poison');
+            if (s.plugin !== 'status') continue;
+            for (const k of p.statuses || [p.status]) {
+              if (!RPG.data.statuses[k]) badStatus.push(`${sid} → ${k}`);
+              else kinds.add(k);
+            }
+          }
+        }
+        const lack = RPG.data.statusKinds.filter((k) => !kinds.has(k));
+        assertTrue('敵: 6種の状態異常がどれもフィールドの敵から撒かれる', lack.length === 0,
+          lack.length ? '撒かれない: ' + lack.join(', ') : [...kinds].join(', '));
+        assertTrue('敵: 撒く異常の種類が実在する', badStatus.length === 0, badStatus.join(' / ') || 'OK');
+
+        // 敵の手番は enemiesAct が対象を決める。'ally' は敵の味方、それ以外は味方パーティの1人を渡す。
+        // 下の一覧は「渡された対象をそう解釈する」と確かめたプラグインだけ。
+        // コンボ・印・借りる手番などは味方側の資源を前提にしているので、敵に持たせると黙って壊れる。
+        // 足すなら、そのプラグインが ctx.foes()/ctx.allies() で陣営を引いていることを確かめてから。
+        const ENEMY_SAFE = [null, 'multi_hit', 'poison', 'status', 'def_ignore', 'dye', 'all_enemies', 'unique_buff'];
+        const unsafe = [];
+        for (const id of Object.keys(RPG.data.enemies)) {
+          for (const sid of RPG.data.enemies[id].skills) {
+            const pl = RPG.data.skills[sid].plugin || null;
+            if (ENEMY_SAFE.indexOf(pl) < 0) unsafe.push(`${id}: ${sid}(${pl})`);
+          }
+        }
+        assertTrue('敵: 敵の技は敵側で動くと確かめたプラグインだけを使う', unsafe.length === 0,
+          unsafe.join(' / ') || 'OK');
+      }
     }
 
     /* ===== §6.2 ガチャ排出率（統計的検証） ===== */
@@ -2261,8 +2306,11 @@
             const b = mk(2);
             const me = b.party[0], kin = b.party[1], other = b.party[3];
             const kb = kin.hp, ob = other.hp;
+            // 技は噛みつきに固定する。敵の先頭の技を借りていたら、草原の敵が
+            // 弱い魔術技（水鉄砲）を先頭に持った途端、Lv200 相手のダメージが小さすぎて
+            // 分配が0に丸まり、「分け合わない」側の検査まで素通りになった。
             RPG.battle.applyDamage(b, b.enemies[0], me,
-              RPG.data.skills[b.enemies[0].skills[0]], { silent: true });
+              RPG.data.skills.sk_enemy_bite, { silent: true });
             assertTrue('§21 恋人: 痛みを相方と分ける', kin.hp < kb, `${kb} → ${kin.hp}`);
             assertTrue('§21 恋人: 札を持たない味方には及ばない', other.hp === ob,
               `${ob} → ${other.hp}`);
@@ -2274,8 +2322,11 @@
             const me = b.party[0], kin = b.party[1];
             me.passives.wardNull = 1;
             const kb = kin.hp;
+            // 技は噛みつきに固定する。敵の先頭の技を借りていたら、草原の敵が
+            // 弱い魔術技（水鉄砲）を先頭に持った途端、Lv200 相手のダメージが小さすぎて
+            // 分配が0に丸まり、「分け合わない」側の検査まで素通りになった。
             RPG.battle.applyDamage(b, b.enemies[0], me,
-              RPG.data.skills[b.enemies[0].skills[0]], { silent: true });
+              RPG.data.skills.sk_enemy_bite, { silent: true });
             assertTrue('§21 恋人: 守りを捨てた者は痛みを分け合えない', kin.hp === kb,
               `${kb} → ${kin.hp}`);
           }
@@ -4103,6 +4154,36 @@
         const burns = b.log.filter((/** @type {any} */ l) => /火傷で/.test(l.text)).length;
         assertTrue('火傷: 攻撃するたびに焼ける（回数は縛らない）',
           burns === 3, `${burns} 回`);
+      }
+
+      // --- 敵が撒く異常は味方に乗り、味方の耐性で弾ける ---
+      // status プラグインは陣営を ctx.foes() で引く。敵が使えば味方パーティが的になる。
+      {
+        const mkb = () => RPG.battle.start({ fieldId: 'fl_plain', waves: 1,
+          party: [unitOf('ch_hero'), unitOf('ch_mia')], bossFinale: false });
+        const b = mkb();
+        const foe = b.enemies[0];
+        foe.atk = 1; foe.magi_power = 1;   // 撃破させずに異常だけを見る
+        RPG.battle.executeSkill(b, foe, 'sk_enemy_fang', [b.party[0]]);
+        const has = (/** @type {any} */ u, /** @type {string} */ k) =>
+          (u.statusEffects || []).some((/** @type {any} */ e) => e.kind === k && e.turns > 0);
+        assertTrue('敵の異常: 単体技は狙った味方にだけ乗る',
+          has(b.party[0], 'bleed') && !has(b.party[1], 'bleed'), '');
+
+        RPG.battle.executeSkill(b, foe, 'sk_enemy_unnaming', [b.party[0]]);
+        assertTrue('敵の異常: 全体技は味方全員に複数の異常を乗せる',
+          b.party.every((u) => has(u, 'curse') && has(u, 'freeze') && has(u, 'bleed')), '');
+
+        // 種類別の耐性（status_resist_kind）が敵の異常にも効く。持続から引かれるので、
+        // 裂き牙の2ターンを削り切れば乗らない。
+        // 敵が毒しか撒かなかった頃は、ここが確かめようのない枝だった。
+        const b2 = mkb();
+        const f2 = b2.enemies[0];
+        f2.atk = 1; f2.magi_power = 1;
+        b2.party[0].passives.statusResistKind = { bleed: 2 };
+        RPG.battle.executeSkill(b2, f2, 'sk_enemy_fang', [b2.party[0]]);
+        assertTrue('敵の異常: 種類別の耐性で弾ける', !has(b2.party[0], 'bleed'),
+          JSON.stringify(b2.party[0].statusEffects));
       }
 
       // --- 庇う役が複数いるとき (§5.22) ---
