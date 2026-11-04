@@ -226,9 +226,13 @@
     let healed = false;
     if (isBossFloor(floor)) {
       healed = true;
+      // 呼び戻し（rally_revive）を持つ者が立っていれば、倒れた仲間をここで起こす。
+      // 持っていなければ従来どおり、倒れた仲間は起き上がらない。
+      // 休息（ボス階）だけにしてある。毎階起こすと「倒れても次の階で戻る」になり、塔の緊張が消える。
+      const rally = RPG.battle.rallyReviveOf(battle.party);
       for (const id of Object.keys(hp)) {
-        // 倒れた仲間は起き上がらない。生きている者だけが回復する。
         if (hp[id] > 0) hp[id] = Math.min(1, hp[id] + RPG.data.tower.restHeal);
+        else if (rally > 0) hp[id] = rally;
       }
     }
 

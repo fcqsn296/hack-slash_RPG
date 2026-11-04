@@ -325,6 +325,7 @@
     'self_curse_power', 'sigil_burst',
     'status_power', 'status_resist_kind', 'tag_all', 'tag_bonus', 'tag_crit', 'tag_pierce',
     'taunt', 'thorns', 'triage', 'variety_power', 'vs_status_power', 'wave_heal', 'wave_power', 'wave_revive',
+    'rally_revive',
     'wave_stack', 'weak_guard', 'weak_hunter'
   ];
 
@@ -497,6 +498,7 @@
       // --- 生存・戦況 (§5.8) ---
       damageShare: 0,      // 受けたダメージを味方全体で分け合う割合
       waveRevive: 0,       // ウェーブ開始時に復活するHPの割合
+      rallyRevive: 0,      // 戦いの合間に倒れた味方を起こすHPの割合（持ち主が立っていれば）
       wavePower: 0,        // 最終ウェーブ（ボス戦）での火力
       // §5.9 狙い。敵は今まで一様ランダムに殴る相手を選んでいた。
       taunt: 0,            // 狙われやすさ
@@ -804,6 +806,7 @@
           // --- 生存・戦況 (§5.8) ---
           case 'damage_share': passives.damageShare += amount; break;
           case 'wave_revive': passives.waveRevive = capped(passives.waveRevive, amount); break;
+          case 'rally_revive': passives.rallyRevive = capped(passives.rallyRevive, amount); break;
           case 'wave_power': passives.wavePower += amount; break;
           case 'full_hp_foe_power': situational.fullHpFoePower += amount; break;
           case 'boss_guard': situational.bossGuard += amount; break;
@@ -935,7 +938,7 @@
     if (!add) return base;
 
     /** 「1回だけ」系は足さずに強いほうを採る */
-    const MAX_KEYS = ['reviveHp', 'lastStand', 'waveRevive'];
+    const MAX_KEYS = ['reviveHp', 'lastStand', 'waveRevive', 'rallyRevive'];
 
     const out = {
       statPct: Object.assign({}, base.statPct),

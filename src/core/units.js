@@ -182,7 +182,7 @@
     const passives = Object.assign({}, tree.passives);
     for (const key of Object.keys(innate)) {
       if (key === 'atkScale') continue;             // 倍率なので合算しない
-      if (key === 'lastStand' || key === 'reviveHp' || key === 'waveRevive') {
+      if (key === 'lastStand' || key === 'reviveHp' || key === 'waveRevive' || key === 'rallyRevive') {
         // 「1回だけ」系は足さずに強いほうを採る
         passives[key] = Math.max(passives[key] || 0, innate[key]);
       } else if (innate[key] && typeof innate[key] === 'object') {

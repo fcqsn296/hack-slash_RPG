@@ -1179,7 +1179,7 @@
         'crit_stack', 'crit_spread', 'crit_execute',
         'counter_power', 'counter_all', 'chain_power',
         'boss_guard', 'full_hp_foe_power', 'wave_power',
-        'damage_share', 'wave_revive',
+        'damage_share', 'wave_revive', 'rally_revive',
         // 新しい軸 (§9.1): 自傷を糧にする / 殴った回数で進む刻印
         'self_curse_power', 'sigil_burst',
         // 新しい軸 (§5.9): 回避 / 執着 / 連携 / 恩返し / CT短縮
@@ -3687,7 +3687,7 @@
       // 行き場を失っていた**。中途半端に攻撃へ振る以外に道が無い状態。
       {
         const HEAL = ['heal_power', 'crit_heal', 'heal_on_kill', 'regen', 'wave_heal',
-          'overheal_shield', 'revive', 'wave_revive', 'last_stand',
+          'overheal_shield', 'revive', 'wave_revive', 'rally_revive', 'last_stand',
           'cleanse', 'triage', 'heal_spread', 'heal_buff', 'low_hp_heal'];
         const BUFF = ['buff_power', 'buff_duration', 'buff_on_kill', 'opening_buff',
           'buff_extend', 'support_stack', 'buff_shield', 'buff_heal', 'round_buff'];
@@ -7755,6 +7755,29 @@
           t.run.hp[battle.party[0].id] === 0, '');
       }
 
+      // --- 呼び戻し（rally_revive）: 立っている持ち主が、休息で倒れた仲間を起こす ---
+      // 持っていなければ上のとおり戻らない。持っていても、持ち主が倒れていれば働かない。
+      {
+        const t = RPG.tower.store();
+        const run = (holderAlive) => {
+          t.run = { floor: 5, hp: {}, cleared: 4, startedAt: 0 };
+          const battle = RPG.tower.enter();
+          battle.victory = true; battle.finished = true;
+          battle.party[0].alive = false; battle.party[0].hp = 0;
+          const holder = battle.party[battle.party.length - 1];
+          holder.passives.rallyRevive = 0.4;
+          if (!holderAlive) { holder.alive = false; holder.hp = 0; }
+          RPG.tower.resolve(battle);
+          return t.run.hp[battle.party[0].id];
+        };
+        if (RPG.state.get().party.length >= 2) {
+          const up = run(true);
+          assertTrue('塔: 呼び戻しを持つ者が立っていれば、休息で倒れた仲間が起きる',
+            Math.abs(up - 0.4) < 1e-9, String(up));
+          assertTrue('塔: 持ち主も倒れていれば起きない', run(false) === 0, '');
+        }
+      }
+
       // --- 到達報酬は記録更新時のみ ---
       {
         const t = RPG.tower.store();
@@ -7774,6 +7797,24 @@
         const deeper = RPG.tower.claimTo(5);
         assertTrue('塔: さらに深く行けば差分だけ出る',
           deeper.length > 0, deeper.join(' / '));
+      }
+
+      // --- 呼び戻し: ウェーブが変わるとき、立っている持ち主が倒れた仲間を起こす ---
+      {
+        const party = RPG.state.partyUnits();
+        if (party.length >= 2) {
+          const b = RPG.battle.start({ fieldId: 'fl_plain', waves: 2, party, bossFinale: false });
+          b.party[0].alive = false; b.party[0].hp = 0;
+          b.party[1].passives.rallyRevive = 0.25;
+          b.party[1].passives.waveRevive = 0;
+          b.party[0].passives.waveRevive = 0;
+          for (const e of b.enemies) { e.alive = false; e.hp = 0; }
+          b.phase = 'wave_clear';
+          RPG.battle.advanceWave(b);
+          assertTrue('呼び戻し: ウェーブが変わると倒れた仲間が起きる',
+            b.party[0].alive && b.party[0].hp === Math.max(1, Math.floor(b.party[0].maxHp * 0.25)),
+            `alive=${b.party[0].alive} hp=${b.party[0].hp}`);
+        }
       }
 
       // --- 節目の道具（100階より先）---

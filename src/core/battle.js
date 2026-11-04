@@ -739,6 +739,20 @@
   const DETONATE_CEILING = 0.35;
 
   /**
+   * 呼び戻し（rally_revive）の強さ。**立っている者**のうち最も高い値。
+   * 塔のボス階の休息（src/core/tower.js）からも同じ規則で使う。
+   * @param {any[]} party
+   */
+  function rallyReviveOf(party) {
+    let top = 0;
+    for (const u of party || []) {
+      if (!u.alive) continue;
+      top = Math.max(top, (u.passives && u.passives.rallyRevive) || 0);
+    }
+    return Math.min(1, top);
+  }
+
+  /**
    * かかっている異常の強さを返す (§5.8)。
    *
    * 同じ種類は **重ねずに1つだけ** 持つ（addStatus が上書きする）ので、
@@ -1663,6 +1677,19 @@
         u.hp = Math.max(1, Math.floor(u.maxHp * wr));
         pushLog(battle, `${u.name} が立ち上がった（HP ${u.hp.toLocaleString()}）`, 'buff');
         pushEvent(battle, { type: 'revive', key: u.key });
+      }
+
+      // --- パッシブ: 呼び戻し（立っている者が、倒れた味方を起こす）---
+      // 不撓は自分が起き上がる。こちらは回復役が味方を起こす。持ち主が倒れていれば働かない。
+      const rally = rallyReviveOf(battle.party);
+      if (rally > 0) {
+        for (const u of battle.party) {
+          if (u.alive) continue;
+          u.alive = true;
+          u.hp = Math.max(1, Math.floor(u.maxHp * rally));
+          pushLog(battle, `${u.name} が呼び戻された（HP ${u.hp.toLocaleString()}）`, 'buff');
+          pushEvent(battle, { type: 'revive', key: u.key });
+        }
       }
     }
 
@@ -5126,6 +5153,6 @@
     detonationValue, isDebuff, debuffsOn, kindOf,
     addSigil, SIGIL_THRESHOLD,
     executeSkill, applyDamage, checkWaveCleared, shapePool,
-    THORNS_CAP_RATIO, REFLECT_CAP_RATIO, REFLECT_LEVEL_RATE, STATUS_CAP, ESCALATE_CAP,
+    THORNS_CAP_RATIO, REFLECT_CAP_RATIO, REFLECT_LEVEL_RATE, STATUS_CAP, ESCALATE_CAP, rallyReviveOf,
   };
 })(window.RPG || (window.RPG = { data: {}, plugins: {} }));
